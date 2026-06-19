@@ -3,12 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "dotenv -e ../../.env.local --no-expand -- next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "trigger:dev": "trigger.dev dev",
+    "trigger:dev": "dotenv -e ../../.env.local --no-expand -- trigger.dev dev",
     "trigger:deploy": "trigger.dev deploy"
   },
   "dependencies": {
@@ -33,6 +33,7 @@
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.3.2",
     "postcss": "^8.5.3",

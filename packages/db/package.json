@@ -9,9 +9,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "ingest:open5e": "tsx src/scripts/ingest-open5e.ts"
+    "generate": "dotenv -e ../../.env.local --no-expand -- drizzle-kit generate",
+    "migrate": "dotenv -e ../../.env.local --no-expand -- drizzle-kit migrate",
+    "ingest:open5e": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e.ts"
   },
   "dependencies": {
     "@app/config": "*",
@@ -19,6 +19,7 @@
     "postgres": "^3.4.5"
   },
   "devDependencies": {
+    "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"

@@ -5,9 +5,10 @@ const serverSchema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
   DATABASE_URL: z.string().url().or(z.string().startsWith("postgresql://")),
+  DIRECT_URL: z.string().startsWith("postgresql://").optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
-  INNGEST_EVENT_KEY: z.string().optional(),
-  INNGEST_SIGNING_KEY: z.string().optional(),
+  TRIGGER_SECRET_KEY: z.string().optional(),
+  TRIGGER_PROJECT_REF: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
 });
 

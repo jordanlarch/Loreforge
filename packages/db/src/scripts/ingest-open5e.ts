@@ -5,7 +5,7 @@
  */
 import { sql } from "drizzle-orm";
 
-import { getDb } from "../client";
+import { closeDb, getDb } from "../client";
 import { codexSpells } from "../schema/codex";
 
 const OPEN5E_SPELLS_URL =
@@ -61,7 +61,9 @@ async function main() {
   console.log(`[ingest:open5e] Upserted ${upserted} spells`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(() => closeDb());

@@ -16,4 +16,12 @@ export function getDb() {
   return drizzle(client, { schema });
 }
 
+/** Closes the pooled connection so short-lived scripts can exit cleanly. */
+export async function closeDb() {
+  if (client) {
+    await client.end({ timeout: 5 });
+    client = undefined;
+  }
+}
+
 export type Database = ReturnType<typeof getDb>;

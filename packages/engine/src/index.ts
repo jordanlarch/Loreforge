@@ -113,6 +113,7 @@ export {
 } from "./fixtures/party";
 export type {
   CharacterSheet,
+  CharacterSheetInput,
   FixtureCharacter,
   SavingThrow,
 } from "./fixtures/party";

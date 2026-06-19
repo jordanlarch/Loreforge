@@ -47,9 +47,9 @@ The 19 decisions in `docs/00-consolidated-plan.md` are settled. Specifically:
 
 ## What Is Open
 
-- **Any code** — none has been written yet
-- **Hosting / infra setup** — accounts not yet provisioned (P0)
-- **SRD content ingestion pipeline** — hybrid approach approved (start with Open5e/5e-bits APIs → migrate to custom SRD 5.2 ingest); not yet built. Details in `docs/data-sources.md` §1.
+- **Code status** — **P0 Foundation is complete (Jun 2026)**; **P1 (Engine Skeleton + App Shell) is next and not yet started.** P0 details: `docs/02-implementation-roadmap.md` §6 P0 status note. Package manager is **npm** (not pnpm).
+- **Hosting / infra setup** — Supabase provisioned (Auth + Postgres in use); GitHub + CI live. Still to provision when needed: Trigger.dev project/keys, Vercel deploy, Sentry/PostHog accounts (env-gated stubs already in code).
+- **SRD content ingestion pipeline** — hybrid approach approved (start with Open5e/5e-bits APIs → migrate to custom SRD 5.2 ingest). P0 **spike** done (manual `npm run ingest:open5e`, ~25 spells into `codex_spells`); full normalized pipeline + scheduling not yet built. Details in `docs/data-sources.md` §1.
 - **Pricing price points** — commercial from closed beta with 10 free DM chats is locked (`docs/product-spec.md` §5); flat vs usage vs hybrid **rates** lock before M8 closed beta. See `docs/02-implementation-roadmap.md` §2.
 
 **Recently locked (May 2026):** v1 roadmap (`docs/02-implementation-roadmap.md`), solo engineer + top-120 spells + all 7 generators, Supabase Auth, Tier 4 from day one, three-stage beta, tutorial gate (strict open beta/GA), engine §16 solo calendar. Product locks in `docs/product-spec.md` §5. **(Jun 2026: background-jobs provider switched from Inngest to Trigger.dev — see `docs/01-tech-stack.md` §9.)**

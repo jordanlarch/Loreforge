@@ -139,7 +139,11 @@ Slippage in **top-120 authoring** or **Dungeon generator** (rooms-as-entities + 
 
 ## 6. Phase Detail
 
-### P0 — Foundation (M0–M1)
+### P0 — Foundation (M0–M1) — ✅ COMPLETE (Jun 2026)
+
+> **P0 status (Jun 2026):** Done. npm-workspaces monorepo (`apps/web`, `packages/{db,engine,config}`, `services/ws-server` skeleton); Next.js 15 App Router + tRPC + Supabase Auth; Drizzle migration `0000_p0_foundation` applied (engine tables + `codex_spells`); Supabase Auth gating verified end-to-end (sign-up → email confirm → Home shell); Open5e ingest spike validated (25 spells). On GitHub `main` with green CI (typecheck/lint/build). Local env: single root `.env.local` loaded into CLIs + Next dev via `dotenv-cli`; `DATABASE_URL` (6543 pooler) vs `DIRECT_URL` (5432, migrations). Setup steps in `docs/setup/p0-supabase-trigger.md`.
+>
+> **Deferred from P0 into P1-as-needed (not blockers):** Trigger.dev project/keys (no real jobs until P1 nightly ingest); Vercel deploy (repo pushed, unblocked); Sentry/PostHog account provisioning (env-gated stubs in code). Note: package manager is **npm**, not pnpm (corepack EPERM on the dev machine).
 
 **Product**
 - Monorepo: Next.js App Router, tRPC, Drizzle, `@app/engine` package stub

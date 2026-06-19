@@ -6,7 +6,9 @@
 
 **Design phase complete (19 architectural decisions locked).** Roadmap locked (May 2026). Engineering start: M0 = May 2026 (solo engineer).
 
-Next milestone: **P0 Foundation** — repo, Supabase, Trigger.dev, CI (see `docs/02-implementation-roadmap.md`).
+**P0 Foundation complete (Jun 2026):** monorepo scaffolded, Supabase Auth gating verified (sign-up → email confirm → Home shell), engine + Codex tables migrated, Open5e ingest spike validated (25 spells), source on GitHub with green CI. See `docs/02-implementation-roadmap.md` §6 P0 for the deliverable checklist and the "P0 status" note.
+
+Next milestone: **P1 — Engine Skeleton + App Shell** (event store, Command API + tRPC, dice, Codex MVP, read-only character sheet). See `docs/02-implementation-roadmap.md` §6 P1 and `docs/engine/architecture.md` §16 E1.
 
 ## What This Is
 
@@ -73,7 +75,9 @@ Read `docs/00-consolidated-plan.md` first. Then drill into whatever surface you 
 
 ## Current Goal
 
-**Execute P0 (Foundation)** per `docs/02-implementation-roadmap.md`: monorepo scaffold, Supabase Auth + Postgres, Trigger.dev, CI, Open5e Codex ingest spike.
+**Begin P1 (Engine Skeleton + App Shell)** per `docs/02-implementation-roadmap.md` §6 P1: event store + projections + dice, Command API exposed over tRPC, six-item nav shell, **Codex MVP** (read-only SRD reference over the ingested data), read-only character sheet on fixture data. Engine specifics in `docs/engine/architecture.md` §16 E1.
+
+**P0 is done** (see Status above). Optional infra deferred from P0 into P1-as-needed: Trigger.dev project/keys (no real jobs until P1 nightly ingest), Vercel deploy (repo now pushed, so unblocked), Sentry/PostHog provisioning (env-gated stubs in place).
 
 Roadmap and product locks live in `docs/02-implementation-roadmap.md` and `docs/product-spec.md` §5.
 

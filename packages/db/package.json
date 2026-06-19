@@ -1,0 +1,26 @@
+{
+  "name": "@app/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "ingest:open5e": "tsx src/scripts/ingest-open5e.ts"
+  },
+  "dependencies": {
+    "@app/config": "*",
+    "drizzle-orm": "^0.43.1",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

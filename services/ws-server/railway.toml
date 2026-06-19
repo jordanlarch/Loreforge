@@ -1,0 +1,8 @@
+# Railway deploy skeleton — wire when ws-server is implemented (P2).
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "node index.js"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Drizzle
+packages/db/migrations/meta/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs / debug
+npm-debug.log*
+.pnpm-debug.log*
+.turbo/
+
+# Test / coverage
+coverage/
+playwright-report/
+test-results/
+
+# Vercel
+.vercel
+
+# Sentry
+.sentryclirc

@@ -53,12 +53,12 @@ export class Engine {
   }
 
   /** Current projected world state for a campaign (hydrating if needed). */
-  getState(campaignId: string): WorldState {
-    return this.runtime(campaignId).state;
+  async getState(campaignId: string): Promise<WorldState> {
+    return (await this.runtime(campaignId)).state;
   }
 
   /** Full ordered event log for a campaign. */
-  getEvents(campaignId: string): EngineEvent[] {
+  getEvents(campaignId: string): Promise<EngineEvent[]> {
     return this.store.read(campaignId);
   }
 
@@ -67,12 +67,12 @@ export class Engine {
    * appended to the store and the projection advanced incrementally; on
    * rejection nothing is persisted.
    */
-  execute(
+  async execute(
     campaignId: string,
     command: Command,
     options: ExecuteOptions = {},
-  ): CommandResult {
-    const runtime = this.runtime(campaignId);
+  ): Promise<CommandResult> {
+    const runtime = await this.runtime(campaignId);
     const commandId = options.commandId ?? createId();
     const drawn: Array<{ scope: string }> = [];
 
@@ -100,7 +100,10 @@ export class Engine {
       return result;
     }
 
-    const stamped = this.store.append(campaignId, result.events as DraftEvent[]);
+    const stamped = await this.store.append(
+      campaignId,
+      result.events as DraftEvent[],
+    );
     for (const event of stamped) {
       runtime.state = applyEvent(runtime.state, event);
     }
@@ -144,10 +147,10 @@ export class Engine {
     return { notation, rolls: roll.rolls, total: roll.total, scope, drawIndex };
   }
 
-  private runtime(campaignId: string): CampaignRuntime {
+  private async runtime(campaignId: string): Promise<CampaignRuntime> {
     let runtime = this.runtimes.get(campaignId);
     if (!runtime) {
-      const events = this.store.read(campaignId);
+      const events = await this.store.read(campaignId);
       runtime = {
         seed: campaignId,
         state:

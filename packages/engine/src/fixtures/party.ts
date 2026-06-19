@@ -141,21 +141,25 @@ export function buildCharacterSheet(
 
 /**
  * Build a fixture campaign world state by driving commands through the engine.
- * Proves the event → projection path; useful in tests and demos.
+ * Proves the event → projection path; useful in tests and demos. An engine may
+ * be injected (e.g. one backed by `PgEventStore`) to exercise persistence; it
+ * defaults to a fresh in-memory engine.
  */
-export function buildFixtureCampaign(campaignId = "fixture:test-dungeon"): {
-  engine: Engine;
-  state: WorldState;
-} {
-  const engine = new Engine();
-  engine.execute(campaignId, {
+export async function buildFixtureCampaign(
+  campaignId = "fixture:test-dungeon",
+  engine: Engine = new Engine(),
+): Promise<{ engine: Engine; state: WorldState }> {
+  await engine.execute(campaignId, {
     type: "create_scene",
     scene: { id: "scene:tavern", name: "The Hearth & Hemlock", description: "A rain-lashed tavern." },
   });
-  engine.execute(campaignId, { type: "change_scene", sceneId: "scene:tavern" });
+  await engine.execute(campaignId, {
+    type: "change_scene",
+    sceneId: "scene:tavern",
+  });
 
   for (const character of FIXTURE_CHARACTERS) {
-    engine.execute(campaignId, {
+    await engine.execute(campaignId, {
       type: "create_entity",
       entity: {
         id: character.id,
@@ -171,5 +175,5 @@ export function buildFixtureCampaign(campaignId = "fixture:test-dungeon"): {
     });
   }
 
-  return { engine, state: engine.getState(campaignId) };
+  return { engine, state: await engine.getState(campaignId) };
 }

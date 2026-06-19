@@ -1,4 +1,5 @@
 export { getDb, closeDb, type Database } from "./client";
+export { PgEventStore } from "./engine/pg-event-store";
 export * from "./schema/index";
 export {
   ingestOpen5eSpells,

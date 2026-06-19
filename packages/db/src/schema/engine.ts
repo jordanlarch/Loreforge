@@ -7,8 +7,19 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
+
+/** Engine event envelope metadata persisted alongside type + payload. */
+export type EngineEventMeta = {
+  /** Server epoch ms when the producing command ran. */
+  timestamp: number;
+  /** Command that produced this event. */
+  causedByCommandId: string;
+  /** Who caused it (entity ref, "ai", or "system"). */
+  actor?: string;
+};
 
 /** Immutable engine events — source of truth for campaign state. */
 export const engineEvents = pgTable(
@@ -20,6 +31,7 @@ export const engineEvents = pgTable(
     sequence: bigint("sequence", { mode: "number" }).notNull(),
     type: text("type").notNull(),
     payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+    meta: jsonb("meta").notNull().$type<EngineEventMeta>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -27,6 +39,10 @@ export const engineEvents = pgTable(
   (t) => [
     index("engine_events_campaign_seq_idx").on(t.campaignId, t.sequence),
     index("engine_events_campaign_idx").on(t.campaignId),
+    // Per-campaign sequence is unique: the correctness backstop that makes
+    // PgEventStore.append race-safe (a duplicate sequence insert fails rather
+    // than silently corrupting the log).
+    unique("engine_events_campaign_seq_unique").on(t.campaignId, t.sequence),
   ],
 );
 

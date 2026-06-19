@@ -14,60 +14,60 @@ function draft(type: "SceneChanged", sceneId: string): DraftEvent {
 }
 
 describe("InMemoryEventStore", () => {
-  it("assigns contiguous 1-based sequence numbers", () => {
+  it("assigns contiguous 1-based sequence numbers", async () => {
     const store = new InMemoryEventStore();
-    const appended = store.append("c1", [
+    const appended = await store.append("c1", [
       draft("SceneChanged", "a"),
       draft("SceneChanged", "b"),
     ]);
     expect(appended.map((e) => e.sequence)).toEqual([1, 2]);
   });
 
-  it("continues sequence across multiple appends", () => {
+  it("continues sequence across multiple appends", async () => {
     const store = new InMemoryEventStore();
-    store.append("c1", [draft("SceneChanged", "a")]);
-    const next = store.append("c1", [draft("SceneChanged", "b")]);
+    await store.append("c1", [draft("SceneChanged", "a")]);
+    const next = await store.append("c1", [draft("SceneChanged", "b")]);
     expect(next[0]!.sequence).toBe(2);
-    expect(store.lastSequence("c1")).toBe(2);
+    expect(await store.lastSequence("c1")).toBe(2);
   });
 
-  it("isolates logs per campaign", () => {
+  it("isolates logs per campaign", async () => {
     const store = new InMemoryEventStore();
-    store.append("c1", [draft("SceneChanged", "a")]);
-    store.append("c2", [draft("SceneChanged", "x")]);
-    expect(store.lastSequence("c1")).toBe(1);
-    expect(store.lastSequence("c2")).toBe(1);
-    expect(store.read("c2")[0]!.sequence).toBe(1);
+    await store.append("c1", [draft("SceneChanged", "a")]);
+    await store.append("c2", [draft("SceneChanged", "x")]);
+    expect(await store.lastSequence("c1")).toBe(1);
+    expect(await store.lastSequence("c2")).toBe(1);
+    expect((await store.read("c2"))[0]!.sequence).toBe(1);
   });
 
-  it("readAfter returns only later events", () => {
+  it("readAfter returns only later events", async () => {
     const store = new InMemoryEventStore();
-    store.append("c1", [
+    await store.append("c1", [
       draft("SceneChanged", "a"),
       draft("SceneChanged", "b"),
       draft("SceneChanged", "c"),
     ]);
-    const tail = store.readAfter("c1", 1);
+    const tail = await store.readAfter("c1", 1);
     expect(tail.map((e) => e.sequence)).toEqual([2, 3]);
   });
 
-  it("truncate removes later events and returns them", () => {
+  it("truncate removes later events and returns them", async () => {
     const store = new InMemoryEventStore();
-    store.append("c1", [
+    await store.append("c1", [
       draft("SceneChanged", "a"),
       draft("SceneChanged", "b"),
       draft("SceneChanged", "c"),
     ]);
-    const removed = store.truncate("c1", 1);
+    const removed = await store.truncate("c1", 1);
     expect(removed.map((e) => e.sequence)).toEqual([2, 3]);
-    expect(store.lastSequence("c1")).toBe(1);
+    expect(await store.lastSequence("c1")).toBe(1);
   });
 
-  it("read returns a copy that cannot mutate the log", () => {
+  it("read returns a copy that cannot mutate the log", async () => {
     const store = new InMemoryEventStore();
-    store.append("c1", [draft("SceneChanged", "a")]);
-    const copy = store.read("c1");
+    await store.append("c1", [draft("SceneChanged", "a")]);
+    const copy = await store.read("c1");
     copy.pop();
-    expect(store.read("c1")).toHaveLength(1);
+    expect(await store.read("c1")).toHaveLength(1);
   });
 });

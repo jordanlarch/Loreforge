@@ -1,11 +1,12 @@
 /**
  * Append-only event store.
  *
- * Defines the {@link EventStore} contract used by the engine and a synchronous
- * in-memory implementation for tests and single-process play. A Drizzle/Postgres
- * adapter implements the same contract for persistence (see
- * `docs/engine/architecture.md` §3.3); the engine never depends on a concrete
- * store.
+ * Defines the {@link EventStore} contract used by the engine and an in-memory
+ * implementation for tests and single-process play. The contract is async so a
+ * Drizzle/Postgres adapter (`PgEventStore` in `@app/db`) implements the same
+ * methods for persistence (see `docs/engine/architecture.md` §3.3); the engine
+ * never depends on a concrete store. The in-memory store satisfies the async
+ * contract by resolving immediately.
  */
 import type { DraftEvent, EngineEvent } from "./types";
 
@@ -15,25 +16,30 @@ export interface EventStore {
    * contiguous sequence numbers continuing from the current tail and returns
    * the fully-stamped events in order.
    */
-  append(campaignId: string, events: DraftEvent[]): EngineEvent[];
+  append(campaignId: string, events: DraftEvent[]): Promise<EngineEvent[]>;
   /** Read all events for a campaign in sequence order. */
-  read(campaignId: string): EngineEvent[];
+  read(campaignId: string): Promise<EngineEvent[]>;
   /** Read events with sequence > `afterSequence`, in order. */
-  readAfter(campaignId: string, afterSequence: number): EngineEvent[];
+  readAfter(campaignId: string, afterSequence: number): Promise<EngineEvent[]>;
   /** Current highest sequence number for a campaign (0 if none). */
-  lastSequence(campaignId: string): number;
+  lastSequence(campaignId: string): Promise<number>;
   /**
    * Truncate the log to events with sequence <= `throughSequence`. Returns the
-   * removed events (newest-first is NOT guaranteed; order is by sequence).
-   * Used by retcon (E5) and by tests.
+   * removed events (order is by sequence). Used by retcon (E5) and by tests.
    */
-  truncate(campaignId: string, throughSequence: number): EngineEvent[];
+  truncate(
+    campaignId: string,
+    throughSequence: number,
+  ): Promise<EngineEvent[]>;
 }
 
 export class InMemoryEventStore implements EventStore {
   private readonly logs = new Map<string, EngineEvent[]>();
 
-  append(campaignId: string, events: DraftEvent[]): EngineEvent[] {
+  async append(
+    campaignId: string,
+    events: DraftEvent[],
+  ): Promise<EngineEvent[]> {
     const log = this.logs.get(campaignId) ?? [];
     let sequence = log.length === 0 ? 0 : log[log.length - 1]!.sequence;
     const stamped = events.map((draft) => {
@@ -44,20 +50,28 @@ export class InMemoryEventStore implements EventStore {
     return stamped;
   }
 
-  read(campaignId: string): EngineEvent[] {
+  async read(campaignId: string): Promise<EngineEvent[]> {
     return [...(this.logs.get(campaignId) ?? [])];
   }
 
-  readAfter(campaignId: string, afterSequence: number): EngineEvent[] {
-    return this.read(campaignId).filter((e) => e.sequence > afterSequence);
+  async readAfter(
+    campaignId: string,
+    afterSequence: number,
+  ): Promise<EngineEvent[]> {
+    return (await this.read(campaignId)).filter(
+      (e) => e.sequence > afterSequence,
+    );
   }
 
-  lastSequence(campaignId: string): number {
+  async lastSequence(campaignId: string): Promise<number> {
     const log = this.logs.get(campaignId);
     return log && log.length > 0 ? log[log.length - 1]!.sequence : 0;
   }
 
-  truncate(campaignId: string, throughSequence: number): EngineEvent[] {
+  async truncate(
+    campaignId: string,
+    throughSequence: number,
+  ): Promise<EngineEvent[]> {
     const log = this.logs.get(campaignId) ?? [];
     const kept = log.filter((e) => e.sequence <= throughSequence);
     const removed = log.filter((e) => e.sequence > throughSequence);

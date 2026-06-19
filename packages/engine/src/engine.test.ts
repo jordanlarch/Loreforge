@@ -14,13 +14,13 @@ const ABILITIES: AbilityScores = {
 
 const CAMPAIGN = "c:test";
 
-function setupCampaign(engine: Engine) {
-  engine.execute(CAMPAIGN, {
+async function setupCampaign(engine: Engine) {
+  await engine.execute(CAMPAIGN, {
     type: "create_scene",
     scene: { id: "s:1", name: "Arena" },
   });
-  engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:1" });
-  engine.execute(CAMPAIGN, {
+  await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:1" });
+  await engine.execute(CAMPAIGN, {
     type: "create_entity",
     entity: {
       id: "pc:thorin",
@@ -36,20 +36,20 @@ function setupCampaign(engine: Engine) {
 
 describe("Engine command pipeline", () => {
   let engine: Engine;
-  beforeEach(() => {
+  beforeEach(async () => {
     engine = new Engine({ now: () => 1_700_000_000_000 });
-    setupCampaign(engine);
+    await setupCampaign(engine);
   });
 
-  it("creates scenes and entities and updates the projection", () => {
-    const state = engine.getState(CAMPAIGN);
+  it("creates scenes and entities and updates the projection", async () => {
+    const state = await engine.getState(CAMPAIGN);
     expect(state.currentSceneId).toBe("s:1");
     expect(state.entities["pc:thorin"]?.hp.max).toBe(40);
   });
 
-  it("rejects a duplicate entity without persisting events", () => {
-    const before = engine.getEvents(CAMPAIGN).length;
-    const result = engine.execute(CAMPAIGN, {
+  it("rejects a duplicate entity without persisting events", async () => {
+    const before = (await engine.getEvents(CAMPAIGN)).length;
+    const result = await engine.execute(CAMPAIGN, {
       type: "create_entity",
       entity: {
         id: "pc:thorin",
@@ -62,11 +62,11 @@ describe("Engine command pipeline", () => {
     });
     expect(result.accepted).toBe(false);
     if (!result.accepted) expect(result.reason.code).toBe("DUPLICATE_ENTITY");
-    expect(engine.getEvents(CAMPAIGN)).toHaveLength(before);
+    expect(await engine.getEvents(CAMPAIGN)).toHaveLength(before);
   });
 
-  it("rejects changing to a non-existent scene", () => {
-    const result = engine.execute(CAMPAIGN, {
+  it("rejects changing to a non-existent scene", async () => {
+    const result = await engine.execute(CAMPAIGN, {
       type: "change_scene",
       sceneId: "s:void",
     });
@@ -74,19 +74,21 @@ describe("Engine command pipeline", () => {
     if (!result.accepted) expect(result.reason.code).toBe("SCENE_NOT_FOUND");
   });
 
-  it("applies fixed damage and reflects it in the projection", () => {
-    const result = engine.execute(CAMPAIGN, {
+  it("applies fixed damage and reflects it in the projection", async () => {
+    const result = await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:thorin",
       damageType: "slashing",
       source: { amount: 12 },
     });
     expect(result.accepted).toBe(true);
-    expect(engine.getState(CAMPAIGN).entities["pc:thorin"]?.hp.current).toBe(28);
+    expect(
+      (await engine.getState(CAMPAIGN)).entities["pc:thorin"]?.hp.current,
+    ).toBe(28);
   });
 
-  it("rolls damage deterministically and emits a DiceRolled + DamageDealt pair", () => {
-    const result = engine.execute(CAMPAIGN, {
+  it("rolls damage deterministically and emits a DiceRolled + DamageDealt pair", async () => {
+    const result = await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:thorin",
       damageType: "fire",
@@ -99,8 +101,8 @@ describe("Engine command pipeline", () => {
     }
   });
 
-  it("rejects damage to an unknown target", () => {
-    const result = engine.execute(CAMPAIGN, {
+  it("rejects damage to an unknown target", async () => {
+    const result = await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:ghost",
       damageType: "psychic",
@@ -110,14 +112,14 @@ describe("Engine command pipeline", () => {
     if (!result.accepted) expect(result.reason.code).toBe("TARGET_NOT_FOUND");
   });
 
-  it("refuses to heal a dead entity", () => {
-    engine.execute(CAMPAIGN, {
+  it("refuses to heal a dead entity", async () => {
+    await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:thorin",
       damageType: "necrotic",
       source: { amount: 100 },
     });
-    const result = engine.execute(CAMPAIGN, {
+    const result = await engine.execute(CAMPAIGN, {
       type: "apply_healing",
       target: "pc:thorin",
       source: { amount: 10 },
@@ -126,42 +128,46 @@ describe("Engine command pipeline", () => {
     if (!result.accepted) expect(result.reason.code).toBe("TARGET_DEAD");
   });
 
-  it("heals up to max", () => {
-    engine.execute(CAMPAIGN, {
+  it("heals up to max", async () => {
+    await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:thorin",
       damageType: "slashing",
       source: { amount: 30 },
     });
-    engine.execute(CAMPAIGN, {
+    await engine.execute(CAMPAIGN, {
       type: "apply_healing",
       target: "pc:thorin",
       source: { amount: 100 },
     });
-    expect(engine.getState(CAMPAIGN).entities["pc:thorin"]?.hp.current).toBe(40);
+    expect(
+      (await engine.getState(CAMPAIGN)).entities["pc:thorin"]?.hp.current,
+    ).toBe(40);
   });
 
-  it("moves an entity and records the prior position", () => {
-    engine.execute(CAMPAIGN, {
+  it("moves an entity and records the prior position", async () => {
+    await engine.execute(CAMPAIGN, {
       type: "move_entity",
       entity: "pc:thorin",
       to: { x: 3, y: 4 },
     });
-    const result = engine.execute(CAMPAIGN, {
+    const result = await engine.execute(CAMPAIGN, {
       type: "move_entity",
       entity: "pc:thorin",
       to: { x: 5, y: 6 },
     });
-    expect(engine.getState(CAMPAIGN).entities["pc:thorin"]?.position).toEqual({
+    expect(
+      (await engine.getState(CAMPAIGN)).entities["pc:thorin"]?.position,
+    ).toEqual({
       x: 5,
       y: 6,
     });
     expect(result.accepted).toBe(true);
   });
 
-  it("does not advance the RNG stream when a command is rejected", () => {
+  it("does not advance the RNG stream when a command is rejected", async () => {
     // A rejected rolled-damage command (unknown target) must not consume a draw.
-    const first = engine.execute(CAMPAIGN, {
+    const first = await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:ghost",
       damageType: "fire",
@@ -169,14 +175,14 @@ describe("Engine command pipeline", () => {
       scope: "shared",
     });
     expect(first.accepted).toBe(false);
-    const a = engine.execute(CAMPAIGN, {
+    const a = await engine.execute(CAMPAIGN, {
       type: "roll_dice",
       notation: "3d6",
       scope: "shared",
     });
     // Build a parallel campaign with no prior rejected draw — totals must match.
     const fresh = new Engine({ now: () => 1 });
-    const b = fresh.execute("c:fresh", {
+    const b = await fresh.execute("c:fresh", {
       type: "roll_dice",
       notation: "3d6",
       scope: "shared",
@@ -188,17 +194,17 @@ describe("Engine command pipeline", () => {
 });
 
 describe("Engine determinism & replay", () => {
-  it("two engines with the same command stream converge to identical state", () => {
-    const run = () => {
+  it("two engines with the same command stream converge to identical state", async () => {
+    const run = async () => {
       const engine = new Engine({ now: () => 42 });
-      setupCampaign(engine);
-      engine.execute(CAMPAIGN, {
+      await setupCampaign(engine);
+      await engine.execute(CAMPAIGN, {
         type: "apply_damage",
         target: "pc:thorin",
         damageType: "fire",
         source: { notation: "4d8+2" },
       });
-      engine.execute(CAMPAIGN, {
+      await engine.execute(CAMPAIGN, {
         type: "roll_dice",
         notation: "1d20",
         mode: "advantage",
@@ -206,20 +212,20 @@ describe("Engine determinism & replay", () => {
       });
       return engine.getState(CAMPAIGN);
     };
-    expect(run()).toEqual(run());
+    expect(await run()).toEqual(await run());
   });
 
   it("rebuilding from the event log reproduces the live projection", async () => {
     const engine = new Engine({ now: () => 42 });
-    setupCampaign(engine);
-    engine.execute(CAMPAIGN, {
+    await setupCampaign(engine);
+    await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:thorin",
       damageType: "fire",
       source: { notation: "4d8+2" },
     });
-    const live = engine.getState(CAMPAIGN);
-    const events = engine.getEvents(CAMPAIGN);
+    const live = await engine.getState(CAMPAIGN);
+    const events = await engine.getEvents(CAMPAIGN);
 
     const { rebuild } = await import("./projections/world-state");
     const replayed = rebuild(CAMPAIGN, events);

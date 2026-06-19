@@ -24,8 +24,8 @@ describe("buildCharacterSheet", () => {
 });
 
 describe("buildFixtureCampaign", () => {
-  it("builds world state through the real command path", () => {
-    const { state } = buildFixtureCampaign();
+  it("builds world state through the real command path", async () => {
+    const { state } = await buildFixtureCampaign();
     expect(state.currentSceneId).toBe("scene:tavern");
     expect(Object.keys(state.entities)).toContain("pc:thorin");
     expect(Object.keys(state.entities)).toContain("pc:elara");

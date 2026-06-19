@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AbilityScores } from "../entities/types";
-import type { DraftEvent } from "../events/types";
+import type { DraftEvent, EngineEvent } from "../events/types";
 import { InMemoryEventStore } from "../events/store";
 import { applyEvent, emptyWorldState, rebuild } from "./world-state";
 
@@ -14,7 +14,7 @@ const ABILITIES: AbilityScores = {
   cha: 10,
 };
 
-function seedLog(): ReturnType<InMemoryEventStore["append"]> {
+async function seedLog(): Promise<EngineEvent[]> {
   const store = new InMemoryEventStore();
   const drafts: DraftEvent[] = [
     {
@@ -52,16 +52,16 @@ function seedLog(): ReturnType<InMemoryEventStore["append"]> {
 }
 
 describe("WorldState projection", () => {
-  it("rebuilds scenes, current scene, and entities", () => {
-    const state = rebuild("c1", seedLog());
+  it("rebuilds scenes, current scene, and entities", async () => {
+    const state = rebuild("c1", await seedLog());
     expect(state.scenes["scene:1"]?.name).toBe("Tavern");
     expect(state.currentSceneId).toBe("scene:1");
     expect(state.entities["pc:thorin"]?.hp.max).toBe(30);
     expect(state.lastSequence).toBe(3);
   });
 
-  it("applies damage and clamps at zero, flipping alive", () => {
-    let state = rebuild("c1", seedLog());
+  it("applies damage and clamps at zero, flipping alive", async () => {
+    let state = rebuild("c1", await seedLog());
     state = applyEvent(state, {
       type: "DamageDealt",
       sequence: 4,
@@ -80,8 +80,8 @@ describe("WorldState projection", () => {
     expect(state.entities["pc:thorin"]?.alive).toBe(false);
   });
 
-  it("temp HP soaks damage before current HP", () => {
-    let state = rebuild("c1", seedLog());
+  it("temp HP soaks damage before current HP", async () => {
+    let state = rebuild("c1", await seedLog());
     state.entities["pc:thorin"]!.hp.temp = 5;
     state = applyEvent(state, {
       type: "DamageDealt",
@@ -102,8 +102,8 @@ describe("WorldState projection", () => {
     expect(hp.current).toBe(27);
   });
 
-  it("healing clamps at max", () => {
-    let state = rebuild("c1", seedLog());
+  it("healing clamps at max", async () => {
+    let state = rebuild("c1", await seedLog());
     state.entities["pc:thorin"]!.hp.current = 10;
     state = applyEvent(state, {
       type: "HealingApplied",
@@ -116,8 +116,8 @@ describe("WorldState projection", () => {
     expect(state.entities["pc:thorin"]?.hp.current).toBe(30);
   });
 
-  it("does not mutate the previous state object (immutability)", () => {
-    const before = rebuild("c1", seedLog());
+  it("does not mutate the previous state object (immutability)", async () => {
+    const before = rebuild("c1", await seedLog());
     const beforeHp = before.entities["pc:thorin"]!.hp.current;
     applyEvent(before, {
       type: "DamageDealt",

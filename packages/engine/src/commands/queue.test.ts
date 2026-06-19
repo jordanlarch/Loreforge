@@ -17,8 +17,11 @@ describe("CampaignCommandQueue", () => {
   it("serializes commands so each sees the previous one's state", async () => {
     const engine = new Engine();
     const campaign = "c:queue";
-    engine.execute(campaign, { type: "create_scene", scene: { id: "s", name: "S" } });
-    engine.execute(campaign, {
+    await engine.execute(campaign, {
+      type: "create_scene",
+      scene: { id: "s", name: "S" },
+    });
+    await engine.execute(campaign, {
       type: "create_entity",
       entity: {
         id: "pc:a",
@@ -45,7 +48,9 @@ describe("CampaignCommandQueue", () => {
     );
 
     expect(results.every((r) => r.accepted)).toBe(true);
-    expect(engine.getState(campaign).entities["pc:a"]?.hp.current).toBe(0);
+    expect((await engine.getState(campaign)).entities["pc:a"]?.hp.current).toBe(
+      0,
+    );
   });
 
   it("preserves FIFO ordering", async () => {

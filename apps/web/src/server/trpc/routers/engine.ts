@@ -6,8 +6,9 @@
  *
  * `simulate` runs an ordered command batch through a fresh in-memory engine and
  * returns each result plus the final world state — a deterministic, validated
- * exercise of the Command API. Postgres-backed, per-campaign persistence
- * (engine_events) lands in P2 alongside campaigns + combat.
+ * exercise of the Command API. `submit` / `state` are the persistent surface:
+ * commands append to `engine_events` (via `PgEventStore`) and projections
+ * rebuild from Postgres, scoped to a campaign the caller owns.
  */
 import { z } from "zod";
 
@@ -19,7 +20,10 @@ import {
   type WorldState,
 } from "@app/engine";
 
+import { getCampaignState, submitCommand } from "@/server/engine/runtime";
+
 import { createTRPCRouter, protectedProcedure } from "../init";
+import { assertCampaignOwner } from "./campaigns";
 
 const abilityScores = z.object({
   str: z.number().int(),
@@ -100,8 +104,8 @@ const commandSchema = z.discriminatedUnion("type", [
 
 export const engineRouter = createTRPCRouter({
   /** Read-only fixture campaign world state, built via the real command path. */
-  fixtureState: protectedProcedure.query((): WorldState => {
-    return buildFixtureCampaign().state;
+  fixtureState: protectedProcedure.query(async (): Promise<WorldState> => {
+    return (await buildFixtureCampaign()).state;
   }),
 
   /** Run an ordered command batch deterministically; return results + state. */
@@ -112,14 +116,40 @@ export const engineRouter = createTRPCRouter({
         commands: z.array(commandSchema).max(200),
       }),
     )
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       const engine = new Engine({ now: () => 0 });
-      const results: CommandResult[] = input.commands.map((command) =>
-        engine.execute(input.campaignId, command as Command),
-      );
+      const results: CommandResult[] = [];
+      for (const command of input.commands) {
+        results.push(await engine.execute(input.campaignId, command as Command));
+      }
       return {
         results,
-        state: engine.getState(input.campaignId),
+        state: await engine.getState(input.campaignId),
+      };
+    }),
+
+  /** Persistent projected world state for a campaign the caller owns. */
+  state: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }): Promise<WorldState> => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      return getCampaignState(input.campaignId);
+    }),
+
+  /** Submit a command to a campaign; persists events on accept, returns state. */
+  submit: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        command: commandSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const result = await submitCommand(input.campaignId, input.command as Command);
+      return {
+        result,
+        state: await getCampaignState(input.campaignId),
       };
     }),
 });

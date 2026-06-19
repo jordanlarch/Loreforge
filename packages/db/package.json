@@ -9,19 +9,24 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "generate": "dotenv -e ../../.env.local --no-expand -- drizzle-kit generate",
     "migrate": "dotenv -e ../../.env.local --no-expand -- drizzle-kit migrate",
     "ingest:open5e": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e.ts"
   },
   "dependencies": {
     "@app/config": "*",
+    "@app/engine": "*",
     "drizzle-orm": "^0.43.1",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.0",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.6"
   }
 }

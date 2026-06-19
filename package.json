@@ -10,6 +10,7 @@
     "build": "npm run build -w @app/web",
     "lint": "npm run lint -ws --if-present",
     "typecheck": "npm run typecheck -ws --if-present",
+    "test": "npm run test -ws --if-present",
     "db:generate": "npm run generate -w @app/db",
     "db:migrate": "npm run migrate -w @app/db",
     "ingest:open5e": "npm run ingest:open5e -w @app/db"

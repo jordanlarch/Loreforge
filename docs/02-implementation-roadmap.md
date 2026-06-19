@@ -159,7 +159,25 @@ Slippage in **top-120 authoring** or **Dungeon generator** (rooms-as-entities + 
 
 ---
 
-### P1 — Engine Skeleton + App Shell (M1–M3)
+### P1 — Engine Skeleton + App Shell (M1–M3) — 🚧 IN PROGRESS (Jun 2026)
+
+> **P1 status (Jun 2026):** Engine **E1 skeleton** and the **M1 product surfaces** are implemented and green (typecheck/lint/build + 67 engine tests). Pending: Jordan's live UI walkthrough of Codex while signed in, and (deferred) Postgres-backed per-campaign event persistence behind the engine tRPC router (lands in P2 with campaigns/combat).
+>
+> **Engine (`packages/engine`, E1 skeleton):**
+> - Seeded deterministic RNG (`xmur3`→`mulberry32`) + dice service (notation parsing, keep-highest/lowest, advantage/disadvantage).
+> - Append-only event model + `EventStore` contract with an in-memory implementation; per-campaign sequencing, `readAfter`/`truncate` (retcon-ready).
+> - `WorldState` projection: pure reducer (`applyEvent`) + full `rebuild` from genesis; immutable updates; HP/temp-HP/clamp/alive, scenes, positions.
+> - Base entity model (Character/NPC/Monster + Scene) + ability helpers (modifier, proficiency bonus, multiclass total level).
+> - Command API: typed `Command` union, structured `ValidationFailure`/`CommandResult`, per-command handlers (create scene/entity, change scene, roll dice, apply damage/healing, move), `CampaignCommandQueue` (serialized per-campaign execution, §10.2).
+> - `Engine` wires store + RNG (streams keyed `${seed}:${scope}:${drawIndex}`, draw counters restored from the log on hydrate) + incremental projection. Randomness resolved at command time and recorded in `DiceRolled` events → replay is deterministic.
+> - Vitest harness wired (`npm run test`); 67 tests incl. determinism + golden replay (rebuild == live).
+>
+> **tRPC bindings:** `engine` router — `fixtureState` (read model) + `simulate` (zod-validated command batch run deterministically through the engine, returns results + final state; same Command surface the AI Orchestrator will use). `codex` router — `listSpells` (search/level/school + pagination), `spellFacets`, `getSpell`, `spellCount`.
+>
+> **Product:**
+> - Six-item nav (P0) + fleshed-out **Home** (surface entry-point cards + system status: engine version, ingested spell count).
+> - **Codex MVP** — `/codex` read-only SRD **spells** browser over the Open5e ingest: hero + category pills, search, level/school filter chips, paginated card grid, slide-over detail panel (defensive render of the raw SRD record). Other categories stubbed "soon".
+> - **Read-only character sheet** — `/characters` list + `/characters/[id]` sheet (ability scores/modifiers, AC/HP/speed/init/prof, saving throws w/ proficiency, skills) derived via `@app/engine`; SSG from `FIXTURE_CHARACTERS`.
 
 **Engine (E1)** — see `architecture.md` §16 E1  
 Event store, projections, dice, Command API + tRPC, base entities, ~50 tests.

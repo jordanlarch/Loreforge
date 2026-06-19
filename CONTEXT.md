@@ -8,7 +8,9 @@
 
 **P0 Foundation complete (Jun 2026):** monorepo scaffolded, Supabase Auth gating verified (sign-up → email confirm → Home shell), engine + Codex tables migrated, Open5e ingest spike validated (25 spells), source on GitHub with green CI. See `docs/02-implementation-roadmap.md` §6 P0 for the deliverable checklist and the "P0 status" note.
 
-Next milestone: **P1 — Engine Skeleton + App Shell** (event store, Command API + tRPC, dice, Codex MVP, read-only character sheet). See `docs/02-implementation-roadmap.md` §6 P1 and `docs/engine/architecture.md` §16 E1.
+**P1 in progress (Jun 2026):** Engine **E1 skeleton** built in `packages/engine` (seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, base entities, typed Command API + serialized per-campaign queue, 67 Vitest tests incl. golden replay) and exposed over tRPC (`engine` router). **Codex MVP** (`/codex` read-only SRD spells browser over the Open5e ingest) and a **read-only character sheet** (`/characters/[id]` on fixture data) are live, plus a fleshed-out Home shell. Typecheck/lint/build green. Pending: live Codex UI walkthrough + Postgres-backed per-campaign event persistence (P2). See `docs/02-implementation-roadmap.md` §6 P1 and `docs/engine/architecture.md` §16 E1.
+
+Next milestone: **M1 "Hello, Codex"** (auth + six-item nav + Codex browsable) — essentially reachable; then **P2 — Combat Core + Characters + Smithy**.
 
 ## What This Is
 

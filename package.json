@@ -15,6 +15,9 @@
     "db:migrate": "npm run migrate -w @app/db",
     "ingest:open5e": "npm run ingest:open5e -w @app/db"
   },
+  "overrides": {
+    "import-in-the-middle": "3"
+  },
   "engines": {
     "node": ">=20"
   }

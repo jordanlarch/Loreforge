@@ -7,6 +7,9 @@ out/
 dist/
 *.tsbuildinfo
 
+# Trigger.dev local build artifacts
+.trigger/
+
 # Env
 .env
 .env.local

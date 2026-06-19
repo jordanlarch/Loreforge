@@ -8,9 +8,9 @@
 
 **P0 Foundation complete (Jun 2026):** monorepo scaffolded, Supabase Auth gating verified (sign-up → email confirm → Home shell), engine + Codex tables migrated, Open5e ingest spike validated (25 spells), source on GitHub with green CI. See `docs/02-implementation-roadmap.md` §6 P0 for the deliverable checklist and the "P0 status" note.
 
-**P1 in progress (Jun 2026):** Engine **E1 skeleton** built in `packages/engine` (seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, base entities, typed Command API + serialized per-campaign queue, 67 Vitest tests incl. golden replay) and exposed over tRPC (`engine` router). **Codex MVP** (`/codex` read-only SRD spells browser over the Open5e ingest) and a **read-only character sheet** (`/characters/[id]` on fixture data) are live, plus a fleshed-out Home shell. Typecheck/lint/build green. Pending: live Codex UI walkthrough + Postgres-backed per-campaign event persistence (P2). See `docs/02-implementation-roadmap.md` §6 P1 and `docs/engine/architecture.md` §16 E1.
+**P1 complete (Jun 2026):** Engine **E1 skeleton** built in `packages/engine` (seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, base entities, typed Command API + serialized per-campaign queue, 67 Vitest tests incl. golden replay) and exposed over tRPC (`engine` router). **Codex MVP** (`/codex` read-only SRD spells browser) and a **read-only character sheet** (`/characters/[id]` on fixture data) are live, plus a fleshed-out Home shell. The **full Open5e SRD spell ingest** now runs as a **scheduled nightly Trigger.dev job** (cron `0 8 * * *`, deployed to prod, project `proj_pywyqcovveavdmoqpzsg`) — the first real background job — so the Codex holds the full SRD 5.1 spell set (~319) instead of the 25-spell spike. Typecheck/lint/build + 67 tests green; CI green on `main`. Deferred to P2: Postgres-backed per-campaign event persistence (issue #2). See `docs/02-implementation-roadmap.md` §6 P1 and `docs/engine/architecture.md` §16 E1.
 
-Next milestone: **M1 "Hello, Codex"** (auth + six-item nav + Codex browsable) — essentially reachable; then **P2 — Combat Core + Characters + Smithy**.
+Milestone **M1 "Hello, Codex"** reached. **Next: P2 — Combat Core + Characters + Smithy** (milestones M2 "First character", M3 "First fight"); the remaining work is broken into GitHub issues #2–#16 (see the repo Issues and `docs/02-implementation-roadmap.md` §6 P2).
 
 ## What This Is
 
@@ -77,9 +77,9 @@ Read `docs/00-consolidated-plan.md` first. Then drill into whatever surface you 
 
 ## Current Goal
 
-**Begin P1 (Engine Skeleton + App Shell)** per `docs/02-implementation-roadmap.md` §6 P1: event store + projections + dice, Command API exposed over tRPC, six-item nav shell, **Codex MVP** (read-only SRD reference over the ingested data), read-only character sheet on fixture data. Engine specifics in `docs/engine/architecture.md` §16 E1.
+**Begin P2 (Combat Core + Characters + Smithy)** per `docs/02-implementation-roadmap.md` §6 P2, toward **M2 "First character"**. Work is filed as GitHub issues #2–#16. Unblocked starting points (no blockers): **#2** persistent campaigns + Postgres-backed event store, **#3** persistent characters, **#4** Smithy MVP custom items. Engine specifics in `docs/engine/architecture.md` §16 E2.
 
-**P0 is done** (see Status above). Optional infra deferred from P0 into P1-as-needed: Trigger.dev project/keys (no real jobs until P1 nightly ingest), Vercel deploy (repo now pushed, so unblocked), Sentry/PostHog provisioning (env-gated stubs in place).
+**P0 and P1 are done** (see Status above). Trigger.dev is live (CLI authed; nightly ingest deployed to prod). Still deferred until needed: Vercel deploy (repo pushed, unblocked); Sentry/PostHog provisioning (env-gated stubs in place); the **`tr_prod_` runtime secret key** (only needed once the app triggers tasks at runtime, e.g. P3/P4 generation cascades — the nightly cron doesn't need it).
 
 Roadmap and product locks live in `docs/02-implementation-roadmap.md` and `docs/product-spec.md` §5.
 

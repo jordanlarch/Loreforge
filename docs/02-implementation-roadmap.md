@@ -159,9 +159,11 @@ Slippage in **top-120 authoring** or **Dungeon generator** (rooms-as-entities + 
 
 ---
 
-### P1 — Engine Skeleton + App Shell (M1–M3) — 🚧 IN PROGRESS (Jun 2026)
+### P1 — Engine Skeleton + App Shell (M1–M3) — ✅ COMPLETE (Jun 2026)
 
-> **P1 status (Jun 2026):** Engine **E1 skeleton** and the **M1 product surfaces** are implemented and green (typecheck/lint/build + 67 engine tests). Pending: Jordan's live UI walkthrough of Codex while signed in, and (deferred) Postgres-backed per-campaign event persistence behind the engine tRPC router (lands in P2 with campaigns/combat).
+> **P1 status (Jun 2026):** Done — **M1 "Hello, Codex" reached.** Engine **E1 skeleton** and the **M1 product surfaces** are implemented and green (typecheck/lint/build + 67 engine tests; CI green on `main`). The **full Open5e SRD spell ingest** now runs as a **scheduled nightly Trigger.dev job** (cron `0 8 * * *`, deployed to prod as version `20260619.1`, project `proj_pywyqcovveavdmoqpzsg`) — the first real background job — pulling the full SRD 5.1 document (`srd-2014`, ~319 spells) into `codex_spells` via a shared `ingestOpen5eSpells()` lib reused by the manual CLI. A prod run is verified green (319 upserted). Deferred to P2: Postgres-backed per-campaign event persistence behind the engine tRPC router (lands with campaigns/combat — issue #2). Remaining P1+P2 work is filed as GitHub issues #2–#16.
+>
+> **Trigger.dev wiring notes (Jun 2026):** the v4 CLI bin is `trigger` (not `trigger.dev`); all `@trigger.dev/*` packages must be pinned to the exact CLI version; OpenTelemetry needs `import-in-the-middle`/`require-in-the-middle` with an npm override pinning `import-in-the-middle` to v3; `trigger.config.ts` hardcodes the (non-secret) project ref so `trigger deploy` works without env loading. The CLI is logged in (PAT stored); only the `tr_dev_` runtime secret key is on hand — the `tr_prod_` key is needed only once the app triggers tasks at runtime.
 >
 > **Engine (`packages/engine`, E1 skeleton):**
 > - Seeded deterministic RNG (`xmur3`→`mulberry32`) + dice service (notation parsing, keep-highest/lowest, advantage/disadvantage).

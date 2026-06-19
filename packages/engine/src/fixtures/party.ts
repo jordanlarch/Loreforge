@@ -21,7 +21,12 @@ import type {
 import { ABILITIES } from "../entities/types";
 import type { WorldState } from "../projections/world-state";
 
-export type FixtureCharacter = {
+/**
+ * Structural input {@link buildCharacterSheet} needs to derive a presentation
+ * sheet. Both the in-repo fixtures and persisted DB rows satisfy this shape, so
+ * the same engine-owned derivation path serves fixtures and real characters.
+ */
+export type CharacterSheetInput = {
   id: string;
   name: string;
   species: string;
@@ -34,6 +39,8 @@ export type FixtureCharacter = {
   saveProficiencies: Ability[];
   skillProficiencies: string[];
 };
+
+export type FixtureCharacter = CharacterSheetInput;
 
 export const FIXTURE_CHARACTERS: FixtureCharacter[] = [
   {
@@ -94,8 +101,10 @@ function classLine(classes: ClassLevel[]): string {
     .join(" / ");
 }
 
-/** Derive a presentation-ready sheet from fixture data using engine helpers. */
-export function buildCharacterSheet(character: FixtureCharacter): CharacterSheet {
+/** Derive a presentation-ready sheet from character data using engine helpers. */
+export function buildCharacterSheet(
+  character: CharacterSheetInput,
+): CharacterSheet {
   const level = totalLevel(character.classes);
   const proficiencyBonus = proficiencyBonusForLevel(level);
   const abilityModifiers = Object.fromEntries(

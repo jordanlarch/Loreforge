@@ -51,7 +51,6 @@ describe("freshActionEconomy", () => {
     expect(freshActionEconomy(30)).toEqual({
       action: "available",
       bonusAction: "available",
-      reaction: "available",
       movement: { used: 0, total: 30 },
       freeInteractionUsed: false,
     });

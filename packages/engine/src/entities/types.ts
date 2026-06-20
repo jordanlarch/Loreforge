@@ -60,11 +60,16 @@ export type ClassLevel = {
  */
 export type ResourceState = "available" | "used" | "lost";
 
-/** Per-combatant action economy for the current turn (arch §5.1). */
+/**
+ * Per-combatant action economy for the current turn (arch §5.1).
+ *
+ * The reaction is deliberately *not* here: unlike action / bonus / movement it
+ * spans other creatures' turns (granted at encounter start, refreshed at the
+ * start of the owner's turn), so it lives on `EntityState.reaction`.
+ */
 export type ActionEconomyState = {
   action: ResourceState;
   bonusAction: ResourceState;
-  reaction: ResourceState;
   movement: { used: number; total: number };
   /** One free object interaction per turn. */
   freeInteractionUsed: boolean;
@@ -109,13 +114,14 @@ export type EntityState = {
   /** The spell this creature is concentrating on, if any. */
   concentration?: ConcentrationState;
   /**
-   * Whether this combatant still has its reaction this round. Unlike
-   * `actionEconomy` (present only on the active turn), the reaction budget spans
-   * other creatures' turns: it is granted at encounter start, refreshed at the
-   * start of the owner's turn, and spent by opportunity attacks / readied
-   * actions. Undefined outside of an encounter.
+   * The reaction budget for the round. Unlike `actionEconomy` (present only on
+   * the active turn), the reaction spans other creatures' turns: it is granted
+   * (`available`) at encounter start, refreshed at the start of the owner's turn,
+   * spent (`used`) by opportunity attacks / readied actions, and forced to `lost`
+   * while incapacitated (reconciled by the projection). Undefined outside of an
+   * encounter.
    */
-  reactionAvailable?: boolean;
+  reaction?: ResourceState;
   /** A queued Ready action awaiting its trigger; cleared on the owner's next turn. */
   readied?: ReadyState;
 };

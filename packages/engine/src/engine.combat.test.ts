@@ -96,10 +96,11 @@ describe("Combat: encounter + initiative", () => {
     expect(state.entities[active]?.actionEconomy).toEqual({
       action: "available",
       bonusAction: "available",
-      reaction: "available",
       movement: { used: 0, total: state.entities[active]!.speed },
       freeInteractionUsed: false,
     });
+    // The reaction is round-spanning and lives on the entity, not the economy.
+    expect(state.entities[active]?.reaction).toBe("available");
     for (const other of COMBATANTS.filter((c) => c !== active)) {
       expect(state.entities[other]?.actionEconomy).toBeUndefined();
     }

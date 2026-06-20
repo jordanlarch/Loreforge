@@ -46,7 +46,6 @@ export function freshActionEconomy(speed: number): ActionEconomyState {
   return {
     action: "available",
     bonusAction: "available",
-    reaction: "available",
     movement: { used: 0, total: Math.max(0, speed) },
     freeInteractionUsed: false,
   };

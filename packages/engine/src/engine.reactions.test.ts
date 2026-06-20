@@ -73,8 +73,8 @@ describe("Reactions: budget", () => {
   });
 
   it("grants every combatant a reaction when combat begins", async () => {
-    expect((await ent(engine, "pc:hero"))?.reactionAvailable).toBe(true);
-    expect((await ent(engine, "npc:foe"))?.reactionAvailable).toBe(true);
+    expect((await ent(engine, "pc:hero"))?.reaction).toBe("available");
+    expect((await ent(engine, "npc:foe"))?.reaction).toBe("available");
   });
 });
 
@@ -129,7 +129,7 @@ describe("Reactions: opportunity attacks", () => {
       expect(r.events.find((e) => e.type === "AttackResolved")).toBeDefined();
       expect(r.events.find((e) => e.type === "ReactionTaken")).toBeDefined();
     }
-    expect((await ent(engine, "npc:foe"))?.reactionAvailable).toBe(false);
+    expect((await ent(engine, "npc:foe"))?.reaction).toBe("used");
   });
 
   it("enforces one reaction per round", async () => {
@@ -192,14 +192,14 @@ describe("Reactions: opportunity attacks", () => {
       target: "pc:hero",
       ...OA,
     });
-    expect((await ent(engine, "npc:foe"))?.reactionAvailable).toBe(false);
+    expect((await ent(engine, "npc:foe"))?.reaction).toBe("used");
 
     // Cycle turns until the foe's turn comes around again.
     for (let i = 0; i < 4; i++) {
       await engine.execute(CAMPAIGN, { type: "end_turn" });
-      if ((await ent(engine, "npc:foe"))?.reactionAvailable === true) break;
+      if ((await ent(engine, "npc:foe"))?.reaction === "available") break;
     }
-    expect((await ent(engine, "npc:foe"))?.reactionAvailable).toBe(true);
+    expect((await ent(engine, "npc:foe"))?.reaction).toBe("available");
   });
 });
 
@@ -264,7 +264,7 @@ describe("Reactions: ready action", () => {
     }
     const e = await ent(engine, actor);
     expect(e?.readied).toBeUndefined();
-    expect(e?.reactionAvailable).toBe(false);
+    expect(e?.reaction).toBe("used");
   });
 
   it("rejects triggering when there is no readied action", async () => {

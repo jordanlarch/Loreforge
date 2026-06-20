@@ -43,6 +43,13 @@
       "when": 1781926416430,
       "tag": "0005_big_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781987346707,
+      "tag": "0006_redundant_shiver_man",
+      "breakpoints": true
     }
   ]
 }

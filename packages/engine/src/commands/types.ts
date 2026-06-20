@@ -199,6 +199,25 @@ export type TriggerReadiedCommand = {
   entity: EntityRef;
 };
 
+/**
+ * Cast a spell from the in-engine registry (#40). The engine derives the save
+ * DC / spell attack from the caster's spellcasting ability, consumes a slot
+ * (cantrips consume none), validates range + line of sight, and resolves the
+ * spell's declarative effect. `slotLevel` is the slot spent (≥ the spell's base
+ * level; 0 for cantrips). `targets` lists the affected creatures — for a
+ * projectile spell (Magic Missile) it lists one entry per dart. `origin` seeds
+ * area resolution and is unused by single/multi-target spells (slice #42).
+ */
+export type CastSpellCommand = {
+  type: "cast_spell";
+  caster: EntityRef;
+  spellId: string;
+  slotLevel: number;
+  targets?: EntityRef[];
+  origin?: GridPosition;
+  mode?: RollMode;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -221,7 +240,8 @@ export type Command =
   | EndConcentrationCommand
   | OpportunityAttackCommand
   | ReadyActionCommand
-  | TriggerReadiedCommand;
+  | TriggerReadiedCommand
+  | CastSpellCommand;
 
 export type CommandType = Command["type"];
 
@@ -252,7 +272,11 @@ export type ValidationCode =
   | "ALREADY_DEAD"
   | "NO_REACTION"
   | "NOT_PROVOKED"
-  | "NO_READIED_ACTION";
+  | "NO_READIED_ACTION"
+  | "SPELL_NOT_FOUND"
+  | "NOT_A_SPELLCASTER"
+  | "NO_SPELL_SLOT"
+  | "OUT_OF_RANGE";
 
 export type ValidationFailure = {
   code: ValidationCode;

@@ -2,6 +2,7 @@
  * Pure 5E ability/derivation helpers. No state, no randomness — safe to call
  * anywhere in the resolution pipeline.
  */
+import { fullCasterSlots } from "../content/spell-slots";
 import type { ClassLevel, EntityInit, EntityState } from "./types";
 
 /** 5E ability modifier: floor((score - 10) / 2). */
@@ -42,5 +43,13 @@ export function createEntityState(init: EntityInit): EntityState {
     alive: init.maxHp > 0,
     conditions: [],
     dead: false,
+    ...(init.spellcasting
+      ? {
+          spellcasting: {
+            ability: init.spellcasting.ability,
+            slots: fullCasterSlots(init.spellcasting.casterLevel ?? level),
+          },
+        }
+      : {}),
   };
 }

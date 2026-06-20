@@ -69,6 +69,10 @@ export {
   type SceneId,
   type SceneMap,
   type SceneState,
+  type SpellcastingInit,
+  type SpellcastingState,
+  type SpellSlots,
+  type SpellSlotState,
 } from "./entities/types";
 
 // Combat
@@ -176,11 +180,19 @@ export {
   type SpellDefinition,
   type SpellDuration,
   type SpellLevel,
+  type SpellProjectiles,
   type SpellRange,
   type SpellSchool,
   type TargetingType,
   type UpcastScaling,
 } from "./content/spells";
+export { fullCasterSlots } from "./content/spell-slots";
+export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
+export {
+  spellAttackBonus,
+  spellcastingModifier,
+  spellSaveDC,
+} from "./content/spellcasting";
 
 // Events
 export { InMemoryEventStore } from "./events/store";
@@ -212,6 +224,7 @@ export {
   type ApplyDamageCommand,
   type ApplyHealingCommand,
   type AttackCommand,
+  type CastSpellCommand,
   type ChangeSceneCommand,
   type Command,
   type CommandResult,

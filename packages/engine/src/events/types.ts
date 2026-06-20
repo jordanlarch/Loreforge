@@ -183,6 +183,25 @@ export type ReadiedActionTriggeredPayload = {
   entity: EntityRef;
 };
 
+export type SpellCastPayload = {
+  caster: EntityRef;
+  spellId: string;
+  spellName: string;
+  /** Slot level spent (0 for a cantrip). */
+  slotLevel: number;
+  /** Affected creatures (one entry per dart for a projectile spell). */
+  targets: EntityRef[];
+};
+
+export type SpellSlotExpendedPayload = {
+  entity: EntityRef;
+  slotLevel: number;
+};
+
+export type SpellSlotsRestoredPayload = {
+  entity: EntityRef;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -220,6 +239,15 @@ export type EngineEvent =
   | (EventMeta & {
       type: "ReadiedActionTriggered";
       payload: ReadiedActionTriggeredPayload;
+    })
+  | (EventMeta & { type: "SpellCast"; payload: SpellCastPayload })
+  | (EventMeta & {
+      type: "SpellSlotExpended";
+      payload: SpellSlotExpendedPayload;
+    })
+  | (EventMeta & {
+      type: "SpellSlotsRestored";
+      payload: SpellSlotsRestoredPayload;
     });
 
 export type EngineEventType = EngineEvent["type"];

@@ -7,12 +7,14 @@
  * contract; validation lives in `./validators`, execution in `./handlers`.
  */
 import type {
+  Ability,
   EntityInit,
   EntityRef,
   GridPosition,
   SceneId,
   SceneState,
 } from "../entities/types";
+import type { Condition } from "../combat/conditions";
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent } from "../events/types";
 
@@ -100,6 +102,34 @@ export type AttackCommand = {
   mode?: RollMode;
 };
 
+/** Apply an SRD condition to a target (exhaustion carries a 1-6 level). */
+export type ApplyConditionCommand = {
+  type: "apply_condition";
+  target: EntityRef;
+  condition: Condition;
+  source?: EntityRef;
+  /** Exhaustion tier 1-6; ignored for other conditions. */
+  level?: number;
+};
+
+export type RemoveConditionCommand = {
+  type: "remove_condition";
+  target: EntityRef;
+  condition: Condition;
+};
+
+/**
+ * Resolve a saving throw: d20 + ability modifier vs DC, honouring condition
+ * auto-fails (STR/DEX while paralyzed etc.) and advantage/disadvantage.
+ */
+export type SavingThrowCommand = {
+  type: "saving_throw";
+  entity: EntityRef;
+  ability: Ability;
+  dc: number;
+  mode?: RollMode;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -111,7 +141,10 @@ export type Command =
   | StartEncounterCommand
   | RollInitiativeCommand
   | EndTurnCommand
-  | AttackCommand;
+  | AttackCommand
+  | ApplyConditionCommand
+  | RemoveConditionCommand
+  | SavingThrowCommand;
 
 export type CommandType = Command["type"];
 
@@ -133,7 +166,11 @@ export type ValidationCode =
   | "CELL_BLOCKED"
   | "CELL_OCCUPIED"
   | "INSUFFICIENT_MOVEMENT"
-  | "NO_LINE_OF_SIGHT";
+  | "NO_LINE_OF_SIGHT"
+  | "ACTION_UNAVAILABLE"
+  | "IMMOBILIZED"
+  | "INVALID_TARGET"
+  | "UNKNOWN_CONDITION";
 
 export type ValidationFailure = {
   code: ValidationCode;

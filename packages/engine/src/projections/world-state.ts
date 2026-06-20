@@ -8,10 +8,12 @@
  */
 import { freshActionEconomy, type InitiativeEntry } from "../combat/initiative";
 import { distanceFeet } from "../combat/grid";
+import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import { createEntityState } from "../entities/abilities";
 import type {
   EntityRef,
   EntityState,
+  ResourceState,
   SceneId,
   SceneState,
 } from "../entities/types";
@@ -54,6 +56,29 @@ export function emptyWorldState(campaignId: string): WorldState {
 
 function clampHp(value: number, max: number): number {
   return Math.max(0, Math.min(value, max));
+}
+
+/**
+ * Reconcile action/reaction availability with incapacitation. Incapacitated
+ * creatures lose their action and reaction; clearing the condition restores them
+ * only if they were lost (a spent `used` resource stays spent).
+ */
+function syncEconomy(entity: EntityState): EntityState {
+  const ae = entity.actionEconomy;
+  if (!ae) return entity;
+  const incap = isIncapacitated(entity.conditions);
+  const action: ResourceState = incap
+    ? "lost"
+    : ae.action === "lost"
+      ? "available"
+      : ae.action;
+  const reaction: ResourceState = incap
+    ? "lost"
+    : ae.reaction === "lost"
+      ? "available"
+      : ae.reaction;
+  if (action === ae.action && reaction === ae.reaction) return entity;
+  return { ...entity, actionEconomy: { ...ae, action, reaction } };
 }
 
 /** Fold a single event into the state, returning a new WorldState. */
@@ -161,10 +186,12 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       const actor = next.entities[event.payload.entity];
       if (actor) {
-        next.entities[actor.id] = {
+        next.entities[actor.id] = syncEconomy({
           ...actor,
-          actionEconomy: freshActionEconomy(actor.speed),
-        };
+          actionEconomy: freshActionEconomy(
+            effectiveSpeed(actor.speed, actor.conditions),
+          ),
+        });
       }
       break;
     }
@@ -181,7 +208,40 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "ConditionApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const others = target.conditions.filter(
+          (c) => c.condition !== event.payload.condition,
+        );
+        const applied = {
+          condition: event.payload.condition,
+          ...(event.payload.source ? { source: event.payload.source } : {}),
+          ...(event.payload.level !== undefined
+            ? { level: event.payload.level }
+            : {}),
+        };
+        next.entities[target.id] = syncEconomy({
+          ...target,
+          conditions: [...others, applied],
+        });
+      }
+      break;
+    }
+    case "ConditionRemoved": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        next.entities[target.id] = syncEconomy({
+          ...target,
+          conditions: target.conditions.filter(
+            (c) => c.condition !== event.payload.condition,
+          ),
+        });
+      }
+      break;
+    }
     case "AttackResolved":
+    case "SaveRolled":
     case "DiceRolled":
       // Pure record; HP changes ride on the paired DamageDealt event.
       break;

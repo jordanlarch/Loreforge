@@ -8,6 +8,8 @@
  * (E2+) extend these in place.
  */
 
+import type { ConditionState } from "../combat/conditions";
+
 export type AbilityScores = {
   str: number;
   dex: number;
@@ -92,6 +94,8 @@ export type EntityState = {
    * `TurnEnded`. Undefined outside of combat.
    */
   actionEconomy?: ActionEconomyState;
+  /** Active SRD conditions (`combat/conditions.ts`). */
+  conditions: ConditionState[];
 };
 
 /**

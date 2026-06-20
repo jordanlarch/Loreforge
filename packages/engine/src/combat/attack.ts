@@ -13,16 +13,19 @@ export type HitResolution = { hit: boolean; critical: boolean };
 
 /**
  * Resolve whether an attack hits given the natural d20 face, the modified total,
- * and the target's AC.
+ * and the target's AC. `forceCrit` upgrades any non-natural-1 hit to a critical
+ * (e.g. a melee attack from within 5 ft of a paralyzed/unconscious target).
  */
 export function resolveHit(
   natural: number,
   total: number,
   targetAc: number,
+  options: { forceCrit?: boolean } = {},
 ): HitResolution {
   if (natural === 20) return { hit: true, critical: true };
   if (natural === 1) return { hit: false, critical: false };
-  return { hit: total >= targetAc, critical: false };
+  const hit = total >= targetAc;
+  return { hit, critical: hit && options.forceCrit === true };
 }
 
 /**

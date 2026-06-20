@@ -87,6 +87,23 @@ export {
   lineCells,
 } from "./combat/grid";
 export {
+  attackedMode,
+  charmedSources,
+  combineMode,
+  CONDITIONS,
+  critsWhenAdjacent,
+  effectiveSpeed,
+  EXHAUSTION_MAX,
+  isCondition,
+  isIncapacitated,
+  isProne,
+  ownAttackMode,
+  saveResolution,
+  type Condition,
+  type ConditionState,
+  type RollAdjust,
+} from "./combat/conditions";
+export {
   applyAbilityBonuses,
   ASI_LEVELS,
   baseArmorClass,
@@ -180,6 +197,7 @@ export type { CommandExecutor } from "./commands/queue";
 export type { ExecutionContext, RollFn, RollOutcome } from "./commands/context";
 export {
   reject,
+  type ApplyConditionCommand,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
   type AttackCommand,
@@ -193,8 +211,10 @@ export {
   type DamageSource,
   type EndTurnCommand,
   type MoveEntityCommand,
+  type RemoveConditionCommand,
   type RollDiceCommand,
   type RollInitiativeCommand,
+  type SavingThrowCommand,
   type StartEncounterCommand,
   type ValidationCode,
   type ValidationFailure,

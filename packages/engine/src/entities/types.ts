@@ -113,6 +113,8 @@ export type EntityState = {
   stable?: boolean;
   /** The spell this creature is concentrating on, if any. */
   concentration?: ConcentrationState;
+  /** Caster state (ability + spell slots); absent for non-casters. */
+  spellcasting?: SpellcastingState;
   /**
    * The reaction budget for the round. Unlike `actionEconomy` (present only on
    * the active turn), the reaction spans other creatures' turns: it is granted
@@ -129,6 +131,22 @@ export type EntityState = {
 export type DeathSaveTally = { successes: number; failures: number };
 
 export type ConcentrationState = { spell: string };
+
+/** A single spell-slot pool for one spell level. */
+export type SpellSlotState = { max: number; current: number };
+
+/** Spell slots keyed by spell level (1–9). Cantrips use no slot. */
+export type SpellSlots = Record<number, SpellSlotState>;
+
+/**
+ * Caster state (#40, E3). Holds the spellcasting ability (so save DC / spell
+ * attack are derived at cast time, never stored) and the per-level slot pools.
+ * Present only on creatures that can cast; absent for non-casters.
+ */
+export type SpellcastingState = {
+  ability: Ability;
+  slots: SpellSlots;
+};
 
 /** The action a Ready'd creature will take when its trigger fires. */
 export type ReadiedAction = {
@@ -159,6 +177,16 @@ export type SceneState = {
   map?: SceneMap;
 };
 
+/**
+ * Init for a caster: the spellcasting ability plus the caster level whose
+ * full-caster slot table seeds the pools. `casterLevel` defaults to the
+ * entity's total class level (required for classless monsters).
+ */
+export type SpellcastingInit = {
+  ability: Ability;
+  casterLevel?: number;
+};
+
 /** Input shape for creating an entity (defaults filled by the factory). */
 export type EntityInit = {
   id: EntityRef;
@@ -171,4 +199,5 @@ export type EntityInit = {
   classes?: ClassLevel[];
   sceneId?: SceneId;
   position?: GridPosition;
+  spellcasting?: SpellcastingInit;
 };

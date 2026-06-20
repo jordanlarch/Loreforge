@@ -388,11 +388,48 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "SpellSlotExpended": {
+      const caster = next.entities[event.payload.entity];
+      if (caster?.spellcasting) {
+        const slot = caster.spellcasting.slots[event.payload.slotLevel];
+        if (slot) {
+          next.entities[caster.id] = {
+            ...caster,
+            spellcasting: {
+              ...caster.spellcasting,
+              slots: {
+                ...caster.spellcasting.slots,
+                [event.payload.slotLevel]: {
+                  ...slot,
+                  current: Math.max(0, slot.current - 1),
+                },
+              },
+            },
+          };
+        }
+      }
+      break;
+    }
+    case "SpellSlotsRestored": {
+      const caster = next.entities[event.payload.entity];
+      if (caster?.spellcasting) {
+        const slots: typeof caster.spellcasting.slots = {};
+        for (const [level, slot] of Object.entries(caster.spellcasting.slots)) {
+          slots[Number(level)] = { ...slot, current: slot.max };
+        }
+        next.entities[caster.id] = {
+          ...caster,
+          spellcasting: { ...caster.spellcasting, slots },
+        };
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":
     case "DiceRolled":
-      // Pure record; state changes ride on paired Healing/Condition events.
+    case "SpellCast":
+      // Pure record; state changes ride on paired Healing/Condition/Slot events.
       break;
   }
 

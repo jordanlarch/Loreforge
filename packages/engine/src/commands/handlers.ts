@@ -10,6 +10,10 @@ import { abilityModifier } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
 import { criticalNotation, resolveHit } from "../combat/attack";
 import { distanceFeet, hasLineOfSight } from "../combat/grid";
+import { getSpell } from "../content/spell-registry";
+import { spellAttackBonus } from "../content/spellcasting";
+import type { SpellDefinition, SpellRange } from "../content/spells";
+import { parseDice } from "../rng/dice";
 import {
   attackedMode,
   charmedSources,
@@ -24,7 +28,7 @@ import {
 } from "../combat/conditions";
 import { concentrationDC, resolveDeathSave } from "../combat/death";
 import { areHostile, provokesOpportunityAttack } from "../combat/reactions";
-import type { EntityState, GridPosition } from "../entities/types";
+import type { EntityRef, EntityState, GridPosition } from "../entities/types";
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
@@ -34,9 +38,11 @@ import {
   type ApplyDamageCommand,
   type ApplyHealingCommand,
   type AttackCommand,
+  type CastSpellCommand,
   type ChangeSceneCommand,
   type Command,
   type CommandResult,
+  type CommandSummary,
   type CreateEntityCommand,
   type CreateSceneCommand,
   type DamageSource,
@@ -989,6 +995,14 @@ function handleLongRest(
       });
     }
   }
+  // A long rest restores all expended spell slots.
+  if (entity.spellcasting) {
+    events.push({
+      type: "SpellSlotsRestored",
+      ...meta(ctx, cmd.entity),
+      payload: { entity: cmd.entity },
+    });
+  }
   events.push({
     type: "Rested",
     ...meta(ctx, cmd.entity),
@@ -1197,6 +1211,355 @@ function handleTriggerReadied(
   };
 }
 
+/**
+ * The maximum reach of a spell's range in feet, or undefined when distance is
+ * not capped for foundation purposes (sight / unlimited / miles). `self` is 0.
+ */
+function spellRangeFeet(range: SpellRange): number | undefined {
+  switch (range.type) {
+    case "self":
+      return 0;
+    case "touch":
+      return 5;
+    case "feet":
+      return range.amount;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A running HP ledger for a single cast, so multiple hits in one command
+ * (e.g. several Magic Missile darts on one creature) report accurate
+ * before/after HP instead of all reading the pre-cast value. Seeded lazily
+ * from the world projection.
+ */
+type HpLedger = Map<EntityRef, { current: number; temp: number }>;
+
+function ledgerEntry(
+  world: ExecutionContext["world"],
+  id: EntityRef,
+  ledger: HpLedger,
+): { current: number; temp: number } {
+  let entry = ledger.get(id);
+  if (!entry) {
+    const e = world.entities[id]!;
+    entry = { current: e.hp.current, temp: e.hp.temp };
+    ledger.set(id, entry);
+  }
+  return entry;
+}
+
+/** Roll a spell's damage (first component), doubling dice on a crit and adding
+ * upcast dice for slot levels above the spell's base level. */
+function rollSpellDamage(
+  ctx: ExecutionContext,
+  spell: SpellDefinition,
+  extraLevels: number,
+  crit: boolean,
+  scopeBase: string,
+): { amount: number; events: DraftEvent[] } {
+  const component = spell.damage![0]!;
+  const events: DraftEvent[] = [];
+  const baseNotation = crit ? criticalNotation(component.dice) : component.dice;
+  const baseRoll = ctx.roll(baseNotation, `${scopeBase}:base`);
+  events.push(rollDiceEvent(ctx, baseRoll));
+  let amount = Math.max(0, baseRoll.total);
+
+  if (spell.upcastScaling?.appliesTo === "damage" && extraLevels > 0) {
+    const per = parseDice(spell.upcastScaling.perSlotDice);
+    const count = per.count * extraLevels * (crit ? 2 : 1);
+    const upRoll = ctx.roll(`${count}d${per.sides}`, `${scopeBase}:upcast`);
+    events.push(rollDiceEvent(ctx, upRoll));
+    amount += Math.max(0, upRoll.total);
+  }
+  return { amount, events };
+}
+
+/** Apply already-rolled damage to a target through the ledger, emitting the
+ * DamageDealt event plus any concentration check. */
+function applyLedgerDamage(
+  ctx: ExecutionContext,
+  target: EntityState,
+  amount: number,
+  damageType: string,
+  ledger: HpLedger,
+): DraftEvent[] {
+  const entry = ledgerEntry(ctx.world, target.id, ledger);
+  const hpBefore = entry.current;
+  const fromTemp = Math.min(entry.temp, amount);
+  entry.temp -= fromTemp;
+  const hpAfter = Math.max(0, entry.current - (amount - fromTemp));
+  entry.current = hpAfter;
+  return [
+    {
+      type: "DamageDealt",
+      ...meta(ctx),
+      payload: { target: target.id, amount, damageType, hpBefore, hpAfter },
+    },
+    ...concentrationCheckEvents(ctx, target, amount, hpAfter),
+  ];
+}
+
+function handleCastSpell(
+  cmd: CastSpellCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const caster = ctx.world.entities[cmd.caster];
+  if (!caster) {
+    return reject("ACTOR_NOT_FOUND", `Caster ${cmd.caster} does not exist.`);
+  }
+  if (!caster.alive) {
+    return reject("TARGET_DEAD", `${caster.name} cannot cast while down.`);
+  }
+  if (isIncapacitated(caster.conditions)) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${caster.name} is incapacitated and cannot cast.`,
+    );
+  }
+  const spell = getSpell(cmd.spellId);
+  if (!spell) {
+    return reject("SPELL_NOT_FOUND", `Unknown spell "${cmd.spellId}".`);
+  }
+  if (!caster.spellcasting) {
+    return reject("NOT_A_SPELLCASTER", `${caster.name} cannot cast spells.`);
+  }
+
+  // Slot accounting. Cantrips (level 0) consume no slot; leveled spells must be
+  // cast with a slot at or above their level, and that slot must be available.
+  const isCantrip = spell.level === 0;
+  const slotLevel = isCantrip ? 0 : Math.floor(cmd.slotLevel);
+  if (!isCantrip) {
+    if (slotLevel < spell.level) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `${spell.name} must be cast with a level-${spell.level} slot or higher.`,
+      );
+    }
+    if (slotLevel < 1 || slotLevel > 9) {
+      return reject("INVALID_PAYLOAD", `Slot level ${slotLevel} is invalid.`);
+    }
+    const slot = caster.spellcasting.slots[slotLevel];
+    if (!slot || slot.current <= 0) {
+      return reject(
+        "NO_SPELL_SLOT",
+        `${caster.name} has no level-${slotLevel} spell slot available.`,
+        { slotLevel },
+      );
+    }
+  }
+  const extraLevels = slotLevel - spell.level;
+
+  // Resolve the affected-target list. Projectile spells (Magic Missile) take one
+  // target entry per dart; single/multi spells take one entry per target.
+  const targets = cmd.targets ?? [];
+  let dartCount: number | undefined;
+  if (spell.targeting === "self") {
+    if (targets.length > 0 && targets.some((t) => t !== caster.id)) {
+      return reject("INVALID_TARGET", `${spell.name} only targets the caster.`);
+    }
+  } else if (spell.projectiles) {
+    dartCount =
+      spell.projectiles.base + spell.projectiles.perSlotLevel * extraLevels;
+    if (targets.length !== dartCount) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `${spell.name} fires ${dartCount} darts; provide one target per dart.`,
+        { darts: dartCount, provided: targets.length },
+      );
+    }
+  } else if (spell.targeting === "single") {
+    if (targets.length !== 1) {
+      return reject("INVALID_PAYLOAD", `${spell.name} targets a single creature.`);
+    }
+  } else if (targets.length < 1) {
+    return reject("INVALID_PAYLOAD", `${spell.name} needs at least one target.`);
+  }
+
+  // Validate every distinct target up front (existence, alive, range, LOS) so a
+  // rejected cast produces no events and no state change.
+  const maxRange = spellRangeFeet(spell.range);
+  for (const targetId of new Set(targets)) {
+    const target = ctx.world.entities[targetId];
+    if (!target) {
+      return reject("TARGET_NOT_FOUND", `Target ${targetId} does not exist.`, {
+        entity: targetId,
+      });
+    }
+    if (!target.alive) {
+      return reject("INVALID_TARGET", `${target.name} is not a valid target.`, {
+        entity: targetId,
+      });
+    }
+    // Range + line of sight apply only when both are placed in the same mapped
+    // scene; mapless/unplaced casting (narrative, tests) is unconstrained.
+    if (
+      caster.position &&
+      target.position &&
+      caster.sceneId &&
+      caster.sceneId === target.sceneId
+    ) {
+      if (
+        maxRange !== undefined &&
+        distanceFeet(caster.position, target.position) > maxRange
+      ) {
+        return reject(
+          "OUT_OF_RANGE",
+          `${target.name} is beyond ${spell.name}'s range.`,
+          { entity: targetId },
+        );
+      }
+      const map = ctx.world.scenes[caster.sceneId]?.map;
+      if (map && targetId !== caster.id) {
+        const exclude = new Set([caster.id, targetId]);
+        const blocked = (cell: GridPosition): boolean =>
+          map.blockedCells.some((c) => sameCell(c, cell)) ||
+          occupantAt(ctx.world, caster.sceneId, cell, exclude) !== undefined;
+        if (!hasLineOfSight(caster.position, target.position, blocked)) {
+          return reject(
+            "NO_LINE_OF_SIGHT",
+            `${caster.name} has no line of sight to ${target.name}.`,
+            { entity: targetId },
+          );
+        }
+      }
+    }
+  }
+
+  // --- Accepted: build events. ---
+  const events: DraftEvent[] = [
+    {
+      type: "SpellCast",
+      ...meta(ctx, cmd.caster),
+      payload: {
+        caster: cmd.caster,
+        spellId: spell.id,
+        spellName: spell.name,
+        slotLevel,
+        targets: [...targets],
+      },
+    },
+  ];
+  if (!isCantrip) {
+    events.push({
+      type: "SpellSlotExpended",
+      ...meta(ctx, cmd.caster),
+      payload: { entity: cmd.caster, slotLevel },
+    });
+  }
+  if (spell.concentration) {
+    if (caster.concentration) {
+      events.push({
+        type: "ConcentrationBroken",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, reason: "recast" },
+      });
+    }
+    events.push({
+      type: "ConcentrationStarted",
+      ...meta(ctx, cmd.caster),
+      payload: { entity: cmd.caster, spell: spell.name },
+    });
+  }
+
+  const ledger: HpLedger = new Map();
+  const summary: CommandSummary = {
+    caster: cmd.caster,
+    spellId: spell.id,
+    spellName: spell.name,
+    slotLevel,
+  };
+
+  if (spell.damage && spell.attackAgainst) {
+    // Single-target spell attack (Guiding Bolt).
+    const target = ctx.world.entities[targets[0]!]!;
+    const bonus = spellAttackBonus(caster)!;
+    const mode = (cmd.mode ?? "normal") as RollMode;
+    const d20 = ctx.roll("1d20", `spell-attack:${caster.id}->${target.id}`, mode);
+    const natural = d20.total;
+    const total = natural + bonus;
+    const { hit, critical } = resolveHit(natural, total, target.baseAc);
+    events.push(rollDiceEvent(ctx, d20));
+
+    let damage: number | undefined;
+    if (hit) {
+      const rolled = rollSpellDamage(
+        ctx,
+        spell,
+        extraLevels,
+        critical,
+        `spell-damage:${target.id}`,
+      );
+      events.push(...rolled.events);
+      damage = rolled.amount;
+    }
+    events.push({
+      type: "AttackResolved",
+      ...meta(ctx, caster.id),
+      payload: {
+        attacker: caster.id,
+        target: target.id,
+        attackRoll: { natural, total, mode },
+        targetAc: target.baseAc,
+        hit,
+        critical,
+        damageType: spell.damage[0]!.type,
+        ...(damage !== undefined ? { damage } : {}),
+      },
+    });
+    if (hit && damage !== undefined) {
+      events.push(
+        ...applyLedgerDamage(ctx, target, damage, spell.damage[0]!.type, ledger),
+      );
+    }
+    Object.assign(summary, {
+      target: target.id,
+      hit,
+      critical,
+      damage: damage ?? 0,
+    });
+  } else if (spell.damage && spell.projectiles) {
+    // Auto-hit darts (Magic Missile): one damage roll per dart→target.
+    const damageType = spell.damage[0]!.type;
+    let totalDamage = 0;
+    targets.forEach((targetId, index) => {
+      const target = ctx.world.entities[targetId]!;
+      const roll = ctx.roll(
+        spell.damage![0]!.dice,
+        `spell-projectile:${caster.id}:${index}`,
+      );
+      events.push(rollDiceEvent(ctx, roll));
+      const amount = Math.max(0, roll.total);
+      totalDamage += amount;
+      events.push(...applyLedgerDamage(ctx, target, amount, damageType, ledger));
+    });
+    Object.assign(summary, { darts: dartCount, damage: totalDamage });
+  } else if (spell.damage) {
+    // Auto-hit single/multi-target damage (no attack, no save).
+    const damageType = spell.damage[0]!.type;
+    let totalDamage = 0;
+    for (const targetId of targets) {
+      const target = ctx.world.entities[targetId]!;
+      const rolled = rollSpellDamage(
+        ctx,
+        spell,
+        extraLevels,
+        false,
+        `spell-damage:${caster.id}:${targetId}`,
+      );
+      events.push(...rolled.events);
+      totalDamage += rolled.amount;
+      events.push(
+        ...applyLedgerDamage(ctx, target, rolled.amount, damageType, ledger),
+      );
+    }
+    Object.assign(summary, { targets: targets.length, damage: totalDamage });
+  }
+
+  return { accepted: true, events, summary };
+}
+
 /** Dispatch a command to its handler. */
 export function handleCommand(
   command: Command,
@@ -1247,5 +1610,7 @@ export function handleCommand(
       return handleReadyAction(command, ctx);
     case "trigger_readied":
       return handleTriggerReadied(command, ctx);
+    case "cast_spell":
+      return handleCastSpell(command, ctx);
   }
 }

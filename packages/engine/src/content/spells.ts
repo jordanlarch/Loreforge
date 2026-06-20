@@ -152,6 +152,18 @@ export type SpellAttack = {
 };
 
 /**
+ * Auto-hit multi-projectile resolution (Magic Missile). The spell fires
+ * `base` darts plus `perSlotLevel` more for each slot level above the spell's
+ * base level; each dart deals the spell's `damage` to an assigned target with no
+ * attack roll or save. A spell with `projectiles` uses neither `saveAgainst` nor
+ * `attackAgainst`.
+ */
+export type SpellProjectiles = {
+  base: number;
+  perSlotLevel: number;
+};
+
+/**
  * Declarative per-slot scaling: extra damage/healing dice added per slot level
  * above the spell's base level. The imperative `custom` handler variant from the
  * arch doc is intentionally out of scope here (no escape hatch yet).
@@ -183,6 +195,8 @@ export type SpellDefinition = {
   targeting: TargetingType;
   saveAgainst?: SaveAgainst;
   attackAgainst?: SpellAttack;
+  /** Auto-hit multi-projectile resolution (Magic Missile). */
+  projectiles?: SpellProjectiles;
   damage?: DamageComponent[];
   healing?: HealingComponent;
   upcastScaling?: UpcastScaling;
@@ -246,6 +260,20 @@ export function validateSpellDefinition(def: SpellDefinition): string[] {
   // A spell resolves via a save OR an attack roll, not both.
   if (def.saveAgainst && def.attackAgainst) {
     errors.push("A spell cannot use both a saving throw and an attack roll.");
+  }
+  // Auto-hit projectiles are mutually exclusive with save/attack resolution.
+  if (def.projectiles) {
+    if (def.saveAgainst || def.attackAgainst) {
+      errors.push(
+        "A projectile spell cannot also use a saving throw or an attack roll.",
+      );
+    }
+    if (def.projectiles.base < 1) {
+      errors.push("Projectile count must be at least 1.");
+    }
+    if (def.projectiles.perSlotLevel < 0) {
+      errors.push("Projectile per-slot scaling cannot be negative.");
+    }
   }
   if (def.saveAgainst && !ABILITIES.includes(def.saveAgainst.ability)) {
     errors.push("Save ability must be a valid ability score.");

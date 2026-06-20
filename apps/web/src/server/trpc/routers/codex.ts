@@ -7,7 +7,7 @@
 import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { z } from "zod";
 
-import { codexSpells, getDb } from "@app/db";
+import { codexClasses, codexSpecies, codexSpells, getDb } from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -94,5 +94,36 @@ export const codexRouter = createTRPCRouter({
       .select({ value: count() })
       .from(codexSpells);
     return { count: row?.value ?? 0 };
+  }),
+
+  /** SRD species/lineages for the Creation Wizard, alphabetical. */
+  listSpecies: protectedProcedure.query(async () => {
+    const db = getDb();
+    return db
+      .select({
+        slug: codexSpecies.slug,
+        name: codexSpecies.name,
+        abilityBonuses: codexSpecies.abilityBonuses,
+        speed: codexSpecies.speed,
+        size: codexSpecies.size,
+        traits: codexSpecies.traits,
+      })
+      .from(codexSpecies)
+      .orderBy(asc(codexSpecies.name));
+  }),
+
+  /** SRD classes for the Creation Wizard, alphabetical. */
+  listClasses: protectedProcedure.query(async () => {
+    const db = getDb();
+    return db
+      .select({
+        slug: codexClasses.slug,
+        name: codexClasses.name,
+        hitDie: codexClasses.hitDie,
+        savingThrows: codexClasses.savingThrows,
+        skillChoice: codexClasses.skillChoice,
+      })
+      .from(codexClasses)
+      .orderBy(asc(codexClasses.name));
   }),
 });

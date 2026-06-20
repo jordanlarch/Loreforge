@@ -98,6 +98,38 @@ export {
   type ItemSource,
   type ItemType,
 } from "./content/items";
+export {
+  AREA_SHAPES,
+  CASTING_TIME_UNITS,
+  DAMAGE_TYPES,
+  DURATION_UNITS,
+  isValidSpellDefinition,
+  RANGE_TYPES,
+  SAVE_OUTCOMES,
+  SPELL_LEVELS,
+  SPELL_SCHOOLS,
+  TARGETING_TYPES,
+  validateSpellDefinition,
+  type AreaShape,
+  type CastingTime,
+  type CastingTimeUnit,
+  type DamageComponent,
+  type DamageType,
+  type DurationUnit,
+  type HealingComponent,
+  type RangeType,
+  type SaveAgainst,
+  type SaveOutcome,
+  type SpellAttack,
+  type SpellComponents,
+  type SpellDefinition,
+  type SpellDuration,
+  type SpellLevel,
+  type SpellRange,
+  type SpellSchool,
+  type TargetingType,
+  type UpcastScaling,
+} from "./content/spells";
 
 // Events
 export { InMemoryEventStore } from "./events/store";

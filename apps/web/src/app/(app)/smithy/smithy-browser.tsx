@@ -7,7 +7,37 @@ import { ITEM_RARITIES, ITEM_TYPES, type ItemType } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 
+import { SpellBrowser } from "./spell-browser";
+
+type SmithyKind = "items" | "spells";
+
 export function SmithyBrowser() {
+  const [kind, setKind] = useState<SmithyKind>("items");
+
+  return (
+    <div>
+      <div className="mb-6 inline-flex rounded-lg border border-lore-border p-1">
+        {(["items", "spells"] as SmithyKind[]).map((k) => (
+          <button
+            key={k}
+            onClick={() => setKind(k)}
+            className={`rounded px-4 py-1.5 text-sm capitalize transition-colors ${
+              kind === k
+                ? "bg-lore-accent-dim text-lore-text"
+                : "text-lore-muted hover:text-lore-text"
+            }`}
+          >
+            {k}
+          </button>
+        ))}
+      </div>
+
+      {kind === "items" ? <ItemsBrowser /> : <SpellBrowser />}
+    </div>
+  );
+}
+
+function ItemsBrowser() {
   const [typeFilter, setTypeFilter] = useState<ItemType | undefined>();
   const [forging, setForging] = useState(false);
 

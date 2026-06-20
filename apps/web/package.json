@@ -16,6 +16,7 @@
     "@app/config": "*",
     "@app/db": "*",
     "@app/engine": "*",
+    "@hocuspocus/provider": "^2.15.3",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
     "@tanstack/react-query": "^5.76.1",
@@ -31,6 +32,7 @@
     "react-dom": "^19.1.0",
     "require-in-the-middle": "^7.4.0",
     "superjson": "^2.2.2",
+    "yjs": "^13.6.31",
     "zod": "^3.24.2"
   },
   "devDependencies": {

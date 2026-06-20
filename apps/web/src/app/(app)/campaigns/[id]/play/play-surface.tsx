@@ -4,25 +4,24 @@
  * Sandbox play surface (#16) — the always-on battle map above a stub
  * chat/HUD shell, wired to the deterministic engine through a *session source*.
  *
- * The session source here is the no-persistence `engine.simulateBattle` sandbox:
- * the client accumulates accepted player actions and replays the fixture
- * encounter on each change. This is the seam #14 swaps out — a per-campaign Yjs
- * subscription will replace `useSandboxSession` without touching the renderer.
+ * The session source is `useLiveSession` (#14): a Yjs subscription to the
+ * server-authoritative `@app/ws-server`. The client only observes the synced
+ * projection and sends commands — the engine runs on the server. Two tabs on
+ * the same account share one live battle. The renderer below is unchanged.
  */
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import {
   areHostile,
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
-  type BattleAction,
   type WorldState,
 } from "@app/engine";
 
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
-import { trpc } from "@/lib/trpc/client";
 import type { BattleToken } from "./battle-map";
+import { useLiveSession } from "./use-live-session";
 
 const BattleMap = dynamic(() => import("./battle-map"), {
   ssr: false,
@@ -32,67 +31,6 @@ const BattleMap = dynamic(() => import("./battle-map"), {
     </div>
   ),
 });
-
-/** Accumulates accepted actions and re-simulates the fixture battle. */
-function useSandboxSession() {
-  const initial = trpc.engine.fixtureBattle.useQuery();
-  const sim = trpc.engine.simulateBattle.useMutation();
-  const [accepted, setAccepted] = useState<BattleAction[]>([]);
-  const [rejected, setRejected] = useState(false);
-  // The displayed world state advances only on a successful simulation. We keep
-  // it here (rather than reading `sim.data`) because React Query clears a
-  // mutation's `data` to undefined while the next request is in flight — which
-  // would briefly revert the map to the original fixture layout (a token flash).
-  const [state, setState] = useState<WorldState | undefined>(undefined);
-
-  // Seed the displayed state from the initial fixture once, when it loads.
-  useEffect(() => {
-    setState((prev) => prev ?? initial.data);
-  }, [initial.data]);
-
-  // Auto-clear the "illegal move" flash.
-  useEffect(() => {
-    if (!rejected) return;
-    const timer = setTimeout(() => setRejected(false), 2500);
-    return () => clearTimeout(timer);
-  }, [rejected]);
-
-  function dispatch(action: BattleAction) {
-    const candidate = [...accepted, action];
-    sim.mutate(
-      { actions: candidate },
-      {
-        onSuccess: (res) => {
-          setState(res.state);
-          if (res.rejected === 0) {
-            setAccepted(candidate);
-            setRejected(false);
-          } else {
-            setRejected(true);
-          }
-        },
-      },
-    );
-  }
-
-  function reset() {
-    setAccepted([]);
-    setRejected(false);
-    sim.reset();
-    if (initial.data) setState(initial.data);
-  }
-
-  return {
-    state,
-    isLoading: initial.isLoading,
-    isBusy: sim.isPending,
-    rejected,
-    moveToken: (id: string, to: Cell) =>
-      dispatch({ type: "move_entity", entity: id, to }),
-    endTurn: () => dispatch({ type: "end_turn" }),
-    reset,
-  };
-}
 
 type ViewModel = {
   cols: number;
@@ -174,14 +112,26 @@ function buildViewModel(state: WorldState): ViewModel | null {
 }
 
 export function SandboxPlaySurface() {
-  const session = useSandboxSession();
+  const session = useLiveSession();
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
     [session.state],
   );
 
+  if (session.error) {
+    return (
+      <p className="px-4 py-16 text-center text-lore-muted">
+        Couldn&apos;t reach the live session. Check that the sync server is
+        running and you&apos;re signed in.
+      </p>
+    );
+  }
   if (session.isLoading || !session.state) {
-    return <p className="px-4 py-16 text-center text-lore-muted">Loading battle…</p>;
+    return (
+      <p className="px-4 py-16 text-center text-lore-muted">
+        Connecting to live session…
+      </p>
+    );
   }
   if (!vm) {
     return (
@@ -205,6 +155,12 @@ export function SandboxPlaySurface() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <span
+            className="rounded border border-lore-border bg-lore-surface px-2 py-1 text-xs text-lore-muted"
+            title="Connected clients in this live session"
+          >
+            {session.peers} online
+          </span>
           {session.rejected && (
             <span className="rounded border border-lore-border bg-lore-surface px-2 py-1 text-xs text-lore-muted">
               Illegal move — out of range, blocked, or occupied.
@@ -270,9 +226,9 @@ export function SandboxPlaySurface() {
           </div>
 
           <div className="rounded-lg border border-dashed border-lore-border p-4 text-sm text-lore-muted">
-            Narrative chat, dice prompts, and the full character HUD arrive with
-            the Live Play surface (P4). Real-time multiplayer sync of this map is
-            #14 (Tier 4 / Yjs).
+            This map syncs live (#14, Tier 4 / Yjs) — open it in a second tab to
+            watch moves mirror in real time. Narrative chat, dice prompts, and
+            the full character HUD arrive with the Live Play surface (P4).
           </div>
         </aside>
       </div>

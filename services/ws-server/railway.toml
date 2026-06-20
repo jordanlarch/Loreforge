@@ -1,8 +1,11 @@
-# Railway deploy skeleton — wire when ws-server is implemented (P2).
+# Railway deploy config for the Loreforge WebSocket sync server (#14).
+# Run from the repo root (monorepo). Railway injects PORT; the server reads it.
+# Required env: SUPABASE_JWT_SECRET (verifies Supabase session tokens on connect).
 [build]
 builder = "NIXPACKS"
+buildCommand = "npm ci"
 
 [deploy]
-startCommand = "node index.js"
+startCommand = "npm run start -w @app/ws-server"
 healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"

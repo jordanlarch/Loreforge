@@ -1,0 +1,26 @@
+{
+  "name": "@app/ws-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env.local --no-expand -- tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@app/engine": "*",
+    "@hocuspocus/server": "^2.15.2",
+    "jose": "^5.9.6",
+    "yjs": "^13.6.20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "dotenv-cli": "^11.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.6"
+  }
+}

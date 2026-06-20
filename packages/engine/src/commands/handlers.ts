@@ -8,12 +8,14 @@
  */
 import { abilityModifier } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
+import { criticalNotation, resolveHit } from "../combat/attack";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import {
   reject,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
+  type AttackCommand,
   type ChangeSceneCommand,
   type Command,
   type CommandResult,
@@ -394,6 +396,92 @@ function handleEndTurn(
   };
 }
 
+function handleAttack(
+  cmd: AttackCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const attacker = ctx.world.entities[cmd.attacker];
+  if (!attacker) {
+    return reject("ACTOR_NOT_FOUND", `Attacker ${cmd.attacker} does not exist.`);
+  }
+  const target = ctx.world.entities[cmd.target];
+  if (!target) {
+    return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
+  }
+  if (!attacker.alive) {
+    return reject("TARGET_DEAD", `${attacker.name} cannot attack while down.`);
+  }
+
+  const d20 = ctx.roll("1d20", `attack:${cmd.attacker}->${cmd.target}`, cmd.mode);
+  // "1d20" carries no modifier, so the total is the natural face (or the chosen
+  // face under advantage/disadvantage).
+  const natural = d20.total;
+  const total = natural + cmd.attackBonus;
+  const { hit, critical } = resolveHit(natural, total, target.baseAc);
+
+  const events: DraftEvent[] = [rollDiceEvent(ctx, d20)];
+
+  let damage: number | undefined;
+  let hpAfter = target.hp.current;
+  if (hit) {
+    const notation = critical
+      ? criticalNotation(cmd.damage.notation)
+      : cmd.damage.notation;
+    const dmg = ctx.roll(notation, `damage:${cmd.target}`);
+    events.push(rollDiceEvent(ctx, dmg));
+    damage = Math.max(0, dmg.total);
+    const fromTemp = Math.min(target.hp.temp, damage);
+    hpAfter = Math.max(0, target.hp.current - (damage - fromTemp));
+  }
+
+  events.push({
+    type: "AttackResolved",
+    ...meta(ctx, cmd.attacker),
+    payload: {
+      attacker: cmd.attacker,
+      target: cmd.target,
+      attackRoll: { natural, total, mode: cmd.mode ?? "normal" },
+      targetAc: target.baseAc,
+      hit,
+      critical,
+      damageType: cmd.damage.type,
+      ...(damage !== undefined ? { damage } : {}),
+    },
+  });
+
+  if (hit && damage !== undefined) {
+    events.push({
+      type: "DamageDealt",
+      ...meta(ctx),
+      payload: {
+        target: cmd.target,
+        amount: damage,
+        damageType: cmd.damage.type,
+        hpBefore: target.hp.current,
+        hpAfter,
+      },
+    });
+  }
+
+  return {
+    accepted: true,
+    events,
+    summary: {
+      attacker: cmd.attacker,
+      target: cmd.target,
+      natural,
+      attackTotal: total,
+      targetAc: target.baseAc,
+      hit,
+      critical,
+      damageType: cmd.damage.type,
+      damage: damage ?? 0,
+      hpAfter,
+      downed: hit && hpAfter <= 0,
+    },
+  };
+}
+
 /** Dispatch a command to its handler. */
 export function handleCommand(
   command: Command,
@@ -420,5 +508,7 @@ export function handleCommand(
       return handleRollInitiative(command, ctx);
     case "end_turn":
       return handleEndTurn(command, ctx);
+    case "attack":
+      return handleAttack(command, ctx);
   }
 }

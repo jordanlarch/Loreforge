@@ -167,8 +167,9 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "AttackResolved":
     case "DiceRolled":
-      // Pure record; no projected state change.
+      // Pure record; HP changes ride on the paired DamageDealt event.
       break;
   }
 

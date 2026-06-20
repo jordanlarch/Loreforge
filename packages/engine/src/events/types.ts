@@ -14,6 +14,7 @@ import type {
   SceneState,
 } from "../entities/types";
 import type { InitiativeEntry } from "../combat/initiative";
+import type { RollMode } from "../rng/dice";
 
 /** Common envelope fields stamped on every persisted event. */
 export type EventMeta = {
@@ -89,6 +90,18 @@ export type RoundAdvancedPayload = {
   round: number;
 };
 
+export type AttackResolvedPayload = {
+  attacker: EntityRef;
+  target: EntityRef;
+  attackRoll: { natural: number; total: number; mode: RollMode };
+  targetAc: number;
+  hit: boolean;
+  critical: boolean;
+  damageType: string;
+  /** Damage dealt on a hit; omitted on a miss. */
+  damage?: number;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -102,7 +115,8 @@ export type EngineEvent =
   | (EventMeta & { type: "InitiativeRolled"; payload: InitiativeRolledPayload })
   | (EventMeta & { type: "TurnStarted"; payload: TurnStartedPayload })
   | (EventMeta & { type: "TurnEnded"; payload: TurnEndedPayload })
-  | (EventMeta & { type: "RoundAdvanced"; payload: RoundAdvancedPayload });
+  | (EventMeta & { type: "RoundAdvanced"; payload: RoundAdvancedPayload })
+  | (EventMeta & { type: "AttackResolved"; payload: AttackResolvedPayload });
 
 export type EngineEventType = EngineEvent["type"];
 

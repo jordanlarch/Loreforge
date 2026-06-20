@@ -74,6 +74,11 @@ export {
   type InitiativeRollInput,
 } from "./combat/initiative";
 export {
+  criticalNotation,
+  resolveHit,
+  type HitResolution,
+} from "./combat/attack";
+export {
   applyAbilityBonuses,
   ASI_LEVELS,
   baseArmorClass,
@@ -169,6 +174,7 @@ export {
   reject,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
+  type AttackCommand,
   type ChangeSceneCommand,
   type Command,
   type CommandResult,

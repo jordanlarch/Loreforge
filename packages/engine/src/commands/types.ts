@@ -85,6 +85,21 @@ export type EndTurnCommand = {
   type: "end_turn";
 };
 
+/**
+ * Resolve a weapon attack: d20 + `attackBonus` vs the target's AC (with optional
+ * advantage/disadvantage), then roll and apply damage on a hit (doubled dice on
+ * a crit). Attack bonus and damage are supplied by the caller — weapon/feature
+ * derivation arrives with the inventory/effect systems.
+ */
+export type AttackCommand = {
+  type: "attack";
+  attacker: EntityRef;
+  target: EntityRef;
+  attackBonus: number;
+  damage: { notation: string; type: string };
+  mode?: RollMode;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -95,7 +110,8 @@ export type Command =
   | MoveEntityCommand
   | StartEncounterCommand
   | RollInitiativeCommand
-  | EndTurnCommand;
+  | EndTurnCommand
+  | AttackCommand;
 
 export type CommandType = Command["type"];
 

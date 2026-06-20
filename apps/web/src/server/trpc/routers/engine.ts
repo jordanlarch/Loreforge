@@ -110,6 +110,14 @@ const commandSchema = z.discriminatedUnion("type", [
     bonuses: z.record(z.string(), z.number().int()).optional(),
   }),
   z.object({ type: z.literal("end_turn") }),
+  z.object({
+    type: z.literal("attack"),
+    attacker: z.string(),
+    target: z.string(),
+    attackBonus: z.number().int(),
+    damage: z.object({ notation: z.string(), type: z.string() }),
+    mode: rollMode.optional(),
+  }),
 ]);
 
 export const engineRouter = createTRPCRouter({

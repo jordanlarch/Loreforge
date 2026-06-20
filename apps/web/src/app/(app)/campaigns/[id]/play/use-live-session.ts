@@ -73,7 +73,14 @@ function colorFor(id: string): string {
 
 type LiveStatus = "connecting" | "synced" | "error";
 
-export function useLiveSession() {
+/**
+ * Options select which room to observe. With a `campaignId`, the hook joins the
+ * persisted `campaign:{id}` room (owner-only, server-authoritative); otherwise
+ * it joins the per-user `sandbox:{userId}` fixture demo.
+ */
+export type LiveSessionOptions = { campaignId?: string };
+
+export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
   const [state, setState] = useState<WorldState | undefined>(undefined);
   const [status, setStatus] = useState<LiveStatus>("connecting");
   const [rejected, setRejected] = useState(false);
@@ -95,10 +102,14 @@ export function useLiveSession() {
         return;
       }
 
+      const roomName = campaignId
+        ? `campaign:${campaignId}`
+        : `sandbox:${session.user.id}`;
+
       const doc = new Y.Doc();
       provider = new HocuspocusProvider({
         url: WS_URL,
-        name: `sandbox:${session.user.id}`,
+        name: roomName,
         document: doc,
         token: async () => {
           const current = await createClient().auth.getSession();
@@ -146,7 +157,7 @@ export function useLiveSession() {
       provider?.destroy();
       providerRef.current = null;
     };
-  }, []);
+  }, [campaignId]);
 
   useEffect(() => {
     if (!rejected) return;

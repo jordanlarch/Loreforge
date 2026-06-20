@@ -7,20 +7,24 @@
  * projection is broadcast (`docs/engine/architecture.md` §10). No Vercel↔WS
  * backchannel exists — the engine runs here.
  *
- * Scope A drives the in-memory goblin-ambush fixture (no persistence, per-user
- * `sandbox:{userId}` rooms). Scope B swaps the room seed for a persisted
- * per-campaign event store and keys rooms off campaign membership.
+ * Two room kinds are served, distinguished by documentName prefix:
+ *   - `sandbox:{userId}` — the in-memory goblin-ambush fixture demo (scope A);
+ *     a client may only join the room for its own id.
+ *   - `campaign:{campaignId}` — a persisted, owner-scoped campaign (scope B);
+ *     the WS server is the sole authoritative writer to the Postgres event
+ *     store, and only the campaign owner may join.
  */
 import { Hocuspocus } from "@hocuspocus/server";
 
 import {
   buildVerifier,
   jwksUrlFor,
-  roomForUser,
+  parseRoom,
   verifySupabaseToken,
 } from "./auth.js";
+import { getEventStore, isCampaignOwner } from "./db.js";
 import { writeProjection } from "./projection.js";
-import { BattleRoom, isBattleAction } from "./room.js";
+import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
 const PORT = Number(process.env.PORT ?? process.env.WS_PORT ?? 1234);
 const SUPABASE_URL =
@@ -56,12 +60,16 @@ function parseMessage(payload: string): ClientMessage | null {
 const REJECTED = JSON.stringify({ t: "rejected" });
 
 /** In-memory rooms, keyed by documentName. Evicted when the last client leaves. */
-const rooms = new Map<string, BattleRoom>();
+const rooms = new Map<string, LiveRoom>();
 
-function roomFor(documentName: string): BattleRoom {
+function roomFor(documentName: string): LiveRoom {
   let room = rooms.get(documentName);
   if (!room) {
-    room = new BattleRoom();
+    const parsed = parseRoom(documentName);
+    room =
+      parsed?.kind === "campaign"
+        ? new CampaignRoom(parsed.campaignId, getEventStore())
+        : new BattleRoom();
     rooms.set(documentName, room);
   }
   return room;
@@ -71,7 +79,8 @@ const server = new Hocuspocus({
   name: "loreforge-ws",
   port: PORT,
   quiet: true,
-  // Scope A keeps no document state; drop rooms as soon as everyone leaves.
+  // The Y.Doc is a disposable projection (campaign state lives in Postgres,
+  // sandbox state in the fixture), so drop rooms as soon as everyone leaves.
   unloadImmediately: true,
 
   async onAuthenticate({ token, documentName }) {
@@ -81,9 +90,17 @@ const server = new Hocuspocus({
       );
     }
     const { userId } = await verifySupabaseToken(token, verifier);
-    if (documentName !== roomForUser(userId)) {
-      throw new Error("forbidden: room does not belong to authenticated user");
+    const parsed = parseRoom(documentName);
+    if (!parsed) throw new Error("forbidden: unknown room");
+
+    if (parsed.kind === "sandbox") {
+      if (parsed.userId !== userId) {
+        throw new Error("forbidden: room does not belong to authenticated user");
+      }
+    } else if (!(await isCampaignOwner(parsed.campaignId, userId))) {
+      throw new Error("forbidden: not the campaign owner");
     }
+
     return { userId };
   },
 

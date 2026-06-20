@@ -1,27 +1,29 @@
 import Link from "next/link";
 
+import { CampaignsBrowser } from "./campaigns-browser";
+
 export default function CampaignsPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-16">
-      <h1 className="font-display text-3xl font-semibold">Campaigns</h1>
-      <p className="mt-4 text-lore-muted">
-        The campaign workspace and live play arrive in P4.
-      </p>
-
-      <div className="mt-8 rounded-lg border border-lore-border bg-lore-surface p-6">
-        <h2 className="font-display text-lg font-semibold">Battle map preview</h2>
-        <p className="mt-2 text-sm text-lore-muted">
-          A first look at the always-on tactical map: a fixture encounter you can
-          play with. Drag the active token within its movement radius — the
-          deterministic engine validates every move.
-        </p>
+    <div className="mx-auto max-w-6xl px-4 py-10">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-4xl font-semibold tracking-tight">
+            Campaigns
+          </h1>
+          <p className="mt-2 text-lore-muted">
+            Each campaign is persisted and event-sourced. Open one to play its
+            live battle map — it syncs in real time across tabs.
+          </p>
+        </div>
         <Link
           href="/campaigns/sandbox/play"
-          className="mt-4 inline-block rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent"
+          className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
         >
-          Open the sandbox battle →
+          Sandbox demo →
         </Link>
-      </div>
+      </header>
+
+      <CampaignsBrowser />
     </div>
   );
 }

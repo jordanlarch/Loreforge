@@ -103,3 +103,29 @@ export async function verifySupabaseToken(
 export function roomForUser(userId: string): string {
   return `sandbox:${userId}`;
 }
+
+/** The room id for a persisted campaign. Only the campaign owner may join. */
+export function roomForCampaign(campaignId: string): string {
+  return `campaign:${campaignId}`;
+}
+
+/**
+ * A parsed room name. Scope B serves two kinds of rooms, distinguished by
+ * prefix: ephemeral per-user `sandbox:{userId}` fixtures and persisted
+ * `campaign:{campaignId}` rooms backed by the Postgres event store.
+ */
+export type ParsedRoom =
+  | { kind: "sandbox"; userId: string }
+  | { kind: "campaign"; campaignId: string };
+
+/** Parse a documentName into its room kind, or null if it is unrecognized. */
+export function parseRoom(documentName: string): ParsedRoom | null {
+  const sep = documentName.indexOf(":");
+  if (sep <= 0) return null;
+  const prefix = documentName.slice(0, sep);
+  const rest = documentName.slice(sep + 1);
+  if (!rest) return null;
+  if (prefix === "sandbox") return { kind: "sandbox", userId: rest };
+  if (prefix === "campaign") return { kind: "campaign", campaignId: rest };
+  return null;
+}

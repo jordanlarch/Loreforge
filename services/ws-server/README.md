@@ -4,7 +4,7 @@ The Yjs / Hocuspocus WebSocket service for real-time multiplayer play (#14).
 Vercel hosts `@app/web`; this service runs on **Railway** (or Fly.io) for
 long-lived connections.
 
-## Architecture (scope A)
+## Architecture
 
 The WS server is the **authoritative engine host** for live play, not a dumb
 relay (`docs/engine/architecture.md` §10):
@@ -12,24 +12,47 @@ relay (`docs/engine/architecture.md` §10):
 - Clients connect over WebSocket, authenticated by their **Supabase session
   JWT** (`onAuthenticate`, verified offline against the project's public **JWKS**
   — ES256/RS256 signing keys — with an optional legacy HS256 secret fallback).
-- Each connection joins its own per-user room `sandbox:{userId}`.
-- A room owns an in-memory `@app/engine` `Engine` seeded from the goblin-ambush
-  fixture (`BattleRoom`). Clients submit `BattleAction`s over the stateless
-  channel (`{ t: "cmd", action }` / `{ t: "reset" }`); the engine validates and
-  applies them.
+- A room owns an `@app/engine` `Engine`. Clients submit `BattleAction`s over the
+  stateless channel (`{ t: "cmd", action }` / `{ t: "reset" }`); the engine
+  validates and applies them.
 - The resulting `WorldState` projection is written into a shallow-structured
   Y.Doc (`writeProjection`) and broadcast. Clients render from the synced doc
   and **never compute mechanics**. Illegal actions get a `{ t: "rejected" }`
-  stateless reply.
+  stateless reply that flashes only on the actor's tab.
 
-Scope A is stateless: rooms are in-memory only and re-seed from the fixture on a
-cold load. Scope B swaps the seed source for a persisted per-campaign event
-store and keys rooms off campaign membership — the rest is unchanged.
+Two room kinds are served, distinguished by `documentName` prefix
+(`parseRoom`):
+
+| Room | Backing | Auth | Lifecycle |
+|---|---|---|---|
+| `sandbox:{userId}` (scope A) | in-memory `BattleRoom`, seeded from the goblin-ambush fixture | a client may only join its own id | stateless; re-seeds from the fixture on cold load |
+| `campaign:{campaignId}` (scope B) | `CampaignRoom` over `PgEventStore` — the WS server is the **sole authoritative writer** | only the campaign **owner** may join (`isCampaignOwner`) | seed-if-empty from the fixture on first load; state rebuilds from the persisted log on cold load; `reset` truncates back to the seeded baseline |
+
+### Reconnect / resync
+
+Hocuspocus owns the reconnect path: the client `HocuspocusProvider`
+auto-reconnects on a dropped socket and the server re-runs `onLoadDocument`,
+rehydrating the room (from the fixture for `sandbox:`, from the Postgres event
+log for `campaign:`) and re-broadcasting the full projection. Because the doc is
+a disposable projection of authoritative state — not the source of truth — a
+reconnecting client converges on the current `WorldState` with no client-side
+merge. `unloadImmediately` drops a room once its last client leaves; the next
+join reloads it.
+
+### Latency target
+
+The Tier 4 budget lives in `docs/engine/architecture.md` §10.4. The relevant
+target for this service is **projection-update broadcast: P50 < 10ms, P95 <
+30ms** (engine-internal), with an **end-to-end P95 < 50ms** including the WS
+hop for a simple command (move / end turn). Load-tested measurement against the
+deployed Railway instance is deferred until provisioning (see Deploy); the
+documented targets are the acceptance bar to validate then.
 
 ## Develop
 
 ```powershell
-# From repo root. Uses NEXT_PUBLIC_SUPABASE_URL (already in .env.local) for JWKS.
+# From repo root. Loads .env.local: NEXT_PUBLIC_SUPABASE_URL (JWKS) for all
+# rooms, plus DATABASE_URL for campaign:{id} rooms (the persisted event store).
 npm run dev:ws
 ```
 
@@ -49,9 +72,12 @@ The server listens on `PORT` (default `1234`). Point the web app at it via
 |---|---|---|
 | `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL` | yes* | Project base URL; the JWKS endpoint (`/auth/v1/.well-known/jwks.json`) is derived from it to verify session tokens (ES256/RS256). |
 | `SUPABASE_JWT_SECRET` | no | Legacy HS256 shared secret. Optional fallback for the signing-key migration window. |
+| `DATABASE_URL` | yes† | Postgres connection for `campaign:{id}` rooms (the `PgEventStore` and the owner check). Lazy — only read when the first campaign room loads, so `sandbox:` demos boot without it. |
 | `PORT` / `WS_PORT` | no | Listen port (default `1234`). Railway injects `PORT`. |
 
 \* At least one verification method must be configured — the JWKS URL (preferred) and/or the legacy secret.
+
+† Required to serve persisted campaign rooms; not needed for the `sandbox:` fixture demo.
 
 ## Deploy
 

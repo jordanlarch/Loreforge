@@ -63,6 +63,7 @@ export {
   type HitPoints,
   type ResourceState,
   type SceneId,
+  type SceneMap,
   type SceneState,
 } from "./entities/types";
 
@@ -78,6 +79,13 @@ export {
   resolveHit,
   type HitResolution,
 } from "./combat/attack";
+export {
+  chebyshev,
+  distanceFeet,
+  FEET_PER_CELL,
+  hasLineOfSight,
+  lineCells,
+} from "./combat/grid";
 export {
   applyAbilityBonuses,
   ASI_LEVELS,

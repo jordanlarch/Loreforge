@@ -7,6 +7,7 @@
  * from genesis deterministically (`docs/engine/architecture.md` §3.2).
  */
 import { freshActionEconomy, type InitiativeEntry } from "../combat/initiative";
+import { distanceFeet } from "../combat/grid";
 import { createEntityState } from "../entities/abilities";
 import type {
   EntityRef,
@@ -111,9 +112,22 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "EntityMoved": {
       const entity = next.entities[event.payload.entity];
       if (entity) {
+        // Debit the movement budget when on the clock (action economy present).
+        let actionEconomy = entity.actionEconomy;
+        if (actionEconomy && event.payload.from) {
+          const cost = distanceFeet(event.payload.from, event.payload.to);
+          actionEconomy = {
+            ...actionEconomy,
+            movement: {
+              ...actionEconomy.movement,
+              used: actionEconomy.movement.used + cost,
+            },
+          };
+        }
         next.entities[entity.id] = {
           ...entity,
           position: { ...event.payload.to },
+          actionEconomy,
         };
       }
       break;

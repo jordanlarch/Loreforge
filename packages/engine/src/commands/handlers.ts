@@ -9,6 +9,8 @@
 import { abilityModifier } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
 import { criticalNotation, resolveHit } from "../combat/attack";
+import { distanceFeet, hasLineOfSight } from "../combat/grid";
+import type { EntityState, GridPosition } from "../entities/types";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import {
@@ -213,6 +215,27 @@ function handleApplyHealing(
   };
 }
 
+function sameCell(a: GridPosition, b: GridPosition): boolean {
+  return a.x === b.x && a.y === b.y;
+}
+
+/** A living entity (other than `exclude`) standing on `cell` in `sceneId`. */
+function occupantAt(
+  world: ExecutionContext["world"],
+  sceneId: string | undefined,
+  cell: GridPosition,
+  exclude: ReadonlySet<string>,
+): EntityState | undefined {
+  return Object.values(world.entities).find(
+    (e) =>
+      !exclude.has(e.id) &&
+      e.alive &&
+      e.sceneId === sceneId &&
+      e.position !== undefined &&
+      sameCell(e.position, cell),
+  );
+}
+
 function handleMoveEntity(
   cmd: MoveEntityCommand,
   ctx: ExecutionContext,
@@ -224,16 +247,48 @@ function handleMoveEntity(
   if (!entity.alive) {
     return reject("TARGET_DEAD", `${entity.name} cannot move while dead.`);
   }
+
+  const to = cmd.to;
+  const scene = entity.sceneId ? ctx.world.scenes[entity.sceneId] : undefined;
+  const map = scene?.map;
+  if (map) {
+    if (to.x < 0 || to.y < 0 || to.x >= map.width || to.y >= map.height) {
+      return reject("OUT_OF_BOUNDS", `(${to.x},${to.y}) is outside the map.`);
+    }
+    if (map.blockedCells.some((c) => sameCell(c, to))) {
+      return reject("CELL_BLOCKED", `(${to.x},${to.y}) is blocked by a wall.`);
+    }
+  }
+
+  if (occupantAt(ctx.world, entity.sceneId, to, new Set([entity.id]))) {
+    return reject("CELL_OCCUPIED", `(${to.x},${to.y}) is occupied.`);
+  }
+
+  // Debit movement only while it is this combatant's turn (action economy
+  // present). Outside combat, movement is unbudgeted.
+  if (entity.actionEconomy && entity.position) {
+    const cost = distanceFeet(entity.position, to);
+    const remaining =
+      entity.actionEconomy.movement.total - entity.actionEconomy.movement.used;
+    if (cost > remaining) {
+      return reject(
+        "INSUFFICIENT_MOVEMENT",
+        `Move costs ${cost}ft but only ${remaining}ft remain.`,
+        { cost, remaining },
+      );
+    }
+  }
+
   return {
     accepted: true,
     events: [
       {
         type: "EntityMoved",
         ...meta(ctx, cmd.entity),
-        payload: { entity: cmd.entity, from: entity.position, to: cmd.to },
+        payload: { entity: cmd.entity, from: entity.position, to },
       },
     ],
-    summary: { entity: cmd.entity, to: cmd.to },
+    summary: { entity: cmd.entity, to },
   };
 }
 
@@ -410,6 +465,29 @@ function handleAttack(
   }
   if (!attacker.alive) {
     return reject("TARGET_DEAD", `${attacker.name} cannot attack while down.`);
+  }
+
+  // Line of sight is enforced only when both combatants are placed in the same
+  // mapped scene; mapless / unplaced combat (narrative, tests) is unaffected.
+  if (
+    attacker.position &&
+    target.position &&
+    attacker.sceneId &&
+    attacker.sceneId === target.sceneId
+  ) {
+    const map = ctx.world.scenes[attacker.sceneId]?.map;
+    if (map) {
+      const exclude = new Set([attacker.id, target.id]);
+      const blocked = (cell: GridPosition): boolean =>
+        map.blockedCells.some((c) => sameCell(c, cell)) ||
+        occupantAt(ctx.world, attacker.sceneId, cell, exclude) !== undefined;
+      if (!hasLineOfSight(attacker.position, target.position, blocked)) {
+        return reject(
+          "NO_LINE_OF_SIGHT",
+          `${attacker.name} has no line of sight to ${target.name}.`,
+        );
+      }
+    }
   }
 
   const d20 = ctx.roll("1d20", `attack:${cmd.attacker}->${cmd.target}`, cmd.mode);

@@ -50,6 +50,13 @@ const commandSchema = z.discriminatedUnion("type", [
       id: z.string(),
       name: z.string(),
       description: z.string().optional(),
+      map: z
+        .object({
+          width: z.number().int(),
+          height: z.number().int(),
+          blockedCells: z.array(gridPosition),
+        })
+        .optional(),
     }),
   }),
   z.object({ type: z.literal("change_scene"), sceneId: z.string() }),

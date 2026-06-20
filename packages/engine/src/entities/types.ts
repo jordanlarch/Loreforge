@@ -96,7 +96,23 @@ export type EntityState = {
   actionEconomy?: ActionEconomyState;
   /** Active SRD conditions (`combat/conditions.ts`). */
   conditions: ConditionState[];
+  /**
+   * True once truly dead (three death-save failures). Distinct from being downed
+   * at 0 HP (`alive === false` but `dead === false`), which is recoverable.
+   * Healing is refused only when `dead`.
+   */
+  dead: boolean;
+  /** Death-save tally while dying at 0 HP; undefined when up or after stabilizing. */
+  deathSaves?: DeathSaveTally;
+  /** True once stabilized at 0 HP (stops rolling death saves). */
+  stable?: boolean;
+  /** The spell this creature is concentrating on, if any. */
+  concentration?: ConcentrationState;
 };
+
+export type DeathSaveTally = { successes: number; failures: number };
+
+export type ConcentrationState = { spell: string };
 
 /**
  * Optional square-grid map for a scene. Distances use the SRD **5-5-5

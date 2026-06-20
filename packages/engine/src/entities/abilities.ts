@@ -41,5 +41,6 @@ export function createEntityState(init: EntityInit): EntityState {
     position: init.position,
     alive: init.maxHp > 0,
     conditions: [],
+    dead: false,
   };
 }

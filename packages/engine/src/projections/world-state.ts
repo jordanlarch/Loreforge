@@ -107,17 +107,36 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "DamageDealt": {
       const target = next.entities[event.payload.target];
       if (target) {
+        const wasDown = target.hp.current === 0;
         const hp = { ...target.hp };
         // Temp HP soaks damage first.
         const fromTemp = Math.min(hp.temp, event.payload.amount);
         hp.temp -= fromTemp;
         const remaining = event.payload.amount - fromTemp;
         hp.current = clampHp(hp.current - remaining, hp.max);
-        next.entities[target.id] = {
-          ...target,
-          hp,
-          alive: hp.current > 0,
-        };
+
+        let updated: EntityState = { ...target, hp, alive: hp.current > 0 };
+        if (hp.current === 0 && !updated.dead) {
+          if (wasDown && remaining > 0) {
+            // Taking damage while already at 0 HP is a death-save failure.
+            const tally = updated.deathSaves ?? { successes: 0, failures: 0 };
+            const failures = tally.failures + 1;
+            updated = {
+              ...updated,
+              deathSaves: { ...tally, failures: Math.min(3, failures) },
+              dead: failures >= 3,
+            };
+          } else if (!wasDown) {
+            // Freshly downed: begin death saves; concentration ends.
+            updated = {
+              ...updated,
+              deathSaves: { successes: 0, failures: 0 },
+              stable: false,
+              concentration: undefined,
+            };
+          }
+        }
+        next.entities[target.id] = updated;
       }
       break;
     }
@@ -126,10 +145,13 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       if (target) {
         const hp = { ...target.hp };
         hp.current = clampHp(hp.current + event.payload.amount, hp.max);
+        const revived = hp.current > 0 && target.hp.current === 0;
         next.entities[target.id] = {
           ...target,
           hp,
           alive: hp.current > 0,
+          // Healing above 0 ends the dying state.
+          ...(revived ? { deathSaves: undefined, stable: false } : {}),
         };
       }
       break;
@@ -221,9 +243,15 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
             ? { level: event.payload.level }
             : {}),
         };
+        const conditions = [...others, applied];
+        // Incapacitation ends concentration.
+        const concentration = isIncapacitated(conditions)
+          ? undefined
+          : target.concentration;
         next.entities[target.id] = syncEconomy({
           ...target,
-          conditions: [...others, applied],
+          conditions,
+          concentration,
         });
       }
       break;
@@ -240,10 +268,55 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "DeathSaveRolled": {
+      const target = next.entities[event.payload.entity];
+      if (target) {
+        if (event.payload.revived) {
+          // Natural 20: stand back up with 1 HP.
+          next.entities[target.id] = {
+            ...target,
+            hp: { ...target.hp, current: 1 },
+            alive: true,
+            dead: false,
+            deathSaves: undefined,
+            stable: false,
+          };
+        } else {
+          next.entities[target.id] = {
+            ...target,
+            deathSaves: {
+              successes: event.payload.successes,
+              failures: event.payload.failures,
+            },
+            stable: event.payload.stable,
+            dead: event.payload.dead,
+          };
+        }
+      }
+      break;
+    }
+    case "ConcentrationStarted": {
+      const target = next.entities[event.payload.entity];
+      if (target) {
+        next.entities[target.id] = {
+          ...target,
+          concentration: { spell: event.payload.spell },
+        };
+      }
+      break;
+    }
+    case "ConcentrationBroken": {
+      const target = next.entities[event.payload.entity];
+      if (target) {
+        next.entities[target.id] = { ...target, concentration: undefined };
+      }
+      break;
+    }
+    case "Rested":
     case "AttackResolved":
     case "SaveRolled":
     case "DiceRolled":
-      // Pure record; HP changes ride on the paired DamageDealt event.
+      // Pure record; state changes ride on paired Healing/Condition events.
       break;
   }
 

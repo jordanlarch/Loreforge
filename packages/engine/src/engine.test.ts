@@ -112,7 +112,8 @@ describe("Engine command pipeline", () => {
     if (!result.accepted) expect(result.reason.code).toBe("TARGET_NOT_FOUND");
   });
 
-  it("refuses to heal a dead entity", async () => {
+  it("heals a downed (0 HP, not dead) creature back to its feet", async () => {
+    // 100 necrotic drops Thorin to 0 HP: downed and unconscious, but not dead.
     await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:thorin",
@@ -124,8 +125,13 @@ describe("Engine command pipeline", () => {
       target: "pc:thorin",
       source: { amount: 10 },
     });
-    expect(result.accepted).toBe(false);
-    if (!result.accepted) expect(result.reason.code).toBe("TARGET_DEAD");
+    expect(result.accepted).toBe(true);
+    const state = await engine.getState(CAMPAIGN);
+    const thorin = state.entities["pc:thorin"];
+    expect(thorin?.hp.current).toBe(10);
+    expect(thorin?.alive).toBe(true);
+    expect(thorin?.dead).toBe(false);
+    expect(thorin?.deathSaves).toBeUndefined();
   });
 
   it("heals up to max", async () => {

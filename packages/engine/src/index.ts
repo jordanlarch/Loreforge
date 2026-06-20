@@ -55,6 +55,8 @@ export {
   type AbilityScores,
   type ActionEconomyState,
   type ClassLevel,
+  type ConcentrationState,
+  type DeathSaveTally,
   type EntityInit,
   type EntityKind,
   type EntityRef,
@@ -103,6 +105,12 @@ export {
   type ConditionState,
   type RollAdjust,
 } from "./combat/conditions";
+export {
+  concentrationDC,
+  resolveDeathSave,
+  type DeathSaveResolution,
+  type DeathSaveTally as DeathSaveTallyInput,
+} from "./combat/death";
 export {
   applyAbilityBonuses,
   ASI_LEVELS,

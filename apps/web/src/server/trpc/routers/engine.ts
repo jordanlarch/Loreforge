@@ -145,6 +145,24 @@ const commandSchema = z.discriminatedUnion("type", [
     dc: z.number().int(),
     mode: rollMode.optional(),
   }),
+  z.object({
+    type: z.literal("death_save"),
+    entity: z.string(),
+    mode: rollMode.optional(),
+  }),
+  z.object({
+    type: z.literal("short_rest"),
+    entity: z.string(),
+    hitDice: z.number().int().min(0).optional(),
+    dieSize: z.number().int().min(1).optional(),
+  }),
+  z.object({ type: z.literal("long_rest"), entity: z.string() }),
+  z.object({
+    type: z.literal("start_concentration"),
+    entity: z.string(),
+    spell: z.string(),
+  }),
+  z.object({ type: z.literal("end_concentration"), entity: z.string() }),
 ]);
 
 export const engineRouter = createTRPCRouter({

@@ -130,6 +130,41 @@ export type SavingThrowCommand = {
   mode?: RollMode;
 };
 
+/** Roll a death saving throw for a creature dying at 0 HP. */
+export type DeathSaveCommand = {
+  type: "death_save";
+  entity: EntityRef;
+  mode?: RollMode;
+};
+
+/**
+ * Short rest: optionally spend Hit Dice to heal. The die size is supplied by the
+ * caller (the engine does not yet track a hit-dice pool); each die adds CON mod.
+ */
+export type ShortRestCommand = {
+  type: "short_rest";
+  entity: EntityRef;
+  hitDice?: number;
+  dieSize?: number;
+};
+
+/** Long rest: restore HP to full, clear dying state, reduce exhaustion by one. */
+export type LongRestCommand = {
+  type: "long_rest";
+  entity: EntityRef;
+};
+
+export type StartConcentrationCommand = {
+  type: "start_concentration";
+  entity: EntityRef;
+  spell: string;
+};
+
+export type EndConcentrationCommand = {
+  type: "end_concentration";
+  entity: EntityRef;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -144,7 +179,12 @@ export type Command =
   | AttackCommand
   | ApplyConditionCommand
   | RemoveConditionCommand
-  | SavingThrowCommand;
+  | SavingThrowCommand
+  | DeathSaveCommand
+  | ShortRestCommand
+  | LongRestCommand
+  | StartConcentrationCommand
+  | EndConcentrationCommand;
 
 export type CommandType = Command["type"];
 
@@ -170,7 +210,9 @@ export type ValidationCode =
   | "ACTION_UNAVAILABLE"
   | "IMMOBILIZED"
   | "INVALID_TARGET"
-  | "UNKNOWN_CONDITION";
+  | "UNKNOWN_CONDITION"
+  | "NOT_DYING"
+  | "ALREADY_DEAD";
 
 export type ValidationFailure = {
   code: ValidationCode;

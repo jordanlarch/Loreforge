@@ -129,6 +129,34 @@ export type SaveRolledPayload = {
   autoFail: boolean;
 };
 
+export type DeathSaveRolledPayload = {
+  entity: EntityRef;
+  natural: number;
+  mode: RollMode;
+  /** Resulting tally after this roll. */
+  successes: number;
+  failures: number;
+  stable: boolean;
+  dead: boolean;
+  /** Natural 20 — regained 1 HP. */
+  revived: boolean;
+};
+
+export type RestedPayload = {
+  entity: EntityRef;
+  kind: "short" | "long";
+};
+
+export type ConcentrationStartedPayload = {
+  entity: EntityRef;
+  spell: string;
+};
+
+export type ConcentrationBrokenPayload = {
+  entity: EntityRef;
+  reason: "damage" | "ended" | "incapacitated" | "downed" | "recast";
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -146,7 +174,17 @@ export type EngineEvent =
   | (EventMeta & { type: "AttackResolved"; payload: AttackResolvedPayload })
   | (EventMeta & { type: "ConditionApplied"; payload: ConditionAppliedPayload })
   | (EventMeta & { type: "ConditionRemoved"; payload: ConditionRemovedPayload })
-  | (EventMeta & { type: "SaveRolled"; payload: SaveRolledPayload });
+  | (EventMeta & { type: "SaveRolled"; payload: SaveRolledPayload })
+  | (EventMeta & { type: "DeathSaveRolled"; payload: DeathSaveRolledPayload })
+  | (EventMeta & { type: "Rested"; payload: RestedPayload })
+  | (EventMeta & {
+      type: "ConcentrationStarted";
+      payload: ConcentrationStartedPayload;
+    })
+  | (EventMeta & {
+      type: "ConcentrationBroken";
+      payload: ConcentrationBrokenPayload;
+    });
 
 export type EngineEventType = EngineEvent["type"];
 

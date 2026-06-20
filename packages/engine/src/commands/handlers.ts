@@ -22,6 +22,7 @@ import {
   saveResolution,
   type RollAdjust,
 } from "../combat/conditions";
+import { concentrationDC, resolveDeathSave } from "../combat/death";
 import type { EntityState, GridPosition } from "../entities/types";
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
@@ -38,12 +39,17 @@ import {
   type CreateEntityCommand,
   type CreateSceneCommand,
   type DamageSource,
+  type DeathSaveCommand,
+  type EndConcentrationCommand,
   type EndTurnCommand,
+  type LongRestCommand,
   type MoveEntityCommand,
   type RemoveConditionCommand,
   type RollDiceCommand,
   type RollInitiativeCommand,
   type SavingThrowCommand,
+  type ShortRestCommand,
+  type StartConcentrationCommand,
   type StartEncounterCommand,
 } from "./types";
 
@@ -152,6 +158,72 @@ function handleRollDice(
   };
 }
 
+/**
+ * If `target` is concentrating and survives `damage`, roll the CON save to
+ * maintain it (DC = max(10, damage/2)); on failure, break concentration.
+ * Returns the events to append (empty when no check is due). Dropping to 0 HP
+ * breaks concentration in the projection, so no save is rolled in that case.
+ */
+function concentrationCheckEvents(
+  ctx: ExecutionContext,
+  target: EntityState,
+  damage: number,
+  hpAfter: number,
+): DraftEvent[] {
+  if (!target.concentration || damage <= 0 || hpAfter <= 0) return [];
+  const dc = concentrationDC(damage);
+  const { autoFail, mode } = saveResolution("con", target.conditions);
+  if (autoFail) {
+    return [
+      {
+        type: "SaveRolled",
+        ...meta(ctx, target.id),
+        payload: {
+          entity: target.id,
+          ability: "con",
+          dc,
+          mode: "normal",
+          success: false,
+          autoFail: true,
+        },
+      },
+      {
+        type: "ConcentrationBroken",
+        ...meta(ctx, target.id),
+        payload: { entity: target.id, reason: "damage" },
+      },
+    ];
+  }
+  const roll = ctx.roll("1d20", `concentration:${target.id}`, mode);
+  const total = roll.total + abilityModifier(target.abilityScores.con);
+  const success = total >= dc;
+  const events: DraftEvent[] = [
+    rollDiceEvent(ctx, roll),
+    {
+      type: "SaveRolled",
+      ...meta(ctx, target.id),
+      payload: {
+        entity: target.id,
+        ability: "con",
+        dc,
+        mode: mode as RollMode,
+        natural: roll.total,
+        total,
+        success,
+        autoFail: false,
+      },
+    },
+  ];
+  if (!success) {
+    events.push({
+      type: "ConcentrationBroken",
+      ...meta(ctx, target.id),
+      payload: { entity: target.id, reason: "damage" },
+    });
+  }
+  return events;
+}
+
 function handleApplyDamage(
   cmd: ApplyDamageCommand,
   ctx: ExecutionContext,
@@ -167,7 +239,7 @@ function handleApplyDamage(
   const toCurrent = amount - fromTemp;
   const hpAfter = Math.max(0, target.hp.current - toCurrent);
 
-  const events = [
+  const events: DraftEvent[] = [
     ...(rollEvent ? [rollEvent] : []),
     {
       type: "DamageDealt" as const,
@@ -180,6 +252,7 @@ function handleApplyDamage(
         hpAfter,
       },
     },
+    ...concentrationCheckEvents(ctx, target, amount, hpAfter),
   ];
 
   return {
@@ -203,7 +276,7 @@ function handleApplyHealing(
   if (!target) {
     return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
   }
-  if (!target.alive) {
+  if (target.dead) {
     return reject("TARGET_DEAD", `${target.name} is dead and cannot be healed.`);
   }
   const scope = cmd.scope ?? `heal:${cmd.target}`;
@@ -598,6 +671,7 @@ function handleAttack(
         hpAfter,
       },
     });
+    events.push(...concentrationCheckEvents(ctx, target, damage, hpAfter));
   }
 
   return {
@@ -737,6 +811,209 @@ function handleSavingThrow(
   };
 }
 
+function handleDeathSave(
+  cmd: DeathSaveCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  if (entity.dead) {
+    return reject("ALREADY_DEAD", `${entity.name} is already dead.`);
+  }
+  if (entity.hp.current > 0) {
+    return reject("NOT_DYING", `${entity.name} is not dying (HP > 0).`);
+  }
+  if (entity.stable) {
+    return reject("NOT_DYING", `${entity.name} is stable and need not roll.`);
+  }
+
+  const roll = ctx.roll("1d20", `death-save:${cmd.entity}`, cmd.mode);
+  const current = entity.deathSaves ?? { successes: 0, failures: 0 };
+  const res = resolveDeathSave(roll.total, current);
+
+  return {
+    accepted: true,
+    events: [
+      rollDiceEvent(ctx, roll),
+      {
+        type: "DeathSaveRolled",
+        ...meta(ctx, cmd.entity),
+        payload: {
+          entity: cmd.entity,
+          natural: roll.total,
+          mode: cmd.mode ?? "normal",
+          successes: res.successes,
+          failures: res.failures,
+          stable: res.stable,
+          dead: res.dead,
+          revived: res.revived,
+        },
+      },
+    ],
+    summary: {
+      entity: cmd.entity,
+      natural: roll.total,
+      successes: res.successes,
+      failures: res.failures,
+      stable: res.stable,
+      dead: res.dead,
+      revived: res.revived,
+    },
+  };
+}
+
+function handleShortRest(
+  cmd: ShortRestCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  if (entity.dead) {
+    return reject("TARGET_DEAD", `${entity.name} is dead.`);
+  }
+
+  const events: DraftEvent[] = [];
+  const dice = Math.max(0, Math.floor(cmd.hitDice ?? 0));
+  if (dice > 0 && cmd.dieSize && cmd.dieSize > 0) {
+    const conMod = abilityModifier(entity.abilityScores.con);
+    const roll = ctx.roll(`${dice}d${cmd.dieSize}`, `short-rest:${cmd.entity}`);
+    const healed = Math.max(0, roll.total + conMod * dice);
+    const hpAfter = Math.min(entity.hp.max, entity.hp.current + healed);
+    events.push(rollDiceEvent(ctx, roll));
+    events.push({
+      type: "HealingApplied",
+      ...meta(ctx, cmd.entity),
+      payload: {
+        target: cmd.entity,
+        amount: healed,
+        hpBefore: entity.hp.current,
+        hpAfter,
+      },
+    });
+  }
+  events.push({
+    type: "Rested",
+    ...meta(ctx, cmd.entity),
+    payload: { entity: cmd.entity, kind: "short" },
+  });
+
+  return { accepted: true, events, summary: { entity: cmd.entity, kind: "short" } };
+}
+
+function handleLongRest(
+  cmd: LongRestCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  if (entity.dead) {
+    return reject("TARGET_DEAD", `${entity.name} is dead.`);
+  }
+
+  const events: DraftEvent[] = [];
+  // Full HP recovery (also clears dying state in the projection).
+  if (entity.hp.current < entity.hp.max) {
+    events.push({
+      type: "HealingApplied",
+      ...meta(ctx, cmd.entity),
+      payload: {
+        target: cmd.entity,
+        amount: entity.hp.max - entity.hp.current,
+        hpBefore: entity.hp.current,
+        hpAfter: entity.hp.max,
+      },
+    });
+  }
+  // Exhaustion drops by one level per SRD long rest.
+  const exhaustion = entity.conditions.find((c) => c.condition === "exhaustion");
+  if (exhaustion) {
+    const level = exhaustion.level ?? 1;
+    if (level <= 1) {
+      events.push({
+        type: "ConditionRemoved",
+        ...meta(ctx, cmd.entity),
+        payload: { target: cmd.entity, condition: "exhaustion" },
+      });
+    } else {
+      events.push({
+        type: "ConditionApplied",
+        ...meta(ctx, cmd.entity),
+        payload: { target: cmd.entity, condition: "exhaustion", level: level - 1 },
+      });
+    }
+  }
+  events.push({
+    type: "Rested",
+    ...meta(ctx, cmd.entity),
+    payload: { entity: cmd.entity, kind: "long" },
+  });
+
+  return { accepted: true, events, summary: { entity: cmd.entity, kind: "long" } };
+}
+
+function handleStartConcentration(
+  cmd: StartConcentrationCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  const events: DraftEvent[] = [];
+  // Starting a new concentration spell breaks any existing one.
+  if (entity.concentration) {
+    events.push({
+      type: "ConcentrationBroken",
+      ...meta(ctx, cmd.entity),
+      payload: { entity: cmd.entity, reason: "recast" },
+    });
+  }
+  events.push({
+    type: "ConcentrationStarted",
+    ...meta(ctx, cmd.entity),
+    payload: { entity: cmd.entity, spell: cmd.spell },
+  });
+  return {
+    accepted: true,
+    events,
+    summary: { entity: cmd.entity, spell: cmd.spell },
+  };
+}
+
+function handleEndConcentration(
+  cmd: EndConcentrationCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  if (!entity.concentration) {
+    return {
+      accepted: true,
+      events: [],
+      summary: { entity: cmd.entity, wasConcentrating: false },
+    };
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "ConcentrationBroken",
+        ...meta(ctx, cmd.entity),
+        payload: { entity: cmd.entity, reason: "ended" },
+      },
+    ],
+    summary: { entity: cmd.entity, wasConcentrating: true },
+  };
+}
+
 /** Dispatch a command to its handler. */
 export function handleCommand(
   command: Command,
@@ -771,5 +1048,15 @@ export function handleCommand(
       return handleRemoveCondition(command, ctx);
     case "saving_throw":
       return handleSavingThrow(command, ctx);
+    case "death_save":
+      return handleDeathSave(command, ctx);
+    case "short_rest":
+      return handleShortRest(command, ctx);
+    case "long_rest":
+      return handleLongRest(command, ctx);
+    case "start_concentration":
+      return handleStartConcentration(command, ctx);
+    case "end_concentration":
+      return handleEndConcentration(command, ctx);
   }
 }

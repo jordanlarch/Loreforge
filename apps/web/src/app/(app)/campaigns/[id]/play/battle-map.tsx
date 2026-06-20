@@ -1,0 +1,265 @@
+"use client";
+
+/**
+ * BattleMap — PixiJS canvas for the always-on tactical map (#16).
+ *
+ * Renders the grid, walls, tokens, the active combatant's highlight + movement
+ * radius, and supports drag-to-move. It is a *dumb* renderer: it draws the view
+ * model it is given and reports drop targets via `onMoveToken`. The engine
+ * remains authoritative — every drop is submitted as a `move_entity` command and
+ * the map re-renders from the resulting world state (snapping back if rejected).
+ *
+ * Loaded with `ssr: false` (PixiJS needs the DOM), so the static `pixi.js`
+ * import only ever runs in the browser.
+ */
+import { useEffect, useRef } from "react";
+import { Application, Container, Graphics, Text } from "pixi.js";
+
+import {
+  cellCenter,
+  cellToPixel,
+  clampCell,
+  pixelToCell,
+  type Cell,
+} from "@/lib/battle-map/geometry";
+import {
+  hpFraction,
+  TOKEN_COLORS,
+  tokenBorderColor,
+  tokenInitials,
+  type TokenKind,
+} from "@/lib/battle-map/tokens";
+
+export type BattleToken = {
+  id: string;
+  name: string;
+  kind: TokenKind;
+  position: Cell;
+  hp: { current: number; max: number };
+  alive: boolean;
+  hostile: boolean;
+  isActive: boolean;
+  draggable: boolean;
+};
+
+export type BattleMapProps = {
+  cols: number;
+  rows: number;
+  walls: Cell[];
+  tokens: BattleToken[];
+  /** Cells the active combatant can still reach this turn (movement radius). */
+  reachable: Cell[];
+  onMoveToken: (id: string, to: Cell) => void;
+};
+
+const CELL_SIZE = 44;
+
+type DragState = {
+  id: string;
+  sprite: Container;
+  origin: Cell;
+};
+
+export default function BattleMap(props: BattleMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const appRef = useRef<Application | null>(null);
+  const worldRef = useRef<Container | null>(null);
+  const propsRef = useRef(props);
+  const dragRef = useRef<DragState | null>(null);
+  const readyRef = useRef(false);
+
+  propsRef.current = props;
+
+  // One-time PixiJS application setup.
+  useEffect(() => {
+    let destroyed = false;
+    const app = new Application();
+    const el = containerRef.current;
+
+    void app
+      .init({
+        width: propsRef.current.cols * CELL_SIZE,
+        height: propsRef.current.rows * CELL_SIZE,
+        background: 0x0d0f12,
+        antialias: true,
+        autoDensity: true,
+        resolution: window.devicePixelRatio || 1,
+      })
+      .then(() => {
+        if (destroyed) {
+          app.destroy(true);
+          return;
+        }
+        appRef.current = app;
+        el?.appendChild(app.canvas);
+
+        const world = new Container();
+        app.stage.addChild(world);
+        worldRef.current = world;
+
+        app.stage.eventMode = "static";
+        app.stage.hitArea = app.screen;
+        app.stage.on("pointermove", onPointerMove);
+        app.stage.on("pointerup", onPointerUp);
+        app.stage.on("pointerupoutside", onPointerUp);
+
+        readyRef.current = true;
+        redraw();
+      });
+
+    return () => {
+      destroyed = true;
+      readyRef.current = false;
+      appRef.current = null;
+      worldRef.current = null;
+      dragRef.current = null;
+      if (app.canvas.parentNode === el && el) el.removeChild(app.canvas);
+      app.destroy(true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Redraw whenever the view model changes.
+  useEffect(() => {
+    if (readyRef.current) redraw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props]);
+
+  function onPointerMove(event: { global: { x: number; y: number } }) {
+    const drag = dragRef.current;
+    if (!drag) return;
+    drag.sprite.position.set(event.global.x, event.global.y);
+  }
+
+  function onPointerUp(event: { global: { x: number; y: number } }) {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    const { cols, rows } = propsRef.current;
+    const target = clampCell(
+      pixelToCell(event.global.x, event.global.y, CELL_SIZE),
+      cols,
+      rows,
+    );
+    if (target.x !== drag.origin.x || target.y !== drag.origin.y) {
+      propsRef.current.onMoveToken(drag.id, target);
+    } else {
+      // Returned to origin: redraw to settle the sprite back into its cell.
+      redraw();
+    }
+  }
+
+  function redraw() {
+    const world = worldRef.current;
+    if (!world) return;
+    world.removeChildren().forEach((child) => child.destroy());
+
+    const { cols, rows, walls, tokens, reachable } = propsRef.current;
+
+    // Grid lines.
+    const grid = new Graphics();
+    for (let x = 0; x <= cols; x += 1) {
+      grid.moveTo(x * CELL_SIZE, 0).lineTo(x * CELL_SIZE, rows * CELL_SIZE);
+    }
+    for (let y = 0; y <= rows; y += 1) {
+      grid.moveTo(0, y * CELL_SIZE).lineTo(cols * CELL_SIZE, y * CELL_SIZE);
+    }
+    grid.stroke({ width: 1, color: TOKEN_COLORS.grid, alpha: 1 });
+    world.addChild(grid);
+
+    // Movement radius.
+    if (reachable.length > 0) {
+      const radius = new Graphics();
+      for (const cell of reachable) {
+        const px = cellToPixel(cell, CELL_SIZE);
+        radius.rect(px.x, px.y, CELL_SIZE, CELL_SIZE);
+      }
+      radius.fill({ color: TOKEN_COLORS.accent, alpha: 0.16 });
+      world.addChild(radius);
+    }
+
+    // Walls.
+    if (walls.length > 0) {
+      const wallGfx = new Graphics();
+      for (const cell of walls) {
+        const px = cellToPixel(cell, CELL_SIZE);
+        wallGfx.rect(px.x, px.y, CELL_SIZE, CELL_SIZE);
+      }
+      wallGfx.fill({ color: TOKEN_COLORS.wall, alpha: 1 });
+      world.addChild(wallGfx);
+    }
+
+    // Tokens.
+    for (const token of tokens) {
+      world.addChild(buildToken(token));
+    }
+  }
+
+  function buildToken(token: BattleToken): Container {
+    const sprite = new Container();
+    const center = cellCenter(token.position, CELL_SIZE);
+    sprite.position.set(center.x, center.y);
+
+    const radius = CELL_SIZE * 0.38;
+    const border = tokenBorderColor(token.kind, {
+      alive: token.alive,
+      hostile: token.hostile,
+    });
+
+    if (token.isActive) {
+      const ring = new Graphics();
+      ring.circle(0, 0, radius + 4).stroke({
+        width: 3,
+        color: TOKEN_COLORS.accent,
+        alpha: 0.9,
+      });
+      sprite.addChild(ring);
+    }
+
+    const body = new Graphics();
+    body
+      .circle(0, 0, radius)
+      .fill({ color: 0x161a21, alpha: 1 })
+      .stroke({ width: 3, color: border, alpha: 1 });
+    sprite.addChild(body);
+
+    const label = new Text({
+      text: tokenInitials(token.name),
+      style: {
+        fontFamily: "Georgia, serif",
+        fontSize: 14,
+        fontWeight: "600",
+        fill: token.alive ? 0xe8ecf4 : TOKEN_COLORS.downed,
+      },
+    });
+    label.anchor.set(0.5);
+    sprite.addChild(label);
+
+    // HP bar beneath the token.
+    const barWidth = CELL_SIZE * 0.7;
+    const frac = hpFraction(token.hp.current, token.hp.max);
+    const bar = new Graphics();
+    bar
+      .rect(-barWidth / 2, radius + 4, barWidth, 4)
+      .fill({ color: 0x000000, alpha: 0.6 });
+    if (frac > 0) {
+      bar
+        .rect(-barWidth / 2, radius + 4, barWidth * frac, 4)
+        .fill({ color: frac > 0.5 ? TOKEN_COLORS.accent : TOKEN_COLORS.hostile });
+    }
+    sprite.addChild(bar);
+
+    if (token.draggable) {
+      sprite.eventMode = "static";
+      sprite.cursor = "grab";
+      sprite.on("pointerdown", () => {
+        dragRef.current = { id: token.id, sprite, origin: token.position };
+        worldRef.current?.addChild(sprite); // bring to top while dragging
+      });
+    }
+
+    return sprite;
+  }
+
+  return <div ref={containerRef} className="touch-none select-none" />;
+}

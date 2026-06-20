@@ -3,10 +3,12 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "services/*"
   ],
   "scripts": {
     "dev": "npm run dev -w @app/web",
+    "dev:ws": "npm run dev -w @app/ws-server",
     "build": "npm run build -w @app/web",
     "lint": "npm run lint -ws --if-present",
     "typecheck": "npm run typecheck -ws --if-present",

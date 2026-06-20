@@ -3,7 +3,7 @@ app = "loreforge-ws"
 primary_region = "iad"
 
 [http_service]
-  internal_port = 3001
+  internal_port = 1234
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true

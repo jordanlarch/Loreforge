@@ -3,19 +3,15 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import type { Ability } from "@app/engine";
-
 import { trpc } from "@/lib/trpc/client";
 import {
   REALM_ENTITY_TYPES,
   REALM_TYPE_LABEL,
   REALM_TYPE_LABEL_PLURAL,
-  emptyNpcData,
-  type NpcData,
   type RealmEntityType,
 } from "@/lib/realms";
 
-const ABILITIES: Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
+import { EntityForm } from "./entity-form";
 
 type ViewMode = "grid" | "list";
 
@@ -23,13 +19,17 @@ export function RealmsBrowser() {
   const [typeFilter, setTypeFilter] = useState<RealmEntityType | undefined>();
   const [view, setView] = useState<ViewMode>("grid");
   const [creating, setCreating] = useState(false);
+  const [createType, setCreateType] = useState<RealmEntityType>("npc");
 
   const counts = trpc.realms.counts.useQuery();
   const list = trpc.realms.list.useQuery(
     typeFilter ? { type: typeFilter } : undefined,
   );
 
-  const canCreateHere = typeFilter === undefined || typeFilter === "npc";
+  function startCreating() {
+    setCreateType(typeFilter ?? "npc");
+    setCreating(true);
+  }
 
   return (
     <div className="grid gap-6 md:grid-cols-[200px_1fr]">
@@ -70,32 +70,45 @@ export function RealmsBrowser() {
 
           <div className="flex items-center gap-3">
             <ViewToggle view={view} onChange={setView} />
-            {canCreateHere ? (
-              <button
-                onClick={() => setCreating((c) => !c)}
-                className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
-              >
-                {creating ? "Cancel" : "+ New NPC"}
-              </button>
-            ) : (
-              <button
-                disabled
-                title="Forms for this type arrive in a later slice. NPCs are the first realized type."
-                className="cursor-not-allowed rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted opacity-60"
-              >
-                + New {typeFilter ? REALM_TYPE_LABEL[typeFilter] : ""}
-              </button>
-            )}
+            <button
+              onClick={() => (creating ? setCreating(false) : startCreating())}
+              className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+            >
+              {creating ? "Cancel" : "+ New"}
+            </button>
           </div>
         </div>
 
-        {creating && canCreateHere && (
-          <NpcForm onCreated={() => setCreating(false)} />
+        {creating && (
+          <div className="mb-8 space-y-3">
+            <label className="flex items-center gap-2 text-sm text-lore-muted">
+              <span className="text-xs uppercase tracking-wide">Type</span>
+              <select
+                value={createType}
+                onChange={(e) =>
+                  setCreateType(e.target.value as RealmEntityType)
+                }
+                className="rounded border border-lore-border bg-lore-surface px-3 py-1.5 text-sm text-lore-text outline-none focus:border-lore-accent"
+              >
+                {REALM_ENTITY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {REALM_TYPE_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <EntityForm
+              key={createType}
+              mode="create"
+              type={createType}
+              onDone={() => setCreating(false)}
+            />
+          </div>
         )}
 
         {!list.isLoading && (list.data?.length ?? 0) === 0 && !creating ? (
           <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
-            No entities here yet. Forge your first NPC to begin populating your
+            No entities here yet. Create your first one to begin populating your
             world.
           </div>
         ) : view === "grid" ? (
@@ -214,284 +227,6 @@ function ViewToggle({
         </button>
       ))}
     </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent";
-
-function NpcForm({ onCreated }: { onCreated: () => void }) {
-  const utils = trpc.useUtils();
-  const create = trpc.realms.create.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.realms.list.invalidate(),
-        utils.realms.counts.invalidate(),
-      ]);
-      onCreated();
-    },
-  });
-
-  const [name, setName] = useState("");
-  const [summary, setSummary] = useState("");
-  const [isStub, setIsStub] = useState(false);
-  const [npc, setNpc] = useState<NpcData>(emptyNpcData());
-  const [className, setClassName] = useState("");
-  const [classLevel, setClassLevel] = useState(1);
-  const [skillsText, setSkillsText] = useState("");
-
-  function setScore(ability: Ability, value: number) {
-    setNpc((prev) => ({
-      ...prev,
-      abilityScores: { ...prev.abilityScores, [ability]: value },
-    }));
-  }
-
-  function toggleSave(ability: Ability) {
-    setNpc((prev) => ({
-      ...prev,
-      saveProficiencies: prev.saveProficiencies.includes(ability)
-        ? prev.saveProficiencies.filter((a) => a !== ability)
-        : [...prev.saveProficiencies, ability],
-    }));
-  }
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const classes = className.trim()
-      ? [{ class: className.trim(), level: classLevel }]
-      : [];
-    const skillProficiencies = skillsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    create.mutate({
-      type: "npc",
-      name: name.trim(),
-      summary: summary.trim(),
-      isStub,
-      data: { ...npc, classes, skillProficiencies },
-    });
-  }
-
-  return (
-    <form
-      onSubmit={submit}
-      className="mb-8 space-y-5 rounded-lg border border-lore-border bg-lore-surface p-6"
-    >
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Name">
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Species">
-          <input
-            value={npc.species}
-            onChange={(e) => setNpc({ ...npc, species: e.target.value })}
-            placeholder="Human, Dwarf…"
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Role">
-          <input
-            value={npc.role}
-            onChange={(e) => setNpc({ ...npc, role: e.target.value })}
-            placeholder="Blacksmith, Innkeeper…"
-            className={inputClass}
-          />
-        </Field>
-      </div>
-
-      <Field label="Summary">
-        <textarea
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-          rows={2}
-          placeholder="A grizzled smith with a soft spot for strays…"
-          className={inputClass}
-        />
-      </Field>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Class (optional)">
-          <input
-            value={className}
-            onChange={(e) => setClassName(e.target.value)}
-            placeholder="Fighter"
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Class level">
-          <input
-            type="number"
-            min={1}
-            max={20}
-            value={classLevel}
-            onChange={(e) =>
-              setClassLevel(Number.parseInt(e.target.value, 10) || 1)
-            }
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Alignment">
-          <input
-            value={npc.alignment}
-            onChange={(e) => setNpc({ ...npc, alignment: e.target.value })}
-            placeholder="Neutral Good"
-            className={inputClass}
-          />
-        </Field>
-      </div>
-
-      <div>
-        <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
-          Ability Scores
-        </span>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          {ABILITIES.map((ability) => (
-            <label key={ability} className="block text-center">
-              <span className="mb-1 block text-xs uppercase text-lore-muted">
-                {ability}
-              </span>
-              <input
-                type="number"
-                min={1}
-                max={30}
-                value={npc.abilityScores[ability]}
-                onChange={(e) =>
-                  setScore(ability, Number.parseInt(e.target.value, 10) || 0)
-                }
-                className={`${inputClass} text-center`}
-              />
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Max HP">
-          <input
-            type="number"
-            min={1}
-            max={1000}
-            value={npc.maxHp}
-            onChange={(e) =>
-              setNpc({
-                ...npc,
-                maxHp: Number.parseInt(e.target.value, 10) || 1,
-              })
-            }
-            className={inputClass}
-          />
-        </Field>
-        <Field label="AC">
-          <input
-            type="number"
-            min={1}
-            max={40}
-            value={npc.baseAc}
-            onChange={(e) =>
-              setNpc({
-                ...npc,
-                baseAc: Number.parseInt(e.target.value, 10) || 10,
-              })
-            }
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Speed (ft)">
-          <input
-            type="number"
-            min={0}
-            max={200}
-            value={npc.speed}
-            onChange={(e) =>
-              setNpc({
-                ...npc,
-                speed: Number.parseInt(e.target.value, 10) || 0,
-              })
-            }
-            className={inputClass}
-          />
-        </Field>
-      </div>
-
-      <div>
-        <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
-          Saving Throw Proficiencies
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {ABILITIES.map((ability) => (
-            <button
-              key={ability}
-              type="button"
-              onClick={() => toggleSave(ability)}
-              className={`rounded border px-3 py-1 text-sm uppercase transition-colors ${
-                npc.saveProficiencies.includes(ability)
-                  ? "border-lore-accent bg-lore-accent-dim text-lore-text"
-                  : "border-lore-border text-lore-muted hover:text-lore-text"
-              }`}
-            >
-              {ability}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <Field label="Skill Proficiencies (comma-separated)">
-        <input
-          value={skillsText}
-          onChange={(e) => setSkillsText(e.target.value)}
-          placeholder="Athletics, Intimidation, Insight"
-          className={inputClass}
-        />
-      </Field>
-
-      <label className="flex items-center gap-2 text-sm text-lore-muted">
-        <input
-          type="checkbox"
-          checked={isStub}
-          onChange={(e) => setIsStub(e.target.checked)}
-          className="accent-lore-accent"
-        />
-        Mark as stub (placeholder awaiting generator expansion)
-      </label>
-
-      {create.error && (
-        <p className="text-sm text-red-400">{create.error.message}</p>
-      )}
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={create.isPending}
-          className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
-        >
-          {create.isPending ? "Creating…" : "Create NPC"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }
 

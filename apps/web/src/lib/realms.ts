@@ -122,3 +122,126 @@ export function npcToSheetInput(row: {
     skillProficiencies: d.skillProficiencies ?? [],
   };
 }
+
+/* -------------------------------------------------------------------------- *
+ *  Descriptor-driven types (everything except NPC)
+ *
+ *  The seven non-NPC types are descriptive rather than mechanical, so instead
+ *  of bespoke forms each one declares a list of fields here. The generic
+ *  create/edit form renders from these, the detail view reads from them, and
+ *  the tRPC layer derives its per-type zod `data` schema from the same list —
+ *  one source of truth for the shape.
+ * -------------------------------------------------------------------------- */
+
+export type RealmFieldKind = "text" | "textarea" | "number" | "select";
+
+export type RealmFieldDescriptor = {
+  key: string;
+  label: string;
+  kind: RealmFieldKind;
+  placeholder?: string;
+  /** Allowed values for `select` (first is the default). */
+  options?: readonly string[];
+  /** Max string length (text/textarea) or max value (number). */
+  max?: number;
+  /** Min value (number). */
+  min?: number;
+};
+
+/** Per-type descriptive fields. NPC is mechanical and handled separately. */
+export const REALM_FIELDS: Record<
+  Exclude<RealmEntityType, "npc">,
+  readonly RealmFieldDescriptor[]
+> = {
+  region: [
+    { key: "terrain", label: "Terrain", kind: "text", placeholder: "Forests, mountains…" },
+    { key: "climate", label: "Climate", kind: "text", placeholder: "Temperate, arctic…" },
+    { key: "features", label: "Notable Features", kind: "textarea", placeholder: "Landmarks, dangers, resources…" },
+  ],
+  settlement: [
+    { key: "size", label: "Size", kind: "select", options: ["Hamlet", "Village", "Town", "City", "Metropolis"] },
+    { key: "population", label: "Population", kind: "number", min: 0, max: 100_000_000 },
+    { key: "government", label: "Government", kind: "text", placeholder: "Council, monarchy…" },
+    { key: "notes", label: "Notes", kind: "textarea" },
+  ],
+  building: [
+    { key: "kind", label: "Kind", kind: "text", placeholder: "Temple, keep, manor…" },
+    { key: "occupants", label: "Occupants", kind: "textarea" },
+    { key: "notes", label: "Notes", kind: "textarea" },
+  ],
+  tavern: [
+    { key: "proprietor", label: "Proprietor", kind: "text" },
+    { key: "specialty", label: "Specialty", kind: "text", placeholder: "Signature drink or dish" },
+    { key: "atmosphere", label: "Atmosphere", kind: "text", placeholder: "Rowdy, cozy…" },
+    { key: "notes", label: "Notes", kind: "textarea" },
+  ],
+  shop: [
+    { key: "kind", label: "Kind", kind: "text", placeholder: "Smithy, apothecary…" },
+    { key: "proprietor", label: "Proprietor", kind: "text" },
+    { key: "wares", label: "Notable Wares", kind: "textarea" },
+    { key: "priceLevel", label: "Price Level", kind: "select", options: ["Cheap", "Modest", "Expensive", "Luxury"] },
+  ],
+  dungeon: [
+    { key: "kind", label: "Kind", kind: "text", placeholder: "Crypt, cavern, ruin…" },
+    { key: "depth", label: "Levels / Depth", kind: "number", min: 0, max: 1000 },
+    { key: "threat", label: "Threat", kind: "select", options: ["Low", "Moderate", "Deadly"] },
+    { key: "hook", label: "Hook", kind: "textarea", placeholder: "Why would the party come here?" },
+  ],
+  faction: [
+    { key: "kind", label: "Kind", kind: "text", placeholder: "Guild, cult, kingdom…" },
+    { key: "leadership", label: "Leadership", kind: "text" },
+    { key: "goals", label: "Goals", kind: "textarea" },
+    { key: "influence", label: "Influence", kind: "select", options: ["Local", "Regional", "National", "Continental"] },
+  ],
+};
+
+/** A blank `data` payload for a type, suitable for seeding a create form. */
+export function emptyDataFor(type: RealmEntityType): Record<string, unknown> {
+  if (type === "npc") return emptyNpcData() as unknown as Record<string, unknown>;
+  const data: Record<string, string | number> = {};
+  for (const field of REALM_FIELDS[type]) {
+    if (field.kind === "number") data[field.key] = field.min ?? 0;
+    else if (field.kind === "select") data[field.key] = field.options?.[0] ?? "";
+    else data[field.key] = "";
+  }
+  return data;
+}
+
+/* -------------------------------------------------------------------------- *
+ *  Relationships
+ * -------------------------------------------------------------------------- */
+
+/** Directed relationship kinds (mirrors the `realm_relationships.kind` column). */
+export const REALM_RELATIONSHIP_KINDS = [
+  "located_in",
+  "member_of",
+  "owns",
+  "rules",
+  "allied_with",
+  "rival_of",
+  "related_to",
+] as const;
+
+export type RealmRelationshipKind = (typeof REALM_RELATIONSHIP_KINDS)[number];
+
+/** Label from the source entity's perspective (`from → to`). */
+export const REL_LABEL: Record<RealmRelationshipKind, string> = {
+  located_in: "Located in",
+  member_of: "Member of",
+  owns: "Owns",
+  rules: "Rules",
+  allied_with: "Allied with",
+  rival_of: "Rival of",
+  related_to: "Related to",
+};
+
+/** Label from the target entity's perspective (`to ← from`). */
+export const REL_INVERSE_LABEL: Record<RealmRelationshipKind, string> = {
+  located_in: "Contains",
+  member_of: "Has member",
+  owns: "Owned by",
+  rules: "Ruled by",
+  allied_with: "Allied with",
+  rival_of: "Rival of",
+  related_to: "Related to",
+};

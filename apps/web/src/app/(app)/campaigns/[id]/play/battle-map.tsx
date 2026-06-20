@@ -73,6 +73,10 @@ export default function BattleMap(props: BattleMapProps) {
   // One-time PixiJS application setup.
   useEffect(() => {
     let destroyed = false;
+    // Whether `app.init()` resolved. Until it does, `app.canvas` / `app.destroy`
+    // dereference a renderer that does not exist yet and throw — which Strict
+    // Mode's synchronous mount→unmount→remount in dev would otherwise trip.
+    let initialized = false;
     const app = new Application();
     const el = containerRef.current;
 
@@ -90,6 +94,7 @@ export default function BattleMap(props: BattleMapProps) {
           app.destroy(true);
           return;
         }
+        initialized = true;
         appRef.current = app;
         el?.appendChild(app.canvas);
 
@@ -113,17 +118,24 @@ export default function BattleMap(props: BattleMapProps) {
       appRef.current = null;
       worldRef.current = null;
       dragRef.current = null;
-      if (app.canvas.parentNode === el && el) el.removeChild(app.canvas);
+      // If init hasn't resolved, the pending `.then` sees `destroyed` and tears
+      // the (by-then-initialized) app down itself; touching it here would throw.
+      if (!initialized) return;
+      if (el && app.canvas.parentNode === el) el.removeChild(app.canvas);
       app.destroy(true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redraw whenever the view model changes.
+  // Redraw only when the view-model data actually changes. These fields come
+  // from a memoized view model, so their references stay stable across renders
+  // where the world state is unchanged (e.g. while a move mutation is pending).
+  // Keying on the whole `props` object instead would redraw on every render and
+  // briefly snap an optimistically-dragged token back to its stale position.
   useEffect(() => {
     if (readyRef.current) redraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props]);
+  }, [props.cols, props.rows, props.walls, props.tokens, props.reachable]);
 
   function onPointerMove(event: { global: { x: number; y: number } }) {
     const drag = dragRef.current;

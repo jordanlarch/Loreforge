@@ -13,6 +13,7 @@ import type {
   SceneId,
   SceneState,
 } from "../entities/types";
+import type { InitiativeEntry } from "../combat/initiative";
 
 /** Common envelope fields stamped on every persisted event. */
 export type EventMeta = {
@@ -64,6 +65,30 @@ export type EntityMovedPayload = {
   to: GridPosition;
 };
 
+export type EncounterStartedPayload = {
+  sceneId: SceneId;
+  combatants: EntityRef[];
+};
+
+export type InitiativeRolledPayload = {
+  /** Combatants in resolved descending turn order. */
+  order: InitiativeEntry[];
+};
+
+export type TurnStartedPayload = {
+  entity: EntityRef;
+  /** Index of this combatant within the initiative order. */
+  index: number;
+};
+
+export type TurnEndedPayload = {
+  entity: EntityRef;
+};
+
+export type RoundAdvancedPayload = {
+  round: number;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -72,7 +97,12 @@ export type EngineEvent =
   | (EventMeta & { type: "DiceRolled"; payload: DiceRolledPayload })
   | (EventMeta & { type: "DamageDealt"; payload: DamageDealtPayload })
   | (EventMeta & { type: "HealingApplied"; payload: HealingAppliedPayload })
-  | (EventMeta & { type: "EntityMoved"; payload: EntityMovedPayload });
+  | (EventMeta & { type: "EntityMoved"; payload: EntityMovedPayload })
+  | (EventMeta & { type: "EncounterStarted"; payload: EncounterStartedPayload })
+  | (EventMeta & { type: "InitiativeRolled"; payload: InitiativeRolledPayload })
+  | (EventMeta & { type: "TurnStarted"; payload: TurnStartedPayload })
+  | (EventMeta & { type: "TurnEnded"; payload: TurnEndedPayload })
+  | (EventMeta & { type: "RoundAdvanced"; payload: RoundAdvancedPayload });
 
 export type EngineEventType = EngineEvent["type"];
 

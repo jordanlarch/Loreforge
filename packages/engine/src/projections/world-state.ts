@@ -6,6 +6,7 @@
  * in place — each step returns a new state object — so a retcon can rebuild
  * from genesis deterministically (`docs/engine/architecture.md` §3.2).
  */
+import { freshActionEconomy, type InitiativeEntry } from "../combat/initiative";
 import { createEntityState } from "../entities/abilities";
 import type {
   EntityRef,
@@ -15,11 +16,27 @@ import type {
 } from "../entities/types";
 import type { EngineEvent } from "../events/types";
 
+/** Active-encounter projection: turn order, whose turn it is, and the round. */
+export type EncounterState = {
+  sceneId: SceneId;
+  /** Encounter membership, set at start (before initiative is rolled). */
+  combatants: EntityRef[];
+  /** Resolved descending turn order; empty until initiative is rolled. */
+  order: InitiativeEntry[];
+  initiativeRolled: boolean;
+  /** 0 before initiative; 1-based once combat begins. */
+  round: number;
+  /** Index into `order` of the active combatant. */
+  activeIndex: number;
+};
+
 export type WorldState = {
   campaignId: string;
   entities: Record<EntityRef, EntityState>;
   scenes: Record<SceneId, SceneState>;
   currentSceneId?: SceneId;
+  /** Present while an encounter is active. */
+  encounter?: EncounterState;
   /** Sequence number of the last event folded into this state. */
   lastSequence: number;
 };
@@ -98,6 +115,55 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           ...entity,
           position: { ...event.payload.to },
         };
+      }
+      break;
+    }
+    case "EncounterStarted": {
+      next.encounter = {
+        sceneId: event.payload.sceneId,
+        combatants: [...event.payload.combatants],
+        order: [],
+        initiativeRolled: false,
+        round: 0,
+        activeIndex: 0,
+      };
+      break;
+    }
+    case "InitiativeRolled": {
+      if (next.encounter) {
+        next.encounter = {
+          ...next.encounter,
+          order: event.payload.order.map((e) => ({ ...e })),
+          initiativeRolled: true,
+          round: 1,
+          activeIndex: 0,
+        };
+      }
+      break;
+    }
+    case "TurnStarted": {
+      if (next.encounter) {
+        next.encounter = { ...next.encounter, activeIndex: event.payload.index };
+      }
+      const actor = next.entities[event.payload.entity];
+      if (actor) {
+        next.entities[actor.id] = {
+          ...actor,
+          actionEconomy: freshActionEconomy(actor.speed),
+        };
+      }
+      break;
+    }
+    case "TurnEnded": {
+      const actor = next.entities[event.payload.entity];
+      if (actor) {
+        next.entities[actor.id] = { ...actor, actionEconomy: undefined };
+      }
+      break;
+    }
+    case "RoundAdvanced": {
+      if (next.encounter) {
+        next.encounter = { ...next.encounter, round: event.payload.round };
       }
       break;
     }

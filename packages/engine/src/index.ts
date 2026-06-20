@@ -53,6 +53,7 @@ export {
   ABILITIES,
   type Ability,
   type AbilityScores,
+  type ActionEconomyState,
   type ClassLevel,
   type EntityInit,
   type EntityKind,
@@ -60,9 +61,18 @@ export {
   type EntityState,
   type GridPosition,
   type HitPoints,
+  type ResourceState,
   type SceneId,
   type SceneState,
 } from "./entities/types";
+
+// Combat
+export {
+  freshActionEconomy,
+  sortInitiative,
+  type InitiativeEntry,
+  type InitiativeRollInput,
+} from "./combat/initiative";
 export {
   applyAbilityBonuses,
   ASI_LEVELS,
@@ -146,6 +156,7 @@ export {
   applyEvent,
   emptyWorldState,
   rebuild,
+  type EncounterState,
   type WorldState,
 } from "./projections/world-state";
 
@@ -166,8 +177,11 @@ export {
   type CreateEntityCommand,
   type CreateSceneCommand,
   type DamageSource,
+  type EndTurnCommand,
   type MoveEntityCommand,
   type RollDiceCommand,
+  type RollInitiativeCommand,
+  type StartEncounterCommand,
   type ValidationCode,
   type ValidationFailure,
 } from "./commands/types";

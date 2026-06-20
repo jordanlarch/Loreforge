@@ -100,6 +100,16 @@ const commandSchema = z.discriminatedUnion("type", [
     entity: z.string(),
     to: gridPosition,
   }),
+  z.object({
+    type: z.literal("start_encounter"),
+    sceneId: z.string().optional(),
+    combatants: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal("roll_initiative"),
+    bonuses: z.record(z.string(), z.number().int()).optional(),
+  }),
+  z.object({ type: z.literal("end_turn") }),
 ]);
 
 export const engineRouter = createTRPCRouter({

@@ -49,6 +49,25 @@ export type ClassLevel = {
   subclass?: string;
 };
 
+/**
+ * Availability of a single per-turn resource (action / bonus action / reaction).
+ * `lost` is distinct from `used`: it means the resource was denied for a reason
+ * (e.g. an incapacitating condition) rather than spent. Conditions (#12) set the
+ * `lost` state; this slice only ever transitions available ↔ used on reset.
+ * (Arch §5.1, trimmed: the `usedBy`/`at` command refs are deferred.)
+ */
+export type ResourceState = "available" | "used" | "lost";
+
+/** Per-combatant action economy for the current turn (arch §5.1). */
+export type ActionEconomyState = {
+  action: ResourceState;
+  bonusAction: ResourceState;
+  reaction: ResourceState;
+  movement: { used: number; total: number };
+  /** One free object interaction per turn. */
+  freeInteractionUsed: boolean;
+};
+
 /** Canonical entity record held in the WorldState projection. */
 export type EntityState = {
   id: EntityRef;
@@ -67,6 +86,12 @@ export type EntityState = {
   position?: GridPosition;
   /** True while current HP > 0. Maintained by the projection. */
   alive: boolean;
+  /**
+   * Action economy for the current turn. Present only while it is this
+   * combatant's turn in an active encounter; reset on `TurnStarted`, cleared on
+   * `TurnEnded`. Undefined outside of combat.
+   */
+  actionEconomy?: ActionEconomyState;
 };
 
 export type SceneState = {

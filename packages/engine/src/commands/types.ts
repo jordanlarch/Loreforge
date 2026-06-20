@@ -65,6 +65,26 @@ export type MoveEntityCommand = {
   to: GridPosition;
 };
 
+/** Open an encounter over a set of combatants in a scene. Initiative is rolled separately. */
+export type StartEncounterCommand = {
+  type: "start_encounter";
+  /** Defaults to the current scene. */
+  sceneId?: SceneId;
+  combatants: EntityRef[];
+};
+
+/** Roll initiative for every combatant in the open encounter and begin round 1. */
+export type RollInitiativeCommand = {
+  type: "roll_initiative";
+  /** Flat per-combatant initiative bonuses (e.g. Alert feat). */
+  bonuses?: Record<EntityRef, number>;
+};
+
+/** End the active combatant's turn, advancing the order (and round on wrap). */
+export type EndTurnCommand = {
+  type: "end_turn";
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -72,7 +92,10 @@ export type Command =
   | RollDiceCommand
   | ApplyDamageCommand
   | ApplyHealingCommand
-  | MoveEntityCommand;
+  | MoveEntityCommand
+  | StartEncounterCommand
+  | RollInitiativeCommand
+  | EndTurnCommand;
 
 export type CommandType = Command["type"];
 
@@ -83,7 +106,13 @@ export type ValidationCode =
   | "SCENE_NOT_FOUND"
   | "DUPLICATE_ENTITY"
   | "DUPLICATE_SCENE"
-  | "INVALID_PAYLOAD";
+  | "INVALID_PAYLOAD"
+  | "ENCOUNTER_EXISTS"
+  | "NO_ENCOUNTER"
+  | "EMPTY_ENCOUNTER"
+  | "NOT_IN_ENCOUNTER"
+  | "INITIATIVE_NOT_ROLLED"
+  | "INITIATIVE_ALREADY_ROLLED";
 
 export type ValidationFailure = {
   code: ValidationCode;

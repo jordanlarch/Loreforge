@@ -8,9 +8,8 @@ export default function CharactersPage() {
           Characters
         </h1>
         <p className="mt-2 text-lore-muted">
-          Persistent character sheets, derived by{" "}
-          <code className="text-lore-text">@app/engine</code>. The full Creation
-          Wizard and inline editing arrive later in P2.
+          Persistent character sheets, built with the Creation Wizard and
+          derived by <code className="text-lore-text">@app/engine</code>.
         </p>
       </header>
 

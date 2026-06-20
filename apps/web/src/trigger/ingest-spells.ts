@@ -1,13 +1,21 @@
-import { closeDb, getDb, ingestOpen5eSpells } from "@app/db";
+import {
+  closeDb,
+  getDb,
+  ingestOpen5eSpells,
+  seedCharacterOptions,
+} from "@app/db";
 import { logger, schedules } from "@trigger.dev/sdk/v3";
 
 /**
- * Nightly Open5e SRD spell ingest.
+ * Nightly Codex refresh.
  *
  * Runs on Trigger.dev infrastructure (not Vercel), so it is free of serverless
- * timeouts. Re-ingests the full SRD 5.1 spell list and upserts into
- * `codex_spells` via the shared `ingestOpen5eSpells()` lib — the same code path
- * as the manual `npm run ingest:open5e` CLI, so the two never drift.
+ * timeouts. Re-ingests the full SRD 5.1 spell list into `codex_spells` via the
+ * shared `ingestOpen5eSpells()` lib, then re-seeds the curated SRD species +
+ * classes into `codex_species` / `codex_classes` via `seedCharacterOptions()`
+ * (the Creation Wizard's data source, #6). Both share the same code paths as the
+ * `npm run ingest:open5e` / `npm run seed:character-options` CLIs, so they never
+ * drift.
  *
  * Schedule: 08:00 UTC daily (~overnight in the Americas). Idempotent: upserts by
  * slug, so a missed/extra run is harmless.
@@ -17,6 +25,7 @@ import { logger, schedules } from "@trigger.dev/sdk/v3";
  * (`TRIGGER_PROJECT_REF`) to deploy.
  *
  * @see packages/db/src/ingest/open5e-spells.ts
+ * @see packages/db/src/ingest/srd-character-options.ts
  * @see docs/data-sources.md §1
  */
 export const ingestSpellsNightly = schedules.task({
@@ -24,7 +33,7 @@ export const ingestSpellsNightly = schedules.task({
   cron: "0 8 * * *",
   maxDuration: 600,
   run: async (payload) => {
-    logger.info("Starting nightly Open5e spell ingest", {
+    logger.info("Starting nightly Codex refresh", {
       scheduledAt: payload.timestamp,
       lastRun: payload.lastTimestamp ?? null,
     });
@@ -36,7 +45,11 @@ export const ingestSpellsNightly = schedules.task({
         logger: (message) => logger.info(message),
       });
       logger.info("Nightly Open5e spell ingest complete", { ...result });
-      return result;
+
+      const options = await seedCharacterOptions(db);
+      logger.info("Nightly SRD character-options seed complete", { ...options });
+
+      return { ...result, ...options };
     } finally {
       await closeDb();
     }

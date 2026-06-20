@@ -63,6 +63,24 @@ export {
   type SceneId,
   type SceneState,
 } from "./entities/types";
+export {
+  applyAbilityBonuses,
+  baseArmorClass,
+  isValidPointBuy,
+  MANUAL_MAX,
+  MANUAL_MIN,
+  maxHpAtFirstLevel,
+  POINT_BUY_BUDGET,
+  POINT_BUY_MAX,
+  POINT_BUY_MIN,
+  pointBuyCost,
+  pointBuyRemaining,
+  SKILL_ABILITY,
+  SKILLS,
+  STANDARD_ARRAY,
+  totalPointBuyCost,
+  type Skill,
+} from "./entities/character-build";
 
 // Events
 export { InMemoryEventStore } from "./events/store";

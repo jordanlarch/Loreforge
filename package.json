@@ -13,7 +13,8 @@
     "test": "npm run test -ws --if-present",
     "db:generate": "npm run generate -w @app/db",
     "db:migrate": "npm run migrate -w @app/db",
-    "ingest:open5e": "npm run ingest:open5e -w @app/db"
+    "ingest:open5e": "npm run ingest:open5e -w @app/db",
+    "seed:character-options": "npm run seed:character-options -w @app/db"
   },
   "overrides": {
     "import-in-the-middle": "3"

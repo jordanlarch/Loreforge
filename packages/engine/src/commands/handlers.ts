@@ -6,7 +6,9 @@
  * append plus a compact summary (the summary is what gets fed back to the LLM
  * for narration — it never sees raw events). See `architecture.md` §4.4.
  */
-import type { EventMeta } from "../events/types";
+import { abilityModifier } from "../entities/abilities";
+import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
+import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import {
   reject,
@@ -18,8 +20,11 @@ import {
   type CreateEntityCommand,
   type CreateSceneCommand,
   type DamageSource,
+  type EndTurnCommand,
   type MoveEntityCommand,
   type RollDiceCommand,
+  type RollInitiativeCommand,
+  type StartEncounterCommand,
 } from "./types";
 
 function meta(ctx: ExecutionContext, actor?: string): Omit<EventMeta, "sequence"> {
@@ -230,6 +235,165 @@ function handleMoveEntity(
   };
 }
 
+function handleStartEncounter(
+  cmd: StartEncounterCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  if (ctx.world.encounter) {
+    return reject("ENCOUNTER_EXISTS", "An encounter is already in progress.");
+  }
+  const sceneId = cmd.sceneId ?? ctx.world.currentSceneId;
+  if (!sceneId) {
+    return reject("SCENE_NOT_FOUND", "No scene specified and no current scene.");
+  }
+  if (!ctx.world.scenes[sceneId]) {
+    return reject("SCENE_NOT_FOUND", `Scene ${sceneId} does not exist.`);
+  }
+  if (cmd.combatants.length === 0) {
+    return reject("EMPTY_ENCOUNTER", "An encounter needs at least one combatant.");
+  }
+  if (new Set(cmd.combatants).size !== cmd.combatants.length) {
+    return reject("INVALID_PAYLOAD", "Combatant list contains duplicates.");
+  }
+  for (const ref of cmd.combatants) {
+    if (!ctx.world.entities[ref]) {
+      return reject("TARGET_NOT_FOUND", `Combatant ${ref} does not exist.`, {
+        entity: ref,
+      });
+    }
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "EncounterStarted",
+        ...meta(ctx, "system"),
+        payload: { sceneId, combatants: [...cmd.combatants] },
+      },
+    ],
+    summary: { sceneId, combatants: cmd.combatants.length },
+  };
+}
+
+function handleRollInitiative(
+  cmd: RollInitiativeCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const encounter = ctx.world.encounter;
+  if (!encounter) {
+    return reject("NO_ENCOUNTER", "No encounter is in progress.");
+  }
+  if (encounter.initiativeRolled) {
+    return reject(
+      "INITIATIVE_ALREADY_ROLLED",
+      "Initiative has already been rolled for this encounter.",
+    );
+  }
+
+  const events: DraftEvent[] = [];
+  const inputs: InitiativeRollInput[] = [];
+  for (const ref of encounter.combatants) {
+    const entity = ctx.world.entities[ref];
+    if (!entity) {
+      return reject("ACTOR_NOT_FOUND", `Combatant ${ref} no longer exists.`, {
+        entity: ref,
+      });
+    }
+    const dexScore = entity.abilityScores.dex;
+    const bonus = cmd.bonuses?.[ref] ?? 0;
+    const roll = ctx.roll("1d20", `initiative:${ref}`);
+    events.push(rollDiceEvent(ctx, roll));
+    const tiebreak = ctx.roll("1d20", `initiative-tiebreak:${ref}`);
+    events.push(rollDiceEvent(ctx, tiebreak));
+    inputs.push({
+      entity: ref,
+      initiative: roll.total + abilityModifier(dexScore) + bonus,
+      dexScore,
+      tiebreak: tiebreak.total,
+    });
+  }
+
+  const order = sortInitiative(inputs);
+  const first = order[0];
+  if (!first) {
+    return reject("EMPTY_ENCOUNTER", "Encounter has no combatants.");
+  }
+  events.push({
+    type: "InitiativeRolled",
+    ...meta(ctx, "system"),
+    payload: { order },
+  });
+  events.push({
+    type: "TurnStarted",
+    ...meta(ctx, first.entity),
+    payload: { entity: first.entity, index: 0 },
+  });
+
+  return {
+    accepted: true,
+    events,
+    summary: { order, active: first.entity, round: 1 },
+  };
+}
+
+function handleEndTurn(
+  _cmd: EndTurnCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const encounter = ctx.world.encounter;
+  if (!encounter) {
+    return reject("NO_ENCOUNTER", "No encounter is in progress.");
+  }
+  if (!encounter.initiativeRolled) {
+    return reject(
+      "INITIATIVE_NOT_ROLLED",
+      "Cannot end a turn before initiative is rolled.",
+    );
+  }
+
+  const { order, activeIndex, round } = encounter;
+  const current = order[activeIndex];
+  const nextIndex = (activeIndex + 1) % order.length;
+  const nextEntry = order[nextIndex];
+  if (!current || !nextEntry) {
+    return reject("INITIATIVE_NOT_ROLLED", "Encounter turn order is empty.");
+  }
+  const wraps = nextIndex === 0;
+  const nextRound = wraps ? round + 1 : round;
+  const nextEntity = nextEntry.entity;
+
+  const events: DraftEvent[] = [
+    {
+      type: "TurnEnded",
+      ...meta(ctx, current.entity),
+      payload: { entity: current.entity },
+    },
+  ];
+  if (wraps) {
+    events.push({
+      type: "RoundAdvanced",
+      ...meta(ctx, "system"),
+      payload: { round: nextRound },
+    });
+  }
+  events.push({
+    type: "TurnStarted",
+    ...meta(ctx, nextEntity),
+    payload: { entity: nextEntity, index: nextIndex },
+  });
+
+  return {
+    accepted: true,
+    events,
+    summary: {
+      ended: current.entity,
+      active: nextEntity,
+      round: nextRound,
+      roundAdvanced: wraps,
+    },
+  };
+}
+
 /** Dispatch a command to its handler. */
 export function handleCommand(
   command: Command,
@@ -250,5 +414,11 @@ export function handleCommand(
       return handleApplyHealing(command, ctx);
     case "move_entity":
       return handleMoveEntity(command, ctx);
+    case "start_encounter":
+      return handleStartEncounter(command, ctx);
+    case "roll_initiative":
+      return handleRollInitiative(command, ctx);
+    case "end_turn":
+      return handleEndTurn(command, ctx);
   }
 }

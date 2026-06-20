@@ -39,6 +39,16 @@ function useSandboxSession() {
   const sim = trpc.engine.simulateBattle.useMutation();
   const [accepted, setAccepted] = useState<BattleAction[]>([]);
   const [rejected, setRejected] = useState(false);
+  // The displayed world state advances only on a successful simulation. We keep
+  // it here (rather than reading `sim.data`) because React Query clears a
+  // mutation's `data` to undefined while the next request is in flight — which
+  // would briefly revert the map to the original fixture layout (a token flash).
+  const [state, setState] = useState<WorldState | undefined>(undefined);
+
+  // Seed the displayed state from the initial fixture once, when it loads.
+  useEffect(() => {
+    setState((prev) => prev ?? initial.data);
+  }, [initial.data]);
 
   // Auto-clear the "illegal move" flash.
   useEffect(() => {
@@ -47,14 +57,13 @@ function useSandboxSession() {
     return () => clearTimeout(timer);
   }, [rejected]);
 
-  const state: WorldState | undefined = sim.data?.state ?? initial.data;
-
   function dispatch(action: BattleAction) {
     const candidate = [...accepted, action];
     sim.mutate(
       { actions: candidate },
       {
         onSuccess: (res) => {
+          setState(res.state);
           if (res.rejected === 0) {
             setAccepted(candidate);
             setRejected(false);
@@ -70,7 +79,7 @@ function useSandboxSession() {
     setAccepted([]);
     setRejected(false);
     sim.reset();
-    void initial.refetch();
+    if (initial.data) setState(initial.data);
   }
 
   return {

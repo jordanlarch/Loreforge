@@ -9,6 +9,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   jwksUrlFor,
+  parseRoom,
+  roomForCampaign,
   roomForUser,
   verifySupabaseToken,
   type Verifier,
@@ -125,5 +127,43 @@ describe("jwksUrlFor", () => {
 describe("roomForUser", () => {
   it("namespaces the sandbox room per user", () => {
     expect(roomForUser("user-123")).toBe("sandbox:user-123");
+  });
+});
+
+describe("roomForCampaign", () => {
+  it("namespaces a persisted campaign room", () => {
+    expect(roomForCampaign("camp-abc")).toBe("campaign:camp-abc");
+  });
+});
+
+describe("parseRoom", () => {
+  it("parses a sandbox room", () => {
+    expect(parseRoom("sandbox:user-123")).toEqual({
+      kind: "sandbox",
+      userId: "user-123",
+    });
+  });
+
+  it("parses a campaign room", () => {
+    expect(parseRoom("campaign:camp-abc")).toEqual({
+      kind: "campaign",
+      campaignId: "camp-abc",
+    });
+  });
+
+  it("round-trips the room builders", () => {
+    expect(parseRoom(roomForUser("u1"))).toEqual({ kind: "sandbox", userId: "u1" });
+    expect(parseRoom(roomForCampaign("c1"))).toEqual({
+      kind: "campaign",
+      campaignId: "c1",
+    });
+  });
+
+  it("rejects unknown or malformed room names", () => {
+    expect(parseRoom("")).toBeNull();
+    expect(parseRoom("nocolon")).toBeNull();
+    expect(parseRoom("other:thing")).toBeNull();
+    expect(parseRoom(":missing-prefix")).toBeNull();
+    expect(parseRoom("sandbox:")).toBeNull();
   });
 });

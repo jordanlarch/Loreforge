@@ -11,8 +11,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@app/db": "*",
     "@app/engine": "*",
     "@hocuspocus/server": "^2.15.2",
+    "drizzle-orm": "^0.43.1",
     "jose": "^5.9.6",
     "yjs": "^13.6.20"
   },

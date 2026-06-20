@@ -10,6 +10,7 @@
  * the same account share one live battle. The renderer below is unchanged.
  */
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useMemo } from "react";
 
 import {
@@ -19,6 +20,7 @@ import {
   type WorldState,
 } from "@app/engine";
 
+import { trpc } from "@/lib/trpc/client";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import type { BattleToken } from "./battle-map";
 import { useLiveSession } from "./use-live-session";
@@ -111,8 +113,21 @@ function buildViewModel(state: WorldState): ViewModel | null {
   };
 }
 
-export function SandboxPlaySurface() {
-  const session = useLiveSession();
+type LiveSession = ReturnType<typeof useLiveSession>;
+
+/**
+ * Shared live battle surface. Driven by a session source (`useLiveSession`) and
+ * a heading; identical for the sandbox fixture and a persisted campaign.
+ */
+function LiveBattle({
+  session,
+  title,
+  context,
+}: {
+  session: LiveSession;
+  title: string;
+  context: string;
+}) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
     [session.state],
@@ -145,9 +160,9 @@ export function SandboxPlaySurface() {
     <div className="mx-auto max-w-6xl px-4 py-6">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Salt Way Ambush</h1>
+          <h1 className="font-display text-2xl font-semibold">{title}</h1>
           <p className="text-sm text-lore-muted">
-            Sandbox battle · Round {vm.round}
+            {context} · Round {vm.round}
             {vm.activeName ? ` · ${vm.activeName}'s turn` : ""}
             {vm.movement
               ? ` · ${vm.movement.total - vm.movement.used}/${vm.movement.total} ft`
@@ -236,24 +251,50 @@ export function SandboxPlaySurface() {
   );
 }
 
-/** Placeholder for real campaigns until per-campaign live play + sync (#14) lands. */
-export function CampaignPlayNotice({ campaignId }: { campaignId: string }) {
+/** The per-user sandbox fixture demo (scope A). */
+export function SandboxPlaySurface() {
+  const session = useLiveSession();
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-      <h1 className="font-display text-2xl font-semibold">Live Play</h1>
-      <p className="mt-4 text-lore-muted">
-        Per-campaign live play with real-time multiplayer sync arrives with the
-        Live Play surface (P4) and the Yjs sync server (#14).
-      </p>
-      <p className="mt-2 text-sm text-lore-muted">
-        Campaign <code className="text-lore-text">{campaignId}</code>
-      </p>
-      <p className="mt-6 text-sm">
-        Try the interactive battle map now:{" "}
-        <a className="text-lore-accent underline" href="/campaigns/sandbox/play">
-          /campaigns/sandbox/play
-        </a>
-      </p>
-    </div>
+    <LiveBattle session={session} title="Salt Way Ambush" context="Sandbox battle" />
+  );
+}
+
+/**
+ * Live play for a persisted, owner-scoped campaign (#14 scope B). Observes the
+ * `campaign:{id}` room; the WS server enforces ownership authoritatively, so
+ * this client check is UX only. The seeded goblin ambush makes a new campaign
+ * immediately playable until real encounter authoring lands.
+ */
+export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
+  const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
+  const session = useLiveSession({ campaignId });
+
+  if (campaign.isLoading) {
+    return (
+      <p className="px-4 py-16 text-center text-lore-muted">Loading campaign…</p>
+    );
+  }
+  if (!campaign.data) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 className="font-display text-2xl font-semibold">Campaign not found</h1>
+        <p className="mt-4 text-lore-muted">
+          This campaign doesn&apos;t exist or isn&apos;t yours.
+        </p>
+        <p className="mt-6 text-sm">
+          <Link className="text-lore-accent underline" href="/campaigns">
+            Back to campaigns
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <LiveBattle
+      session={session}
+      title={campaign.data.name}
+      context="Live campaign"
+    />
   );
 }

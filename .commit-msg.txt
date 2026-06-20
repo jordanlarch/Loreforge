@@ -1,0 +1,8 @@
+feat(ws-server): persisted per-campaign live play (#37)
+
+Wire campaign:{id} rooms to PgEventStore as the sole authoritative writer,
+seed-if-empty from the goblin-ambush fixture, and owner-only auth. Add a
+minimal campaigns list/create UI and live play surface so a real campaign
+syncs across tabs and survives a WS restart.
+
+Closes #37

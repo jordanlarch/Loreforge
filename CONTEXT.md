@@ -10,7 +10,7 @@
 
 **P1 complete (Jun 2026):** Engine **E1 skeleton** built in `packages/engine` (seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, base entities, typed Command API + serialized per-campaign queue, 67 Vitest tests incl. golden replay) and exposed over tRPC (`engine` router). **Codex MVP** (`/codex` read-only SRD spells browser) and a **read-only character sheet** (`/characters/[id]` on fixture data) are live, plus a fleshed-out Home shell. The **full Open5e SRD spell ingest** now runs as a **scheduled nightly Trigger.dev job** (cron `0 8 * * *`, deployed to prod, project `proj_pywyqcovveavdmoqpzsg`) — the first real background job — so the Codex holds the full SRD 5.1 spell set (~319) instead of the 25-spell spike. Typecheck/lint/build + 67 tests green; CI green on `main`. Deferred to P2: Postgres-backed per-campaign event persistence (issue #2). See `docs/02-implementation-roadmap.md` §6 P1 and `docs/engine/architecture.md` §16 E1.
 
-Milestone **M1 "Hello, Codex"** reached. **Next: P2 — Combat Core + Characters + Smithy** (milestones M2 "First character", M3 "First fight"); the remaining work is broken into GitHub issues #2–#16 (see the repo Issues and `docs/02-implementation-roadmap.md` §6 P2).
+Milestone **M1 "Hello, Codex"** reached. **P2 — Combat Core + Characters + Smithy is in progress** (milestones M2 "First character", M3 "First fight"). **M3 "First fight" reached (Jun 2026):** the PixiJS battle map + token drag (#16) and the **Tier 4 Yjs live-sync server** (#14 scope A — `@app/ws-server`, a Hocuspocus service that is the authoritative engine host; two-tab live sync verified) are merged to `main`. #14 scope A ran against the in-memory goblin-ambush fixture (no persistence yet). Remaining P2 work toward **M2 "First character"** is broken into GitHub issues #2–#16 (see the repo Issues and `docs/02-implementation-roadmap.md` §6 P2).
 
 ## What This Is
 
@@ -77,7 +77,7 @@ Read `docs/00-consolidated-plan.md` first. Then drill into whatever surface you 
 
 ## Current Goal
 
-**Begin P2 (Combat Core + Characters + Smithy)** per `docs/02-implementation-roadmap.md` §6 P2, toward **M2 "First character"**. Work is filed as GitHub issues #2–#16. Unblocked starting points (no blockers): **#2** persistent campaigns + Postgres-backed event store, **#3** persistent characters, **#4** Smithy MVP custom items. Engine specifics in `docs/engine/architecture.md` §16 E2.
+**Continue P2 (Combat Core + Characters + Smithy)** per `docs/02-implementation-roadmap.md` §6 P2, toward **M2 "First character"**. The battle map (#16) and live-sync server (#14 scope A) are merged (M3 reached). Next unblocked starting points: **#2** persistent campaigns + Postgres-backed event store (also unblocks **#14 scope B**: point the WS room at persisted per-campaign state instead of the fixture, plus a seat/ownership authorization layer), **#3** persistent characters, **#4** Smithy MVP custom items. Engine specifics in `docs/engine/architecture.md` §16 E2.
 
 **P0 and P1 are done** (see Status above). Trigger.dev is live (CLI authed; nightly ingest deployed to prod). Still deferred until needed: Vercel deploy (repo pushed, unblocked); Sentry/PostHog provisioning (env-gated stubs in place); the **`tr_prod_` runtime secret key** (only needed once the app triggers tasks at runtime, e.g. P3/P4 generation cascades — the nightly cron doesn't need it).
 

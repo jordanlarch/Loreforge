@@ -6,7 +6,7 @@
  * stays the browsable reference and Smithy homebrew store; entries here are
  * linked to it by `id` (slug). The proof set grows slice by slice:
  *
- *   - Slice #40 (this): Magic Missile, Guiding Bolt
+ *   - Slice #40: Magic Missile, Guiding Bolt
  *   - Slice #42: Fireball, Burning Hands, Sacred Flame
  *   - Slice #43: Cure Wounds, Healing Word, Fire Bolt
  *
@@ -119,7 +119,67 @@ const SACRED_FLAME: SpellDefinition = {
   saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
   damage: [{ dice: "1d8", type: "radiant" }],
   description:
-    "Flame-like radiance descends on a creature that you can see within range. The target makes a Dexterity saving throw, taking 1d8 radiant damage on a failed save. The target gains no benefit from cover for this save. The damage increases as you gain levels (cantrip scaling is handled in a later slice).",
+    "Flame-like radiance descends on a creature that you can see within range. The target makes a Dexterity saving throw, taking 1d8 radiant damage on a failed save. The target gains no benefit from cover for this save. The damage increases by one die when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
+};
+
+/** Cure Wounds — a touch heal of 1d8 + spell mod, +1d8 per upcast. */
+const CURE_WOUNDS: SpellDefinition = {
+  id: "cure-wounds",
+  name: "Cure Wounds",
+  level: 1,
+  school: "abjuration",
+  classes: ["Cleric", "Druid", "Paladin", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  healing: { dice: "1d8", addSpellMod: true },
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "healing" },
+  description:
+    "A creature you touch regains a number of hit points equal to 1d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs. When cast with a slot of 2nd level or higher, the healing increases by 1d8 for each slot level above 1st.",
+};
+
+/** Healing Word — a bonus-action ranged heal of 1d4 + spell mod, +1d4/upcast. */
+const HEALING_WORD: SpellDefinition = {
+  id: "healing-word",
+  name: "Healing Word",
+  level: 1,
+  school: "abjuration",
+  classes: ["Bard", "Cleric", "Druid"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  healing: { dice: "1d4", addSpellMod: true },
+  upcastScaling: { perSlotDice: "1d4", appliesTo: "healing" },
+  description:
+    "A creature of your choice that you can see within range regains hit points equal to 1d4 + your spellcasting ability modifier. This spell has no effect on undead or constructs. When cast with a slot of 2nd level or higher, the healing increases by 1d4 for each slot level above 1st.",
+};
+
+/** Fire Bolt — a cantrip ranged spell attack for 1d10 fire, scaling by level. */
+const FIRE_BOLT: SpellDefinition = {
+  id: "fire-bolt",
+  name: "Fire Bolt",
+  level: 0,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d10", type: "fire" }],
+  description:
+    "You hurl a mote of fire at a creature or object within range. Make a ranged spell attack. On a hit, the target takes 1d10 fire damage. This spell's damage increases by 1d10 when you reach 5th level (2d10), 11th level (3d10), and 17th level (4d10).",
 };
 
 /** All authored spells, keyed by slug id. */
@@ -129,6 +189,9 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [FIREBALL.id]: FIREBALL,
   [BURNING_HANDS.id]: BURNING_HANDS,
   [SACRED_FLAME.id]: SACRED_FLAME,
+  [CURE_WOUNDS.id]: CURE_WOUNDS,
+  [HEALING_WORD.id]: HEALING_WORD,
+  [FIRE_BOLT.id]: FIRE_BOLT,
 };
 
 /** Look up an authored spell definition by slug id. */

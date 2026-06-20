@@ -30,3 +30,16 @@ export function spellAttackBonus(entity: EntityState): number | undefined {
   if (mod === undefined) return undefined;
   return entity.proficiencyBonus + mod;
 }
+
+/**
+ * Number of damage dice a damaging cantrip rolls at a given character level
+ * (SRD cantrip scaling): 1 die at levels 1–4, 2 at 5–10, 3 at 11–16, 4 at 17+.
+ * This multiplies the cantrip's base dice count and is distinct from slot
+ * upcast scaling (cantrips consume no slot).
+ */
+export function cantripDamageDice(characterLevel: number): number {
+  if (characterLevel >= 17) return 4;
+  if (characterLevel >= 11) return 3;
+  if (characterLevel >= 5) return 2;
+  return 1;
+}

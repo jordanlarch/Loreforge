@@ -344,7 +344,7 @@ describe("Spells: Burning Hands (15-ft cone from the caster)", () => {
 });
 
 describe("Spells: Sacred Flame (single-target Dex save cantrip)", () => {
-  it("deals 1d8 radiant on a failed save and spends no slot", async () => {
+  it("deals radiant damage on a failed save and spends no slot", async () => {
     const engine = new Engine({ now: () => 1 });
     await setup(engine, {
       dummies: [{ id: "npc:a", pos: { x: 5, y: 0 }, stunned: true }],
@@ -361,8 +361,9 @@ describe("Spells: Sacred Flame (single-target Dex save cantrip)", () => {
     const dealt = damageEvents(result.events);
     expect(dealt).toHaveLength(1);
     expect(dealt[0]!.payload.damageType).toBe("radiant");
-    expect(dealt[0]!.payload.amount).toBeGreaterThanOrEqual(1);
-    expect(dealt[0]!.payload.amount).toBeLessThanOrEqual(8);
+    // The level-5 caster scales Sacred Flame to 2d8 (2–16).
+    expect(dealt[0]!.payload.amount).toBeGreaterThanOrEqual(2);
+    expect(dealt[0]!.payload.amount).toBeLessThanOrEqual(16);
     // Cantrip — slot pools untouched.
     const state = await engine.getState(CAMPAIGN);
     expect(state.entities["pc:mage"]?.spellcasting?.slots[1]?.current).toBe(4);

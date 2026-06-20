@@ -424,11 +424,27 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "SpellCast": {
+      // A bonus-action cast consumes the bonus action while on the clock; HP /
+      // slot changes ride on paired Healing/Damage/Slot events.
+      if (event.payload.bonusAction) {
+        const caster = next.entities[event.payload.caster];
+        if (caster?.actionEconomy) {
+          next.entities[caster.id] = {
+            ...caster,
+            actionEconomy: {
+              ...caster.actionEconomy,
+              bonusAction: "used",
+            },
+          };
+        }
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":
     case "DiceRolled":
-    case "SpellCast":
       // Pure record; state changes ride on paired Healing/Condition/Slot events.
       break;
   }

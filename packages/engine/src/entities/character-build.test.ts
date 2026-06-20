@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import { createSeededRng } from "../rng/prng";
 import type { AbilityScores } from "./types";
 import {
   applyAbilityBonuses,
+  ASI_LEVELS,
   baseArmorClass,
+  featureStubsForLevel,
+  grantsAsiAtLevel,
+  hpGainOnLevelUp,
+  hpRollFromSeed,
   isValidPointBuy,
+  levelUpSeed,
   maxHpAtFirstLevel,
   POINT_BUY_BUDGET,
   pointBuyCost,
@@ -109,5 +116,64 @@ describe("level-1 derivations", () => {
   it("derives unarmored AC from Dex modifier", () => {
     expect(baseArmorClass(14)).toBe(12);
     expect(baseArmorClass(8)).toBe(9);
+  });
+});
+
+describe("level-up HP gain", () => {
+  it("uses the fixed average per hit die plus Con modifier", () => {
+    expect(hpGainOnLevelUp(10, 2, { mode: "average" })).toBe(8); // 6 + 2
+    expect(hpGainOnLevelUp(6, 0, { mode: "average" })).toBe(4); // 4 + 0
+    expect(hpGainOnLevelUp(12, 3, { mode: "average" })).toBe(10); // 7 + 3
+  });
+
+  it("never gains less than 1 HP per level (average)", () => {
+    expect(hpGainOnLevelUp(6, -5, { mode: "average" })).toBe(1); // 4 - 5 → clamped
+  });
+
+  it("rolls within the hit die range plus Con modifier", () => {
+    const rng = createSeededRng("fixed-seed");
+    const gain = hpGainOnLevelUp(10, 2, { mode: "roll", rng });
+    expect(gain).toBeGreaterThanOrEqual(3); // 1 + 2
+    expect(gain).toBeLessThanOrEqual(12); // 10 + 2
+  });
+
+  it("is deterministic for the same seed and varies by level", () => {
+    const seed = levelUpSeed("char-123", 5);
+    expect(hpRollFromSeed(10, 2, seed)).toBe(hpRollFromSeed(10, 2, seed));
+    expect(levelUpSeed("char-123", 5)).not.toBe(levelUpSeed("char-123", 6));
+  });
+
+  it("never rolls less than 1 HP per level", () => {
+    // d4 with a -10 Con mod always clamps to 1, regardless of the draw.
+    expect(hpRollFromSeed(4, -10, levelUpSeed("x", 2))).toBe(1);
+  });
+
+  it("requires an rng in roll mode", () => {
+    expect(() => hpGainOnLevelUp(10, 0, { mode: "roll" })).toThrow();
+  });
+});
+
+describe("level-up feature stubs", () => {
+  it("grants ASI at the universal levels", () => {
+    for (const level of ASI_LEVELS) {
+      expect(grantsAsiAtLevel("Wizard", level)).toBe(true);
+    }
+    expect(grantsAsiAtLevel("Wizard", 5)).toBe(false);
+  });
+
+  it("grants the class-specific extra ASI levels", () => {
+    expect(grantsAsiAtLevel("Fighter", 6)).toBe(true);
+    expect(grantsAsiAtLevel("Rogue", 10)).toBe(true);
+    expect(grantsAsiAtLevel("Wizard", 6)).toBe(false);
+  });
+
+  it("surfaces an ASI stub plus a generic features stub at ASI levels", () => {
+    const stubs = featureStubsForLevel("Fighter", 4);
+    expect(stubs).toContain("Ability Score Improvement / Feat");
+    expect(stubs).toContain("New Fighter features");
+  });
+
+  it("surfaces only the generic features stub at non-ASI levels", () => {
+    expect(featureStubsForLevel("Wizard", 3)).toEqual(["New Wizard features"]);
   });
 });

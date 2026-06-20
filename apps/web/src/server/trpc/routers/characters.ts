@@ -6,13 +6,24 @@
  *
  * The Creation Wizard (#6) and inline edit (#7) build on this surface.
  */
+import {
+  abilityModifier,
+  hpGainOnLevelUp,
+  levelUpSeed,
+  totalLevel,
+  createSeededRng,
+  type HpMethod,
+} from "@app/engine";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { characters, getDb } from "@app/db";
+import { characters, codexClasses, getDb } from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
+
+/** Hard 5E ceiling for a single class and for total character level. */
+const MAX_LEVEL = 20;
 
 const ABILITY = z.enum(["str", "dex", "con", "int", "wis", "cha"]);
 
@@ -135,5 +146,112 @@ export const charactersRouter = createTRPCRouter({
         });
       }
       return row;
+    }),
+
+  /**
+   * Advance one class by a single level (#11 scaffolding). The engine owns the
+   * math: HP gain comes from `hpGainOnLevelUp` (average or a seeded roll — never
+   * `Math.random`), and the hit die is resolved server-side from the Codex by
+   * matching the stored class display name, so the app layer never computes
+   * mechanics. Increments the chosen class's level and adds the HP gain to
+   * `maxHp`. Feature/ASI choices are surfaced as stubs in the UI; nothing here
+   * applies them yet. Rejects past level 20 (per-class and total).
+   */
+  levelUp: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        classIndex: z.number().int().min(0).default(0),
+        hpMethod: z.enum(["average", "roll"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [character] = await db
+        .select()
+        .from(characters)
+        .where(
+          and(
+            eq(characters.id, input.id),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!character) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+
+      const classes = character.classes;
+      const target = classes[input.classIndex];
+      if (!target) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No such class on this character.",
+        });
+      }
+      if (target.level >= MAX_LEVEL) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${target.class} is already at level ${MAX_LEVEL}.`,
+        });
+      }
+      if (totalLevel(classes) >= MAX_LEVEL) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Character is already at the level ${MAX_LEVEL} cap.`,
+        });
+      }
+
+      // Resolve the hit die from the Codex by display name (classes store the
+      // name, not the slug). Required so the engine — not the app — computes HP.
+      const [klass] = await db
+        .select({ hitDie: codexClasses.hitDie })
+        .from(codexClasses)
+        .where(eq(codexClasses.name, target.class))
+        .limit(1);
+
+      if (!klass) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Can't determine the hit die for "${target.class}". Level-up needs an SRD class.`,
+        });
+      }
+
+      const newClassLevel = target.level + 1;
+      const newTotalLevel = totalLevel(classes) + 1;
+      const conMod = abilityModifier(character.abilityScores.con);
+      const method: HpMethod = input.hpMethod;
+      const hpGain = hpGainOnLevelUp(klass.hitDie, conMod, {
+        mode: method,
+        rng:
+          method === "roll"
+            ? createSeededRng(levelUpSeed(character.id, newTotalLevel))
+            : undefined,
+      });
+
+      const nextClasses = classes.map((c, i) =>
+        i === input.classIndex ? { ...c, level: newClassLevel } : c,
+      );
+
+      const [row] = await db
+        .update(characters)
+        .set({
+          classes: nextClasses,
+          maxHp: character.maxHp + hpGain,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(characters.id, input.id),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+
+      return { character: row, hpGain };
     }),
 });

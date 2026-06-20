@@ -205,8 +205,10 @@ export type TriggerReadiedCommand = {
  * (cantrips consume none), validates range + line of sight, and resolves the
  * spell's declarative effect. `slotLevel` is the slot spent (≥ the spell's base
  * level; 0 for cantrips). `targets` lists the affected creatures — for a
- * projectile spell (Magic Missile) it lists one entry per dart. `origin` seeds
- * area resolution and is unused by single/multi-target spells (slice #42).
+ * projectile spell (Magic Missile) it lists one entry per dart. For an area
+ * spell (Fireball, Burning Hands) `origin` is the burst point / aim cell and
+ * `targets` is ignored — the engine resolves caught creatures from the area
+ * shape. `origin` is unused by single/multi-target spells.
  */
 export type CastSpellCommand = {
   type: "cast_spell";

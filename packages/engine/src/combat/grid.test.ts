@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { chebyshev, distanceFeet, hasLineOfSight, lineCells } from "./grid";
+import {
+  chebyshev,
+  distanceFeet,
+  hasLineOfSight,
+  lineCells,
+  withinBurst,
+  withinCone,
+} from "./grid";
 
 describe("chebyshev / distanceFeet (5-5-5)", () => {
   it("treats diagonal steps as the same cost as orthogonal", () => {
@@ -53,5 +60,42 @@ describe("hasLineOfSight", () => {
         ]),
       ),
     ).toBe(true);
+  });
+});
+
+describe("withinBurst (sphere / radius)", () => {
+  const center = { x: 5, y: 5 };
+  it("includes the center and cells within the radius (Chebyshev)", () => {
+    // 20-ft radius = 4 cells.
+    expect(withinBurst(center, { x: 5, y: 5 }, 20)).toBe(true);
+    expect(withinBurst(center, { x: 9, y: 5 }, 20)).toBe(true); // 4 cells
+    expect(withinBurst(center, { x: 9, y: 9 }, 20)).toBe(true); // 4 cells diag
+  });
+  it("excludes cells beyond the radius", () => {
+    expect(withinBurst(center, { x: 10, y: 5 }, 20)).toBe(false); // 5 cells = 25ft
+  });
+});
+
+describe("withinCone", () => {
+  const apex = { x: 0, y: 0 };
+  const toward = { x: 1, y: 0 }; // aimed east, 15-ft cone = 3 cells
+  it("never catches the apex", () => {
+    expect(withinCone(apex, toward, apex, 15)).toBe(false);
+  });
+  it("catches cells straight ahead within the length", () => {
+    expect(withinCone(apex, toward, { x: 1, y: 0 }, 15)).toBe(true);
+    expect(withinCone(apex, toward, { x: 3, y: 0 }, 15)).toBe(true);
+  });
+  it("excludes cells beyond the length", () => {
+    expect(withinCone(apex, toward, { x: 4, y: 0 }, 15)).toBe(false);
+  });
+  it("excludes cells outside the half-angle (too far off-axis)", () => {
+    expect(withinCone(apex, toward, { x: 1, y: 1 }, 15)).toBe(false);
+  });
+  it("excludes cells behind the apex", () => {
+    expect(withinCone(apex, toward, { x: -1, y: 0 }, 15)).toBe(false);
+  });
+  it("returns false with no aim direction", () => {
+    expect(withinCone(apex, apex, { x: 1, y: 0 }, 15)).toBe(false);
   });
 });

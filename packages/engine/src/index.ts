@@ -89,10 +89,13 @@ export {
 } from "./combat/attack";
 export {
   chebyshev,
+  CONE_HALF_ANGLE_COS,
   distanceFeet,
   FEET_PER_CELL,
   hasLineOfSight,
   lineCells,
+  withinBurst,
+  withinCone,
 } from "./combat/grid";
 export {
   attackedMode,

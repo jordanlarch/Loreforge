@@ -69,3 +69,49 @@ export function hasLineOfSight(
   }
   return true;
 }
+
+/**
+ * Cosine of a 5E cone's half-angle. A cone's width at distance `d` equals `d`,
+ * so the half-angle θ satisfies `tan θ = (d/2)/d = 1/2`, giving
+ * `cos θ = 2/√5 ≈ 0.894`. A cell is inside the cone when the angle between the
+ * aim direction and the cell direction is ≤ θ.
+ */
+export const CONE_HALF_ANGLE_COS = 2 / Math.sqrt(5);
+
+/**
+ * Whether `cell` falls within a burst/sphere of `radiusFeet` centered on
+ * `center` (5-5-5 Chebyshev). The center cell itself is included.
+ */
+export function withinBurst(
+  center: GridPosition,
+  cell: GridPosition,
+  radiusFeet: number,
+): boolean {
+  return distanceFeet(center, cell) <= radiusFeet;
+}
+
+/**
+ * Whether `cell` falls within a `lengthFeet` cone emanating from `apex` aimed
+ * toward `toward`. The apex cell is never affected (a self-cone does not catch
+ * the caster); cells beyond the length or outside the half-angle are excluded.
+ * Returns false when no aim direction is given (`toward === apex`).
+ */
+export function withinCone(
+  apex: GridPosition,
+  toward: GridPosition,
+  cell: GridPosition,
+  lengthFeet: number,
+): boolean {
+  const vx = cell.x - apex.x;
+  const vy = cell.y - apex.y;
+  if (vx === 0 && vy === 0) return false;
+  const dist = distanceFeet(apex, cell);
+  if (dist <= 0 || dist > lengthFeet) return false;
+  const dx = toward.x - apex.x;
+  const dy = toward.y - apex.y;
+  if (dx === 0 && dy === 0) return false;
+  const dot = vx * dx + vy * dy;
+  if (dot <= 0) return false;
+  const cos = dot / (Math.hypot(vx, vy) * Math.hypot(dx, dy));
+  return cos >= CONE_HALF_ANGLE_COS - 1e-9;
+}

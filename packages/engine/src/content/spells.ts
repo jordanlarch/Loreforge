@@ -246,6 +246,10 @@ export function validateSpellDefinition(def: SpellDefinition): string[] {
   if (def.range.area && def.range.area.size <= 0) {
     errors.push("Area size must be positive.");
   }
+  // Area-targeted spells resolve against an area shape, so one is required.
+  if (def.targeting === "area" && !def.range.area) {
+    errors.push("Area-targeted spells need a range.area shape.");
+  }
 
   // Duration: timed units need an amount.
   if (

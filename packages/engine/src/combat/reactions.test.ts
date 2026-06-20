@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { provokesOpportunityAttack, REACH_FEET } from "./reactions";
+import { areHostile, provokesOpportunityAttack, REACH_FEET } from "./reactions";
 
 describe("provokesOpportunityAttack", () => {
   const threatener = { x: 0, y: 0 };
@@ -43,5 +43,22 @@ describe("provokesOpportunityAttack", () => {
 
   it("defaults reach to 5 ft", () => {
     expect(REACH_FEET).toBe(5);
+  });
+});
+
+describe("areHostile", () => {
+  it("is hostile when both sides are defined and differ", () => {
+    expect(areHostile("party", "enemies")).toBe(true);
+    expect(areHostile("goblins", "cult")).toBe(true);
+  });
+
+  it("is not hostile for the same side", () => {
+    expect(areHostile("party", "party")).toBe(false);
+  });
+
+  it("treats an unassigned side as neutral", () => {
+    expect(areHostile(undefined, "enemies")).toBe(false);
+    expect(areHostile("party", undefined)).toBe(false);
+    expect(areHostile(undefined, undefined)).toBe(false);
   });
 });

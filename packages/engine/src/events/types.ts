@@ -72,6 +72,8 @@ export type EntityMovedPayload = {
 export type EncounterStartedPayload = {
   sceneId: SceneId;
   combatants: EntityRef[];
+  /** Per-combatant side/team id; omitted combatants are neutral. */
+  sides: Record<EntityRef, string>;
 };
 
 export type InitiativeRolledPayload = {

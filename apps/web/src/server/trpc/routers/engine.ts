@@ -15,6 +15,7 @@ import { z } from "zod";
 import {
   CONDITIONS,
   Engine,
+  buildFixtureBattle,
   buildFixtureCampaign,
   type Command,
   type CommandResult,
@@ -191,6 +192,39 @@ export const engineRouter = createTRPCRouter({
   fixtureState: protectedProcedure.query(async (): Promise<WorldState> => {
     return (await buildFixtureCampaign()).state;
   }),
+
+  /** Initial world state of the read-only sandbox battle (#16). */
+  fixtureBattle: protectedProcedure.query(async (): Promise<WorldState> => {
+    return (await buildFixtureBattle()).state;
+  }),
+
+  /**
+   * Sandbox battle session source: replay the fixture encounter with the given
+   * player actions (drag-to-move / end-turn) appended, each validated through the
+   * real command path. No persistence — superseded by per-campaign state + Yjs
+   * sync in #14.
+   */
+  simulateBattle: protectedProcedure
+    .input(
+      z.object({
+        actions: z
+          .array(
+            z.discriminatedUnion("type", [
+              z.object({
+                type: z.literal("move_entity"),
+                entity: z.string(),
+                to: gridPosition,
+              }),
+              z.object({ type: z.literal("end_turn") }),
+            ]),
+          )
+          .max(500)
+          .default([]),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return buildFixtureBattle(input.actions);
+    }),
 
   /** Run an ordered command batch deterministically; return results + state. */
   simulate: protectedProcedure

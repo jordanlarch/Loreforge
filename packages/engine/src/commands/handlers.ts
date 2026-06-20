@@ -9,9 +9,14 @@
 import { abilityModifier } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
 import { criticalNotation, resolveHit } from "../combat/attack";
-import { distanceFeet, hasLineOfSight } from "../combat/grid";
+import {
+  distanceFeet,
+  hasLineOfSight,
+  withinBurst,
+  withinCone,
+} from "../combat/grid";
 import { getSpell } from "../content/spell-registry";
-import { spellAttackBonus } from "../content/spellcasting";
+import { spellAttackBonus, spellSaveDC } from "../content/spellcasting";
 import type { SpellDefinition, SpellRange } from "../content/spells";
 import { parseDice } from "../rng/dice";
 import {
@@ -28,7 +33,12 @@ import {
 } from "../combat/conditions";
 import { concentrationDC, resolveDeathSave } from "../combat/death";
 import { areHostile, provokesOpportunityAttack } from "../combat/reactions";
-import type { EntityRef, EntityState, GridPosition } from "../entities/types";
+import type {
+  Ability,
+  EntityRef,
+  EntityState,
+  GridPosition,
+} from "../entities/types";
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
@@ -1301,6 +1311,64 @@ function applyLedgerDamage(
   ];
 }
 
+/**
+ * Roll one creature's saving throw against a fixed DC, honouring condition
+ * auto-fails (STR/DEX while paralyzed etc.) and advantage/disadvantage. Mirrors
+ * `handleSavingThrow` but returns the outcome so the cast pipeline can scale
+ * damage (save-for-half) per affected creature.
+ */
+function rollSpellSave(
+  ctx: ExecutionContext,
+  target: EntityState,
+  ability: Ability,
+  dc: number,
+): { success: boolean; events: DraftEvent[] } {
+  const { autoFail, mode } = saveResolution(ability, target.conditions);
+  if (autoFail) {
+    return {
+      success: false,
+      events: [
+        {
+          type: "SaveRolled",
+          ...meta(ctx, target.id),
+          payload: {
+            entity: target.id,
+            ability,
+            dc,
+            mode: "normal",
+            success: false,
+            autoFail: true,
+          },
+        },
+      ],
+    };
+  }
+  const roll = ctx.roll("1d20", `save:${target.id}:${ability}`, mode);
+  const natural = roll.total;
+  const total = natural + abilityModifier(target.abilityScores[ability]);
+  const success = total >= dc;
+  return {
+    success,
+    events: [
+      rollDiceEvent(ctx, roll),
+      {
+        type: "SaveRolled",
+        ...meta(ctx, target.id),
+        payload: {
+          entity: target.id,
+          ability,
+          dc,
+          mode: mode as RollMode,
+          natural,
+          total,
+          success,
+          autoFail: false,
+        },
+      },
+    ],
+  };
+}
+
 function handleCastSpell(
   cmd: CastSpellCommand,
   ctx: ExecutionContext,
@@ -1355,7 +1423,10 @@ function handleCastSpell(
   // target entry per dart; single/multi spells take one entry per target.
   const targets = cmd.targets ?? [];
   let dartCount: number | undefined;
-  if (spell.targeting === "self") {
+  if (spell.targeting === "area") {
+    // Area spells resolve from `origin` + the area shape below; `targets` is
+    // ignored. Validation/gathering happens in the dedicated area block.
+  } else if (spell.targeting === "self") {
     if (targets.length > 0 && targets.some((t) => t !== caster.id)) {
       return reject("INVALID_TARGET", `${spell.name} only targets the caster.`);
     }
@@ -1427,6 +1498,67 @@ function handleCastSpell(
     }
   }
 
+  // Area spells (Fireball, Burning Hands) resolve from `origin` + the area
+  // shape into the set of caught creatures; `targets` is unused. Validating
+  // here keeps a rejected area cast side-effect-free.
+  let areaAffected: EntityState[] | undefined;
+  if (spell.targeting === "area") {
+    const area = spell.range.area;
+    if (!area) {
+      return reject("INVALID_PAYLOAD", `${spell.name} has no area shape.`);
+    }
+    if (!cmd.origin) {
+      return reject("INVALID_PAYLOAD", `${spell.name} needs an origin point.`);
+    }
+    const origin = cmd.origin;
+    const isCone = area.shape === "cone";
+    if (isCone && !caster.position) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `${spell.name} is a cone and needs the caster's position.`,
+      );
+    }
+    const map = caster.sceneId
+      ? ctx.world.scenes[caster.sceneId]?.map
+      : undefined;
+    const wallBlocked = (cell: GridPosition): boolean =>
+      map ? map.blockedCells.some((c) => sameCell(c, cell)) : false;
+
+    // A point-target sphere (range in feet) must be in range and visible — you
+    // can't lob a Fireball past a wall or beyond its reach.
+    if (!isCone && caster.position && spell.range.type === "feet") {
+      const max = spell.range.amount;
+      if (max !== undefined && distanceFeet(caster.position, origin) > max) {
+        return reject(
+          "OUT_OF_RANGE",
+          `${spell.name}'s origin is beyond its range.`,
+        );
+      }
+      if (map && !hasLineOfSight(caster.position, origin, wallBlocked)) {
+        return reject(
+          "NO_LINE_OF_SIGHT",
+          `${caster.name} cannot see the target point.`,
+        );
+      }
+    }
+
+    // A sphere bursts from its center; a cone emanates from the caster. A wall
+    // between that source and a creature shields it from the blast.
+    const source = isCone ? caster.position! : origin;
+    areaAffected = Object.values(ctx.world.entities)
+      .filter((e) => {
+        if (e.sceneId !== caster.sceneId || !e.alive || !e.position) {
+          return false;
+        }
+        const inShape = isCone
+          ? withinCone(caster.position!, origin, e.position, area.size)
+          : withinBurst(origin, e.position, area.size);
+        if (!inShape) return false;
+        return !map || hasLineOfSight(source, e.position, wallBlocked);
+      })
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  }
+
   // --- Accepted: build events. ---
   const events: DraftEvent[] = [
     {
@@ -1437,7 +1569,9 @@ function handleCastSpell(
         spellId: spell.id,
         spellName: spell.name,
         slotLevel,
-        targets: [...targets],
+        targets: areaAffected
+          ? areaAffected.map((e) => e.id)
+          : [...targets],
       },
     },
   ];
@@ -1518,6 +1652,53 @@ function handleCastSpell(
       hit,
       critical,
       damage: damage ?? 0,
+    });
+  } else if (spell.damage && spell.saveAgainst) {
+    // Save-for-half / save-for-none (Fireball, Burning Hands, Sacred Flame).
+    // Single-target spells use `targets`; area spells use the resolved set.
+    // One shared damage roll covers the whole area; each creature halves (or
+    // negates) it on its own save vs the caster's spell save DC.
+    const affected =
+      spell.targeting === "area"
+        ? (areaAffected ?? [])
+        : targets.map((id) => ctx.world.entities[id]!);
+    const dc = spellSaveDC(caster)!;
+    const ability = spell.saveAgainst.ability;
+    const onSuccess = spell.saveAgainst.onSuccess;
+    const damageType = spell.damage[0]!.type;
+    const rolled = rollSpellDamage(
+      ctx,
+      spell,
+      extraLevels,
+      false,
+      `spell-damage:${caster.id}`,
+    );
+    events.push(...rolled.events);
+    let totalDamage = 0;
+    let failures = 0;
+    for (const target of affected) {
+      const save = rollSpellSave(ctx, target, ability, dc);
+      events.push(...save.events);
+      let amount = rolled.amount;
+      if (save.success) {
+        amount = onSuccess === "half_damage" ? Math.floor(rolled.amount / 2) : 0;
+      } else {
+        failures += 1;
+      }
+      if (amount > 0) {
+        events.push(
+          ...applyLedgerDamage(ctx, target, amount, damageType, ledger),
+        );
+      }
+      totalDamage += amount;
+    }
+    Object.assign(summary, {
+      targets: affected.length,
+      failures,
+      rolledDamage: rolled.amount,
+      damage: totalDamage,
+      save: ability,
+      dc,
     });
   } else if (spell.damage && spell.projectiles) {
     // Auto-hit darts (Magic Missile): one damage roll per dart→target.

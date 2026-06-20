@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { buildCharacterSheet, type Ability } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 import {
+  REALM_FIELDS,
   REALM_TYPE_LABEL,
   npcToSheetInput,
   type NpcData,
   type RealmEntityType,
 } from "@/lib/realms";
+
+import { EntityForm } from "../entity-form";
+import { RelationshipPanel } from "./relationship-panel";
 
 const ABILITY_LABELS: Record<Ability, string> = {
   str: "Strength",
@@ -27,6 +32,7 @@ function signed(n: number): string {
 
 export function RealmEntityDetail({ id }: { id: string }) {
   const query = trpc.realms.get.useQuery({ id });
+  const [editing, setEditing] = useState(false);
 
   if (query.isLoading) {
     return (
@@ -76,17 +82,90 @@ export function RealmEntityDetail({ id }: { id: string }) {
             <p className="mt-3 max-w-2xl text-lore-muted">{entity.summary}</p>
           )}
         </div>
-        <ExpandWithGeneratorButton />
+        <div className="flex items-center gap-2">
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+            >
+              Edit
+            </button>
+          )}
+          <ExpandWithGeneratorButton />
+        </div>
       </header>
 
-      {type === "npc" ? (
+      {editing ? (
+        <div className="mt-8">
+          <EntityForm
+            mode="edit"
+            type={type}
+            entityId={entity.id}
+            initial={{
+              name: entity.name,
+              summary: entity.summary,
+              isStub: entity.isStub,
+              data: entity.data,
+            }}
+            onDone={() => setEditing(false)}
+          />
+        </div>
+      ) : type === "npc" ? (
         <NpcStatBlock id={entity.id} name={entity.name} data={entity.data} />
       ) : (
-        <p className="mt-8 text-sm text-lore-muted">
-          {REALM_TYPE_LABEL[type]} detail views arrive in a later slice.
-        </p>
+        <DescriptiveView type={type} data={entity.data} />
       )}
+
+      {!editing && <RelationshipPanel entityId={entity.id} />}
     </div>
+  );
+}
+
+function DescriptiveView({
+  type,
+  data,
+}: {
+  type: Exclude<RealmEntityType, "npc">;
+  data: Record<string, unknown>;
+}) {
+  const fields = REALM_FIELDS[type];
+  const visible = fields.filter((f) => {
+    const v = data[f.key];
+    if (f.kind === "number") return typeof v === "number" && v > 0;
+    return typeof v === "string" && v.trim() !== "";
+  });
+
+  if (visible.length === 0) {
+    return (
+      <p className="mt-8 text-sm text-lore-muted">
+        No details yet — use Edit to fill them in.
+      </p>
+    );
+  }
+
+  return (
+    <dl className="mt-8 grid gap-4 sm:grid-cols-2">
+      {visible.map((f) => (
+        <div
+          key={f.key}
+          className={`rounded-lg border border-lore-border bg-lore-surface p-4 ${
+            f.kind === "textarea" ? "sm:col-span-2" : ""
+          }`}
+        >
+          <dt className="text-xs uppercase tracking-wide text-lore-muted">
+            {f.label}
+          </dt>
+          <dd
+            className={`mt-1 ${
+              f.kind === "textarea" ? "whitespace-pre-wrap" : ""
+            }`}
+          >
+            {String(data[f.key])}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

@@ -1,20 +1,29 @@
 /**
- * Realms tRPC router — owner-scoped worldbuilding entities (#41).
+ * Realms tRPC router — owner-scoped worldbuilding entities + relationships
+ * (#41, #44).
  *
- * One polymorphic surface for all eight Realms types: `list` (optionally
- * type-filtered), `counts` (sidebar tallies), `get`, and `create`. The DB row
- * keeps `data` shape-agnostic; this layer owns the per-type zod validation via
- * a discriminated union on `type`. NPC is the first realized type — the other
- * seven forms land in slice #5. NPC mechanical fields mirror the character
- * primitives so the detail page derives its stat block through `@app/engine`.
+ * One polymorphic surface for all eight Realms types. The DB row keeps `data`
+ * shape-agnostic; this layer owns the per-type zod validation via discriminated
+ * unions on `type`. NPC is mechanical (mirrors the character primitives); the
+ * other seven are descriptive and derive their `data` schema from the shared
+ * `REALM_FIELDS` descriptors so the form, detail view, and validator agree.
+ *
+ * Relationships are typed directed edges in `realm_relationships`; `links`
+ * returns them bidirectionally with the other entity resolved.
  */
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { getDb, realmEntities } from "@app/db";
+import { getDb, realmEntities, realmRelationships } from "@app/db";
 
-import { REALM_ENTITY_TYPES, type RealmEntityType } from "@/lib/realms";
+import {
+  REALM_ENTITY_TYPES,
+  REALM_FIELDS,
+  REALM_RELATIONSHIP_KINDS,
+  type RealmEntityType,
+  type RealmFieldDescriptor,
+} from "@/lib/realms";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -51,24 +60,84 @@ const npcData = z.object({
   skillProficiencies: z.array(z.string().trim().max(40)).max(30).default([]),
 });
 
-const sharedFields = {
+/** Derive a zod `data` schema from a descriptive type's field descriptors. */
+function buildFieldsSchema(fields: readonly RealmFieldDescriptor[]) {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const field of fields) {
+    if (field.kind === "number") {
+      shape[field.key] = z
+        .number()
+        .int()
+        .min(field.min ?? 0)
+        .max(field.max ?? 100_000_000)
+        .default(field.min ?? 0);
+    } else if (field.kind === "select") {
+      const options = (field.options ?? [""]) as [string, ...string[]];
+      shape[field.key] = z.enum(options).default(options[0]);
+    } else {
+      shape[field.key] = z
+        .string()
+        .trim()
+        .max(field.max ?? (field.kind === "textarea" ? 4000 : 200))
+        .default("");
+    }
+  }
+  return z.object(shape);
+}
+
+/** The `data` schema for a given type. */
+function dataSchemaFor(type: RealmEntityType) {
+  return type === "npc" ? npcData : buildFieldsSchema(REALM_FIELDS[type]);
+}
+
+/**
+ * Validate a raw `data` payload against its type's schema, returning the parsed
+ * (defaulted) object or throwing a BAD_REQUEST with the first issue. Keeps the
+ * per-type validation precise without a brittle dynamic discriminated union.
+ */
+function parseData(
+  type: RealmEntityType,
+  raw: unknown,
+): Record<string, unknown> {
+  const result = dataSchemaFor(type).safeParse(raw ?? {});
+  if (!result.success) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: result.error.issues[0]?.message ?? "Invalid entity data.",
+    });
+  }
+  return result.data as Record<string, unknown>;
+}
+
+const createInput = z.object({
+  type: realmType,
   name: z.string().trim().min(1).max(120),
   summary: z.string().trim().max(500).default(""),
   isStub: z.boolean().default(false),
-};
+  data: z.unknown().optional(),
+});
 
-/**
- * Discriminated by `type` so each entity type validates its own `data` shape.
- * Only NPC is realized in this slice; the other seven types are added here as
- * their forms ship (#5).
- */
-const createInput = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("npc"),
-    ...sharedFields,
-    data: npcData,
-  }),
-]);
+const updateInput = createInput.extend({ id: z.string().uuid() });
+
+const relationshipKind = z.enum(REALM_RELATIONSHIP_KINDS);
+
+/** Confirm every id is owned by the user; throws NOT_FOUND otherwise. */
+async function assertOwnedEntities(
+  db: ReturnType<typeof getDb>,
+  userId: string,
+  ids: string[],
+): Promise<void> {
+  if (ids.length === 0) return;
+  const rows = await db
+    .select({ id: realmEntities.id })
+    .from(realmEntities)
+    .where(
+      and(eq(realmEntities.ownerId, userId), inArray(realmEntities.id, ids)),
+    );
+  if (rows.length !== ids.length) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Entity not found." });
+  }
+}
 
 export const realmsRouter = createTRPCRouter({
   /** Entities owned by the current user, optionally filtered by type. */
@@ -128,15 +197,22 @@ export const realmsRouter = createTRPCRouter({
       return row ?? null;
     }),
 
-  /** Create an entity owned by the current user (NPC only in this slice). */
+  /** Create an entity owned by the current user (any of the eight types). */
   create: protectedProcedure
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const { type, name, summary, isStub, data } = input;
+      const data = parseData(input.type, input.data);
       const [row] = await db
         .insert(realmEntities)
-        .values({ ownerId: ctx.user.id, type, name, summary, isStub, data })
+        .values({
+          ownerId: ctx.user.id,
+          type: input.type,
+          name: input.name,
+          summary: input.summary,
+          isStub: input.isStub,
+          data,
+        })
         .returning();
       if (!row) {
         throw new TRPCError({
@@ -145,5 +221,167 @@ export const realmsRouter = createTRPCRouter({
         });
       }
       return row;
+    }),
+
+  /** Replace an owned entity's editable fields (name / summary / stub / data). */
+  update: protectedProcedure
+    .input(updateInput)
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const data = parseData(input.type, input.data);
+      const [row] = await db
+        .update(realmEntities)
+        .set({
+          name: input.name,
+          summary: input.summary,
+          isStub: input.isStub,
+          data,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(realmEntities.id, input.id),
+            eq(realmEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entity not found." });
+      }
+      return row;
+    }),
+
+  /**
+   * Relationships touching an entity, both directions. Each result carries the
+   * edge id, its `kind`, whether the queried entity is the `from` or `to` side,
+   * and the resolved other entity (id / name / type) for display + linking.
+   */
+  links: protectedProcedure
+    .input(z.object({ entityId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const edges = await db
+        .select()
+        .from(realmRelationships)
+        .where(
+          and(
+            eq(realmRelationships.ownerId, ctx.user.id),
+            or(
+              eq(realmRelationships.fromId, input.entityId),
+              eq(realmRelationships.toId, input.entityId),
+            ),
+          ),
+        )
+        .orderBy(desc(realmRelationships.createdAt));
+
+      const otherIds = [
+        ...new Set(
+          edges.map((e) =>
+            e.fromId === input.entityId ? e.toId : e.fromId,
+          ),
+        ),
+      ];
+      const others =
+        otherIds.length > 0
+          ? await db
+              .select({
+                id: realmEntities.id,
+                name: realmEntities.name,
+                type: realmEntities.type,
+              })
+              .from(realmEntities)
+              .where(
+                and(
+                  eq(realmEntities.ownerId, ctx.user.id),
+                  inArray(realmEntities.id, otherIds),
+                ),
+              )
+          : [];
+      const byId = new Map(others.map((o) => [o.id, o]));
+
+      return edges.flatMap((edge) => {
+        const outgoing = edge.fromId === input.entityId;
+        const otherId = outgoing ? edge.toId : edge.fromId;
+        const other = byId.get(otherId);
+        if (!other) return [];
+        return [
+          {
+            id: edge.id,
+            kind: edge.kind,
+            direction: outgoing ? ("out" as const) : ("in" as const),
+            other,
+          },
+        ];
+      });
+    }),
+
+  /** Create a typed directed edge between two owned entities. */
+  link: protectedProcedure
+    .input(
+      z.object({
+        fromId: z.string().uuid(),
+        toId: z.string().uuid(),
+        kind: relationshipKind,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.fromId === input.toId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "An entity can't link to itself.",
+        });
+      }
+      const db = getDb();
+      await assertOwnedEntities(db, ctx.user.id, [input.fromId, input.toId]);
+
+      const [existing] = await db
+        .select({ id: realmRelationships.id })
+        .from(realmRelationships)
+        .where(
+          and(
+            eq(realmRelationships.ownerId, ctx.user.id),
+            eq(realmRelationships.fromId, input.fromId),
+            eq(realmRelationships.toId, input.toId),
+            eq(realmRelationships.kind, input.kind),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "That link already exists.",
+        });
+      }
+
+      const [row] = await db
+        .insert(realmRelationships)
+        .values({
+          ownerId: ctx.user.id,
+          fromId: input.fromId,
+          toId: input.toId,
+          kind: input.kind,
+        })
+        .returning();
+      return row;
+    }),
+
+  /** Delete an owned relationship edge. */
+  unlink: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .delete(realmRelationships)
+        .where(
+          and(
+            eq(realmRelationships.id, input.id),
+            eq(realmRelationships.ownerId, ctx.user.id),
+          ),
+        )
+        .returning({ id: realmRelationships.id });
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Link not found." });
+      }
+      return { id: row.id };
     }),
 });

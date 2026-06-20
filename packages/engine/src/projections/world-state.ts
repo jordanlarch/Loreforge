@@ -31,6 +31,8 @@ export type EncounterState = {
   round: number;
   /** Index into `order` of the active combatant. */
   activeIndex: number;
+  /** The most recent open opportunity-attack window, if any. */
+  reactionWindow?: { mover: EntityRef; eligible: EntityRef[] };
 };
 
 export type WorldState = {
@@ -199,20 +201,34 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           round: 1,
           activeIndex: 0,
         };
+        // Every combatant enters combat with a reaction available.
+        for (const ref of next.encounter.combatants) {
+          const c = next.entities[ref];
+          if (c) {
+            next.entities[ref] = { ...c, reactionAvailable: true, readied: undefined };
+          }
+        }
       }
       break;
     }
     case "TurnStarted": {
       if (next.encounter) {
-        next.encounter = { ...next.encounter, activeIndex: event.payload.index };
+        next.encounter = {
+          ...next.encounter,
+          activeIndex: event.payload.index,
+          reactionWindow: undefined,
+        };
       }
       const actor = next.entities[event.payload.entity];
       if (actor) {
+        // Fresh turn: refresh the reaction budget; a readied action lapses.
         next.entities[actor.id] = syncEconomy({
           ...actor,
           actionEconomy: freshActionEconomy(
             effectiveSpeed(actor.speed, actor.conditions),
           ),
+          reactionAvailable: true,
+          readied: undefined,
         });
       }
       break;
@@ -309,6 +325,55 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       const target = next.entities[event.payload.entity];
       if (target) {
         next.entities[target.id] = { ...target, concentration: undefined };
+      }
+      break;
+    }
+    case "ReactionWindowOpened": {
+      if (next.encounter) {
+        next.encounter = {
+          ...next.encounter,
+          reactionWindow: {
+            mover: event.payload.mover,
+            eligible: [...event.payload.eligible],
+          },
+        };
+      }
+      break;
+    }
+    case "ReactionTaken": {
+      const reactor = next.entities[event.payload.reactor];
+      if (reactor) {
+        next.entities[reactor.id] = { ...reactor, reactionAvailable: false };
+      }
+      if (next.encounter?.reactionWindow) {
+        const eligible = next.encounter.reactionWindow.eligible.filter(
+          (ref) => ref !== event.payload.reactor,
+        );
+        next.encounter = {
+          ...next.encounter,
+          reactionWindow: { ...next.encounter.reactionWindow, eligible },
+        };
+      }
+      break;
+    }
+    case "ActionReadied": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        const actionEconomy = entity.actionEconomy
+          ? { ...entity.actionEconomy, action: "used" as ResourceState }
+          : entity.actionEconomy;
+        next.entities[entity.id] = {
+          ...entity,
+          actionEconomy,
+          readied: { trigger: event.payload.trigger, action: event.payload.action },
+        };
+      }
+      break;
+    }
+    case "ReadiedActionTriggered": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        next.entities[entity.id] = { ...entity, readied: undefined };
       }
       break;
     }

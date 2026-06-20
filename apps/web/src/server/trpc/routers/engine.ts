@@ -163,6 +163,26 @@ const commandSchema = z.discriminatedUnion("type", [
     spell: z.string(),
   }),
   z.object({ type: z.literal("end_concentration"), entity: z.string() }),
+  z.object({
+    type: z.literal("opportunity_attack"),
+    reactor: z.string(),
+    target: z.string(),
+    attackBonus: z.number().int(),
+    damage: z.object({ notation: z.string(), type: z.string() }),
+    mode: rollMode.optional(),
+  }),
+  z.object({
+    type: z.literal("ready_action"),
+    entity: z.string(),
+    trigger: z.string(),
+    action: z.object({
+      kind: z.literal("attack"),
+      target: z.string(),
+      attackBonus: z.number().int(),
+      damage: z.object({ notation: z.string(), type: z.string() }),
+    }),
+  }),
+  z.object({ type: z.literal("trigger_readied"), entity: z.string() }),
 ]);
 
 export const engineRouter = createTRPCRouter({

@@ -23,6 +23,7 @@ import {
   type RollAdjust,
 } from "../combat/conditions";
 import { concentrationDC, resolveDeathSave } from "../combat/death";
+import { provokesOpportunityAttack } from "../combat/reactions";
 import type { EntityState, GridPosition } from "../entities/types";
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
@@ -44,6 +45,8 @@ import {
   type EndTurnCommand,
   type LongRestCommand,
   type MoveEntityCommand,
+  type OpportunityAttackCommand,
+  type ReadyActionCommand,
   type RemoveConditionCommand,
   type RollDiceCommand,
   type RollInitiativeCommand,
@@ -51,6 +54,7 @@ import {
   type ShortRestCommand,
   type StartConcentrationCommand,
   type StartEncounterCommand,
+  type TriggerReadiedCommand,
 } from "./types";
 
 function meta(ctx: ExecutionContext, actor?: string): Omit<EventMeta, "sequence"> {
@@ -372,17 +376,40 @@ function handleMoveEntity(
     }
   }
 
-  return {
-    accepted: true,
-    events: [
-      {
-        type: "EntityMoved",
-        ...meta(ctx, cmd.entity),
-        payload: { entity: cmd.entity, from: entity.position, to },
-      },
-    ],
-    summary: { entity: cmd.entity, to },
-  };
+  const events: DraftEvent[] = [
+    {
+      type: "EntityMoved",
+      ...meta(ctx, cmd.entity),
+      payload: { entity: cmd.entity, from: entity.position, to },
+    },
+  ];
+
+  // In combat, leaving a threatener's reach opens an opportunity-attack window.
+  const encounter = ctx.world.encounter;
+  if (encounter && entity.position) {
+    const from = entity.position;
+    const eligible = encounter.combatants.filter((ref) => {
+      if (ref === entity.id) return false;
+      const reactor = ctx.world.entities[ref];
+      return (
+        reactor !== undefined &&
+        reactor.alive &&
+        reactor.reactionAvailable === true &&
+        reactor.position !== undefined &&
+        reactor.sceneId === entity.sceneId &&
+        provokesOpportunityAttack(reactor.position, from, to)
+      );
+    });
+    if (eligible.length > 0) {
+      events.push({
+        type: "ReactionWindowOpened",
+        ...meta(ctx, "system"),
+        payload: { trigger: "leave_reach", mover: cmd.entity, eligible },
+      });
+    }
+  }
+
+  return { accepted: true, events, summary: { entity: cmd.entity, to } };
 }
 
 function handleStartEncounter(
@@ -1014,6 +1041,148 @@ function handleEndConcentration(
   };
 }
 
+function handleOpportunityAttack(
+  cmd: OpportunityAttackCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const reactor = ctx.world.entities[cmd.reactor];
+  if (!reactor) {
+    return reject("ACTOR_NOT_FOUND", `Reactor ${cmd.reactor} does not exist.`);
+  }
+  if (reactor.reactionAvailable !== true) {
+    return reject(
+      "NO_REACTION",
+      `${reactor.name} has no reaction available this round.`,
+    );
+  }
+  const window = ctx.world.encounter?.reactionWindow;
+  const provoked =
+    window !== undefined &&
+    window.mover === cmd.target &&
+    window.eligible.includes(cmd.reactor);
+  if (!provoked) {
+    return reject(
+      "NOT_PROVOKED",
+      `${cmd.target} did not provoke an opportunity attack from ${reactor.name}.`,
+    );
+  }
+
+  const result = handleAttack(
+    {
+      type: "attack",
+      attacker: cmd.reactor,
+      target: cmd.target,
+      attackBonus: cmd.attackBonus,
+      damage: cmd.damage,
+      ...(cmd.mode ? { mode: cmd.mode } : {}),
+    },
+    ctx,
+  );
+  if (!result.accepted) return result;
+
+  return {
+    accepted: true,
+    events: [
+      ...result.events,
+      {
+        type: "ReactionTaken",
+        ...meta(ctx, cmd.reactor),
+        payload: { reactor: cmd.reactor, trigger: "opportunity_attack" },
+      },
+    ],
+    summary: { ...result.summary, reaction: "opportunity_attack" },
+  };
+}
+
+function handleReadyAction(
+  cmd: ReadyActionCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  const encounter = ctx.world.encounter;
+  const active = encounter?.order[encounter.activeIndex]?.entity;
+  if (!encounter || active !== cmd.entity) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${entity.name} can only ready an action on its own turn.`,
+    );
+  }
+  if (isIncapacitated(entity.conditions)) {
+    return reject("ACTION_UNAVAILABLE", `${entity.name} is incapacitated.`);
+  }
+  if (entity.actionEconomy?.action !== "available") {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${entity.name} has already used its action this turn.`,
+    );
+  }
+
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "ActionReadied",
+        ...meta(ctx, cmd.entity),
+        payload: { entity: cmd.entity, trigger: cmd.trigger, action: cmd.action },
+      },
+    ],
+    summary: { entity: cmd.entity, trigger: cmd.trigger },
+  };
+}
+
+function handleTriggerReadied(
+  cmd: TriggerReadiedCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  if (!entity.readied) {
+    return reject("NO_READIED_ACTION", `${entity.name} has no readied action.`);
+  }
+  if (entity.reactionAvailable !== true) {
+    return reject(
+      "NO_REACTION",
+      `${entity.name} has no reaction available this round.`,
+    );
+  }
+
+  const action = entity.readied.action;
+  const result = handleAttack(
+    {
+      type: "attack",
+      attacker: cmd.entity,
+      target: action.target,
+      attackBonus: action.attackBonus,
+      damage: action.damage,
+    },
+    ctx,
+  );
+  if (!result.accepted) return result;
+
+  return {
+    accepted: true,
+    events: [
+      ...result.events,
+      {
+        type: "ReadiedActionTriggered",
+        ...meta(ctx, cmd.entity),
+        payload: { entity: cmd.entity },
+      },
+      {
+        type: "ReactionTaken",
+        ...meta(ctx, cmd.entity),
+        payload: { reactor: cmd.entity, trigger: "readied" },
+      },
+    ],
+    summary: { ...result.summary, reaction: "readied" },
+  };
+}
+
 /** Dispatch a command to its handler. */
 export function handleCommand(
   command: Command,
@@ -1058,5 +1227,11 @@ export function handleCommand(
       return handleStartConcentration(command, ctx);
     case "end_concentration":
       return handleEndConcentration(command, ctx);
+    case "opportunity_attack":
+      return handleOpportunityAttack(command, ctx);
+    case "ready_action":
+      return handleReadyAction(command, ctx);
+    case "trigger_readied":
+      return handleTriggerReadied(command, ctx);
   }
 }

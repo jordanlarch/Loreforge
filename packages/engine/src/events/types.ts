@@ -10,6 +10,7 @@ import type {
   EntityInit,
   EntityRef,
   GridPosition,
+  ReadiedAction,
   SceneId,
   SceneState,
 } from "../entities/types";
@@ -157,6 +158,29 @@ export type ConcentrationBrokenPayload = {
   reason: "damage" | "ended" | "incapacitated" | "downed" | "recast";
 };
 
+export type ReactionWindowOpenedPayload = {
+  trigger: "leave_reach";
+  /** The creature whose movement opened the window. */
+  mover: EntityRef;
+  /** Combatants who threatened the mover and still have a reaction available. */
+  eligible: EntityRef[];
+};
+
+export type ReactionTakenPayload = {
+  reactor: EntityRef;
+  trigger: "opportunity_attack" | "readied";
+};
+
+export type ActionReadiedPayload = {
+  entity: EntityRef;
+  trigger: string;
+  action: ReadiedAction;
+};
+
+export type ReadiedActionTriggeredPayload = {
+  entity: EntityRef;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -184,6 +208,16 @@ export type EngineEvent =
   | (EventMeta & {
       type: "ConcentrationBroken";
       payload: ConcentrationBrokenPayload;
+    })
+  | (EventMeta & {
+      type: "ReactionWindowOpened";
+      payload: ReactionWindowOpenedPayload;
+    })
+  | (EventMeta & { type: "ReactionTaken"; payload: ReactionTakenPayload })
+  | (EventMeta & { type: "ActionReadied"; payload: ActionReadiedPayload })
+  | (EventMeta & {
+      type: "ReadiedActionTriggered";
+      payload: ReadiedActionTriggeredPayload;
     });
 
 export type EngineEventType = EngineEvent["type"];

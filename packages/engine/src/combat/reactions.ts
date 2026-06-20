@@ -12,6 +12,20 @@ import { distanceFeet } from "./grid";
 export const REACH_FEET = 5 as const;
 
 /**
+ * Two combatants are hostile when both belong to a side and the sides differ
+ * (team-id model: party vs goblins, or goblins vs cult in a three-way fight).
+ *
+ * A combatant with no assigned side is **neutral**: it neither provokes nor is
+ * provoked, so most monsters/NPCs need no faction until the GM/AI assigns one.
+ * This is intentionally distinct from Realms "Factions" (a narrative entity
+ * type) — sides are a per-encounter combat primitive that Factions may later
+ * seed, not the same thing.
+ */
+export function areHostile(a: string | undefined, b: string | undefined): boolean {
+  return a !== undefined && b !== undefined && a !== b;
+}
+
+/**
  * Does moving `from` → `to` provoke an opportunity attack from a creature at
  * `threatener`? SRD: leaving a hostile's reach provokes — i.e. you start within
  * its reach and end outside it. Moving *within* reach (or never in reach) does

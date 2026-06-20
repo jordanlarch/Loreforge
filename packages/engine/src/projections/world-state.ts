@@ -24,6 +24,8 @@ export type EncounterState = {
   sceneId: SceneId;
   /** Encounter membership, set at start (before initiative is rolled). */
   combatants: EntityRef[];
+  /** Per-combatant side/team id; combatants absent here are neutral. */
+  sides: Record<EntityRef, string>;
   /** Resolved descending turn order; empty until initiative is rolled. */
   order: InitiativeEntry[];
   initiativeRolled: boolean;
@@ -193,6 +195,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       next.encounter = {
         sceneId: event.payload.sceneId,
         combatants: [...event.payload.combatants],
+        sides: { ...event.payload.sides },
         order: [],
         initiativeRolled: false,
         round: 0,

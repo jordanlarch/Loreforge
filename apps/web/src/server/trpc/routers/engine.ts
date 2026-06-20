@@ -112,6 +112,7 @@ const commandSchema = z.discriminatedUnion("type", [
     type: z.literal("start_encounter"),
     sceneId: z.string().optional(),
     combatants: z.array(z.string()),
+    sides: z.record(z.string(), z.string()).optional(),
   }),
   z.object({
     type: z.literal("roll_initiative"),

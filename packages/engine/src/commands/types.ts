@@ -74,6 +74,12 @@ export type StartEncounterCommand = {
   /** Defaults to the current scene. */
   sceneId?: SceneId;
   combatants: EntityRef[];
+  /**
+   * Optional per-combatant side/team id (team-id model). Combatants on different
+   * sides are hostile (drive opportunity-attack eligibility); an omitted entry is
+   * neutral. Keys must be a subset of `combatants`. Distinct from Realms Factions.
+   */
+  sides?: Record<EntityRef, string>;
 };
 
 /** Roll initiative for every combatant in the open encounter and begin round 1. */

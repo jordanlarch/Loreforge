@@ -52,6 +52,7 @@ async function setup(engine: Engine) {
   await engine.execute(CAMPAIGN, {
     type: "start_encounter",
     combatants: ["pc:hero", "npc:foe"],
+    sides: { "pc:hero": "party", "npc:foe": "enemies" },
   });
   await engine.execute(CAMPAIGN, { type: "roll_initiative" });
 }
@@ -200,6 +201,96 @@ describe("Reactions: opportunity attacks", () => {
       if ((await ent(engine, "npc:foe"))?.reaction === "available") break;
     }
     expect((await ent(engine, "npc:foe"))?.reaction).toBe("available");
+  });
+});
+
+describe("Reactions: side / hostility filtering", () => {
+  let engine: Engine;
+
+  /** Scene + adjacent hero/foe + encounter with the given side assignment. */
+  async function arena(sides?: Record<string, string>) {
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: {
+        id: "s:map",
+        name: "Hall",
+        map: { width: 10, height: 10, blockedCells: [] },
+      },
+    });
+    await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:map" });
+    await place(engine, "pc:hero", { x: 0, y: 0 });
+    await place(engine, "npc:foe", { x: 1, y: 0 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:hero", "npc:foe"],
+      ...(sides ? { sides } : {}),
+    });
+    await engine.execute(CAMPAIGN, { type: "roll_initiative" });
+  }
+
+  async function leaveReach() {
+    return engine.execute(CAMPAIGN, {
+      type: "move_entity",
+      entity: "pc:hero",
+      to: { x: 0, y: 2 },
+    });
+  }
+
+  beforeEach(() => {
+    engine = new Engine({ now: () => 1 });
+  });
+
+  it("opens a window between hostile sides", async () => {
+    await arena({ "pc:hero": "party", "npc:foe": "enemies" });
+    const r = await leaveReach();
+    expect(r.accepted).toBe(true);
+    if (r.accepted) {
+      expect(r.events.find((e) => e.type === "ReactionWindowOpened")).toBeDefined();
+    }
+  });
+
+  it("does not open a window for an allied (same-side) combatant", async () => {
+    await arena({ "pc:hero": "party", "npc:foe": "party" });
+    const r = await leaveReach();
+    expect(r.accepted).toBe(true);
+    if (r.accepted) {
+      expect(r.events.find((e) => e.type === "ReactionWindowOpened")).toBeUndefined();
+    }
+  });
+
+  it("does not open a window when sides are unassigned (neutral)", async () => {
+    await arena(); // no sides
+    const r = await leaveReach();
+    expect(r.accepted).toBe(true);
+    if (r.accepted) {
+      expect(r.events.find((e) => e.type === "ReactionWindowOpened")).toBeUndefined();
+    }
+  });
+
+  it("treats a one-sided assignment as neutral (no window)", async () => {
+    await arena({ "pc:hero": "party" }); // foe has no side
+    const r = await leaveReach();
+    expect(r.accepted).toBe(true);
+    if (r.accepted) {
+      expect(r.events.find((e) => e.type === "ReactionWindowOpened")).toBeUndefined();
+    }
+  });
+
+  it("rejects a side assigned to a non-combatant", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: { id: "s:map", name: "Hall" },
+    });
+    await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:map" });
+    await place(engine, "pc:hero", { x: 0, y: 0 });
+    await place(engine, "npc:foe", { x: 1, y: 0 });
+    const r = await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:hero"],
+      sides: { "npc:foe": "enemies" },
+    });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason.code).toBe("INVALID_PAYLOAD");
   });
 });
 

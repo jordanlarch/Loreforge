@@ -23,7 +23,7 @@ import {
   type RollAdjust,
 } from "../combat/conditions";
 import { concentrationDC, resolveDeathSave } from "../combat/death";
-import { provokesOpportunityAttack } from "../combat/reactions";
+import { areHostile, provokesOpportunityAttack } from "../combat/reactions";
 import type { EntityState, GridPosition } from "../entities/types";
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
@@ -388,6 +388,7 @@ function handleMoveEntity(
   const encounter = ctx.world.encounter;
   if (encounter && entity.position) {
     const from = entity.position;
+    const moverSide = encounter.sides[entity.id];
     const eligible = encounter.combatants.filter((ref) => {
       if (ref === entity.id) return false;
       const reactor = ctx.world.entities[ref];
@@ -397,6 +398,8 @@ function handleMoveEntity(
         reactor.reaction === "available" &&
         reactor.position !== undefined &&
         reactor.sceneId === entity.sceneId &&
+        // Only hostiles take opportunity attacks; neutral/allied do not provoke.
+        areHostile(moverSide, encounter.sides[ref]) &&
         provokesOpportunityAttack(reactor.position, from, to)
       );
     });
@@ -432,11 +435,22 @@ function handleStartEncounter(
   if (new Set(cmd.combatants).size !== cmd.combatants.length) {
     return reject("INVALID_PAYLOAD", "Combatant list contains duplicates.");
   }
+  const members = new Set(cmd.combatants);
   for (const ref of cmd.combatants) {
     if (!ctx.world.entities[ref]) {
       return reject("TARGET_NOT_FOUND", `Combatant ${ref} does not exist.`, {
         entity: ref,
       });
+    }
+  }
+  const sides = cmd.sides ?? {};
+  for (const ref of Object.keys(sides)) {
+    if (!members.has(ref)) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `Side assigned to non-combatant ${ref}.`,
+        { entity: ref },
+      );
     }
   }
   return {
@@ -445,7 +459,7 @@ function handleStartEncounter(
       {
         type: "EncounterStarted",
         ...meta(ctx, "system"),
-        payload: { sceneId, combatants: [...cmd.combatants] },
+        payload: { sceneId, combatants: [...cmd.combatants], sides: { ...sides } },
       },
     ],
     summary: { sceneId, combatants: cmd.combatants.length },

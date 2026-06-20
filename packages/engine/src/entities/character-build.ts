@@ -8,6 +8,8 @@
  * (not the React layer) honours the deterministic-engine decision — the app
  * only collects choices; the engine owns the math.
  */
+import { rollDice } from "../rng/dice";
+import { createSeededRng, type Rng } from "../rng/prng";
 import { abilityModifier } from "./abilities";
 import type { Ability, AbilityScores } from "./types";
 import { ABILITIES } from "./types";
@@ -121,4 +123,95 @@ export function maxHpAtFirstLevel(hitDie: number, conScore: number): number {
 /** Unarmored base AC: 10 + Dexterity modifier. */
 export function baseArmorClass(dexScore: number): number {
   return 10 + abilityModifier(dexScore);
+}
+
+/** How a level-up's hit points are determined (see {@link hpGainOnLevelUp}). */
+export type HpMethod = "average" | "roll";
+
+/**
+ * Deterministic seed string for a level-up HP roll. Keyed by character id and
+ * the *new* total level so every roll is reproducible (same character + same
+ * level always yields the same hit-die result) and the client can preview the
+ * exact value the server will persist. There is no reroll in v1.
+ */
+export function levelUpSeed(characterId: string, newLevel: number): string {
+  return `${characterId}:levelup:${newLevel}`;
+}
+
+/**
+ * Hit points gained when advancing one class level (5E).
+ *
+ * - `average`: the fixed per-level value `floor(hitDie / 2) + 1` plus the Con
+ *   modifier (e.g. d10 → 6 before Con).
+ * - `roll`: a single `1d{hitDie}` drawn from the provided seeded {@link Rng}
+ *   (engine-owned randomness — never `Math.random`), plus the Con modifier.
+ *
+ * Always clamped to a minimum of 1 HP per level, per the 5E rule. `roll`
+ * requires an `rng`; callers pass one seeded via {@link levelUpSeed}.
+ */
+export function hpGainOnLevelUp(
+  hitDie: number,
+  conMod: number,
+  opts: { mode: HpMethod; rng?: Rng },
+): number {
+  if (opts.mode === "average") {
+    return Math.max(1, Math.floor(hitDie / 2) + 1 + conMod);
+  }
+  if (!opts.rng) {
+    throw new Error("hpGainOnLevelUp: roll mode requires a seeded rng");
+  }
+  const rolled = rollDice(`1d${hitDie}`, opts.rng).total;
+  return Math.max(1, rolled + conMod);
+}
+
+/**
+ * Convenience wrapper: roll level-up HP from a deterministic seed string
+ * (see {@link levelUpSeed}). Equivalent to calling {@link hpGainOnLevelUp} with
+ * `createSeededRng(seed)`.
+ */
+export function hpRollFromSeed(
+  hitDie: number,
+  conMod: number,
+  seed: string,
+): number {
+  return hpGainOnLevelUp(hitDie, conMod, {
+    mode: "roll",
+    rng: createSeededRng(seed),
+  });
+}
+
+/** Universal levels that grant an Ability Score Improvement (5E). */
+export const ASI_LEVELS = [4, 8, 12, 16, 19] as const;
+
+/** Extra ASI levels granted by specific classes beyond the universal ones. */
+const EXTRA_ASI_LEVELS: Record<string, number[]> = {
+  Fighter: [6, 14],
+  Rogue: [10],
+};
+
+/** Whether a class gains an ASI/feat choice at the given level. */
+export function grantsAsiAtLevel(className: string, level: number): boolean {
+  return (
+    (ASI_LEVELS as readonly number[]).includes(level) ||
+    (EXTRA_ASI_LEVELS[className]?.includes(level) ?? false)
+  );
+}
+
+/**
+ * Stub labels for the choices a class gains at a given level.
+ *
+ * Scaffolding only (#11): we surface *that* a choice exists ("Ability Score
+ * Improvement", generic new class features) without wiring the real ASI/feat or
+ * per-class feature data — full feature ingestion + selection UI is a follow-up.
+ */
+export function featureStubsForLevel(
+  className: string,
+  level: number,
+): string[] {
+  const stubs: string[] = [];
+  if (grantsAsiAtLevel(className, level)) {
+    stubs.push("Ability Score Improvement / Feat");
+  }
+  stubs.push(`New ${className} features`);
+  return stubs;
 }

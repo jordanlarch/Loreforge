@@ -7,6 +7,8 @@ import { buildCharacterSheet, type Ability } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 
+import { LevelUpDialog } from "./level-up-dialog";
+
 const ABILITY_LABELS: Record<Ability, string> = {
   str: "Strength",
   dex: "Dexterity",
@@ -23,6 +25,7 @@ function signed(n: number): string {
 export function CharacterSheetView({ id }: { id: string }) {
   const utils = trpc.useUtils();
   const query = trpc.characters.get.useQuery({ id });
+  const [levelingUp, setLevelingUp] = useState(false);
 
   const update = trpc.characters.update.useMutation({
     async onMutate(vars) {
@@ -117,6 +120,13 @@ export function CharacterSheetView({ id }: { id: string }) {
               ariaLabel="Background"
             />
           </p>
+          <button
+            type="button"
+            onClick={() => setLevelingUp(true)}
+            className="mt-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent"
+          >
+            Level Up
+          </button>
         </div>
         <div className="flex gap-3 text-center">
           <EditableStat
@@ -227,6 +237,13 @@ export function CharacterSheetView({ id }: { id: string }) {
         Click any score, HP, AC, name, or detail to edit. Derived values are
         recomputed by <code className="text-lore-text">@app/engine</code>.
       </p>
+
+      {levelingUp && (
+        <LevelUpDialog
+          character={character}
+          onClose={() => setLevelingUp(false)}
+        />
+      )}
     </div>
   );
 }

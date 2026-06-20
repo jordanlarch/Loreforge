@@ -65,8 +65,14 @@ export {
 } from "./entities/types";
 export {
   applyAbilityBonuses,
+  ASI_LEVELS,
   baseArmorClass,
+  featureStubsForLevel,
+  grantsAsiAtLevel,
+  hpGainOnLevelUp,
+  hpRollFromSeed,
   isValidPointBuy,
+  levelUpSeed,
   MANUAL_MAX,
   MANUAL_MIN,
   maxHpAtFirstLevel,
@@ -79,6 +85,7 @@ export {
   SKILLS,
   STANDARD_ARRAY,
   totalPointBuyCost,
+  type HpMethod,
   type Skill,
 } from "./entities/character-build";
 

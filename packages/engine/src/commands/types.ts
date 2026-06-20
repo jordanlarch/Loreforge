@@ -11,6 +11,7 @@ import type {
   EntityInit,
   EntityRef,
   GridPosition,
+  ReadiedAction,
   SceneId,
   SceneState,
 } from "../entities/types";
@@ -165,6 +166,33 @@ export type EndConcentrationCommand = {
   entity: EntityRef;
 };
 
+/**
+ * An opportunity attack: a reaction-cost attack against a creature that left the
+ * reactor's reach. Valid only against the mover of an open reaction window.
+ */
+export type OpportunityAttackCommand = {
+  type: "opportunity_attack";
+  reactor: EntityRef;
+  target: EntityRef;
+  attackBonus: number;
+  damage: { notation: string; type: string };
+  mode?: RollMode;
+};
+
+/** Ready an action: spend your action to queue a triggered response. */
+export type ReadyActionCommand = {
+  type: "ready_action";
+  entity: EntityRef;
+  trigger: string;
+  action: ReadiedAction;
+};
+
+/** Resolve a previously-readied action when its trigger fires (costs a reaction). */
+export type TriggerReadiedCommand = {
+  type: "trigger_readied";
+  entity: EntityRef;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -184,7 +212,10 @@ export type Command =
   | ShortRestCommand
   | LongRestCommand
   | StartConcentrationCommand
-  | EndConcentrationCommand;
+  | EndConcentrationCommand
+  | OpportunityAttackCommand
+  | ReadyActionCommand
+  | TriggerReadiedCommand;
 
 export type CommandType = Command["type"];
 
@@ -212,7 +243,10 @@ export type ValidationCode =
   | "INVALID_TARGET"
   | "UNKNOWN_CONDITION"
   | "NOT_DYING"
-  | "ALREADY_DEAD";
+  | "ALREADY_DEAD"
+  | "NO_REACTION"
+  | "NOT_PROVOKED"
+  | "NO_READIED_ACTION";
 
 export type ValidationFailure = {
   code: ValidationCode;

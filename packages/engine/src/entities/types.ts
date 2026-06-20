@@ -108,11 +108,31 @@ export type EntityState = {
   stable?: boolean;
   /** The spell this creature is concentrating on, if any. */
   concentration?: ConcentrationState;
+  /**
+   * Whether this combatant still has its reaction this round. Unlike
+   * `actionEconomy` (present only on the active turn), the reaction budget spans
+   * other creatures' turns: it is granted at encounter start, refreshed at the
+   * start of the owner's turn, and spent by opportunity attacks / readied
+   * actions. Undefined outside of an encounter.
+   */
+  reactionAvailable?: boolean;
+  /** A queued Ready action awaiting its trigger; cleared on the owner's next turn. */
+  readied?: ReadyState;
 };
 
 export type DeathSaveTally = { successes: number; failures: number };
 
 export type ConcentrationState = { spell: string };
+
+/** The action a Ready'd creature will take when its trigger fires. */
+export type ReadiedAction = {
+  kind: "attack";
+  target: EntityRef;
+  attackBonus: number;
+  damage: { notation: string; type: string };
+};
+
+export type ReadyState = { trigger: string; action: ReadiedAction };
 
 /**
  * Optional square-grid map for a scene. Distances use the SRD **5-5-5

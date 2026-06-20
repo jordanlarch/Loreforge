@@ -63,6 +63,8 @@ export {
   type EntityState,
   type GridPosition,
   type HitPoints,
+  type ReadiedAction,
+  type ReadyState,
   type ResourceState,
   type SceneId,
   type SceneMap,
@@ -111,6 +113,7 @@ export {
   type DeathSaveResolution,
   type DeathSaveTally as DeathSaveTallyInput,
 } from "./combat/death";
+export { provokesOpportunityAttack, REACH_FEET } from "./combat/reactions";
 export {
   applyAbilityBonuses,
   ASI_LEVELS,

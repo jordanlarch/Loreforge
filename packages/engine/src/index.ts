@@ -82,6 +82,16 @@ export {
   type Skill,
 } from "./entities/character-build";
 
+// Content taxonomy
+export {
+  ITEM_RARITIES,
+  ITEM_SOURCES,
+  ITEM_TYPES,
+  type ItemRarity,
+  type ItemSource,
+  type ItemType,
+} from "./content/items";
+
 // Events
 export { InMemoryEventStore } from "./events/store";
 export type { EventStore } from "./events/store";

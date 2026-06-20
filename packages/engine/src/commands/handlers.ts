@@ -394,7 +394,7 @@ function handleMoveEntity(
       return (
         reactor !== undefined &&
         reactor.alive &&
-        reactor.reactionAvailable === true &&
+        reactor.reaction === "available" &&
         reactor.position !== undefined &&
         reactor.sceneId === entity.sceneId &&
         provokesOpportunityAttack(reactor.position, from, to)
@@ -1049,7 +1049,7 @@ function handleOpportunityAttack(
   if (!reactor) {
     return reject("ACTOR_NOT_FOUND", `Reactor ${cmd.reactor} does not exist.`);
   }
-  if (reactor.reactionAvailable !== true) {
+  if (reactor.reaction !== "available") {
     return reject(
       "NO_REACTION",
       `${reactor.name} has no reaction available this round.`,
@@ -1144,7 +1144,7 @@ function handleTriggerReadied(
   if (!entity.readied) {
     return reject("NO_READIED_ACTION", `${entity.name} has no readied action.`);
   }
-  if (entity.reactionAvailable !== true) {
+  if (entity.reaction !== "available") {
     return reject(
       "NO_REACTION",
       `${entity.name} has no reaction available this round.`,

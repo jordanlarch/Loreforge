@@ -230,7 +230,7 @@ describe("Conditions: action and movement availability", () => {
     });
     let hero = (await engine.getState(CAMPAIGN)).entities["pc:hero"];
     expect(hero?.actionEconomy?.action).toBe("lost");
-    expect(hero?.actionEconomy?.reaction).toBe("lost");
+    expect(hero?.reaction).toBe("lost");
     // Movement is blocked by the speed-0 check regardless of the budget number.
     const blockedMove = await engine.execute(CAMPAIGN, {
       type: "move_entity",
@@ -249,7 +249,7 @@ describe("Conditions: action and movement availability", () => {
     });
     hero = (await engine.getState(CAMPAIGN)).entities["pc:hero"];
     expect(hero?.actionEconomy?.action).toBe("available");
-    expect(hero?.actionEconomy?.reaction).toBe("available");
+    expect(hero?.reaction).toBe("available");
   });
 });
 

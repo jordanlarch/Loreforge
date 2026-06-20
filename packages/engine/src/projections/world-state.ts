@@ -60,27 +60,35 @@ function clampHp(value: number, max: number): number {
   return Math.max(0, Math.min(value, max));
 }
 
+/** Reconcile a single resource with incapacitation: lost while incapacitated,
+ * restored from `lost` once the condition clears (a spent `used` stays spent). */
+function reconcile(current: ResourceState, incap: boolean): ResourceState {
+  if (incap) return "lost";
+  return current === "lost" ? "available" : current;
+}
+
 /**
- * Reconcile action/reaction availability with incapacitation. Incapacitated
- * creatures lose their action and reaction; clearing the condition restores them
- * only if they were lost (a spent `used` resource stays spent).
+ * Reconcile action (per-turn) and reaction (round-spanning) availability with
+ * incapacitation. Operates whether or not the active-turn action economy is
+ * present, since the reaction lives on the entity and outlives the turn.
  */
 function syncEconomy(entity: EntityState): EntityState {
-  const ae = entity.actionEconomy;
-  if (!ae) return entity;
   const incap = isIncapacitated(entity.conditions);
-  const action: ResourceState = incap
-    ? "lost"
-    : ae.action === "lost"
-      ? "available"
-      : ae.action;
-  const reaction: ResourceState = incap
-    ? "lost"
-    : ae.reaction === "lost"
-      ? "available"
-      : ae.reaction;
-  if (action === ae.action && reaction === ae.reaction) return entity;
-  return { ...entity, actionEconomy: { ...ae, action, reaction } };
+  const ae = entity.actionEconomy;
+
+  const reaction =
+    entity.reaction !== undefined ? reconcile(entity.reaction, incap) : undefined;
+  const action = ae ? reconcile(ae.action, incap) : undefined;
+
+  const reactionChanged = reaction !== entity.reaction;
+  const actionChanged = ae !== undefined && action !== ae.action;
+  if (!reactionChanged && !actionChanged) return entity;
+
+  return {
+    ...entity,
+    ...(reactionChanged ? { reaction } : {}),
+    ...(ae && actionChanged ? { actionEconomy: { ...ae, action: action! } } : {}),
+  };
 }
 
 /** Fold a single event into the state, returning a new WorldState. */
@@ -205,7 +213,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         for (const ref of next.encounter.combatants) {
           const c = next.entities[ref];
           if (c) {
-            next.entities[ref] = { ...c, reactionAvailable: true, readied: undefined };
+            next.entities[ref] = { ...c, reaction: "available", readied: undefined };
           }
         }
       }
@@ -227,7 +235,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           actionEconomy: freshActionEconomy(
             effectiveSpeed(actor.speed, actor.conditions),
           ),
-          reactionAvailable: true,
+          reaction: "available",
           readied: undefined,
         });
       }
@@ -343,7 +351,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "ReactionTaken": {
       const reactor = next.entities[event.payload.reactor];
       if (reactor) {
-        next.entities[reactor.id] = { ...reactor, reactionAvailable: false };
+        next.entities[reactor.id] = { ...reactor, reaction: "used" };
       }
       if (next.encounter?.reactionWindow) {
         const eligible = next.encounter.reactionWindow.eligible.filter(

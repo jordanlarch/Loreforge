@@ -15,9 +15,6 @@ dist/
 .env.local
 .env.*.local
 
-# Drizzle
-packages/db/migrations/meta/
-
 # IDE / OS
 .idea/
 .vscode/

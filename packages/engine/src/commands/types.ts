@@ -128,7 +128,12 @@ export type ValidationCode =
   | "EMPTY_ENCOUNTER"
   | "NOT_IN_ENCOUNTER"
   | "INITIATIVE_NOT_ROLLED"
-  | "INITIATIVE_ALREADY_ROLLED";
+  | "INITIATIVE_ALREADY_ROLLED"
+  | "OUT_OF_BOUNDS"
+  | "CELL_BLOCKED"
+  | "CELL_OCCUPIED"
+  | "INSUFFICIENT_MOVEMENT"
+  | "NO_LINE_OF_SIGHT";
 
 export type ValidationFailure = {
   code: ValidationCode;

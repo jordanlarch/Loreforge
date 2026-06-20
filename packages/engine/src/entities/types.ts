@@ -94,10 +94,23 @@ export type EntityState = {
   actionEconomy?: ActionEconomyState;
 };
 
+/**
+ * Optional square-grid map for a scene. Distances use the SRD **5-5-5
+ * (Chebyshev)** convention: every step — orthogonal or diagonal — costs 5 ft
+ * (see `combat/grid.ts`). `blockedCells` are walls: they block both movement and
+ * line of sight.
+ */
+export type SceneMap = {
+  width: number;
+  height: number;
+  blockedCells: GridPosition[];
+};
+
 export type SceneState = {
   id: SceneId;
   name: string;
   description?: string;
+  map?: SceneMap;
 };
 
 /** Input shape for creating an entity (defaults filled by the factory). */

@@ -29,6 +29,13 @@
       "when": 1781923411746,
       "tag": "0003_modern_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781924346517,
+      "tag": "0004_fair_oracle",
+      "breakpoints": true
     }
   ]
 }

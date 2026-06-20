@@ -19,6 +19,21 @@ describe("resolveHit", () => {
   it("misses when the total is below AC", () => {
     expect(resolveHit(8, 14, 15)).toEqual({ hit: false, critical: false });
   });
+
+  it("forceCrit upgrades a normal hit to a crit but never rescues a miss", () => {
+    expect(resolveHit(12, 16, 15, { forceCrit: true })).toEqual({
+      hit: true,
+      critical: true,
+    });
+    expect(resolveHit(8, 9, 15, { forceCrit: true })).toEqual({
+      hit: false,
+      critical: false,
+    });
+    expect(resolveHit(1, 30, 5, { forceCrit: true })).toEqual({
+      hit: false,
+      critical: false,
+    });
+  });
 });
 
 describe("criticalNotation", () => {

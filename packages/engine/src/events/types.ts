@@ -14,6 +14,8 @@ import type {
   SceneState,
 } from "../entities/types";
 import type { InitiativeEntry } from "../combat/initiative";
+import type { Condition } from "../combat/conditions";
+import type { Ability } from "../entities/types";
 import type { RollMode } from "../rng/dice";
 
 /** Common envelope fields stamped on every persisted event. */
@@ -102,6 +104,31 @@ export type AttackResolvedPayload = {
   damage?: number;
 };
 
+export type ConditionAppliedPayload = {
+  target: EntityRef;
+  condition: Condition;
+  source?: EntityRef;
+  level?: number;
+};
+
+export type ConditionRemovedPayload = {
+  target: EntityRef;
+  condition: Condition;
+};
+
+export type SaveRolledPayload = {
+  entity: EntityRef;
+  ability: Ability;
+  dc: number;
+  mode: RollMode;
+  /** Natural d20 face; omitted on an auto-fail (no roll consumed). */
+  natural?: number;
+  /** d20 + ability modifier; omitted on an auto-fail. */
+  total?: number;
+  success: boolean;
+  autoFail: boolean;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -116,7 +143,10 @@ export type EngineEvent =
   | (EventMeta & { type: "TurnStarted"; payload: TurnStartedPayload })
   | (EventMeta & { type: "TurnEnded"; payload: TurnEndedPayload })
   | (EventMeta & { type: "RoundAdvanced"; payload: RoundAdvancedPayload })
-  | (EventMeta & { type: "AttackResolved"; payload: AttackResolvedPayload });
+  | (EventMeta & { type: "AttackResolved"; payload: AttackResolvedPayload })
+  | (EventMeta & { type: "ConditionApplied"; payload: ConditionAppliedPayload })
+  | (EventMeta & { type: "ConditionRemoved"; payload: ConditionRemovedPayload })
+  | (EventMeta & { type: "SaveRolled"; payload: SaveRolledPayload });
 
 export type EngineEventType = EngineEvent["type"];
 

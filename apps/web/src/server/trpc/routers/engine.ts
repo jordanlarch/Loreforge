@@ -13,6 +13,7 @@
 import { z } from "zod";
 
 import {
+  CONDITIONS,
   Engine,
   buildFixtureCampaign,
   type Command,
@@ -123,6 +124,25 @@ const commandSchema = z.discriminatedUnion("type", [
     target: z.string(),
     attackBonus: z.number().int(),
     damage: z.object({ notation: z.string(), type: z.string() }),
+    mode: rollMode.optional(),
+  }),
+  z.object({
+    type: z.literal("apply_condition"),
+    target: z.string(),
+    condition: z.enum(CONDITIONS),
+    source: z.string().optional(),
+    level: z.number().int().optional(),
+  }),
+  z.object({
+    type: z.literal("remove_condition"),
+    target: z.string(),
+    condition: z.enum(CONDITIONS),
+  }),
+  z.object({
+    type: z.literal("saving_throw"),
+    entity: z.string(),
+    ability: z.enum(["str", "dex", "con", "int", "wis", "cha"]),
+    dc: z.number().int(),
     mode: rollMode.optional(),
   }),
 ]);

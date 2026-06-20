@@ -10,11 +10,25 @@ import { abilityModifier } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
 import { criticalNotation, resolveHit } from "../combat/attack";
 import { distanceFeet, hasLineOfSight } from "../combat/grid";
+import {
+  attackedMode,
+  charmedSources,
+  combineMode,
+  critsWhenAdjacent,
+  effectiveSpeed,
+  isCondition,
+  isIncapacitated,
+  ownAttackMode,
+  saveResolution,
+  type RollAdjust,
+} from "../combat/conditions";
 import type { EntityState, GridPosition } from "../entities/types";
+import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import {
   reject,
+  type ApplyConditionCommand,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
   type AttackCommand,
@@ -26,8 +40,10 @@ import {
   type DamageSource,
   type EndTurnCommand,
   type MoveEntityCommand,
+  type RemoveConditionCommand,
   type RollDiceCommand,
   type RollInitiativeCommand,
+  type SavingThrowCommand,
   type StartEncounterCommand,
 } from "./types";
 
@@ -248,6 +264,10 @@ function handleMoveEntity(
     return reject("TARGET_DEAD", `${entity.name} cannot move while dead.`);
   }
 
+  if (effectiveSpeed(entity.speed, entity.conditions) === 0) {
+    return reject("IMMOBILIZED", `${entity.name} cannot move (speed 0).`);
+  }
+
   const to = cmd.to;
   const scene = entity.sceneId ? ctx.world.scenes[entity.sceneId] : undefined;
   const map = scene?.map;
@@ -466,6 +486,18 @@ function handleAttack(
   if (!attacker.alive) {
     return reject("TARGET_DEAD", `${attacker.name} cannot attack while down.`);
   }
+  if (isIncapacitated(attacker.conditions)) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${attacker.name} is incapacitated and cannot take actions.`,
+    );
+  }
+  if (charmedSources(attacker.conditions).has(cmd.target)) {
+    return reject(
+      "INVALID_TARGET",
+      `${attacker.name} is charmed by ${target.name} and cannot attack them.`,
+    );
+  }
 
   // Line of sight is enforced only when both combatants are placed in the same
   // mapped scene; mapless / unplaced combat (narrative, tests) is unaffected.
@@ -490,12 +522,39 @@ function handleAttack(
     }
   }
 
-  const d20 = ctx.roll("1d20", `attack:${cmd.attacker}->${cmd.target}`, cmd.mode);
+  // Adjacency (<= 5 ft) decides prone advantage/disadvantage, the adjacent-crit
+  // rule, and is only known when both combatants are positioned.
+  const adjacent =
+    attacker.position && target.position
+      ? distanceFeet(attacker.position, target.position) <= 5
+      : undefined;
+  const targetProne = target.conditions.some((c) => c.condition === "prone");
+  const proneMode: RollAdjust =
+    targetProne && adjacent !== undefined
+      ? adjacent
+        ? "advantage"
+        : "disadvantage"
+      : "normal";
+
+  // Net advantage/disadvantage: requested mode + attacker's own modes + modes
+  // from attacking this target's conditions + prone positioning.
+  const mode = combineMode(
+    (cmd.mode ?? "normal") as RollAdjust,
+    ownAttackMode(attacker.conditions),
+    attackedMode(target.conditions),
+    proneMode,
+  );
+
+  const d20 = ctx.roll("1d20", `attack:${cmd.attacker}->${cmd.target}`, mode);
   // "1d20" carries no modifier, so the total is the natural face (or the chosen
   // face under advantage/disadvantage).
   const natural = d20.total;
   const total = natural + cmd.attackBonus;
-  const { hit, critical } = resolveHit(natural, total, target.baseAc);
+  const forceCrit =
+    adjacent === true && critsWhenAdjacent(target.conditions);
+  const { hit, critical } = resolveHit(natural, total, target.baseAc, {
+    forceCrit,
+  });
 
   const events: DraftEvent[] = [rollDiceEvent(ctx, d20)];
 
@@ -518,7 +577,7 @@ function handleAttack(
     payload: {
       attacker: cmd.attacker,
       target: cmd.target,
-      attackRoll: { natural, total, mode: cmd.mode ?? "normal" },
+      attackRoll: { natural, total, mode },
       targetAc: target.baseAc,
       hit,
       critical,
@@ -560,6 +619,124 @@ function handleAttack(
   };
 }
 
+function handleApplyCondition(
+  cmd: ApplyConditionCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const target = ctx.world.entities[cmd.target];
+  if (!target) {
+    return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
+  }
+  if (!isCondition(cmd.condition)) {
+    return reject("UNKNOWN_CONDITION", `Unknown condition: ${cmd.condition}.`);
+  }
+  const level =
+    cmd.condition === "exhaustion"
+      ? Math.max(1, Math.min(6, Math.floor(cmd.level ?? 1)))
+      : undefined;
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "ConditionApplied",
+        ...meta(ctx, "system"),
+        payload: {
+          target: cmd.target,
+          condition: cmd.condition,
+          ...(cmd.source ? { source: cmd.source } : {}),
+          ...(level !== undefined ? { level } : {}),
+        },
+      },
+    ],
+    summary: { target: cmd.target, condition: cmd.condition, level },
+  };
+}
+
+function handleRemoveCondition(
+  cmd: RemoveConditionCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const target = ctx.world.entities[cmd.target];
+  if (!target) {
+    return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "ConditionRemoved",
+        ...meta(ctx, "system"),
+        payload: { target: cmd.target, condition: cmd.condition },
+      },
+    ],
+    summary: { target: cmd.target, condition: cmd.condition },
+  };
+}
+
+function handleSavingThrow(
+  cmd: SavingThrowCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+
+  const { autoFail, mode: condMode } = saveResolution(
+    cmd.ability,
+    entity.conditions,
+  );
+
+  if (autoFail) {
+    return {
+      accepted: true,
+      events: [
+        {
+          type: "SaveRolled",
+          ...meta(ctx, cmd.entity),
+          payload: {
+            entity: cmd.entity,
+            ability: cmd.ability,
+            dc: cmd.dc,
+            mode: "normal",
+            success: false,
+            autoFail: true,
+          },
+        },
+      ],
+      summary: { entity: cmd.entity, ability: cmd.ability, success: false, autoFail: true },
+    };
+  }
+
+  const mode = combineMode((cmd.mode ?? "normal") as RollAdjust, condMode);
+  const roll = ctx.roll("1d20", `save:${cmd.entity}:${cmd.ability}`, mode);
+  const natural = roll.total;
+  const total = natural + abilityModifier(entity.abilityScores[cmd.ability]);
+  const success = total >= cmd.dc;
+
+  return {
+    accepted: true,
+    events: [
+      rollDiceEvent(ctx, roll),
+      {
+        type: "SaveRolled",
+        ...meta(ctx, cmd.entity),
+        payload: {
+          entity: cmd.entity,
+          ability: cmd.ability,
+          dc: cmd.dc,
+          mode: mode as RollMode,
+          natural,
+          total,
+          success,
+          autoFail: false,
+        },
+      },
+    ],
+    summary: { entity: cmd.entity, ability: cmd.ability, total, dc: cmd.dc, success, autoFail: false },
+  };
+}
+
 /** Dispatch a command to its handler. */
 export function handleCommand(
   command: Command,
@@ -588,5 +765,11 @@ export function handleCommand(
       return handleEndTurn(command, ctx);
     case "attack":
       return handleAttack(command, ctx);
+    case "apply_condition":
+      return handleApplyCondition(command, ctx);
+    case "remove_condition":
+      return handleRemoveCondition(command, ctx);
+    case "saving_throw":
+      return handleSavingThrow(command, ctx);
   }
 }

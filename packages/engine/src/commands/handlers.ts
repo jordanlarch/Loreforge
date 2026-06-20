@@ -6,7 +6,7 @@
  * append plus a compact summary (the summary is what gets fed back to the LLM
  * for narration — it never sees raw events). See `architecture.md` §4.4.
  */
-import { abilityModifier } from "../entities/abilities";
+import { abilityModifier, totalLevel } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
 import { criticalNotation, resolveHit } from "../combat/attack";
 import {
@@ -16,7 +16,12 @@ import {
   withinCone,
 } from "../combat/grid";
 import { getSpell } from "../content/spell-registry";
-import { spellAttackBonus, spellSaveDC } from "../content/spellcasting";
+import {
+  cantripDamageDice,
+  spellAttackBonus,
+  spellcastingModifier,
+  spellSaveDC,
+} from "../content/spellcasting";
 import type { SpellDefinition, SpellRange } from "../content/spells";
 import { parseDice } from "../rng/dice";
 import {
@@ -1260,18 +1265,35 @@ function ledgerEntry(
   return entry;
 }
 
-/** Roll a spell's damage (first component), doubling dice on a crit and adding
- * upcast dice for slot levels above the spell's base level. */
+/** Rebuild a dice notation from a count/sides/modifier triple. */
+function diceNotation(count: number, sides: number, modifier: number): string {
+  const mod =
+    modifier === 0 ? "" : modifier > 0 ? `+${modifier}` : `${modifier}`;
+  return `${count}d${sides}${mod}`;
+}
+
+/** Roll a spell's damage (first component), applying cantrip character-level
+ * scaling (level-0 spells), doubling dice on a crit, and adding upcast dice for
+ * slot levels above the spell's base level. */
 function rollSpellDamage(
   ctx: ExecutionContext,
   spell: SpellDefinition,
+  casterLevel: number,
   extraLevels: number,
   crit: boolean,
   scopeBase: string,
 ): { amount: number; events: DraftEvent[] } {
   const component = spell.damage![0]!;
   const events: DraftEvent[] = [];
-  const baseNotation = crit ? criticalNotation(component.dice) : component.dice;
+  // Cantrips scale their base dice count by character level; leveled spells
+  // roll their printed dice and scale via slot upcast instead.
+  const parsed = parseDice(component.dice);
+  const baseCount =
+    spell.level === 0
+      ? parsed.count * cantripDamageDice(casterLevel)
+      : parsed.count;
+  const scaledNotation = diceNotation(baseCount, parsed.sides, parsed.modifier);
+  const baseNotation = crit ? criticalNotation(scaledNotation) : scaledNotation;
   const baseRoll = ctx.roll(baseNotation, `${scopeBase}:base`);
   events.push(rollDiceEvent(ctx, baseRoll));
   let amount = Math.max(0, baseRoll.total);
@@ -1284,6 +1306,33 @@ function rollSpellDamage(
     amount += Math.max(0, upRoll.total);
   }
   return { amount, events };
+}
+
+/** Roll a spell's healing: base dice (+ the caster's spellcasting modifier when
+ * the component opts in) plus upcast dice for slot levels above base. */
+function rollSpellHealing(
+  ctx: ExecutionContext,
+  spell: SpellDefinition,
+  caster: EntityState,
+  extraLevels: number,
+  scopeBase: string,
+): { amount: number; events: DraftEvent[] } {
+  const healing = spell.healing!;
+  const events: DraftEvent[] = [];
+  const baseRoll = ctx.roll(healing.dice, `${scopeBase}:base`);
+  events.push(rollDiceEvent(ctx, baseRoll));
+  let amount = baseRoll.total;
+  if (healing.addSpellMod) {
+    amount += spellcastingModifier(caster) ?? 0;
+  }
+  if (spell.upcastScaling?.appliesTo === "healing" && extraLevels > 0) {
+    const per = parseDice(spell.upcastScaling.perSlotDice);
+    const count = per.count * extraLevels;
+    const upRoll = ctx.roll(`${count}d${per.sides}`, `${scopeBase}:upcast`);
+    events.push(rollDiceEvent(ctx, upRoll));
+    amount += Math.max(0, upRoll.total);
+  }
+  return { amount: Math.max(0, amount), events };
 }
 
 /** Apply already-rolled damage to a target through the ledger, emitting the
@@ -1393,6 +1442,21 @@ function handleCastSpell(
   if (!caster.spellcasting) {
     return reject("NOT_A_SPELLCASTER", `${caster.name} cannot cast spells.`);
   }
+  const casterLevel = totalLevel(caster.classes);
+
+  // Bonus-action spells (Healing Word) cost the bonus action while in combat;
+  // out of combat (no action economy) casting is unbudgeted, like movement.
+  const usesBonusAction = spell.castingTime.unit === "bonus";
+  if (
+    usesBonusAction &&
+    caster.actionEconomy &&
+    caster.actionEconomy.bonusAction !== "available"
+  ) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${caster.name} has already used its bonus action this turn.`,
+    );
+  }
 
   // Slot accounting. Cantrips (level 0) consume no slot; leveled spells must be
   // cast with a slot at or above their level, and that slot must be available.
@@ -1458,7 +1522,9 @@ function handleCastSpell(
         entity: targetId,
       });
     }
-    if (!target.alive) {
+    // Healing may target a downed (0 HP, not yet dead) ally to revive them;
+    // every other spell needs a living target.
+    if (!target.alive && !(spell.healing && !target.dead)) {
       return reject("INVALID_TARGET", `${target.name} is not a valid target.`, {
         entity: targetId,
       });
@@ -1572,6 +1638,7 @@ function handleCastSpell(
         targets: areaAffected
           ? areaAffected.map((e) => e.id)
           : [...targets],
+        ...(usesBonusAction ? { bonusAction: true } : {}),
       },
     },
   ];
@@ -1621,6 +1688,7 @@ function handleCastSpell(
       const rolled = rollSpellDamage(
         ctx,
         spell,
+        casterLevel,
         extraLevels,
         critical,
         `spell-damage:${target.id}`,
@@ -1669,6 +1737,7 @@ function handleCastSpell(
     const rolled = rollSpellDamage(
       ctx,
       spell,
+      casterLevel,
       extraLevels,
       false,
       `spell-damage:${caster.id}`,
@@ -1725,6 +1794,7 @@ function handleCastSpell(
       const rolled = rollSpellDamage(
         ctx,
         spell,
+        casterLevel,
         extraLevels,
         false,
         `spell-damage:${caster.id}:${targetId}`,
@@ -1736,6 +1806,34 @@ function handleCastSpell(
       );
     }
     Object.assign(summary, { targets: targets.length, damage: totalDamage });
+  } else if (spell.healing) {
+    // Healing (Cure Wounds, Healing Word): restore HP up to max, no overheal.
+    // Targets are validated above (a downed-but-not-dead ally is allowed).
+    let totalHealing = 0;
+    for (const targetId of targets) {
+      const target = ctx.world.entities[targetId]!;
+      const rolled = rollSpellHealing(
+        ctx,
+        spell,
+        caster,
+        extraLevels,
+        `spell-heal:${caster.id}:${targetId}`,
+      );
+      events.push(...rolled.events);
+      const hpAfter = Math.min(target.hp.max, target.hp.current + rolled.amount);
+      events.push({
+        type: "HealingApplied",
+        ...meta(ctx, caster.id),
+        payload: {
+          target: target.id,
+          amount: rolled.amount,
+          hpBefore: target.hp.current,
+          hpAfter,
+        },
+      });
+      totalHealing += rolled.amount;
+    }
+    Object.assign(summary, { targets: targets.length, healing: totalHealing });
   }
 
   return { accepted: true, events, summary };

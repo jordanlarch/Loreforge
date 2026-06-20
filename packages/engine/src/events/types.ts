@@ -191,6 +191,8 @@ export type SpellCastPayload = {
   slotLevel: number;
   /** Affected creatures (one entry per dart for a projectile spell). */
   targets: EntityRef[];
+  /** True when the cast used the caster's bonus action (consumed in combat). */
+  bonusAction?: boolean;
 };
 
 export type SpellSlotExpendedPayload = {

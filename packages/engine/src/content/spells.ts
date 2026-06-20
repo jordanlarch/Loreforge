@@ -113,6 +113,11 @@ export type DamageComponent = {
 export type HealingComponent = {
   /** Dice notation, e.g. `1d8`. */
   dice: string;
+  /**
+   * Whether the caster's spellcasting-ability modifier is added to the healing
+   * (Cure Wounds, Healing Word). The modifier is added once, not per die.
+   */
+  addSpellMod?: boolean;
 };
 
 export type CastingTime = {

@@ -192,6 +192,7 @@ export {
 export { fullCasterSlots } from "./content/spell-slots";
 export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
 export {
+  cantripDamageDice,
   spellAttackBonus,
   spellcastingModifier,
   spellSaveDC,

@@ -39,6 +39,7 @@ export const CASCADE_PARENT_TYPES: readonly RealmEntityType[] = [
   "settlement",
   "tavern",
   "shop",
+  "building",
 ];
 
 export function isCascadeParent(type: RealmEntityType): boolean {
@@ -288,10 +289,31 @@ export const REALM_FIELDS: Record<
     { key: "hooks", label: "Plot Hooks", kind: "list", section: "People & Secrets", itemLabel: "Hook", placeholder: "Why might adventurers come here?" },
     { key: "secrets", label: "Secrets", kind: "textarea", section: "People & Secrets", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
+  // Building is a rich generator type (#66): sectioned tabs with architecture,
+  // history, and feature/secret lists, plus owner/occupant NPC cascade. Keeps
+  // the original thin keys (kind/occupants/notes) so existing buildings stay
+  // valid — `kind` stays free text rather than a select for the same reason.
   building: [
-    { key: "kind", label: "Kind", kind: "text", placeholder: "Temple, keep, manor…" },
-    { key: "occupants", label: "Occupants", kind: "textarea" },
-    { key: "notes", label: "Notes", kind: "textarea" },
+    // —— Overview ——
+    { key: "kind", label: "Type", kind: "text", section: "Overview", placeholder: "Temple, library, bazaar, manor…" },
+    { key: "condition", label: "Condition", kind: "select", section: "Overview", options: ["Pristine", "Well-Maintained", "Worn", "Damaged", "Ruined", "Haunted", "Sealed", "Active", "Abandoned"] },
+    { key: "size", label: "Size", kind: "select", section: "Overview", options: ["Tiny", "Small", "Medium", "Large", "Huge", "Vast"] },
+    { key: "tagline", label: "Tagline", kind: "text", section: "Overview", placeholder: "A vivid one-line hook" },
+    { key: "occupants", label: "Occupants", kind: "textarea", section: "Overview", placeholder: "Who works, lives, or lingers here" },
+    { key: "notes", label: "Description", kind: "textarea", section: "Overview", placeholder: "What the building looks and feels like…" },
+    // —— Architecture ——
+    { key: "architecturalStyle", label: "Architectural Style", kind: "text", section: "Architecture", placeholder: "Gothic industrialism, sun-bleached adobe…" },
+    { key: "atmosphere", label: "Atmosphere", kind: "textarea", section: "Architecture", placeholder: "The mood and sensory feel inside" },
+    { key: "materials", label: "Materials", kind: "list", section: "Architecture", itemLabel: "Material", placeholder: "Granite, wrought iron…" },
+    { key: "features", label: "Notable Features", kind: "list", section: "Architecture", itemLabel: "Feature", placeholder: "A landmark detail" },
+    { key: "hiddenFeatures", label: "Hidden Features", kind: "list", section: "Architecture", itemLabel: "Hidden Feature", placeholder: "A secret passage, sub-basement…" },
+    // —— History ——
+    { key: "history", label: "History", kind: "textarea", section: "History", placeholder: "How the building came to be what it is" },
+    { key: "originEvent", label: "Origin Event", kind: "text", section: "History", placeholder: "The Great Fire of 30 years ago" },
+    // —— Lore & Secrets ——
+    { key: "rumors", label: "Rumors", kind: "list", section: "Lore & Secrets", itemLabel: "Rumor", placeholder: "A rumor overheard about this place" },
+    { key: "hooks", label: "Plot Hooks", kind: "list", section: "Lore & Secrets", itemLabel: "Hook", placeholder: "An adventure seed" },
+    { key: "secrets", label: "Secrets", kind: "textarea", section: "Lore & Secrets", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
   // Tavern is a rich generator type (#64): sectioned tabs with menu/patron/
   // amenity groups + rumor/quirk/hook lists. Keeps the original thin keys

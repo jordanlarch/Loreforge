@@ -20,7 +20,8 @@ all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
 **#55 done** (campaign workspace shell + Overview tab at `/campaigns/[id]`);
 **#61 done** (campaign workspace Party tab on the membership link);
 **#60 done** (campaign workspace World tab + per-campaign discovery, migration `0009`);
-**#59 done** (campaign workspace Plot Hook Kanban + accept-from-Realms lifecycle, migration `0010`).
+**#59 done** (campaign workspace Plot Hook Kanban + accept-from-Realms lifecycle, migration `0010`);
+**#62 done** (campaign creation flows — Quick Forge / Guided Setup / Empty World).
 
 ## How to use this file
 
@@ -188,7 +189,7 @@ to the workspace, not straight to `/play`.
 | CAMP-8 | Tab 7 Combat (encounter library + builder, difficulty, battle map, Run Now → Live) | P4 / M5 | doc-only | Missing | Combat auto-route entry point. |
 | CAMP-9 | Tab 8 Notes (editor, DM-only/shared, pin-to-memory, convert-to-hook, `@Entity` links) | P4 / M5 | doc-only | Missing | — |
 | CAMP-10 | Tab 9 Settings (GM persona, art-style lock, play mode, members/invites, memory export, danger zone) | P4 / M5 | doc-only | Missing | Art-style lock = Q16. |
-| CAMP-11 | Campaign creation flows (Quick Forge, Guided 6-step Setup, Empty World, template picker) | P4 / M5 | #62 | Missing | Today: name-only inline form. |
+| CAMP-11 | Campaign creation flows (Quick Forge, Guided 6-step Setup, Empty World, template picker) | P4 / M5 | #62 | Partial | **#62**: three-path creation modal from the campaigns browser. **Empty World** creates a bare workspace; **Quick Forge** + **Guided Setup** (6-step stepper) create the campaign then run a synchronous Realms **region** (and optional faction) cascade via `campaigns.forge`, attaching the parent + cascade children to the World tab as undiscovered (reuses `generateNewEntity`/`persistChildren`). Forging is gated on `campaigns.forgeStatus` (ANTHROPIC_API_KEY) and degrades gracefully to an empty world when unconfigured; failures still land the user in the workspace. **Deferred:** durable Trigger.dev cascade with cinematic progress (needs `tr_prod_` key, INFRA-1) — currently synchronous; GM-preset/art-style fields; party-slot reservation; opening-scene narration generation; template picker. |
 | CAMP-12 | Campaigns list: filter bar, rich cards (banner/roster/stats), card actions, templates section | P4 | doc-only | Partial | Today: name/description grid → play. |
 | CAMP-13 | AI Memory panel (pins, recaps, entity awareness, drift detection) | P5 | doc-only | Missing | Memory tier is P5. |
 | CAMP-14 | Multiplayer invite/seat flow (email/link invites, permissions, player-mode subset UI) | P4 | doc-only | Missing | — |

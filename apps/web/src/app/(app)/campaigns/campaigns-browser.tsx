@@ -17,7 +17,7 @@ export function CampaignsBrowser() {
       if (!campaign) return;
       setName("");
       await utils.campaigns.list.invalidate();
-      router.push(`/campaigns/${campaign.id}/play`);
+      router.push(`/campaigns/${campaign.id}`);
     },
   });
 
@@ -82,7 +82,7 @@ export function CampaignsBrowser() {
           {(list.data ?? []).map((campaign) => (
             <li key={campaign.id}>
               <Link
-                href={`/campaigns/${campaign.id}/play`}
+                href={`/campaigns/${campaign.id}`}
                 className="flex h-full flex-col gap-2 rounded-lg border border-lore-border bg-lore-surface p-5 transition-colors hover:border-lore-accent"
               >
                 <span className="font-display text-xl">{campaign.name}</span>
@@ -92,7 +92,7 @@ export function CampaignsBrowser() {
                   </span>
                 ) : (
                   <span className="text-sm text-lore-muted">
-                    Open the live battle map →
+                    Open the campaign workspace →
                   </span>
                 )}
               </Link>

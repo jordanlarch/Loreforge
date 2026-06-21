@@ -38,6 +38,7 @@ export const CASCADE_PARENT_TYPES: readonly RealmEntityType[] = [
   "region",
   "settlement",
   "tavern",
+  "shop",
 ];
 
 export function isCascadeParent(type: RealmEntityType): boolean {
@@ -353,11 +354,62 @@ export const REALM_FIELDS: Record<
     { key: "rumors", label: "Rumors", kind: "list", section: "Lore & Rumors", itemLabel: "Rumor", placeholder: "A rumor overheard here" },
     { key: "hooks", label: "Plot Hooks", kind: "list", section: "Lore & Rumors", itemLabel: "Hook", placeholder: "An adventure seed" },
   ],
+  // Shop is a rich generator type (#65): sectioned tabs with a structured
+  // inventory group (the signature feature), a loot/security section for
+  // thieving parties, plus quirk/rumor/hook lists. Keeps the original thin keys
+  // (kind/proprietor/wares/priceLevel) so existing shops stay valid — `kind`
+  // stays free text rather than a select so legacy values don't fail the enum.
   shop: [
-    { key: "kind", label: "Kind", kind: "text", placeholder: "Smithy, apothecary…" },
-    { key: "proprietor", label: "Proprietor", kind: "text" },
-    { key: "wares", label: "Notable Wares", kind: "textarea" },
-    { key: "priceLevel", label: "Price Level", kind: "select", options: ["Cheap", "Modest", "Expensive", "Luxury"] },
+    // —— Overview ——
+    { key: "kind", label: "Type", kind: "text", section: "Overview", placeholder: "Blacksmith, apothecary, magic shop…" },
+    { key: "specialty", label: "Specialty", kind: "text", section: "Overview", placeholder: "Dwarven steel, rare reagents…" },
+    { key: "tagline", label: "Tagline", kind: "text", section: "Overview", placeholder: "A vivid one-line hook" },
+    { key: "proprietor", label: "Proprietor", kind: "text", section: "Overview", placeholder: "The shopkeeper's name" },
+    { key: "priceLevel", label: "Pricing Tier", kind: "select", section: "Overview", options: ["Cheap", "Modest", "Expensive", "Luxury"] },
+    { key: "haggling", label: "Haggling", kind: "text", section: "Overview", placeholder: "Yes, DC 15 Persuasion" },
+    { key: "wares", label: "Notable Wares", kind: "textarea", section: "Overview", placeholder: "The kinds of goods openly offered" },
+    { key: "notes", label: "Description", kind: "textarea", section: "Overview", placeholder: "What the shop looks and feels like…" },
+    // —— Inventory —— (the Shop's signature tab: each line is a structured item)
+    {
+      key: "inventory",
+      label: "Inventory",
+      kind: "group",
+      section: "Inventory",
+      itemLabel: "Item",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "Battleaxe +1" },
+        { key: "itemType", label: "Type", kind: "select", options: ["Weapon", "Armor", "Potion", "Scroll", "Wondrous Item", "Consumable", "Gear", "Misc"] },
+        { key: "rarity", label: "Rarity", kind: "select", options: ["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact"] },
+        { key: "price", label: "Price", kind: "text", placeholder: "500 gp" },
+        { key: "description", label: "Description", kind: "textarea" },
+        { key: "properties", label: "Properties", kind: "textarea", placeholder: "+1 to hit & damage; 1d8 slashing; Versatile" },
+      ],
+    },
+    // —— Quirks ——
+    { key: "quirks", label: "Quirks", kind: "list", section: "Quirks", itemLabel: "Quirk", placeholder: "A memorable detail the GM can reference" },
+    // —— Loot & Security —— (DM/AI material for thieving parties)
+    { key: "lootOverview", label: "Loot Overview", kind: "textarea", section: "Loot & Security", placeholder: "Where valuables are kept and how they're secured" },
+    { key: "securitySkill", label: "Security Skill", kind: "text", section: "Loot & Security", placeholder: "Thieves' Tools" },
+    { key: "securityDc", label: "Security DC", kind: "number", section: "Loot & Security", min: 0, max: 40 },
+    { key: "failureConsequence", label: "Failure Consequence", kind: "textarea", section: "Loot & Security", placeholder: "What happens on a failed heist" },
+    {
+      key: "lootables",
+      label: "Lootable Items",
+      kind: "group",
+      section: "Loot & Security",
+      itemLabel: "Lootable",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "The Ironbrand Ledger" },
+        { key: "category", label: "Category", kind: "text", placeholder: "Records, Currency, Art Object…" },
+        { key: "value", label: "Estimated Value", kind: "text", placeholder: "~100 gp" },
+        { key: "location", label: "Location", kind: "text", placeholder: "In the stone safe" },
+        { key: "description", label: "Description", kind: "textarea" },
+      ],
+    },
+    // —— Lore & Rumors ——
+    { key: "rumors", label: "Rumors", kind: "list", section: "Lore & Rumors", itemLabel: "Rumor", placeholder: "A rumor overheard about this shop" },
+    { key: "hooks", label: "Plot Hooks", kind: "list", section: "Lore & Rumors", itemLabel: "Hook", placeholder: "An adventure seed" },
+    { key: "secrets", label: "Secrets", kind: "textarea", section: "Lore & Rumors", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
   dungeon: [
     { key: "kind", label: "Kind", kind: "text", placeholder: "Crypt, cavern, ruin…" },

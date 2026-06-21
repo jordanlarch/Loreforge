@@ -196,9 +196,53 @@ describe("rich Tavern schema", () => {
   });
 });
 
+describe("rich Shop schema", () => {
+  it("groups shop fields into ordered sections (tabs)", () => {
+    const sections = realmSections("shop");
+    expect(sections.length).toBeGreaterThan(1);
+    expect(sections[0]!.name).toBe("Overview");
+    expect(sections.map((s) => s.name)).toContain("Inventory");
+    expect(sections.map((s) => s.name)).toContain("Loot & Security");
+    const total = sections.reduce((n, s) => n + s.fields.length, 0);
+    expect(total).toBe(REALM_FIELDS.shop.length);
+  });
+
+  it("preserves the original thin keys so legacy shops stay valid", () => {
+    const keys = REALM_FIELDS.shop.map((f) => f.key);
+    for (const legacy of ["kind", "proprietor", "wares", "priceLevel"]) {
+      expect(keys).toContain(legacy);
+    }
+  });
+
+  it("declares a structured inventory group with type and rarity options", () => {
+    const inventory = REALM_FIELDS.shop.find((f) => f.key === "inventory");
+    expect(inventory?.kind).toBe("group");
+    const itemType = (inventory?.fields ?? []).find((s) => s.key === "itemType");
+    expect(itemType?.kind).toBe("select");
+    expect(itemType?.options).toContain("Weapon");
+    const rarity = (inventory?.fields ?? []).find((s) => s.key === "rarity");
+    expect(rarity?.options).toContain("Legendary");
+  });
+
+  it("keeps the price-level select options so legacy values validate", () => {
+    const priceLevel = REALM_FIELDS.shop.find((f) => f.key === "priceLevel");
+    expect(priceLevel?.kind).toBe("select");
+    expect(priceLevel?.options).toEqual([
+      "Cheap",
+      "Modest",
+      "Expensive",
+      "Luxury",
+    ]);
+  });
+
+  it("is a cascade parent so generation emits child NPC stubs", () => {
+    expect(isCascadeParent("shop")).toBe(true);
+  });
+});
+
 describe("single-section descriptive types", () => {
   it("keeps non-sectioned types in a single default section", () => {
-    for (const type of ["region", "building", "shop", "dungeon", "faction"] as const) {
+    for (const type of ["region", "building", "dungeon", "faction"] as const) {
       const sections = realmSections(type);
       expect(sections).toHaveLength(1);
     }

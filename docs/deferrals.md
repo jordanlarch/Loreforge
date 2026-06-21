@@ -226,7 +226,7 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 | INFRA-2 | Vercel deploy | when needed | doc-only | Deferred | Repo pushed, unblocked. |
 | INFRA-3 | Sentry / PostHog account provisioning | P6 (alpha funnels) | doc-only | Deferred | Env-gated stubs already in code. |
 | INFRA-4 | Pricing rate lock (flat vs usage vs hybrid) | before M8 closed beta | doc-only | Deferred | Commercial-from-closed-beta + 10 free DM chats already locked (`product-spec.md` §5). |
-| INFRA-5 | `gh` on PATH permanently (per-user) | Jordan, normal terminal | doc-only | Blocked (env) | Installed + authed at `C:\Program Files\GitHub CLI\gh.exe` and usable via full path. The agent **cannot** edit the user PATH from its sandboxed shell — any read of `HKCU\Environment` Path hangs (no exit status), so append-based edits fail. **Fix:** in a normal PowerShell run `[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";C:\Program Files\GitHub CLI", "User")` then open a new terminal. |
+| INFRA-5 | `gh` on PATH permanently (per-user) | done | doc-only | Done | `C:\Program Files\GitHub CLI` added to the user PATH (Jun 2026, via PowerShell `SetEnvironmentVariable`). `gh` resolves in new terminals; authed as `jordanlarch`. |
 | INFRA-6 | Full normalized SRD ingest pipeline + scheduling (beyond nightly Open5e spell job) | P5–P7 | doc-only | Deferred | Migrate Open5e → custom SRD 5.2 ingest at GA (`data-sources.md` §1). |
 
 ---

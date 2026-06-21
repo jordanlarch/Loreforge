@@ -37,6 +37,7 @@ export type RealmEntityType = (typeof REALM_ENTITY_TYPES)[number];
 export const CASCADE_PARENT_TYPES: readonly RealmEntityType[] = [
   "region",
   "settlement",
+  "tavern",
 ];
 
 export function isCascadeParent(type: RealmEntityType): boolean {
@@ -291,11 +292,66 @@ export const REALM_FIELDS: Record<
     { key: "occupants", label: "Occupants", kind: "textarea" },
     { key: "notes", label: "Notes", kind: "textarea" },
   ],
+  // Tavern is a rich generator type (#64): sectioned tabs with menu/patron/
+  // amenity groups + rumor/quirk/hook lists. Keeps the original thin keys
+  // (proprietor/specialty/atmosphere/notes) so existing taverns stay valid.
   tavern: [
-    { key: "proprietor", label: "Proprietor", kind: "text" },
-    { key: "specialty", label: "Specialty", kind: "text", placeholder: "Signature drink or dish" },
-    { key: "atmosphere", label: "Atmosphere", kind: "text", placeholder: "Rowdy, cozy…" },
-    { key: "notes", label: "Notes", kind: "textarea" },
+    // —— Overview ——
+    { key: "type", label: "Type", kind: "select", section: "Overview", options: ["Cozy Inn", "Rowdy Tavern", "Noble's Rest", "Adventurer's Haven", "Dockside Pub", "Mountain Lodge", "Hidden Speakeasy", "Roadside Inn", "Mystic Lounge"] },
+    { key: "tagline", label: "Tagline", kind: "text", section: "Overview", placeholder: "A vivid one-line hook" },
+    { key: "proprietor", label: "Proprietor", kind: "text", section: "Overview", placeholder: "The keeper's name" },
+    { key: "specialty", label: "Specialty", kind: "text", section: "Overview", placeholder: "Signature drink or dish" },
+    { key: "notes", label: "Description", kind: "textarea", section: "Overview", placeholder: "What the place looks and feels like…" },
+    // —— Atmosphere ——
+    { key: "crowdLevel", label: "Crowd Level", kind: "select", section: "Atmosphere", options: ["Empty", "Quiet", "Moderate", "Lively", "Packed"] },
+    { key: "atmosphere", label: "Atmosphere", kind: "text", section: "Atmosphere", placeholder: "Rowdy, cozy…" },
+    { key: "smell", label: "Smell", kind: "text", section: "Atmosphere", placeholder: "Mulled wine, woodsmoke…" },
+    { key: "sound", label: "Sound", kind: "text", section: "Atmosphere", placeholder: "Low chatter, clinking pewter…" },
+    { key: "lighting", label: "Lighting", kind: "text", section: "Atmosphere", placeholder: "Warm hearth-glow, dim corners…" },
+    { key: "mood", label: "Mood", kind: "text", section: "Atmosphere", placeholder: "Welcoming but watchful" },
+    // —— Menu ——
+    {
+      key: "menu",
+      label: "Menu",
+      kind: "group",
+      section: "Menu",
+      itemLabel: "Menu Item",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "Hearty Venison Stew" },
+        { key: "category", label: "Category", kind: "select", options: ["Food", "Drink", "Special"] },
+        { key: "price", label: "Price", kind: "text", placeholder: "4 cp" },
+        { key: "description", label: "Description", kind: "textarea" },
+      ],
+    },
+    // —— Patrons & Amenities ——
+    {
+      key: "patrons",
+      label: "Regular Patrons",
+      kind: "group",
+      section: "Patrons & Amenities",
+      itemLabel: "Patron",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "Thistle of the High Forest" },
+        { key: "descriptor", label: "Descriptor", kind: "text", placeholder: "Wood Elf druid, always at the back table" },
+      ],
+    },
+    {
+      key: "amenities",
+      label: "Amenities",
+      kind: "group",
+      section: "Patrons & Amenities",
+      itemLabel: "Amenity",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "The Verdant Stable" },
+        { key: "description", label: "Description", kind: "textarea" },
+        { key: "cost", label: "Cost", kind: "text", placeholder: "5 sp/night" },
+      ],
+    },
+    // —— Lore & Rumors ——
+    { key: "lore", label: "Lore", kind: "textarea", section: "Lore & Rumors", placeholder: "Legends and history tied to this place…" },
+    { key: "quirks", label: "Quirks", kind: "list", section: "Lore & Rumors", itemLabel: "Quirk", placeholder: "A memorable detail the GM can reference" },
+    { key: "rumors", label: "Rumors", kind: "list", section: "Lore & Rumors", itemLabel: "Rumor", placeholder: "A rumor overheard here" },
+    { key: "hooks", label: "Plot Hooks", kind: "list", section: "Lore & Rumors", itemLabel: "Hook", placeholder: "An adventure seed" },
   ],
   shop: [
     { key: "kind", label: "Kind", kind: "text", placeholder: "Smithy, apothecary…" },

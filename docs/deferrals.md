@@ -11,7 +11,8 @@ issues #54–#68** (rows with a `#NN` in Tracking); the rest are `doc-only`. PRs
 (docs), #53 (generator pipeline), and #69 (#54 rich Settlement schema) are merged.
 **#54 done** (rich Settlement schema + tabbed detail); **#56 done** (character schema
 extension — XP/equipment/spells/portrait/notes + character↔campaign membership);
-**#64 done** (rich Tavern generator on the #54 pattern, cascade-enabled).
+**#64 done** (rich Tavern generator on the #54 pattern, cascade-enabled);
+**#65 done** (rich Shop generator on the #54 pattern, cascade-enabled).
 
 ## How to use this file
 
@@ -61,7 +62,7 @@ roadmap §6 P4 (Tavern → Shop → Building → Faction → Settlement → Regi
 | ID | Item | Source | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|---|
 | GENR-1 | Tavern generator (menu + floor plan patterns) | roadmap P4 #2 | P4 / M5 | #64 | Done | **#64**: rich sectioned Tavern schema (Overview/Atmosphere/Menu group/Patrons & Amenities/Lore & Rumors) on the #54 pattern; tavern is now a cascade parent (emits tavernkeeper + patron NPC stubs + edges); generate/expand/regenerate + tabbed detail + per-section regenerate all work. Interactive floor-plan map deferred (REALM-5 / maps track). |
-| GENR-2 | Shop generator (inventory ↔ engine transactions) | roadmap P4 #3 | P4 / M5 | #65 | Deferred | — |
+| GENR-2 | Shop generator (inventory ↔ engine transactions) | roadmap P4 #3 | P4 / M5 | #65 | Partial | **#65**: rich sectioned Shop schema (Overview/Inventory group/Quirks/Loot & Security/Lore & Rumors) on the #54 pattern; shop is now a cascade parent (emits shopkeeper + supplier/apprentice NPC stubs + edges); generate/expand/regenerate + tabbed detail + per-section regenerate all work. Inventory items model the buy/sell seam but **engine transactions (currency/inventory mutation), CUSTOM→Smithy promotion, and price auto-scaling are deferred** to play integration; interactive floor-plan map deferred (REALM-5 / maps track). |
 | GENR-3 | Building generator (floor plans, custom sections) | roadmap P4 #4 | P4 / M5 | #66 | Deferred | — |
 | GENR-4 | Faction generator (crest, relational graph) | roadmap P4 #5 | P4 / M5 | #67 | Deferred | — |
 | GENR-5 | Dungeon generator (rooms as entities, Dyson map, encounter promotion) | roadmap P4 #8 | P4 / M5 | #68 | Deferred | — |

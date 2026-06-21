@@ -21,7 +21,8 @@ all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
 **#61 done** (campaign workspace Party tab on the membership link);
 **#60 done** (campaign workspace World tab + per-campaign discovery, migration `0009`);
 **#59 done** (campaign workspace Plot Hook Kanban + accept-from-Realms lifecycle, migration `0010`);
-**#62 done** (campaign creation flows — Quick Forge / Guided Setup / Empty World).
+**#62 done** (campaign creation flows — Quick Forge / Guided Setup / Empty World);
+**#57 done** (Live Play narrative chat + player input modes, server-authoritative chat on the shared Yjs doc).
 
 ## How to use this file
 
@@ -203,8 +204,8 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| PLAY-1 | Chat / narrative zone (GM/player entries, dice widgets, engine-event rows, entity chips) | P4 | #57 | Missing | Core of the play surface. |
-| PLAY-2 | Player input modes (Speak/Action/Check/Cast/Attack/Use Item, slash commands, OOC) + AI "thinking" state | P4 | #57 | Missing | — |
+| PLAY-1 | Chat / narrative zone (GM/player entries, dice widgets, engine-event rows, entity chips) | P4 | #57 | Partial | **#57**: server-authoritative narrative chat on a top-level `chat` Y.Array in the shared Hocuspocus doc (clients are observers; `useLiveSession` exposes `chat` + `sendChat`). Renders GM / player / engine-event / `roll` / OOC rows; accepted battle commands emit `event` rows; `/roll NdM±K` renders a structured dice widget. Synced across tabs via the existing Yjs channel. **Deferred:** real AI-GM narration (currently a stubbed GM echo), chat persistence (ephemeral while the room is loaded — not written to the event log), and `@Entity` chips. |
+| PLAY-2 | Player input modes (Speak/Action/Check/Cast/Attack/Use Item, slash commands, OOC) + AI "thinking" state | P4 | #57 | Partial | **#57**: composer with the six mode buttons, slash commands (`/roll`, `/help`), and OOC `((…))`. **Deferred:** routing Action/Check/Cast/Attack/Use-Item through the engine/orchestrator (true mechanical checks land with the combat loop #58), and the AI "thinking" indicator. |
 | PLAY-3 | Character HUD right rail (abilities, HP/AC, conditions, resources, attacks, inventory quick-use) | P4 | #63 | Missing | — |
 | PLAY-4 | Party rail (collapsed chips, hover mini-HUD, assist pulses) | P4 | doc-only | Missing | — |
 | PLAY-5 | Full top bar (scene breadcrumb, dual clocks, Pause, tools row: pacing/TTS/memory/inventory) | P4 | doc-only | Missing | — |

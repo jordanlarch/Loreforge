@@ -24,11 +24,14 @@ import type {
 
 import { createClient } from "@/lib/supabase/client";
 import type { Cell } from "@/lib/battle-map/geometry";
+import type { ChatEntry } from "@/lib/live-chat";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:1234";
 
 /** Y.Doc field contract — must match `@app/ws-server`'s `projection.ts`. */
 const BATTLE_ROOT = "battle";
+/** Top-level chat log field — must match `@app/ws-server`'s `chat.ts`. */
+const CHAT_ROOT = "chat";
 
 type BattleMeta = {
   campaignId: string;
@@ -86,6 +89,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
   const [rejected, setRejected] = useState(false);
   const [busy, setBusy] = useState(false);
   const [peers, setPeers] = useState(1);
+  const [chat, setChat] = useState<ChatEntry[]>([]);
   const providerRef = useRef<HocuspocusProvider | null>(null);
 
   useEffect(() => {
@@ -117,6 +121,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
         },
         onSynced: () => {
           setState(readBattleDoc(doc));
+          setChat(doc.getArray<ChatEntry>(CHAT_ROOT).toArray());
           setStatus("synced");
         },
         onStateless: ({ payload }) => {
@@ -144,6 +149,9 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
         setState(readBattleDoc(doc));
         setBusy(false);
       });
+
+      const chatArr = doc.getArray<ChatEntry>(CHAT_ROOT);
+      chatArr.observe(() => setChat(chatArr.toArray()));
 
       provider.setAwarenessField("user", {
         id: session.user.id,
@@ -173,6 +181,13 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     provider.sendStateless(JSON.stringify(message));
   }
 
+  /** Fire-and-forget chat send — doesn't gate the map's `isBusy` like commands. */
+  function sendChat(text: string, mode?: string) {
+    const provider = providerRef.current;
+    if (!provider) return;
+    provider.sendStateless(JSON.stringify({ t: "chat", mode, text }));
+  }
+
   return {
     state,
     isLoading: status === "connecting" && state === undefined,
@@ -180,6 +195,8 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     isBusy: busy,
     rejected,
     peers,
+    chat,
+    sendChat,
     moveToken: (id: string, to: Cell) =>
       send({ t: "cmd", action: { type: "move_entity", entity: id, to } }),
     endTurn: () => send({ t: "cmd", action: { type: "end_turn" } }),

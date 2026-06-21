@@ -14,6 +14,8 @@
  *     the WS server is the sole authoritative writer to the Postgres event
  *     store, and only the campaign owner may join.
  */
+import { randomUUID } from "node:crypto";
+
 import { Hocuspocus } from "@hocuspocus/server";
 
 import {
@@ -22,6 +24,13 @@ import {
   parseRoom,
   verifySupabaseToken,
 } from "./auth.js";
+import {
+  appendChat,
+  composeChat,
+  eventEntry,
+  isChatInput,
+  type ChatDeps,
+} from "./chat.js";
 import { getEventStore, isCampaignOwner } from "./db.js";
 import { writeProjection } from "./projection.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
@@ -42,7 +51,8 @@ const authConfigured = Boolean(SUPABASE_URL || LEGACY_SECRET);
 /** Stateless message protocol (client → server). */
 type ClientMessage =
   | { t: "cmd"; action: unknown }
-  | { t: "reset" };
+  | { t: "reset" }
+  | { t: "chat"; mode?: string; text: string };
 
 function parseMessage(payload: string): ClientMessage | null {
   let value: unknown;
@@ -53,9 +63,23 @@ function parseMessage(payload: string): ClientMessage | null {
   }
   if (typeof value !== "object" || value === null) return null;
   const message = value as { t?: unknown };
-  if (message.t === "cmd" || message.t === "reset") return message as ClientMessage;
+  if (message.t === "cmd" || message.t === "reset") {
+    return message as ClientMessage;
+  }
+  if (message.t === "chat") {
+    const { mode, text } = message as { mode?: unknown; text?: unknown };
+    if (!isChatInput({ mode, text })) return null;
+    return { t: "chat", mode: mode as string | undefined, text: text as string };
+  }
   return null;
 }
+
+/** Server-side stamping for chat entries (id + wall-clock timestamp). */
+const chatDeps: ChatDeps = { uuid: () => randomUUID(), now: () => Date.now() };
+
+// Owner-only rooms in v1, so a single display label is sufficient; per-user
+// names arrive with multiplayer.
+const PLAYER_LABEL = "Player";
 
 const REJECTED = JSON.stringify({ t: "rejected" });
 
@@ -124,9 +148,22 @@ const server = new Hocuspocus({
       const { accepted } = await room.apply(message.action);
       if (accepted) {
         writeProjection(document, await room.getState());
+        // Surface the accepted engine action as a chat event row (#57).
+        appendChat(document, [eventEntry(message.action, chatDeps)]);
       } else {
         connection.sendStateless(REJECTED);
       }
+      return;
+    }
+
+    if (message.t === "chat") {
+      appendChat(
+        document,
+        composeChat(
+          { author: PLAYER_LABEL, mode: message.mode, text: message.text },
+          chatDeps,
+        ),
+      );
       return;
     }
 

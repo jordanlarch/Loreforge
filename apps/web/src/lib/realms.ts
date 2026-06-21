@@ -40,6 +40,7 @@ export const CASCADE_PARENT_TYPES: readonly RealmEntityType[] = [
   "tavern",
   "shop",
   "building",
+  "faction",
 ];
 
 export function isCascadeParent(type: RealmEntityType): boolean {
@@ -439,11 +440,39 @@ export const REALM_FIELDS: Record<
     { key: "threat", label: "Threat", kind: "select", options: ["Low", "Moderate", "Deadly"] },
     { key: "hook", label: "Hook", kind: "textarea", placeholder: "Why would the party come here?" },
   ],
+  // Faction is a rich generator type (#67): sectioned tabs covering identity,
+  // goals/methods, organization, relationships, and lore/secrets, plus a
+  // leader/key-member NPC cascade and ally/rival lists that complement the
+  // relationship graph. Keeps the original thin keys (kind/leadership/goals/
+  // influence) so existing factions stay valid — `kind` stays free text and the
+  // influence options are preserved so legacy values don't fail the enum.
   faction: [
-    { key: "kind", label: "Kind", kind: "text", placeholder: "Guild, cult, kingdom…" },
-    { key: "leadership", label: "Leadership", kind: "text" },
-    { key: "goals", label: "Goals", kind: "textarea" },
-    { key: "influence", label: "Influence", kind: "select", options: ["Local", "Regional", "National", "Continental"] },
+    // —— Overview ——
+    { key: "kind", label: "Type", kind: "text", section: "Overview", placeholder: "Thieves' guild, cult, knightly order…" },
+    { key: "alignment", label: "Alignment", kind: "text", section: "Overview", placeholder: "True Neutral, Lawful Evil…" },
+    { key: "size", label: "Size", kind: "text", section: "Overview", placeholder: "Large (201-1000 members)" },
+    { key: "influence", label: "Influence", kind: "select", section: "Overview", options: ["Local", "Regional", "National", "Continental"] },
+    { key: "leadership", label: "Leadership", kind: "text", section: "Overview", placeholder: "Who leads, and how" },
+    { key: "motto", label: "Motto", kind: "text", section: "Overview", placeholder: "A creed members live by" },
+    { key: "notes", label: "Description", kind: "textarea", section: "Overview", placeholder: "What the faction is and what it's known for…" },
+    // —— Goals & Methods ——
+    { key: "goals", label: "Goals", kind: "textarea", section: "Goals & Methods", placeholder: "What the faction is trying to achieve" },
+    { key: "methods", label: "Methods", kind: "list", section: "Goals & Methods", itemLabel: "Method", placeholder: "How they pursue their goals" },
+    { key: "services", label: "Services", kind: "list", section: "Goals & Methods", itemLabel: "Service", placeholder: "What they offer members or clients" },
+    // —— Organization ——
+    { key: "headquarters", label: "Headquarters", kind: "text", section: "Organization", placeholder: "Seat of power" },
+    { key: "hierarchy", label: "Hierarchy", kind: "list", section: "Organization", itemLabel: "Rank", placeholder: "A rank, from top to bottom" },
+    { key: "territory", label: "Territory", kind: "list", section: "Organization", itemLabel: "Territory", placeholder: "Where they hold sway" },
+    { key: "assets", label: "Major Assets", kind: "list", section: "Organization", itemLabel: "Asset", placeholder: "A notable resource or holding" },
+    // —— Relationships ——
+    { key: "allies", label: "Allies", kind: "list", section: "Relationships", itemLabel: "Ally", placeholder: "A friendly faction or power" },
+    { key: "rivals", label: "Rivals & Enemies", kind: "list", section: "Relationships", itemLabel: "Rival", placeholder: "An opposing faction or power" },
+    // —— Lore & Secrets ——
+    { key: "history", label: "History", kind: "textarea", section: "Lore & Secrets", placeholder: "How the faction came to be" },
+    { key: "symbols", label: "Symbols", kind: "list", section: "Lore & Secrets", itemLabel: "Symbol", placeholder: "An emblem, token, or sign" },
+    { key: "rumors", label: "Rumors", kind: "list", section: "Lore & Secrets", itemLabel: "Rumor", placeholder: "A rumor about the faction" },
+    { key: "hooks", label: "Plot Hooks", kind: "list", section: "Lore & Secrets", itemLabel: "Hook", placeholder: "An adventure seed" },
+    { key: "secrets", label: "Secrets", kind: "textarea", section: "Lore & Secrets", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
 };
 

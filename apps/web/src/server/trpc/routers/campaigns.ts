@@ -10,7 +10,17 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { campaignCharacters, campaigns, characters, getDb } from "@app/db";
+import {
+  campaignCharacters,
+  campaignWorldEntities,
+  campaigns,
+  characters,
+  getDb,
+  realmEntities,
+  realmRelationships,
+} from "@app/db";
+
+import { edgesWithin } from "@/lib/campaign-world";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -140,5 +150,193 @@ export const campaignsRouter = createTRPCRouter({
           ),
         )
         .orderBy(asc(campaignCharacters.joinedAt));
+    }),
+
+  /* ----------------------------------------------------------------------- *
+   *  World tab — campaign-scoped Realms entities + discovery (#60, Q11)
+   * ----------------------------------------------------------------------- */
+
+  /** The Realms entities added to a campaign, with per-campaign discovery. */
+  world: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      return db
+        .select({
+          membershipId: campaignWorldEntities.id,
+          discovered: campaignWorldEntities.discovered,
+          addedAt: campaignWorldEntities.addedAt,
+          id: realmEntities.id,
+          name: realmEntities.name,
+          type: realmEntities.type,
+          summary: realmEntities.summary,
+          isStub: realmEntities.isStub,
+        })
+        .from(campaignWorldEntities)
+        .innerJoin(
+          realmEntities,
+          eq(realmEntities.id, campaignWorldEntities.entityId),
+        )
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .orderBy(asc(realmEntities.name));
+    }),
+
+  /**
+   * The campaign's world as a node-link graph: the added entities plus only the
+   * relationships *within* that set (filtered through the shared `edgesWithin`).
+   */
+  worldGraph: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const nodes = await db
+        .select({
+          id: realmEntities.id,
+          name: realmEntities.name,
+          type: realmEntities.type,
+          isStub: realmEntities.isStub,
+          discovered: campaignWorldEntities.discovered,
+        })
+        .from(campaignWorldEntities)
+        .innerJoin(
+          realmEntities,
+          eq(realmEntities.id, campaignWorldEntities.entityId),
+        )
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        );
+      const allEdges = await db
+        .select({
+          id: realmRelationships.id,
+          fromId: realmRelationships.fromId,
+          toId: realmRelationships.toId,
+          kind: realmRelationships.kind,
+        })
+        .from(realmRelationships)
+        .where(eq(realmRelationships.ownerId, ctx.user.id));
+      const edges = edgesWithin(allEdges, new Set(nodes.map((n) => n.id)));
+      return { nodes, edges };
+    }),
+
+  /** Add an owned Realms entity to an owned campaign (idempotent on the pair). */
+  addWorldEntity: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const [entity] = await db
+        .select({ id: realmEntities.id })
+        .from(realmEntities)
+        .where(
+          and(
+            eq(realmEntities.id, input.entityId),
+            eq(realmEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!entity) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entity not found." });
+      }
+      const [row] = await db
+        .insert(campaignWorldEntities)
+        .values({
+          campaignId: input.campaignId,
+          entityId: input.entityId,
+          ownerId: ctx.user.id,
+        })
+        .onConflictDoNothing()
+        .returning();
+      return row ?? null;
+    }),
+
+  /** Remove a Realms entity from a campaign (owner-scoped, idempotent). */
+  removeWorldEntity: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db
+        .delete(campaignWorldEntities)
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.entityId, input.entityId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        );
+      return { ok: true };
+    }),
+
+  /** Set a campaign world entity's discovered state (manual DM reveal/hide). */
+  setWorldEntityDiscovered: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+        discovered: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .update(campaignWorldEntities)
+        .set({ discovered: input.discovered })
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.entityId, input.entityId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+      return row ?? null;
+    }),
+
+  /**
+   * Auto-reveal seam (#60): mark an entity discovered when AI narration
+   * references it during play. Idempotent and safe to call repeatedly; the live
+   * narration pipeline will invoke this once it lands. Kept as a first-class
+   * mutation now so the contract is stable.
+   */
+  revealWorldEntity: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .update(campaignWorldEntities)
+        .set({ discovered: true })
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.entityId, input.entityId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+      return row ?? null;
     }),
 });

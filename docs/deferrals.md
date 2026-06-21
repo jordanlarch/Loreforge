@@ -18,7 +18,8 @@ extension — XP/equipment/spells/portrait/notes + character↔campaign membersh
 **#68 done** (rich Dungeon generator on the #54 pattern, cascade-enabled) —
 all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
 **#55 done** (campaign workspace shell + Overview tab at `/campaigns/[id]`);
-**#61 done** (campaign workspace Party tab on the membership link).
+**#61 done** (campaign workspace Party tab on the membership link);
+**#60 done** (campaign workspace World tab + per-campaign discovery, migration `0009`).
 
 ## How to use this file
 
@@ -179,7 +180,7 @@ to the workspace, not straight to `/play`.
 | CAMP-1 | Workspace shell at `/campaigns/[id]` (header, sidebar, tab bar, right pane, footer) | P4 / M5 | #55 | Partial | **#55**: shell built — header (back link, Live:Off indicator, title, pinned Start Live Session) + nine-tab bar with `?tab=` deep links; non-Overview tabs stubbed. Collapsible left sidebar, contextual right pane, and footer/toast layer deferred to later tab slices. |
 | CAMP-2 | Tab 1 Overview (continue/next session, party/world/hooks/NPC/session widgets, activity feed, pinned memory) | P4 / M5 | #55 | Partial | **#55**: Overview shows hero (name + pitch with inline edit via `campaigns.update`), Start Live Session + Continue entry points, a party summary + count from the membership link (`campaigns.party`), world/hooks/sessions stat cards (stubbed), and created/updated metadata. Activity feed, pinned AI-memory highlights, and AI next-step hints deferred (memory tier is P5, CAMP-13). |
 | CAMP-3 | Tab 2 Party (campaign-scoped character dashboard, companions, shared resources, bench) | P4 / M5 | #61 | Partial | **#61**: Party tab on the `campaign_characters` link — add owned characters (as PC or companion) via `characters.addToCampaign`, remove via `removeFromCampaign`, roster split into PCs / Companions & Allies / Bench with engine-derived stat cards, and a "Play Now" entry into Live Play. Party-composition analysis, NPC-companion generator, shared currency/inventory pool, and the per-character ⋯ menu (bench/deceased) are deferred. |
-| CAMP-4 | Tab 3 World (campaign-scoped Realms IA, discovery states, graph, add-from-Realms) | P4 / M5 | #60 | Missing | Includes per-campaign discovery state (Q11). |
+| CAMP-4 | Tab 3 World (campaign-scoped Realms IA, discovery states, graph, add-from-Realms) | P4 / M5 | #60 | Partial | **#60**: World tab on a new `campaign_world_entities` table (migration `0009`) — add owned Realms entities into the campaign (`addWorldEntity`), per-campaign discovered/undiscovered toggle (`setWorldEntityDiscovered`, Q11), list + campaign-scoped relationship graph (`worldGraph`, edges filtered via shared `edgesWithin`), and a first-class `revealWorldEntity` auto-reveal seam for the AI narration pipeline. Flat-by-type sidebar IA, grid/list/graph filters, and live auto-reveal wiring deferred. |
 | CAMP-5 | Tab 4 Hooks (Plot Hook Kanban: Suggested/Open/Active/Resolved/Abandoned, timeline, detail panel) | P4 / M5 | #59 | Missing | Q7 lifecycle. |
 | CAMP-6 | Tab 5 Sessions (log, recap cards, per-session Recap/Transcript/Combat/Events/Loot/Media) | P4 / M5 | doc-only | Missing | — |
 | CAMP-7 | Tab 6 World Map (strategic pannable canvas, layers, edit mode, party token, discovery mirror) | P4 / M5 | doc-only | Missing | — |

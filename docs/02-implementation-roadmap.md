@@ -208,7 +208,9 @@ Combat pipeline, all conditions, action economy, initiative, movement/LOS, rests
 
 ---
 
-### P3 — Spell Foundation + Realms Shell (M7–M13)
+### P3 — Spell Foundation + Realms Shell (M7–M13) — ✅ COMPLETE at tracer depth (Jun 2026)
+
+> **P3 status (Jun 2026):** Done — **M4 "First World" reached.** Engine E3 spell-cast pipeline + caster scaffolding shipped, plus spell families: AoE with save-for-half + upcast, healing, bonus-action, cantrip scaling (#40–#43). **Realms shell** is live: flat-by-type sidebar, Grid/List/**Graph** views, relationship panels, all entity types, NPC end-to-end with manual create + cascading-stub + "Expand with Generator" (#41, #44, #50). The **Realms AI generator pipeline** also landed here (see plan `realms_generator_pipeline_50e6bfcd`, D1–D11): `@app/llm` package, `generation_events` audit table (migration `0007`), `realms.generate`/`expandStub`/`regenerate` (field-subset) + synchronous tRPC cascade + durable Trigger.dev cascade. Discovery state stubbed (lands with Campaign — see `docs/deferrals.md` CAMP-4). Per-surface depth and remaining gaps tracked in `docs/deferrals.md` §3.5 (Realms) and §1 (generator pipeline). Top-120 spell curation continues into P5 (ENG-2).
 
 **Engine (E3)** — see `architecture.md` §16 E3–E4 start  
 `SpellDefinition`, effects, stacking, AoE on map; begin top-120 list curation.
@@ -223,7 +225,13 @@ Combat pipeline, all conditions, action economy, initiative, movement/LOS, rests
 
 ---
 
-### P4 — Generators + Campaign + Live Play (M10–M22)
+### P4 — Generators + Campaign + Live Play (M10–M22) — 🚧 STARTED (M5 ~30%, Jun 2026)
+
+> **P4 status (Jun 2026):** Started toward **M5 "First Campaign."** Built so far: the shared generator pipeline + tracer-depth NPC/Region/Settlement (in P3 above) and a generic **Advanced Form** that can emit any type onto thin schemas.
+>
+> **Intentional deviation from the prescribed generator order/depth (record, not drift):** the plan below sequences 7 **rich per-type** generators (Tavern→Shop→Building→Faction→Settlement→Region→Dungeon) on rich tabbed schemas. We instead shipped a **generic thin-schema pipeline for all types** + tracer-depth NPC/Region/Settlement + an Advanced Form over the thin `REALM_FIELDS` schemas. This satisfies M4's NPC+Region+Settlement at tracer depth but **not** the rich P4/M5 generators. The "ship-fast over current schemas" choice is deliberate; the rich per-type schema expansion (`docs/deferrals.md` GEN-1) gates the 5 unbuilt rich generators (GENR-1–5) and rich Realms detail tabs (REALM-1).
+>
+> **Remaining for M5** (all in `docs/deferrals.md`): rich per-type schemas + tabbed detail (GEN-1, REALM-1, REALM-4); 5 rich generators (GENR-1–5); **Campaign workspace** — 9 tabs, currently 0/9 (CAMP-1–15), incl. Plot Hook Kanban (CAMP-5) and per-campaign discovery state (CAMP-4); full **Live Play** surface — chat/HUD/combat overlay (PLAY-1–14); name-match dedup + auto-link/conflict (GEN-2, GEN-5). Requires the Trigger.dev `tr_prod_` runtime key for runtime cascades (INFRA-1).
 
 **Generator order** (after Region/Settlement; see `generators/forms-and-pages.md`):
 

@@ -226,6 +226,8 @@ Every new account receives **10 free DM chats** to try the product before paywal
 
 **Rationale:** Aligns trial with the wedge (AI-GM play), not library/generator tooling. Ten chats ≈ one short session or two micro-sessions — enough to hit a check, a scene, and optionally combat without giving away full worldbuilding spend.
 
+> **Cost observability is real (Jun 2026):** even though generator runs don't count as DM chats, every Realms generation already writes a `generation_events` audit row (owner, type, mode, model, token usage, cost estimate, status) via `@app/llm`. This is the live cost-observability + future-metering lever (plan D8; see `01-tech-stack.md` §14). DM-chat metering itself ships with AI-GM play (P4/closed beta).
+
 ### 5.2 Beta stages
 
 | Stage | Audience | Paid? | 10 free DM chats | Tutorial |

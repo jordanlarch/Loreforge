@@ -23,6 +23,7 @@ import {
 import { trpc } from "@/lib/trpc/client";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import type { BattleToken } from "./battle-map";
+import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
 import { useLiveSession } from "./use-live-session";
 
@@ -231,6 +232,8 @@ function LiveBattle({
 
         {/* HUD + initiative rail */}
         <aside className="space-y-4">
+          <CharacterHud session={session} />
+
           <div className="rounded-lg border border-lore-border bg-lore-surface p-4">
             <h2 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
               Initiative

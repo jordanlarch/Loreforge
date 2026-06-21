@@ -145,13 +145,35 @@ function isGridPosition(value: unknown): value is { x: number; y: number } {
   );
 }
 
+function isDamage(value: unknown): value is { notation: string; type: string } {
+  if (typeof value !== "object" || value === null) return false;
+  const d = value as { notation?: unknown; type?: unknown };
+  return typeof d.notation === "string" && typeof d.type === "string";
+}
+
 /** Validate an untrusted client payload before it reaches the engine. */
 export function isBattleAction(value: unknown): value is BattleAction {
   if (typeof value !== "object" || value === null) return false;
-  const action = value as { type?: unknown; entity?: unknown; to?: unknown };
+  const action = value as {
+    type?: unknown;
+    entity?: unknown;
+    to?: unknown;
+    attacker?: unknown;
+    target?: unknown;
+    attackBonus?: unknown;
+    damage?: unknown;
+  };
   if (action.type === "end_turn") return true;
   if (action.type === "move_entity") {
     return typeof action.entity === "string" && isGridPosition(action.to);
+  }
+  if (action.type === "attack") {
+    return (
+      typeof action.attacker === "string" &&
+      typeof action.target === "string" &&
+      typeof action.attackBonus === "number" &&
+      isDamage(action.damage)
+    );
   }
   return false;
 }

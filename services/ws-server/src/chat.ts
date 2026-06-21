@@ -181,6 +181,9 @@ export function eventEntry(action: BattleAction, deps: ChatDeps): ChatEntry {
     case "move_entity":
       text = `A token moved to (${action.to.x}, ${action.to.y}).`;
       break;
+    case "attack":
+      text = "An attack was resolved by the engine.";
+      break;
     default:
       text = "The engine resolved an action.";
   }

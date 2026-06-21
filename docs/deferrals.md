@@ -22,7 +22,8 @@ all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
 **#60 done** (campaign workspace World tab + per-campaign discovery, migration `0009`);
 **#59 done** (campaign workspace Plot Hook Kanban + accept-from-Realms lifecycle, migration `0010`);
 **#62 done** (campaign creation flows — Quick Forge / Guided Setup / Empty World);
-**#57 done** (Live Play narrative chat + player input modes, server-authoritative chat on the shared Yjs doc).
+**#57 done** (Live Play narrative chat + player input modes, server-authoritative chat on the shared Yjs doc);
+**#63 done** (Live Play character HUD right rail with engine-routed quick-attack).
 
 ## How to use this file
 
@@ -206,7 +207,7 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 |---|---|---|---|---|---|
 | PLAY-1 | Chat / narrative zone (GM/player entries, dice widgets, engine-event rows, entity chips) | P4 | #57 | Partial | **#57**: server-authoritative narrative chat on a top-level `chat` Y.Array in the shared Hocuspocus doc (clients are observers; `useLiveSession` exposes `chat` + `sendChat`). Renders GM / player / engine-event / `roll` / OOC rows; accepted battle commands emit `event` rows; `/roll NdM±K` renders a structured dice widget. Synced across tabs via the existing Yjs channel. **Deferred:** real AI-GM narration (currently a stubbed GM echo), chat persistence (ephemeral while the room is loaded — not written to the event log), and `@Entity` chips. |
 | PLAY-2 | Player input modes (Speak/Action/Check/Cast/Attack/Use Item, slash commands, OOC) + AI "thinking" state | P4 | #57 | Partial | **#57**: composer with the six mode buttons, slash commands (`/roll`, `/help`), and OOC `((…))`. **Deferred:** routing Action/Check/Cast/Attack/Use-Item through the engine/orchestrator (true mechanical checks land with the combat loop #58), and the AI "thinking" indicator. |
-| PLAY-3 | Character HUD right rail (abilities, HP/AC, conditions, resources, attacks, inventory quick-use) | P4 | #63 | Missing | — |
+| PLAY-3 | Character HUD right rail (abilities, HP/AC, conditions, resources, attacks, inventory quick-use) | P4 | #63 | Partial | **#63**: Live Stats HUD for the active combatant in the play surface right rail, driven entirely by the synced `WorldState` so it updates live as engine events resolve — abilities + mods, HP bar/temp/AC/speed/prof, action-economy chips, conditions, concentration, spell slots, death saves, active-turn highlight, and a compact mode. **Quick-attack routes through the engine**: a derived "Strike" (`attackAction` added to the live `BattleAction` set; validated server-side) against a hostile-target picker. **Deferred:** real weapon/attack lists + inventory from the sheet on the live entity (item quick-use is a narrative stub today), portrait, quick-roll buttons, and HP-change toasts — land with the combat loop #58. |
 | PLAY-4 | Party rail (collapsed chips, hover mini-HUD, assist pulses) | P4 | doc-only | Missing | — |
 | PLAY-5 | Full top bar (scene breadcrumb, dual clocks, Pause, tools row: pacing/TTS/memory/inventory) | P4 | doc-only | Missing | — |
 | PLAY-6 | Combat overlay (round banner, horizontal initiative on map, range rings) + full combat loop (attacks/spells/reactions/targeting/resolution) | P4 | #58 | Partial | Today: move + end-turn only. |

@@ -200,6 +200,16 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     moveToken: (id: string, to: Cell) =>
       send({ t: "cmd", action: { type: "move_entity", entity: id, to } }),
     endTurn: () => send({ t: "cmd", action: { type: "end_turn" } }),
+    attack: (
+      attacker: string,
+      target: string,
+      attackBonus: number,
+      damage: { notation: string; type: string },
+    ) =>
+      send({
+        t: "cmd",
+        action: { type: "attack", attacker, target, attackBonus, damage },
+      }),
     reset: () => send({ t: "reset" }),
   };
 }

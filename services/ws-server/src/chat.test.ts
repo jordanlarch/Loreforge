@@ -93,6 +93,18 @@ describe("eventEntry", () => {
         deps(),
       ).text,
     ).toContain("(2, 3)");
+    expect(
+      eventEntry(
+        {
+          type: "attack",
+          attacker: "a",
+          target: "b",
+          attackBonus: 5,
+          damage: { notation: "1d8+3", type: "slashing" },
+        },
+        deps(),
+      ).text,
+    ).toMatch(/attack/i);
   });
 });
 

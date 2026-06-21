@@ -64,3 +64,42 @@ export const campaignWorldEntities = pgTable(
     index("campaign_world_entities_owner_idx").on(t.ownerId),
   ],
 );
+
+/** Plot-hook lifecycle stages for the campaign Hooks Kanban (#59, Q7). */
+type PlotHookStatus =
+  | "suggested"
+  | "open"
+  | "active"
+  | "resolved"
+  | "abandoned";
+
+/**
+ * First-class, campaign-scoped plot hooks (#59, Q7). Hooks live embedded on
+ * Realms entities until *accepted* into a campaign, at which point they become a
+ * row here and move through the Kanban lifecycle. `sourceEntityId` records the
+ * Realms entity a hook was accepted from (null for hooks authored directly in
+ * the campaign). `ownerId` is denormalized for owner-scoped queries.
+ */
+export const plotHooks = pgTable(
+  "plot_hooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    status: text("status").notNull().$type<PlotHookStatus>().default("suggested"),
+    /** The Realms entity this hook was accepted from, if any. */
+    sourceEntityId: uuid("source_entity_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("plot_hooks_campaign_idx").on(t.campaignId),
+    index("plot_hooks_owner_idx").on(t.ownerId),
+  ],
+);

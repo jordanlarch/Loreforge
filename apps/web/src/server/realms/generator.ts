@@ -253,22 +253,33 @@ function childGuidance(type: RealmEntityType): string {
   ].join("\n");
 }
 
+function kvLines(
+  values: Record<string, string | number | undefined> | undefined,
+): string[] {
+  return values
+    ? Object.entries(values)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `- ${k}: ${v}`)
+    : [];
+}
+
 function buildNewPrompt(
   type: RealmEntityType,
   concept: string,
   hints: Record<string, string | number | undefined> | undefined,
+  seed: Record<string, string | number> | undefined,
   grounding: Grounding,
   withChildren: boolean,
 ): string {
-  const hintLines = hints
-    ? Object.entries(hints)
-        .filter(([, v]) => v !== undefined && v !== "")
-        .map(([k, v]) => `- ${k}: ${v}`)
-    : [];
+  const hintLines = kvLines(hints);
+  const seedLines = kvLines(seed);
   return [
     `Create a new ${REALM_TYPE_LABEL[type]} for a fantasy world.`,
     `Concept: ${concept}`,
     hintLines.length > 0 ? `Hints:\n${hintLines.join("\n")}` : "",
+    seedLines.length > 0
+      ? `Use these exact field values where given (fill in the rest coherently):\n${seedLines.join("\n")}`
+      : "",
     "",
     fieldGuidance(type),
     withChildren ? childGuidance(type) : "",
@@ -339,6 +350,8 @@ export async function generateNewEntity(args: {
   type: RealmEntityType;
   concept: string;
   hints?: Record<string, string | number | undefined>;
+  /** Preferred values for the type's own fields (from the Advanced Form). */
+  seed?: Record<string, string | number>;
   client?: LlmClient;
 }): Promise<GenerationOutput<GeneratedEnvelope>> {
   const client = resolveClient(args.client);
@@ -349,6 +362,7 @@ export async function generateNewEntity(args: {
     args.type,
     args.concept,
     args.hints,
+    args.seed,
     grounding,
     withChildren,
   );

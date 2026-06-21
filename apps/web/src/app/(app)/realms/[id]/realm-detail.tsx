@@ -181,9 +181,28 @@ export function RealmEntityDetail({ id }: { id: string }) {
           />
         </div>
       ) : type === "npc" ? (
-        <NpcStatBlock id={entity.id} name={entity.name} data={entity.data} />
+        <NpcStatBlock
+          id={entity.id}
+          name={entity.name}
+          data={entity.data}
+          onRegenerate={
+            configured && !entity.isStub
+              ? (fields) => regenerate.mutate({ id: entity.id, fields })
+              : undefined
+          }
+          regenerating={regenerate.isPending}
+        />
       ) : (
-        <DescriptiveView type={type} data={entity.data} />
+        <DescriptiveView
+          type={type}
+          data={entity.data}
+          onRegenerate={
+            configured && !entity.isStub
+              ? (fields) => regenerate.mutate({ id: entity.id, fields })
+              : undefined
+          }
+          regenerating={regenerate.isPending}
+        />
       )}
 
       {!editing && <RelationshipPanel entityId={entity.id} />}
@@ -315,12 +334,39 @@ function RegenerateButton({
   );
 }
 
+function RegenButton({
+  onClick,
+  pending,
+  title = "Regenerate this section",
+}: {
+  onClick: () => void;
+  pending: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={pending}
+      title={title}
+      aria-label={title}
+      className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text disabled:opacity-50"
+    >
+      ⟳
+    </button>
+  );
+}
+
 function DescriptiveView({
   type,
   data,
+  onRegenerate,
+  regenerating = false,
 }: {
   type: Exclude<RealmEntityType, "npc">;
   data: Record<string, unknown>;
+  onRegenerate?: (fields: string[]) => void;
+  regenerating?: boolean;
 }) {
   const fields = REALM_FIELDS[type];
   const visible = fields.filter((f) => {
@@ -346,9 +392,18 @@ function DescriptiveView({
             f.kind === "textarea" ? "sm:col-span-2" : ""
           }`}
         >
-          <dt className="text-xs uppercase tracking-wide text-lore-muted">
-            {f.label}
-          </dt>
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-xs uppercase tracking-wide text-lore-muted">
+              {f.label}
+            </dt>
+            {onRegenerate && (
+              <RegenButton
+                onClick={() => onRegenerate([f.key])}
+                pending={regenerating}
+                title={`Regenerate ${f.label}`}
+              />
+            )}
+          </div>
           <dd
             className={`mt-1 ${
               f.kind === "textarea" ? "whitespace-pre-wrap" : ""
@@ -366,10 +421,14 @@ function NpcStatBlock({
   id,
   name,
   data,
+  onRegenerate,
+  regenerating = false,
 }: {
   id: string;
   name: string;
   data: Record<string, unknown>;
+  onRegenerate?: (fields: string[]) => void;
+  regenerating?: boolean;
 }) {
   const sheet = buildCharacterSheet(npcToSheetInput({ id, name, data }));
   const npc = data as Partial<NpcData>;
@@ -387,9 +446,18 @@ function NpcStatBlock({
       </div>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-          Ability Scores
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-xs uppercase tracking-widest text-lore-muted">
+            Ability Scores
+          </h2>
+          {onRegenerate && (
+            <RegenButton
+              onClick={() => onRegenerate(["abilityScores"])}
+              pending={regenerating}
+              title="Regenerate ability scores"
+            />
+          )}
+        </div>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {(Object.keys(ABILITY_LABELS) as Ability[]).map((ability) => (
             <div
@@ -412,9 +480,18 @@ function NpcStatBlock({
 
       <div className="mt-8 grid gap-8 sm:grid-cols-2">
         <section>
-          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Saving Throws
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-xs uppercase tracking-widest text-lore-muted">
+              Saving Throws
+            </h2>
+            {onRegenerate && (
+              <RegenButton
+                onClick={() => onRegenerate(["saveProficiencies"])}
+                pending={regenerating}
+                title="Regenerate saving throws"
+              />
+            )}
+          </div>
           <ul className="space-y-1.5">
             {sheet.savingThrows.map((save) => (
               <li
@@ -437,9 +514,18 @@ function NpcStatBlock({
         </section>
 
         <section>
-          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Skill Proficiencies
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-xs uppercase tracking-widest text-lore-muted">
+              Skill Proficiencies
+            </h2>
+            {onRegenerate && (
+              <RegenButton
+                onClick={() => onRegenerate(["skillProficiencies"])}
+                pending={regenerating}
+                title="Regenerate skill proficiencies"
+              />
+            )}
+          </div>
           {sheet.skillProficiencies.length === 0 ? (
             <p className="text-sm text-lore-muted">None.</p>
           ) : (

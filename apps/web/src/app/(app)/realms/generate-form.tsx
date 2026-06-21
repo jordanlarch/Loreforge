@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -87,9 +88,17 @@ export function GenerateForm({
       onSubmit={submit}
       className="space-y-4 rounded-lg border border-lore-accent/40 bg-lore-surface p-6"
     >
-      <div className="flex items-center gap-2">
-        <span className="text-lore-accent">✨</span>
-        <h3 className="font-display text-lg">Generate with AI</h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-lore-accent">✨</span>
+          <h3 className="font-display text-lg">Generate with AI</h3>
+        </div>
+        <Link
+          href={`/realms/generate/${type}`}
+          className="text-sm text-lore-muted transition-colors hover:text-lore-text"
+        >
+          Advanced Form →
+        </Link>
       </div>
 
       {!configured && (
@@ -202,7 +211,7 @@ export function GenerateForm({
 }
 
 /** Polls a durable cascade run and navigates to the new entity when done. */
-function CascadeProgress({
+export function CascadeProgress({
   runId,
   onDone,
 }: {

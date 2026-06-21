@@ -437,6 +437,11 @@ export const realmsRouter = createTRPCRouter({
             level: z.number().int().min(1).max(20).optional(),
           })
           .optional(),
+        // Preferred values for the type's own fields (Advanced Form). The
+        // user's explicit choices win over the model's output.
+        seed: z
+          .record(z.union([z.string().max(4000), z.number()]))
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -448,9 +453,14 @@ export const realmsRouter = createTRPCRouter({
           type: input.type,
           concept: input.concept,
           hints: input.hints,
+          seed: input.seed,
         });
-        // Re-validate through the same path the manual write uses (Q12 boundary).
-        const data = parseData(input.type, envelope.data);
+        // Merge the user's explicit seed values over the model output, then
+        // re-validate through the same path the manual write uses (Q12).
+        const merged = input.seed
+          ? { ...envelope.data, ...input.seed }
+          : envelope.data;
+        const data = parseData(input.type, merged);
         const [row] = await db
           .insert(realmEntities)
           .values({
@@ -653,6 +663,9 @@ export const realmsRouter = createTRPCRouter({
             level: z.number().int().min(1).max(20).optional(),
           })
           .optional(),
+        seed: z
+          .record(z.union([z.string().max(4000), z.number()]))
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -668,6 +681,7 @@ export const realmsRouter = createTRPCRouter({
         type: input.type,
         concept: input.concept,
         hints: input.hints,
+        seed: input.seed,
       };
       const handle = await tasks.trigger("generate-cascade", payload);
       return { runId: handle.id };

@@ -15,6 +15,7 @@ export type GenerateCascadePayload = {
   type: RealmEntityType;
   concept: string;
   hints?: { species?: string; role?: string; level?: number };
+  seed?: Record<string, string | number>;
 };
 
 export type GenerateCascadeResult = {
@@ -43,8 +44,12 @@ export const generateCascade = task({
         type: payload.type,
         concept: payload.concept,
         hints: payload.hints,
+        seed: payload.seed,
       });
-      const data = parseData(payload.type, envelope.data);
+      const merged = payload.seed
+        ? { ...envelope.data, ...payload.seed }
+        : envelope.data;
+      const data = parseData(payload.type, merged);
       const [row] = await db
         .insert(realmEntities)
         .values({

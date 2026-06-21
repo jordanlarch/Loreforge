@@ -96,6 +96,8 @@ Trigger.dev is a managed, cloud-hosted job platform: task code lives in our repo
 
 **Alternatives considered**: **Inngest** (the prior choice — excellent DX and also cloud-hosted, but functions run inside our own Vercel serverless routes, so long jobs are bounded by the serverless timeout); **BullMQ** (self-hosted Redis-backed queue — rejected because it requires an always-on worker process and a Redis instance, i.e. exactly the standing infrastructure we want to avoid); Vercel Cron alone (only scheduled work, no event-driven jobs with retry); Temporal (heavyweight; designed for long-running workflows we don't really have); pg-boss (Postgres-backed queue, viable but still needs a worker we host).
 
+> **Implementation status (Jun 2026):** Two Trigger.dev task surfaces exist. (1) The **nightly Open5e SRD spell ingest** runs as a scheduled task (cron `0 8 * * *`, deployed to prod) — the first real background job. (2) A **durable Realms generation cascade** task (`generate-cascade`) exists for timeout-free multi-entity cascades (D3); the v1 thin-schema cascade also runs synchronously inside the `realms.generate` tRPC mutation, and the durable route is used as deeper cascades arrive. Runtime task triggering needs the `tr_prod_` secret key (`docs/deferrals.md` INFRA-1); the nightly cron does not. Per-task wiring gotchas are in `docs/02-implementation-roadmap.md` §6 P1 "Trigger.dev wiring notes."
+
 ## 10. Hosting — Vercel + Supabase (most likely)
 
 **Choice — likely**: Vercel for the Next.js application + a managed Postgres (Supabase, or Neon as an alternative) + a managed Redis (Upstash) if we go BullMQ. Tier-4 WebSocket server hosted separately (Fly.io or Railway) since Vercel's serverless model isn't ideal for long-lived connections.
@@ -137,6 +139,20 @@ Per the engine architecture doc §13, power-user homebrew can include scripted h
 ## 14. External Services & Data Sources
 
 The application stack above intentionally stops short of LLM providers, embedding models, TTS, image generation, procedural map libraries, and SRD content ingestion. Those are covered in [`./data-sources.md`](./data-sources.md). The short version: Anthropic Claude is primary for LLM-as-GM with OpenAI as fallback; OpenAI handles embeddings for RAG; ElevenLabs handles TTS with OpenAI as fallback; Flux/DALL-E 3 handle on-demand art generation (deferred to v1.5); rot-js / honeycomb-grid / d3-voronoi / custom Watabou-style ports cover procedural map geometry; SRD content ingests from Open5e and 5e-bits APIs initially with a planned migration to a custom SRD 5.2 parse.
+
+### LLM generation package (`@app/llm`) + tool-calling contract — implemented
+
+How we actually call the LLM in-app (built Jun 2026; design plan `realms_generator_pipeline_50e6bfcd`, D1–D11). `@app/llm` is a provider-agnostic package with an **injectable Anthropic client** + a provider/model registry (OpenAI fallback seam present but not wired — `docs/deferrals.md` GEN-3), and a **fake client** so all generation logic is unit-tested without network calls.
+
+The contract enforces the non-negotiable Q12 lock (**the LLM never does math; the engine/zod owns mechanics**):
+
+1. **One `emit_entity` tool** whose `input_schema` is **derived from the per-type zod schema** via a zod→JSON-Schema converter (`buildEmitEntityTool`). Single source of truth — the same schema validates manual `realms.create`.
+2. **Forced tool use** — the model must return structured `data`, never prose-as-mechanics.
+3. **Server-side re-validation** — the tool output is re-parsed through the same zod (`parseData`) before insert. **Generate→validate→insert is transactional**: on `parseData` failure the package re-prompts with the zod error (~2× retry, D9), then surfaces a clean failure and writes nothing.
+4. **`generateEntity({prompt, schema, fields?})`** supports regenerating a **subset of fields** with existing values as context — one code path for whole-entity and per-section regenerate (D7).
+5. **Cost observability** — every run writes a `generation_events` audit row (owner, type, mode, model, token usage, cost estimate, status) from day one (D8; see `product-spec.md` §5.1).
+
+Grounding today is schema-driven (enums + min/max in the prompt) + a curated list of valid SRD species/class names; full pgvector RAG grounding is deferred (`docs/deferrals.md` GEN-4). Rich per-type schemas are deferred — the contract runs on thin `REALM_FIELDS` schemas for now (GEN-1).
 
 ---
 

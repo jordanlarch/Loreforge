@@ -6,11 +6,14 @@
 
 **Design phase complete (19 architectural decisions locked).** Roadmap locked (May 2026). Engineering start: M0 = May 2026 (solo engineer).
 
-**P0 Foundation complete (Jun 2026):** monorepo scaffolded, Supabase Auth gating verified (sign-up → email confirm → Home shell), engine + Codex tables migrated, Open5e ingest spike validated (25 spells), source on GitHub with green CI. See `docs/02-implementation-roadmap.md` §6 P0 for the deliverable checklist and the "P0 status" note.
+**Code progress (Jun 2026): P0–P3 complete; P4 / M5 "First Campaign" started (~30%).** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World** — the last three at vertical-slice / tracer depth (each surface ships its happy path; the production-complete flows in `docs/ui-flows/*` are largely backlog). **`docs/deferrals.md` is the single source of truth for everything deferred** (per-surface gaps, unbuilt generators, engine/infra items).
 
-**P1 complete (Jun 2026):** Engine **E1 skeleton** built in `packages/engine` (seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, base entities, typed Command API + serialized per-campaign queue, 67 Vitest tests incl. golden replay) and exposed over tRPC (`engine` router). **Codex MVP** (`/codex` read-only SRD spells browser) and a **read-only character sheet** (`/characters/[id]` on fixture data) are live, plus a fleshed-out Home shell. The **full Open5e SRD spell ingest** now runs as a **scheduled nightly Trigger.dev job** (cron `0 8 * * *`, deployed to prod, project `proj_pywyqcovveavdmoqpzsg`) — the first real background job — so the Codex holds the full SRD 5.1 spell set (~319) instead of the 25-spell spike. Typecheck/lint/build + 67 tests green; CI green on `main`. Deferred to P2: Postgres-backed per-campaign event persistence (issue #2). See `docs/02-implementation-roadmap.md` §6 P1 and `docs/engine/architecture.md` §16 E1.
-
-Milestone **M1 "Hello, Codex"** reached. **P2 — Combat Core + Characters + Smithy is in progress** (milestones M2 "First character", M3 "First fight"). **M3 "First fight" reached (Jun 2026):** the PixiJS battle map + token drag (#16) and the **Tier 4 Yjs live-sync server** (#14 scope A — `@app/ws-server`, a Hocuspocus service that is the authoritative engine host; two-tab live sync verified) are merged to `main`. #14 scope A ran against the in-memory goblin-ambush fixture (no persistence yet). Remaining P2 work toward **M2 "First character"** is broken into GitHub issues #2–#16 (see the repo Issues and `docs/02-implementation-roadmap.md` §6 P2).
+Highlights of what's built:
+- **Engine (`packages/engine`, E1–E3):** seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, typed Command API + serialized per-campaign queue, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions), and a spell-cast pipeline with several spell families. **Per-campaign events persist to Postgres** (`engine_events` + `PgEventStore`; `engine.submit`/`state`). ~295 engine + 33 ws-server tests.
+- **Tier 4 multiplayer:** `@app/ws-server` Hocuspocus Yjs sync server (authoritative engine host) + PixiJS battle map with token drag/movement; persisted per-campaign live play.
+- **Product surfaces:** Home shell, Codex MVP (read-only SRD spells), Characters (create/view/inline-edit/level-up slices), Smithy MVP (homebrew items + declarative spells), Realms (Grid/List/Graph + relationship panels), Campaigns browser + live play.
+- **Realms AI generator pipeline (tracer depth):** `@app/llm` package (Anthropic client + zod→tool-schema + validate-and-retry), `generation_events` audit table, `realms.generate`/`expandStub`/`regenerate` (field-subset) + synchronous tRPC cascade + durable Trigger.dev cascade, Advanced Form at `/realms/generate/[type]`. NPC/Region/Settlement at tracer depth on **thin** `REALM_FIELDS` schemas (rich per-type schemas deferred — see `docs/deferrals.md` GEN-1).
+- **Background jobs:** nightly Open5e SRD spell ingest as a scheduled Trigger.dev job (full SRD 5.1 set, ~319 spells).
 
 ## What This Is
 
@@ -44,6 +47,8 @@ A web app at the intersection of:
 
 Full rationale per-choice (with alternatives considered) in `docs/01-tech-stack.md`. External services and data sources (LLM providers, embeddings, TTS, image gen, SRD ingest, map libraries) in `docs/data-sources.md`. Locked decisions summarized in `docs/00-consolidated-plan.md`.
 
+**Implemented packages of note:** `@app/engine` (deterministic 5E engine), `@app/ws-server` (Yjs/Hocuspocus sync), `@app/llm` (provider-agnostic LLM generation: Anthropic client, zod→`emit_entity` tool-schema, `generateEntity` with validate-and-retry + injectable fake client for tests — the contract behind the Realms generators), `@app/db` (Drizzle schema + migrations + `PgEventStore`), `@app/config` (env validation).
+
 ## Core Architecture
 
 - **AI-GM model** — there is no human DM tier; the AI is the GM for every campaign
@@ -62,6 +67,7 @@ Full rationale per-choice (with alternatives considered) in `docs/01-tech-stack.
 Read `docs/00-consolidated-plan.md` first. Then drill into whatever surface you need.
 
 - **`docs/00-consolidated-plan.md`** — the 19 locked architectural decisions
+- **`docs/deferrals.md`** — **single source of truth for all deferred/backlog items** (generator-pipeline deferrals, per-surface UI-flow gaps, unbuilt generators, engine/infra, v1.5+ cuts). Add new deferrals here.
 - **`docs/02-implementation-roadmap.md`** — v1 phased roadmap: milestones, dependency graph, beta gates, solo calendar (~28–34 months to GA)
 - **`docs/01-tech-stack.md`** — application-layer technology choices with 1-2 paragraph rationale and alternatives per choice (frontend, components, maps, state, API, DB, sync, auth, jobs, hosting, monitoring, testing, sandboxing)
 - **`docs/data-sources.md`** — external services and data sources: SRD content ingest, procedural map libraries, art generation pipeline, TTS providers, LLM providers, embeddings & RAG
@@ -77,9 +83,11 @@ Read `docs/00-consolidated-plan.md` first. Then drill into whatever surface you 
 
 ## Current Goal
 
-**Continue P2 (Combat Core + Characters + Smithy)** per `docs/02-implementation-roadmap.md` §6 P2, toward **M2 "First character"**. The battle map (#16) and live-sync server (#14 scope A) are merged (M3 reached). Next unblocked starting points: **#2** persistent campaigns + Postgres-backed event store (also unblocks **#14 scope B**: point the WS room at persisted per-campaign state instead of the fixture, plus a seat/ownership authorization layer), **#3** persistent characters, **#4** Smithy MVP custom items. Engine specifics in `docs/engine/architecture.md` §16 E2.
+**P4 / M5 "First Campaign"** per `docs/02-implementation-roadmap.md` §6 P4. The active frontier (all tracked in `docs/deferrals.md`): rich per-type generator schemas + tabbed detail pages (GEN-1, REALM-1), the 5 unbuilt rich generators — Tavern/Shop/Building/Faction/Dungeon (GENR-1–5), the **Campaign workspace** (9 tabs — currently 0/9, only a browser + `[id]/play` exist; CAMP-1–15), Plot Hook Kanban + lifecycle (CAMP-5), per-campaign discovery state (CAMP-4), and the full Live Play surface — chat/HUD/combat overlay (PLAY-1–14).
 
-**P0 and P1 are done** (see Status above). Trigger.dev is live (CLI authed; nightly ingest deployed to prod). Still deferred until needed: Vercel deploy (repo pushed, unblocked); Sentry/PostHog provisioning (env-gated stubs in place); the **`tr_prod_` runtime secret key** (only needed once the app triggers tasks at runtime, e.g. P3/P4 generation cascades — the nightly cron doesn't need it).
+**Before branching new work:** decide whether to open/merge a PR for the current `feat/realms-generator-pipeline` branch (generator commits are pushed but there is no open PR).
+
+**P0–P3 are done** (see Status above). Trigger.dev is live (CLI authed; nightly ingest deployed to prod; per-campaign events persist to Postgres). Still deferred until needed (`docs/deferrals.md` §5): the **`tr_prod_` runtime secret key** (needed once the app triggers tasks at runtime, e.g. P4 generation cascades — the nightly cron doesn't need it); Vercel deploy (repo pushed, unblocked); Sentry/PostHog provisioning (env-gated stubs in place).
 
 Roadmap and product locks live in `docs/02-implementation-roadmap.md` and `docs/product-spec.md` §5.
 

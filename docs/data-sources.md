@@ -154,9 +154,11 @@ TTS is the most expensive recurring cost per active campaign. Mitigations:
 
 ## 5. LLM Providers
 
-**Status**: Locked — Anthropic Claude primary, OpenAI fallback.
+**Status**: Locked — Anthropic Claude primary, OpenAI fallback. **Partially implemented (Jun 2026):** Anthropic is live for the Realms generators via the `@app/llm` package (see `01-tech-stack.md` §14 "LLM generation package"). The OpenAI fallback is a provider seam, not yet wired (`docs/deferrals.md` GEN-3). AI-GM in-play turns, dialogue, and recaps are not yet built (P4/P5).
 
 The LLM is the single largest operational cost and the single largest quality lever in the product. Every AI-GM turn, every generator output, every NPC dialogue line, every session recap routes through an LLM call.
+
+> **Implemented today:** generator calls go through `@app/llm` with **forced `emit_entity` tool use** (schema derived from per-type zod), **server-side re-validation** (`parseData`) and ~2× validate-and-retry, an **injectable fake client** for tests, and a **`generation_events` audit row per run** (model, token usage, cost estimate, status) for cost observability. `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`) is env-gated in `@app/config`.
 
 ### Providers
 

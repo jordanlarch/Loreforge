@@ -47,9 +47,13 @@ The 19 decisions in `docs/00-consolidated-plan.md` are settled. Specifically:
 
 ## What Is Open
 
-- **Code status** — **P0 Foundation is complete (Jun 2026)**; **P1 (Engine Skeleton + App Shell) is next and not yet started.** P0 details: `docs/02-implementation-roadmap.md` §6 P0 status note. Package manager is **npm** (not pnpm).
-- **Hosting / infra setup** — Supabase provisioned (Auth + Postgres in use); GitHub + CI live. Still to provision when needed: Trigger.dev project/keys, Vercel deploy, Sentry/PostHog accounts (env-gated stubs already in code).
-- **SRD content ingestion pipeline** — hybrid approach approved (start with Open5e/5e-bits APIs → migrate to custom SRD 5.2 ingest). P0 **spike** done (manual `npm run ingest:open5e`, ~25 spells into `codex_spells`); full normalized pipeline + scheduling not yet built. Details in `docs/data-sources.md` §1.
+> **Live backlog / deferrals: `docs/deferrals.md` is the single source of truth.** Every
+> deferred, postponed, stubbed-at-tracer-depth, or scoped-out item lives there with a phase
+> tag. This section keeps only the high-level status; do not re-scatter deferrals.
+
+- **Code status (Jun 2026)** — **P0–P3 complete; P4/M5 "First Campaign" started (~30%).** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World** (the last three at vertical-slice / tracer depth — see `docs/deferrals.md` §3 per-surface gaps). The **Realms AI generator pipeline** is built at tracer depth (`@app/llm` package, `generation_events` audit table, `realms.generate`/`expandStub`/`regenerate`/`generateCascadeAsync`, Advanced Form at `/realms/generate/[type]`). **Deviation from roadmap P4:** we shipped a generic thin-schema pipeline + tracer NPC/Region/Settlement instead of the rich per-type generators (intentional ship-fast choice; see `docs/02-implementation-roadmap.md` §6 P3/P4 note). Package manager is **npm** (not pnpm). Current branch `feat/realms-generator-pipeline` has the generator commits pushed but **no open PR yet**.
+- **Hosting / infra setup** — Supabase provisioned (Auth + Postgres in use); GitHub + CI live; Trigger.dev project live (nightly Open5e ingest deployed to prod). Still to provision when needed (see `docs/deferrals.md` §5): Trigger.dev `tr_prod_` runtime key (for runtime task triggers / P4 cascades), Vercel deploy, Sentry/PostHog accounts (env-gated stubs already in code).
+- **SRD content ingestion pipeline** — hybrid approach approved (Open5e/5e-bits APIs → custom SRD 5.2 ingest). **Nightly Open5e spell ingest runs as a scheduled Trigger.dev job** (full SRD 5.1 spell set, ~319). Full normalized pipeline + custom SRD 5.2 migration deferred to GA (`docs/deferrals.md` INFRA-6; `docs/data-sources.md` §1).
 - **Pricing price points** — commercial from closed beta with 10 free DM chats is locked (`docs/product-spec.md` §5); flat vs usage vs hybrid **rates** lock before M8 closed beta. See `docs/02-implementation-roadmap.md` §2.
 
 **Recently locked (May 2026):** v1 roadmap (`docs/02-implementation-roadmap.md`), solo engineer + top-120 spells + all 7 generators, Supabase Auth, Tier 4 from day one, three-stage beta, tutorial gate (strict open beta/GA), engine §16 solo calendar. Product locks in `docs/product-spec.md` §5. **(Jun 2026: background-jobs provider switched from Inngest to Trigger.dev — see `docs/01-tech-stack.md` §9.)**
@@ -85,6 +89,7 @@ The following alternatives came up during design and were explicitly considered 
 ## Repository Conventions
 
 - All design docs live under `docs/`. Code (when written) lives under `apps/` or `src/`.
+- **All deferrals go in `docs/deferrals.md`** — the single source of truth for deferred/backlog/scoped-out items. When you punt a feature or leave a TODO, add a row there first; don't re-scatter deferrals across docs. Mark shipped items `Done` (don't delete). GitHub-issue mirroring is opportunistic (local file is canonical).
 - Architectural changes that contradict the consolidated plan require an explicit decision update + bump to `docs/00-consolidated-plan.md` with rationale.
 - New design docs should follow the structure of existing ones: clear headings, wireframe-style ASCII mockups where useful, concrete examples over abstractions, engineering effort estimates at the end.
 - The transcripts that produced these docs are not in this repo (they live in the user's local Cursor session history). The docs in `docs/` are canonical; the transcripts are background.

@@ -256,6 +256,8 @@ const CHILD_HINTS: Partial<Record<RealmEntityType, string>> = {
     "For a Tavern these are NPCs (type 'npc'): the tavernkeeper plus 1-3 memorable regular patrons, each related to the tavern (relationshipKind 'related_to').",
   shop:
     "For a Shop these are NPCs (type 'npc'): the shopkeeper plus optionally 1-2 regular customers, suppliers, or apprentices, each related to the shop (relationshipKind 'related_to').",
+  building:
+    "For a Building these are NPCs (type 'npc'): the owner/caretaker plus 1-3 notable occupants, each related to the building (relationshipKind 'related_to').",
 };
 
 function childGuidance(type: RealmEntityType): string {

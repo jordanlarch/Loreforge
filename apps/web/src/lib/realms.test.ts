@@ -240,9 +240,38 @@ describe("rich Shop schema", () => {
   });
 });
 
+describe("rich Building schema", () => {
+  it("groups building fields into ordered sections (tabs)", () => {
+    const sections = realmSections("building");
+    expect(sections.length).toBeGreaterThan(1);
+    expect(sections[0]!.name).toBe("Overview");
+    expect(sections.map((s) => s.name)).toContain("Architecture");
+    const total = sections.reduce((n, s) => n + s.fields.length, 0);
+    expect(total).toBe(REALM_FIELDS.building.length);
+  });
+
+  it("preserves the original thin keys so legacy buildings stay valid", () => {
+    const keys = REALM_FIELDS.building.map((f) => f.key);
+    for (const legacy of ["kind", "occupants", "notes"]) {
+      expect(keys).toContain(legacy);
+    }
+  });
+
+  it("declares condition and size as selects with options", () => {
+    const byKey = new Map(REALM_FIELDS.building.map((f) => [f.key, f]));
+    expect(byKey.get("condition")?.kind).toBe("select");
+    expect(byKey.get("condition")?.options).toContain("Haunted");
+    expect(byKey.get("size")?.kind).toBe("select");
+  });
+
+  it("is a cascade parent so generation emits child NPC stubs", () => {
+    expect(isCascadeParent("building")).toBe(true);
+  });
+});
+
 describe("single-section descriptive types", () => {
   it("keeps non-sectioned types in a single default section", () => {
-    for (const type of ["region", "building", "dungeon", "faction"] as const) {
+    for (const type of ["region", "dungeon", "faction"] as const) {
       const sections = realmSections(type);
       expect(sections).toHaveLength(1);
     }

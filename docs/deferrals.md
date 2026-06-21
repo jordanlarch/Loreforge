@@ -5,8 +5,10 @@ intentionally cut, postponed, stubbed-at-tracer-depth, or scoped out of the curr
 milestone. If something is "we'll do it later," it belongs here.
 
 **Status (2026-06-21):** local-canonical. This file is the source of truth. GitHub
-issues are mirrored **opportunistically** (not required) — see "Tracking" below. All
-issues #1–#50 are currently **closed**; there are no open issues or PRs.
+issues are mirrored **opportunistically** (not required) — see "Tracking" below. Issues
+#1–#50 are closed (prior milestones). The **M5-frontier slices are mirrored to GitHub
+issues #54–#68** (rows with a `#NN` in Tracking); the rest are `doc-only`. Docs PR #52,
+generator-pipeline PR #53 are open.
 
 ## How to use this file
 
@@ -38,7 +40,7 @@ deferred from that design.
 
 | ID | Item | Source | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|---|
-| GEN-1 | Rich per-type schemas (replace thin `REALM_FIELDS` with rich per-tab schemas) | D1 | P4 / M5 | doc-only | Deferred | Descriptive types keep thin schemas; rich schemas are the big M5 expansion. Blocks GENR-* rich generators + REALM-detail tabs. |
+| GEN-1 | Rich per-type schemas (replace thin `REALM_FIELDS` with rich per-tab schemas) | D1 | P4 / M5 | #54 | Deferred | Descriptive types keep thin schemas; rich schemas are the big M5 expansion. Blocks GENR-* rich generators + REALM-detail tabs. |
 | GEN-2 | Name-match dedup on cascade child-stub insertion | D6 | P4 / M5 | doc-only | Deferred | Cascade currently inserts every `children[]` entry as a new stub; no dedup against existing entities. |
 | GEN-3 | OpenAI fallback provider (resilience) | D9 | post-M5 | doc-only | Deferred | Anthropic-only for v1; provider seam exists in `@app/llm` for later wiring. |
 | GEN-4 | Full pgvector RAG grounding for generation | D11 | P5 | doc-only | Deferred | Today: schema-driven enums + curated SRD species/class lists + parent context. Full RAG lands with the memory tier (P5). |
@@ -55,11 +57,11 @@ roadmap §6 P4 (Tavern → Shop → Building → Faction → Settlement → Regi
 
 | ID | Item | Source | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|---|
-| GENR-1 | Tavern generator (menu + floor plan patterns) | roadmap P4 #2 | P4 / M5 | doc-only | Deferred | Generic form can emit a thin Tavern; no rich generator/tabs. |
-| GENR-2 | Shop generator (inventory ↔ engine transactions) | roadmap P4 #3 | P4 / M5 | doc-only | Deferred | — |
-| GENR-3 | Building generator (floor plans, custom sections) | roadmap P4 #4 | P4 / M5 | doc-only | Deferred | — |
-| GENR-4 | Faction generator (crest, relational graph) | roadmap P4 #5 | P4 / M5 | doc-only | Deferred | — |
-| GENR-5 | Dungeon generator (rooms as entities, Dyson map, encounter promotion) | roadmap P4 #8 | P4 / M5 | doc-only | Deferred | — |
+| GENR-1 | Tavern generator (menu + floor plan patterns) | roadmap P4 #2 | P4 / M5 | #64 | Deferred | Generic form can emit a thin Tavern; no rich generator/tabs. |
+| GENR-2 | Shop generator (inventory ↔ engine transactions) | roadmap P4 #3 | P4 / M5 | #65 | Deferred | — |
+| GENR-3 | Building generator (floor plans, custom sections) | roadmap P4 #4 | P4 / M5 | #66 | Deferred | — |
+| GENR-4 | Faction generator (crest, relational graph) | roadmap P4 #5 | P4 / M5 | #67 | Deferred | — |
+| GENR-5 | Dungeon generator (rooms as entities, Dyson map, encounter promotion) | roadmap P4 #8 | P4 / M5 | #68 | Deferred | — |
 | GENR-6 | Rich Region generator (deepest cascade, rich tabs) | roadmap P4 #7 | P4 / M5 | doc-only | Partial | Tracer-depth Region cascade exists on thin schema; rich version pending GEN-1. |
 | GENR-7 | Rich Settlement generator (richest tab set) | roadmap P4 #6 | P4 / M5 | doc-only | Partial | Tracer-depth Settlement exists on thin schema; rich version pending GEN-1. |
 
@@ -109,7 +111,7 @@ features regardless of UI work. Router exposes only `list/get/create/update/leve
 
 | ID | Item | Source | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|---|
-| CHAR-1 | Character schema extension: XP, equipment/inventory, spells/slots, portrait, notes, campaign links | dashboard+view docs | P2 (deepen) / P4 | doc-only | Missing | Foundational — unblocks CHAR-3/6/7/8 and dashboard XP/campaign features. |
+| CHAR-1 | Character schema extension: XP, equipment/inventory, spells/slots, portrait, notes, campaign links | dashboard+view docs | P2 (deepen) / P4 | #56 | Missing | Foundational — unblocks CHAR-3/6/7/8 and dashboard XP/campaign features. |
 | CHAR-2 | Dashboard filter+sort bar, Grid/List toggle, card ⋯ menu (Duplicate/Export/Share/Archive/Delete), search | characters-dashboard.md | P2 (deepen) | doc-only | Missing | List is create + view only. |
 | CHAR-3 | Dashboard XP bars, Last Played, campaign grouping + Play Now, right sidebar, bulk select | characters-dashboard.md | P4 | doc-only | Missing | Depends on CHAR-1 + campaigns. |
 | CHAR-4 | Creation wizard steps 1,4,7,8,9 (Concept, Background, Equipment, Features/Spells, Flavor) — 5 of 10 built | character-creation-wizard.md | P2 (deepen) | doc-only | Partial | Built: Species, Class, Abilities, Skills, Review. |
@@ -146,10 +148,10 @@ detail, Expand-with-Generator, generate→navigate, Advanced Form at the spec pa
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| REALM-1 | Rich tabbed detail pages (currently flat field list / stat block) | P4 / M5 | doc-only | Missing | Depends on GEN-1 rich schemas. |
+| REALM-1 | Rich tabbed detail pages (currently flat field list / stat block) | P4 / M5 | #54 | Missing | Depends on GEN-1 rich schemas. |
 | REALM-2 | Hero stats strip on detail pages | P4 | doc-only | Missing | — |
 | REALM-3 | Detail right pane (Recently Forged / Used in Campaigns / Quick Cascade / Style) | P4 | doc-only | Missing | — |
-| REALM-4 | Per-tab Quick Generate bars with type-specific fields (today: one generic panel) | P4 / M5 | doc-only | Partial | Depends on GEN-1. |
+| REALM-4 | Per-tab Quick Generate bars with type-specific fields (today: one generic panel) | P4 / M5 | #54 | Partial | Depends on GEN-1. |
 | REALM-5 | Live Map Preview right rail | P4 | doc-only | Missing | — |
 | REALM-6 | Cinematic multi-stage generation loader | P4 | doc-only | Missing | — |
 | REALM-7 | Bulk ops; conflict/auto-link modal; auto-art; global search | P4 | doc-only | Missing | Auto-link = GEN-5; auto-art = ART-1 (v1.5 for AI gen). |
@@ -162,21 +164,21 @@ detail, Expand-with-Generator, generate→navigate, Advanced Form at the spec pa
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| CAMP-1 | Workspace shell at `/campaigns/[id]` (header, sidebar, tab bar, right pane, footer) | P4 / M5 | doc-only | Missing | Entire surface absent. |
-| CAMP-2 | Tab 1 Overview (continue/next session, party/world/hooks/NPC/session widgets, activity feed, pinned memory) | P4 / M5 | doc-only | Missing | — |
-| CAMP-3 | Tab 2 Party (campaign-scoped character dashboard, companions, shared resources, bench) | P4 / M5 | doc-only | Missing | Depends on character↔campaign link (CHAR-1). |
-| CAMP-4 | Tab 3 World (campaign-scoped Realms IA, discovery states, graph, add-from-Realms) | P4 / M5 | doc-only | Missing | Includes per-campaign discovery state (Q11). |
-| CAMP-5 | Tab 4 Hooks (Plot Hook Kanban: Suggested/Open/Active/Resolved/Abandoned, timeline, detail panel) | P4 / M5 | doc-only | Missing | Q7 lifecycle. |
+| CAMP-1 | Workspace shell at `/campaigns/[id]` (header, sidebar, tab bar, right pane, footer) | P4 / M5 | #55 | Missing | Entire surface absent. |
+| CAMP-2 | Tab 1 Overview (continue/next session, party/world/hooks/NPC/session widgets, activity feed, pinned memory) | P4 / M5 | #55 | Missing | — |
+| CAMP-3 | Tab 2 Party (campaign-scoped character dashboard, companions, shared resources, bench) | P4 / M5 | #61 | Missing | Depends on character↔campaign link (CHAR-1). |
+| CAMP-4 | Tab 3 World (campaign-scoped Realms IA, discovery states, graph, add-from-Realms) | P4 / M5 | #60 | Missing | Includes per-campaign discovery state (Q11). |
+| CAMP-5 | Tab 4 Hooks (Plot Hook Kanban: Suggested/Open/Active/Resolved/Abandoned, timeline, detail panel) | P4 / M5 | #59 | Missing | Q7 lifecycle. |
 | CAMP-6 | Tab 5 Sessions (log, recap cards, per-session Recap/Transcript/Combat/Events/Loot/Media) | P4 / M5 | doc-only | Missing | — |
 | CAMP-7 | Tab 6 World Map (strategic pannable canvas, layers, edit mode, party token, discovery mirror) | P4 / M5 | doc-only | Missing | — |
 | CAMP-8 | Tab 7 Combat (encounter library + builder, difficulty, battle map, Run Now → Live) | P4 / M5 | doc-only | Missing | Combat auto-route entry point. |
 | CAMP-9 | Tab 8 Notes (editor, DM-only/shared, pin-to-memory, convert-to-hook, `@Entity` links) | P4 / M5 | doc-only | Missing | — |
 | CAMP-10 | Tab 9 Settings (GM persona, art-style lock, play mode, members/invites, memory export, danger zone) | P4 / M5 | doc-only | Missing | Art-style lock = Q16. |
-| CAMP-11 | Campaign creation flows (Quick Forge, Guided 6-step Setup, Empty World, template picker) | P4 / M5 | doc-only | Missing | Today: name-only inline form. |
+| CAMP-11 | Campaign creation flows (Quick Forge, Guided 6-step Setup, Empty World, template picker) | P4 / M5 | #62 | Missing | Today: name-only inline form. |
 | CAMP-12 | Campaigns list: filter bar, rich cards (banner/roster/stats), card actions, templates section | P4 | doc-only | Partial | Today: name/description grid → play. |
 | CAMP-13 | AI Memory panel (pins, recaps, entity awareness, drift detection) | P5 | doc-only | Missing | Memory tier is P5. |
 | CAMP-14 | Multiplayer invite/seat flow (email/link invites, permissions, player-mode subset UI) | P4 | doc-only | Missing | — |
-| CAMP-15 | Cross-surface entry ("Add to Campaign" from Characters/Realms; "Back to Workspace" from play); deep links `?tab=` | P4 | doc-only | Missing | — |
+| CAMP-15 | Cross-surface entry ("Add to Campaign" from Characters/Realms; "Back to Workspace" from play); deep links `?tab=` | P4 | #55 | Missing | — |
 
 ### 3.7 Live Play — `docs/ui-flows/live-play-surface.md`
 
@@ -186,15 +188,15 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| PLAY-1 | Chat / narrative zone (GM/player entries, dice widgets, engine-event rows, entity chips) | P4 | doc-only | Missing | Core of the play surface. |
-| PLAY-2 | Player input modes (Speak/Action/Check/Cast/Attack/Use Item, slash commands, OOC) + AI "thinking" state | P4 | doc-only | Missing | — |
-| PLAY-3 | Character HUD right rail (abilities, HP/AC, conditions, resources, attacks, inventory quick-use) | P4 | doc-only | Missing | — |
+| PLAY-1 | Chat / narrative zone (GM/player entries, dice widgets, engine-event rows, entity chips) | P4 | #57 | Missing | Core of the play surface. |
+| PLAY-2 | Player input modes (Speak/Action/Check/Cast/Attack/Use Item, slash commands, OOC) + AI "thinking" state | P4 | #57 | Missing | — |
+| PLAY-3 | Character HUD right rail (abilities, HP/AC, conditions, resources, attacks, inventory quick-use) | P4 | #63 | Missing | — |
 | PLAY-4 | Party rail (collapsed chips, hover mini-HUD, assist pulses) | P4 | doc-only | Missing | — |
 | PLAY-5 | Full top bar (scene breadcrumb, dual clocks, Pause, tools row: pacing/TTS/memory/inventory) | P4 | doc-only | Missing | — |
-| PLAY-6 | Combat overlay (round banner, horizontal initiative on map, range rings) + full combat loop (attacks/spells/reactions/targeting/resolution) | P4 | doc-only | Partial | Today: move + end-turn only. |
+| PLAY-6 | Combat overlay (round banner, horizontal initiative on map, range rings) + full combat loop (attacks/spells/reactions/targeting/resolution) | P4 | #58 | Partial | Today: move + end-turn only. |
 | PLAY-7 | Map zoom levels L0–L4 + layer toggles + Edit Map + fog of war + token interaction menus + text-driven movement | P4 | doc-only | Missing | Today: single tactical grid, drag-only. |
 | PLAY-8 | Scene transitions (cross-fade, location banner, auto-forge stubs on travel) | P4 | doc-only | Missing | — |
-| PLAY-9 | Tier 4 reaction windows (timed prompts, auto-pass), pacing controls | P4 | doc-only | Missing | — |
+| PLAY-9 | Tier 4 reaction windows (timed prompts, auto-pass), pacing controls | P4 | #58 | Missing | — |
 | PLAY-10 | TTS (toggle, per-NPC voices, Listen, queue) | P4 (TTS) | doc-only | Missing | TTS in v1; STT is v1.5 (V15-*). |
 | PLAY-11 | Inline memory & retcon (panel, per-entry "Retcon from here", ghost-timeline confirm) | P5 | doc-only | Missing | Retcon UI is P6/E5. |
 | PLAY-12 | End-session flow (stats summary, auto-recap, memory pin, redirect to workspace) | P4/P5 | doc-only | Missing | — |
@@ -224,7 +226,7 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 | INFRA-2 | Vercel deploy | when needed | doc-only | Deferred | Repo pushed, unblocked. |
 | INFRA-3 | Sentry / PostHog account provisioning | P6 (alpha funnels) | doc-only | Deferred | Env-gated stubs already in code. |
 | INFRA-4 | Pricing rate lock (flat vs usage vs hybrid) | before M8 closed beta | doc-only | Deferred | Commercial-from-closed-beta + 10 free DM chats already locked (`product-spec.md` §5). |
-| INFRA-5 | `gh` on PATH permanently (per-user) | next terminal | doc-only | Deferred | Installed + authed at `C:\Program Files\GitHub CLI\gh.exe`; persistent PATH edit kept failing this session (shell flakiness). Usable via full path now. |
+| INFRA-5 | `gh` on PATH permanently (per-user) | Jordan, normal terminal | doc-only | Blocked (env) | Installed + authed at `C:\Program Files\GitHub CLI\gh.exe` and usable via full path. The agent **cannot** edit the user PATH from its sandboxed shell — any read of `HKCU\Environment` Path hangs (no exit status), so append-based edits fail. **Fix:** in a normal PowerShell run `[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";C:\Program Files\GitHub CLI", "User")` then open a new terminal. |
 | INFRA-6 | Full normalized SRD ingest pipeline + scheduling (beyond nightly Open5e spell job) | P5–P7 | doc-only | Deferred | Migrate Open5e → custom SRD 5.2 ingest at GA (`data-sources.md` §1). |
 
 ---

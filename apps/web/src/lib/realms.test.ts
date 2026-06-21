@@ -4,12 +4,14 @@ import {
   REALM_ENTITY_TYPES,
   REALM_FIELDS,
   REALM_RELATIONSHIP_KINDS,
+  REALM_TYPE_COLOR,
   REALM_TYPE_LABEL,
   REALM_TYPE_LABEL_PLURAL,
   REL_INVERSE_LABEL,
   REL_LABEL,
   emptyDataFor,
   emptyNpcData,
+  layoutGraph,
   npcToSheetInput,
   type RealmEntityType,
 } from "./realms";
@@ -129,5 +131,60 @@ describe("relationship taxonomy", () => {
       expect(REL_LABEL[kind]).toBeTruthy();
       expect(REL_INVERSE_LABEL[kind]).toBeTruthy();
     }
+  });
+});
+
+describe("graph view", () => {
+  it("has a color for every entity type", () => {
+    for (const type of REALM_ENTITY_TYPES) {
+      expect(REALM_TYPE_COLOR[type]).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+});
+
+describe("layoutGraph", () => {
+  const nodes = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+  const edges = [
+    { source: "a", target: "b" },
+    { source: "b", target: "c" },
+    { source: "c", target: "d" },
+  ];
+
+  it("returns a position for every node, within bounds", () => {
+    const pos = layoutGraph(nodes, edges, { width: 1000, height: 1000 });
+    expect(Object.keys(pos).sort()).toEqual(["a", "b", "c", "d"]);
+    for (const id of Object.keys(pos)) {
+      expect(pos[id]!.x).toBeGreaterThanOrEqual(0);
+      expect(pos[id]!.x).toBeLessThanOrEqual(1000);
+      expect(pos[id]!.y).toBeGreaterThanOrEqual(0);
+      expect(pos[id]!.y).toBeLessThanOrEqual(1000);
+      expect(Number.isFinite(pos[id]!.x)).toBe(true);
+      expect(Number.isFinite(pos[id]!.y)).toBe(true);
+    }
+  });
+
+  it("is deterministic — identical input yields identical output", () => {
+    const a = layoutGraph(nodes, edges);
+    const b = layoutGraph(nodes, edges);
+    expect(a).toEqual(b);
+  });
+
+  it("handles the empty graph", () => {
+    expect(layoutGraph([], [])).toEqual({});
+  });
+
+  it("centers a single node", () => {
+    expect(layoutGraph([{ id: "solo" }], [], { width: 800, height: 600 })).toEqual({
+      solo: { x: 400, y: 300 },
+    });
+  });
+
+  it("ignores edges referencing unknown nodes and self-loops", () => {
+    const pos = layoutGraph([{ id: "a" }, { id: "b" }], [
+      { source: "a", target: "a" },
+      { source: "a", target: "ghost" },
+      { source: "a", target: "b" },
+    ]);
+    expect(Object.keys(pos).sort()).toEqual(["a", "b"]);
   });
 });

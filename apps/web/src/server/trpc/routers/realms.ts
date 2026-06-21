@@ -179,6 +179,36 @@ export const realmsRouter = createTRPCRouter({
     return { all, byType: counts };
   }),
 
+  /**
+   * The whole owned world as a node-link graph: minimal entity nodes plus the
+   * typed relationship edges. Powers the Realms Graph view (#50) — a single
+   * round trip so the client can lay the graph out without N per-node fetches.
+   */
+  graph: protectedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const [nodes, edges] = await Promise.all([
+      db
+        .select({
+          id: realmEntities.id,
+          name: realmEntities.name,
+          type: realmEntities.type,
+          isStub: realmEntities.isStub,
+        })
+        .from(realmEntities)
+        .where(eq(realmEntities.ownerId, ctx.user.id)),
+      db
+        .select({
+          id: realmRelationships.id,
+          fromId: realmRelationships.fromId,
+          toId: realmRelationships.toId,
+          kind: realmRelationships.kind,
+        })
+        .from(realmRelationships)
+        .where(eq(realmRelationships.ownerId, ctx.user.id)),
+    ]);
+    return { nodes, edges };
+  }),
+
   /** A single owned entity, or null if missing / not owned. */
   get: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))

@@ -12,8 +12,9 @@ import {
 } from "@/lib/realms";
 
 import { EntityForm } from "./entity-form";
+import { GraphView } from "./graph-view";
 
-type ViewMode = "grid" | "list";
+type ViewMode = "grid" | "list" | "graph";
 
 export function RealmsBrowser() {
   const [typeFilter, setTypeFilter] = useState<RealmEntityType | undefined>();
@@ -59,13 +60,15 @@ export function RealmsBrowser() {
       <section>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-lore-muted">
-            {list.isLoading
-              ? "Loading…"
-              : `${list.data?.length ?? 0} ${
-                  typeFilter
-                    ? REALM_TYPE_LABEL_PLURAL[typeFilter].toLowerCase()
-                    : "entit" + (list.data?.length === 1 ? "y" : "ies")
-                }`}
+            {view === "graph"
+              ? "World graph"
+              : list.isLoading
+                ? "Loading…"
+                : `${list.data?.length ?? 0} ${
+                    typeFilter
+                      ? REALM_TYPE_LABEL_PLURAL[typeFilter].toLowerCase()
+                      : "entit" + (list.data?.length === 1 ? "y" : "ies")
+                  }`}
           </span>
 
           <div className="flex items-center gap-3">
@@ -106,7 +109,9 @@ export function RealmsBrowser() {
           </div>
         )}
 
-        {!list.isLoading && (list.data?.length ?? 0) === 0 && !creating ? (
+        {view === "graph" ? (
+          <GraphView />
+        ) : !list.isLoading && (list.data?.length ?? 0) === 0 && !creating ? (
           <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
             No entities here yet. Create your first one to begin populating your
             world.
@@ -213,7 +218,7 @@ function ViewToggle({
 }) {
   return (
     <div className="inline-flex rounded-lg border border-lore-border p-1">
-      {(["grid", "list"] as ViewMode[]).map((v) => (
+      {(["grid", "list", "graph"] as ViewMode[]).map((v) => (
         <button
           key={v}
           onClick={() => onChange(v)}

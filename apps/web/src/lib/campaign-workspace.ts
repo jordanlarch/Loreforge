@@ -42,3 +42,35 @@ export function resolveCampaignTab(raw: string | null | undefined): CampaignTabS
   const match = CAMPAIGN_WORKSPACE_TABS.find((t) => t.slug === raw);
   return match ? match.slug : DEFAULT_CAMPAIGN_TAB;
 }
+
+/** A campaign membership row's grouping fields (Party tab, #61). */
+export type RosterMember = { role: string; status: string };
+
+export type PartitionedRoster<T extends RosterMember> = {
+  /** Active player characters (role `pc`). */
+  pcs: T[];
+  /** Active non-PC party members (companions, NPC allies). */
+  companions: T[];
+  /** Benched members of any role. */
+  bench: T[];
+};
+
+/**
+ * Split a campaign roster into PCs, companions, and the bench (#61). Benched
+ * members (status `bench`) are grouped together regardless of role; among active
+ * members, `pc` is a player character and anything else is a companion. Pure so
+ * the Party tab can rely on it and it's unit-testable.
+ */
+export function partitionRoster<T extends RosterMember>(
+  members: readonly T[],
+): PartitionedRoster<T> {
+  const pcs: T[] = [];
+  const companions: T[] = [];
+  const bench: T[] = [];
+  for (const member of members) {
+    if (member.status === "bench") bench.push(member);
+    else if (member.role === "pc") pcs.push(member);
+    else companions.push(member);
+  }
+  return { pcs, companions, bench };
+}

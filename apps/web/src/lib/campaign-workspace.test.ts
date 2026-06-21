@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CAMPAIGN_WORKSPACE_TABS,
   DEFAULT_CAMPAIGN_TAB,
+  partitionRoster,
   resolveCampaignTab,
 } from "./campaign-workspace";
 
@@ -27,5 +28,25 @@ describe("campaign workspace tabs", () => {
     expect(resolveCampaignTab("nonsense")).toBe("overview");
     expect(resolveCampaignTab(null)).toBe("overview");
     expect(resolveCampaignTab(undefined)).toBe("overview");
+  });
+});
+
+describe("partitionRoster", () => {
+  it("splits active members into PCs and companions, and groups the bench", () => {
+    const members = [
+      { role: "pc", status: "active", name: "Thorin" },
+      { role: "companion", status: "active", name: "Maddy" },
+      { role: "npc-ally", status: "active", name: "Vane" },
+      { role: "pc", status: "bench", name: "Roric" },
+      { role: "companion", status: "bench", name: "Pip" },
+    ];
+    const { pcs, companions, bench } = partitionRoster(members);
+    expect(pcs.map((m) => m.name)).toEqual(["Thorin"]);
+    expect(companions.map((m) => m.name)).toEqual(["Maddy", "Vane"]);
+    expect(bench.map((m) => m.name)).toEqual(["Roric", "Pip"]);
+  });
+
+  it("handles an empty roster", () => {
+    expect(partitionRoster([])).toEqual({ pcs: [], companions: [], bench: [] });
   });
 });

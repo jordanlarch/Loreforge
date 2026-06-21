@@ -12,6 +12,7 @@ import {
 import { trpc } from "@/lib/trpc/client";
 
 import { OverviewTab } from "./overview-tab";
+import { PartyTab } from "./party-tab";
 
 /**
  * The campaign workspace shell (#55): fixed header (back link, live indicator,
@@ -127,6 +128,8 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
             campaign={data}
             onOpenTab={selectTab}
           />
+        ) : active === "party" ? (
+          <PartyTab campaignId={campaignId} />
         ) : (
           <StubTab
             label={

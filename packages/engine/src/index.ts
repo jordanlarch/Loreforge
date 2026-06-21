@@ -261,6 +261,7 @@ export {
   FIXTURE_BATTLE_FOES_SIDE,
   FIXTURE_BATTLE_PARTY_SIDE,
   FIXTURE_BATTLE_SCENE_ID,
+  attackAction,
   moveAction,
   type BattleAction,
 } from "./fixtures/battle";

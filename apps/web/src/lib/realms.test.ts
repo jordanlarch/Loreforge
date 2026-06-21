@@ -269,9 +269,49 @@ describe("rich Building schema", () => {
   });
 });
 
+describe("rich Faction schema", () => {
+  it("groups faction fields into ordered sections (tabs)", () => {
+    const sections = realmSections("faction");
+    expect(sections.length).toBeGreaterThan(1);
+    expect(sections[0]!.name).toBe("Overview");
+    expect(sections.map((s) => s.name)).toContain("Goals & Methods");
+    expect(sections.map((s) => s.name)).toContain("Relationships");
+    const total = sections.reduce((n, s) => n + s.fields.length, 0);
+    expect(total).toBe(REALM_FIELDS.faction.length);
+  });
+
+  it("preserves the original thin keys so legacy factions stay valid", () => {
+    const keys = REALM_FIELDS.faction.map((f) => f.key);
+    for (const legacy of ["kind", "leadership", "goals", "influence"]) {
+      expect(keys).toContain(legacy);
+    }
+  });
+
+  it("keeps the influence select options so legacy values validate", () => {
+    const influence = REALM_FIELDS.faction.find((f) => f.key === "influence");
+    expect(influence?.kind).toBe("select");
+    expect(influence?.options).toEqual([
+      "Local",
+      "Regional",
+      "National",
+      "Continental",
+    ]);
+  });
+
+  it("declares ally and rival lists for the relationship graph", () => {
+    const byKey = new Map(REALM_FIELDS.faction.map((f) => [f.key, f]));
+    expect(byKey.get("allies")?.kind).toBe("list");
+    expect(byKey.get("rivals")?.kind).toBe("list");
+  });
+
+  it("is a cascade parent so generation emits child NPC stubs", () => {
+    expect(isCascadeParent("faction")).toBe(true);
+  });
+});
+
 describe("single-section descriptive types", () => {
   it("keeps non-sectioned types in a single default section", () => {
-    for (const type of ["region", "dungeon", "faction"] as const) {
+    for (const type of ["region", "dungeon"] as const) {
       const sections = realmSections(type);
       expect(sections).toHaveLength(1);
     }

@@ -23,6 +23,7 @@ import {
 import { trpc } from "@/lib/trpc/client";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import type { BattleToken } from "./battle-map";
+import { ChatZone } from "./chat-zone";
 import { useLiveSession } from "./use-live-session";
 
 const BattleMap = dynamic(() => import("./battle-map"), {
@@ -251,11 +252,7 @@ function LiveBattle({
             </ol>
           </div>
 
-          <div className="rounded-lg border border-dashed border-lore-border p-4 text-sm text-lore-muted">
-            This map syncs live (#14, Tier 4 / Yjs) — open it in a second tab to
-            watch moves mirror in real time. Narrative chat, dice prompts, and
-            the full character HUD arrive with the Live Play surface (P4).
-          </div>
+          <ChatZone entries={session.chat} onSend={session.sendChat} />
         </aside>
       </div>
     </div>

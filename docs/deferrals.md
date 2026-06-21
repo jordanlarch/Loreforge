@@ -14,7 +14,9 @@ extension — XP/equipment/spells/portrait/notes + character↔campaign membersh
 **#64 done** (rich Tavern generator on the #54 pattern, cascade-enabled);
 **#65 done** (rich Shop generator on the #54 pattern, cascade-enabled);
 **#66 done** (rich Building generator on the #54 pattern, cascade-enabled);
-**#67 done** (rich Faction generator on the #54 pattern, cascade-enabled).
+**#67 done** (rich Faction generator on the #54 pattern, cascade-enabled);
+**#68 done** (rich Dungeon generator on the #54 pattern, cascade-enabled) —
+all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6).
 
 ## How to use this file
 
@@ -67,7 +69,7 @@ roadmap §6 P4 (Tavern → Shop → Building → Faction → Settlement → Regi
 | GENR-2 | Shop generator (inventory ↔ engine transactions) | roadmap P4 #3 | P4 / M5 | #65 | Partial | **#65**: rich sectioned Shop schema (Overview/Inventory group/Quirks/Loot & Security/Lore & Rumors) on the #54 pattern; shop is now a cascade parent (emits shopkeeper + supplier/apprentice NPC stubs + edges); generate/expand/regenerate + tabbed detail + per-section regenerate all work. Inventory items model the buy/sell seam but **engine transactions (currency/inventory mutation), CUSTOM→Smithy promotion, and price auto-scaling are deferred** to play integration; interactive floor-plan map deferred (REALM-5 / maps track). |
 | GENR-3 | Building generator (floor plans, custom sections) | roadmap P4 #4 | P4 / M5 | #66 | Partial | **#66**: rich sectioned Building schema (Overview/Architecture/History/Lore & Secrets) on the #54 pattern; building is now a cascade parent (emits owner + occupant NPC stubs + edges); generate/expand/regenerate + tabbed detail + per-section regenerate all work. Interactive floor-plan map deferred (REALM-5 / maps track). |
 | GENR-4 | Faction generator (crest, relational graph) | roadmap P4 #5 | P4 / M5 | #67 | Partial | **#67**: rich sectioned Faction schema (Overview/Goals & Methods/Organization/Relationships/Lore & Secrets) on the #54 pattern; faction is now a cascade parent (emits leader + key-member NPC stubs via `member_of` edges); ally/rival lists complement the existing Realms relationship graph; generate/expand/regenerate + tabbed detail + per-section regenerate all work. Bespoke crest/emblem art deferred (art track). |
-| GENR-5 | Dungeon generator (rooms as entities, Dyson map, encounter promotion) | roadmap P4 #8 | P4 / M5 | #68 | Deferred | — |
+| GENR-5 | Dungeon generator (rooms as entities, Dyson map, encounter promotion) | roadmap P4 #8 | P4 / M5 | #68 | Partial | **#68**: rich sectioned Dungeon schema (Overview/Atmosphere & Lore/Rooms group/Hazards & Monsters/Secrets & Hooks) on the #54 pattern; dungeon is now a cascade parent (emits boss + denizen NPC stubs + edges); generate/expand/regenerate + tabbed detail + per-section regenerate all work. Rooms are modeled as a structured group (each with an encounter field that seams to combat) rather than separate sub-entities — **rooms-as-entities, the Dyson-style map render, and live encounter promotion (room → runnable combat) are deferred** to play/maps integration (the locked 8-type taxonomy has no room type). |
 | GENR-6 | Rich Region generator (deepest cascade, rich tabs) | roadmap P4 #7 | P4 / M5 | doc-only | Partial | Tracer-depth Region cascade exists on thin schema; rich version pending GEN-1. |
 | GENR-7 | Rich Settlement generator (richest tab set) | roadmap P4 #6 | P4 / M5 | doc-only | Partial | Settlement now has a rich sectioned schema (#54) — generate/expand/regenerate run against it. Full ~19-tab vision + per-district map still pending. |
 

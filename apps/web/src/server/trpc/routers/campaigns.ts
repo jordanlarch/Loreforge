@@ -21,6 +21,13 @@ import {
 } from "@app/db";
 
 import { edgesWithin } from "@/lib/campaign-world";
+import {
+  generateNewEntity,
+  isConfigured as isGeneratorConfigured,
+  logGeneration,
+  persistChildren,
+} from "@/server/realms/generator";
+import { parseData } from "@/server/realms/schemas";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -38,6 +45,78 @@ export async function assertCampaignOwner(
   if (!row) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Campaign not found." });
   }
+}
+
+/**
+ * Forge one Realms entity (with its cascade children) from a concept and attach
+ * the whole subtree to a campaign's World tab (#62 Quick Forge / Guided Setup).
+ *
+ * Reuses the same generator path the Realms surface uses: generate → validate →
+ * insert parent → `persistChildren` (which also writes the linking edges). The
+ * parent and every freshly-linked child are added to `campaign_world_entities`
+ * as undiscovered (Q11). Returns the number of entities attached. Throws on
+ * generation failure so the caller can log it; campaign creation itself is not
+ * rolled back.
+ */
+async function forgeEntityIntoCampaign(
+  db: ReturnType<typeof getDb>,
+  ownerId: string,
+  campaignId: string,
+  type: "region" | "faction",
+  concept: string,
+): Promise<number> {
+  const { data: envelope, usage, model } = await generateNewEntity({
+    db,
+    type,
+    concept,
+  });
+  const data = parseData(type, envelope.data);
+  const [parent] = await db
+    .insert(realmEntities)
+    .values({
+      ownerId,
+      type,
+      name: envelope.name,
+      summary: envelope.summary,
+      isStub: false,
+      data,
+    })
+    .returning({ id: realmEntities.id });
+  if (!parent) return 0;
+
+  const childCount = envelope.children?.length
+    ? await persistChildren(db, ownerId, parent.id, envelope.children)
+    : 0;
+
+  // Collect the children just linked under the parent so they join the world.
+  const childRows = childCount
+    ? await db
+        .select({ id: realmRelationships.toId })
+        .from(realmRelationships)
+        .where(
+          and(
+            eq(realmRelationships.ownerId, ownerId),
+            eq(realmRelationships.fromId, parent.id),
+          ),
+        )
+    : [];
+
+  const entityIds = [parent.id, ...childRows.map((r) => r.id)];
+  await db
+    .insert(campaignWorldEntities)
+    .values(entityIds.map((entityId) => ({ campaignId, entityId, ownerId })))
+    .onConflictDoNothing();
+
+  await logGeneration(db, {
+    ownerId,
+    entityId: parent.id,
+    entityType: type,
+    mode: childCount > 0 ? "cascade" : "new",
+    status: "success",
+    model,
+    usage,
+  });
+  return entityIds.length;
 }
 
 export const campaignsRouter = createTRPCRouter({
@@ -81,6 +160,95 @@ export const campaignsRouter = createTRPCRouter({
         .values({ ...input, ownerId: ctx.user.id })
         .returning();
       return row;
+    }),
+
+  /** Whether AI world-forging is available (drives the creation-modal UI). */
+  forgeStatus: protectedProcedure.query(() => ({
+    configured: isGeneratorConfigured(),
+  })),
+
+  /**
+   * Create a campaign and (optionally) forge its starting world (#62 Quick
+   * Forge + Guided Setup). The campaign is always created; each provided concept
+   * triggers a Realms cascade attached to the World tab. Generation runs after
+   * creation and never rolls it back — a forge failure still lands the user in a
+   * (possibly empty) workspace, with `generated`/`forgeError` reporting back.
+   */
+  forge: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        description: z.string().trim().max(2000).default(""),
+        regionConcept: z.string().trim().min(1).max(2000).optional(),
+        factionConcept: z.string().trim().min(1).max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [campaign] = await db
+        .insert(campaigns)
+        .values({
+          name: input.name,
+          description: input.description,
+          ownerId: ctx.user.id,
+        })
+        .returning();
+      if (!campaign) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create the campaign.",
+        });
+      }
+
+      const concepts: { type: "region" | "faction"; concept: string }[] = [];
+      if (input.regionConcept)
+        concepts.push({ type: "region", concept: input.regionConcept });
+      if (input.factionConcept)
+        concepts.push({ type: "faction", concept: input.factionConcept });
+
+      if (concepts.length === 0 || !isGeneratorConfigured()) {
+        return {
+          id: campaign.id,
+          entityCount: 0,
+          generated: false,
+          forgeError: concepts.length > 0 ? "not-configured" : null,
+        };
+      }
+
+      let entityCount = 0;
+      try {
+        for (const { type, concept } of concepts) {
+          entityCount += await forgeEntityIntoCampaign(
+            db,
+            ctx.user.id,
+            campaign.id,
+            type,
+            concept,
+          );
+        }
+      } catch (err) {
+        await logGeneration(db, {
+          ownerId: ctx.user.id,
+          entityId: null,
+          entityType: "region",
+          mode: "cascade",
+          status: "error",
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+        return {
+          id: campaign.id,
+          entityCount,
+          generated: entityCount > 0,
+          forgeError: "generation-failed" as const,
+        };
+      }
+
+      return {
+        id: campaign.id,
+        entityCount,
+        generated: entityCount > 0,
+        forgeError: null,
+      };
     }),
 
   /** Patch an owned campaign's editable fields (Overview inline edit, #55). */

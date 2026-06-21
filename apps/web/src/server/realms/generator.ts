@@ -227,6 +227,13 @@ function fieldGuidance(type: RealmEntityType): string {
         .join(", ");
       return `- ${f.key} (${f.label}): integer${bounds ? ` (${bounds})` : ""}`;
     }
+    if (f.kind === "list") {
+      return `- ${f.key} (${f.label}): array of short strings${f.placeholder ? ` — e.g. ${f.placeholder}` : ""}`;
+    }
+    if (f.kind === "group") {
+      const subs = (f.fields ?? []).map((s) => s.key).join(", ");
+      return `- ${f.key} (${f.label}): array of objects, each with { ${subs} }`;
+    }
     return `- ${f.key} (${f.label})${f.placeholder ? ` — e.g. ${f.placeholder}` : ""}`;
   });
   return `Provide these ${REALM_TYPE_LABEL[type]} fields:\n${lines.join("\n")}`;

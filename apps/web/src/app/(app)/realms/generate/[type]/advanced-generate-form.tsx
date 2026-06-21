@@ -41,7 +41,11 @@ function advancedFieldsFor(
       { key: "level", label: "Suggested level", kind: "number", min: 1, max: 20 },
     ];
   }
-  return REALM_FIELDS[type];
+  // Only scalar fields are seedable as "preferred details"; rich list/group
+  // fields are authored after generation (or filled in by the AI).
+  return REALM_FIELDS[type].filter(
+    (f) => f.kind !== "list" && f.kind !== "group",
+  );
 }
 
 export function AdvancedGenerateForm({ type }: { type: RealmEntityType }) {

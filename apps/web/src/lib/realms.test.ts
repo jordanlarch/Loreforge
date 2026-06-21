@@ -10,9 +10,11 @@ import {
   REL_INVERSE_LABEL,
   REL_LABEL,
   emptyDataFor,
+  emptyGroupItem,
   emptyNpcData,
   layoutGraph,
   npcToSheetInput,
+  realmSections,
   type RealmEntityType,
 } from "./realms";
 
@@ -113,6 +115,8 @@ describe("emptyDataFor", () => {
           expect(typeof value).toBe("number");
         } else if (field.kind === "select") {
           expect(value).toBe(field.options?.[0]);
+        } else if (field.kind === "list" || field.kind === "group") {
+          expect(value).toEqual([]);
         } else {
           expect(value).toBe("");
         }
@@ -122,6 +126,51 @@ describe("emptyDataFor", () => {
 
   it("returns a full NPC payload for the npc type", () => {
     expect(emptyDataFor("npc")).toEqual(emptyNpcData());
+  });
+});
+
+describe("rich Settlement schema", () => {
+  it("groups settlement fields into ordered sections (tabs)", () => {
+    const sections = realmSections("settlement");
+    expect(sections.length).toBeGreaterThan(1);
+    expect(sections[0]!.name).toBe("Overview");
+    expect(sections.map((s) => s.name)).toContain("Notable Places");
+    // Every field is accounted for exactly once across the sections.
+    const total = sections.reduce((n, s) => n + s.fields.length, 0);
+    expect(total).toBe(REALM_FIELDS.settlement.length);
+  });
+
+  it("preserves the original thin keys so legacy settlements stay valid", () => {
+    const keys = REALM_FIELDS.settlement.map((f) => f.key);
+    for (const legacy of ["size", "population", "government", "notes"]) {
+      expect(keys).toContain(legacy);
+    }
+  });
+
+  it("declares list and group fields with item metadata", () => {
+    const byKey = new Map(REALM_FIELDS.settlement.map((f) => [f.key, f]));
+    expect(byKey.get("rumors")?.kind).toBe("list");
+    const group = byKey.get("notableLocations");
+    expect(group?.kind).toBe("group");
+    expect((group?.fields ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("seeds an empty group item from its sub-fields", () => {
+    const group = REALM_FIELDS.settlement.find((f) => f.kind === "group")!;
+    const item = emptyGroupItem(group);
+    for (const sub of group.fields ?? []) {
+      if (sub.kind === "number") expect(typeof item[sub.key]).toBe("number");
+      else expect(item[sub.key]).toBe(sub.options?.[0] ?? "");
+    }
+  });
+});
+
+describe("single-section descriptive types", () => {
+  it("keeps non-settlement types in a single default section", () => {
+    for (const type of ["region", "tavern", "shop", "faction"] as const) {
+      const sections = realmSections(type);
+      expect(sections).toHaveLength(1);
+    }
   });
 });
 

@@ -40,7 +40,7 @@ deferred from that design.
 
 | ID | Item | Source | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|---|
-| GEN-1 | Rich per-type schemas (replace thin `REALM_FIELDS` with rich per-tab schemas) | D1 | P4 / M5 | #54 | Deferred | Descriptive types keep thin schemas; rich schemas are the big M5 expansion. Blocks GENR-* rich generators + REALM-detail tabs. |
+| GEN-1 | Rich per-type schemas (replace thin `REALM_FIELDS` with rich per-tab schemas) | D1 | P4 / M5 | #54 | Partial | **Settlement done (#54)**: descriptor model extended with `section` + `list`/`group` kinds; one source of truth drives form/tabbed-detail/zod/generator. Remaining six descriptive types still thin — author rich descriptors per type (GENR-*). |
 | GEN-2 | Name-match dedup on cascade child-stub insertion | D6 | P4 / M5 | doc-only | Deferred | Cascade currently inserts every `children[]` entry as a new stub; no dedup against existing entities. |
 | GEN-3 | OpenAI fallback provider (resilience) | D9 | post-M5 | doc-only | Deferred | Anthropic-only for v1; provider seam exists in `@app/llm` for later wiring. |
 | GEN-4 | Full pgvector RAG grounding for generation | D11 | P5 | doc-only | Deferred | Today: schema-driven enums + curated SRD species/class lists + parent context. Full RAG lands with the memory tier (P5). |
@@ -63,7 +63,7 @@ roadmap §6 P4 (Tavern → Shop → Building → Faction → Settlement → Regi
 | GENR-4 | Faction generator (crest, relational graph) | roadmap P4 #5 | P4 / M5 | #67 | Deferred | — |
 | GENR-5 | Dungeon generator (rooms as entities, Dyson map, encounter promotion) | roadmap P4 #8 | P4 / M5 | #68 | Deferred | — |
 | GENR-6 | Rich Region generator (deepest cascade, rich tabs) | roadmap P4 #7 | P4 / M5 | doc-only | Partial | Tracer-depth Region cascade exists on thin schema; rich version pending GEN-1. |
-| GENR-7 | Rich Settlement generator (richest tab set) | roadmap P4 #6 | P4 / M5 | doc-only | Partial | Tracer-depth Settlement exists on thin schema; rich version pending GEN-1. |
+| GENR-7 | Rich Settlement generator (richest tab set) | roadmap P4 #6 | P4 / M5 | doc-only | Partial | Settlement now has a rich sectioned schema (#54) — generate/expand/regenerate run against it. Full ~19-tab vision + per-district map still pending. |
 
 ---
 
@@ -148,10 +148,10 @@ detail, Expand-with-Generator, generate→navigate, Advanced Form at the spec pa
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| REALM-1 | Rich tabbed detail pages (currently flat field list / stat block) | P4 / M5 | #54 | Missing | Depends on GEN-1 rich schemas. |
+| REALM-1 | Rich tabbed detail pages (currently flat field list / stat block) | P4 / M5 | #54 | Partial | Tabbed-detail shell built (#54): Settlement renders sectioned tabs with per-tab + per-field regenerate. Single-section types stay flat; remaining types get tabs as their rich schemas land. |
 | REALM-2 | Hero stats strip on detail pages | P4 | doc-only | Missing | — |
 | REALM-3 | Detail right pane (Recently Forged / Used in Campaigns / Quick Cascade / Style) | P4 | doc-only | Missing | — |
-| REALM-4 | Per-tab Quick Generate bars with type-specific fields (today: one generic panel) | P4 / M5 | #54 | Partial | Depends on GEN-1. |
+| REALM-4 | Per-tab Quick Generate bars with type-specific fields (today: one generic panel) | P4 / M5 | #54 | Partial | Advanced Form now skips list/group and seeds scalar preferred-values; per-tab Quick Generate bars still pending. |
 | REALM-5 | Live Map Preview right rail | P4 | doc-only | Missing | — |
 | REALM-6 | Cinematic multi-stage generation loader | P4 | doc-only | Missing | — |
 | REALM-7 | Bulk ops; conflict/auto-link modal; auto-art; global search | P4 | doc-only | Missing | Auto-link = GEN-5; auto-art = ART-1 (v1.5 for AI gen). |

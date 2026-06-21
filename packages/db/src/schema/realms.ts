@@ -1,7 +1,9 @@
 import {
   boolean,
   index,
+  integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -94,5 +96,48 @@ export const realmRelationships = pgTable(
     index("realm_relationships_owner_idx").on(t.ownerId),
     index("realm_relationships_from_idx").on(t.fromId),
     index("realm_relationships_to_idx").on(t.toId),
+  ],
+);
+
+/** How a generation was invoked. */
+type GenerationMode = "new" | "expand" | "cascade" | "regenerate";
+
+/** Whether a generation produced a valid, persisted result. */
+type GenerationStatus = "success" | "error";
+
+/**
+ * Lightweight audit of every AI generation run (Realms generator pipeline, D8).
+ *
+ * Not a quota gate — generator runs do not count against the free DM-chat
+ * allowance (`docs/product-spec.md` §5.1). This exists for pre-alpha cost
+ * observability and as a future metering lever, captured from day one so no
+ * backfill is needed. `entityId` is null when a run fails before any row is
+ * written (the pipeline is transactional: generate → validate → insert).
+ */
+export const generationEvents = pgTable(
+  "generation_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id").notNull(),
+    /** The entity produced/affected, if the run succeeded and persisted. */
+    entityId: uuid("entity_id"),
+    entityType: text("entity_type").notNull().$type<RealmEntityType>(),
+    mode: text("mode").notNull().$type<GenerationMode>(),
+    status: text("status").notNull().$type<GenerationStatus>(),
+    /** Resolved model id the provider actually ran. */
+    model: text("model").notNull().default(""),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    /** Estimated USD cost; nullable until a price table is wired. */
+    costUsd: numeric("cost_usd", { precision: 12, scale: 6 }),
+    /** First validation/transport error message when status = 'error'. */
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("generation_events_owner_idx").on(t.ownerId),
+    index("generation_events_created_idx").on(t.createdAt),
   ],
 );

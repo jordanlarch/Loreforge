@@ -16,6 +16,7 @@
     "@app/config": "*",
     "@app/db": "*",
     "@app/engine": "*",
+    "@app/llm": "*",
     "@hocuspocus/provider": "^2.15.3",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",

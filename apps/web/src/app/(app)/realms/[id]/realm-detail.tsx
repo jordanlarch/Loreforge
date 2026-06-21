@@ -30,9 +30,38 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
+type GenCandidate = { summary: string; data: Record<string, unknown> };
+
 export function RealmEntityDetail({ id }: { id: string }) {
   const query = trpc.realms.get.useQuery({ id });
+  const utils = trpc.useUtils();
+  const generatorStatus = trpc.realms.generatorStatus.useQuery();
+
   const [editing, setEditing] = useState(false);
+  const [candidate, setCandidate] = useState<GenCandidate | null>(null);
+
+  async function invalidate() {
+    await Promise.all([
+      utils.realms.get.invalidate({ id }),
+      utils.realms.counts.invalidate(),
+      utils.realms.list.invalidate(),
+    ]);
+  }
+
+  const expand = trpc.realms.expandStub.useMutation({
+    onSuccess: async () => {
+      await invalidate();
+    },
+  });
+  const regenerate = trpc.realms.regenerate.useMutation({
+    onSuccess: (data) => setCandidate(data),
+  });
+  const accept = trpc.realms.update.useMutation({
+    onSuccess: async () => {
+      setCandidate(null);
+      await invalidate();
+    },
+  });
 
   if (query.isLoading) {
     return (
@@ -55,6 +84,8 @@ export function RealmEntityDetail({ id }: { id: string }) {
   }
 
   const type = entity.type as RealmEntityType;
+  const configured = generatorStatus.data?.configured ?? true;
+  const genError = expand.error ?? regenerate.error ?? accept.error;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -82,8 +113,8 @@ export function RealmEntityDetail({ id }: { id: string }) {
             <p className="mt-3 max-w-2xl text-lore-muted">{entity.summary}</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {!editing && (
+        {!editing && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -91,10 +122,48 @@ export function RealmEntityDetail({ id }: { id: string }) {
             >
               Edit
             </button>
-          )}
-          <ExpandWithGeneratorButton />
-        </div>
+            {entity.isStub ? (
+              <ExpandButton
+                configured={configured}
+                pending={expand.isPending}
+                onClick={() => expand.mutate({ id: entity.id })}
+              />
+            ) : (
+              <RegenerateButton
+                configured={configured}
+                pending={regenerate.isPending}
+                onClick={() => regenerate.mutate({ id: entity.id })}
+              />
+            )}
+          </div>
+        )}
       </header>
+
+      {genError && (
+        <p className="mt-4 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          {genError.message}
+        </p>
+      )}
+
+      {candidate && !editing && (
+        <RegeneratePreview
+          type={type}
+          name={entity.name}
+          candidate={candidate}
+          accepting={accept.isPending}
+          onAccept={() =>
+            accept.mutate({
+              id: entity.id,
+              type,
+              name: entity.name,
+              summary: candidate.summary,
+              isStub: false,
+              data: candidate.data,
+            })
+          }
+          onDiscard={() => setCandidate(null)}
+        />
+      )}
 
       {editing ? (
         <div className="mt-8">
@@ -112,9 +181,28 @@ export function RealmEntityDetail({ id }: { id: string }) {
           />
         </div>
       ) : type === "npc" ? (
-        <NpcStatBlock id={entity.id} name={entity.name} data={entity.data} />
+        <NpcStatBlock
+          id={entity.id}
+          name={entity.name}
+          data={entity.data}
+          onRegenerate={
+            configured && !entity.isStub
+              ? (fields) => regenerate.mutate({ id: entity.id, fields })
+              : undefined
+          }
+          regenerating={regenerate.isPending}
+        />
       ) : (
-        <DescriptiveView type={type} data={entity.data} />
+        <DescriptiveView
+          type={type}
+          data={entity.data}
+          onRegenerate={
+            configured && !entity.isStub
+              ? (fields) => regenerate.mutate({ id: entity.id, fields })
+              : undefined
+          }
+          regenerating={regenerate.isPending}
+        />
       )}
 
       {!editing && <RelationshipPanel entityId={entity.id} />}
@@ -122,12 +210,163 @@ export function RealmEntityDetail({ id }: { id: string }) {
   );
 }
 
+function RegeneratePreview({
+  type,
+  name,
+  candidate,
+  accepting,
+  onAccept,
+  onDiscard,
+}: {
+  type: RealmEntityType;
+  name: string;
+  candidate: GenCandidate;
+  accepting: boolean;
+  onAccept: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <section className="mt-8 rounded-lg border border-lore-accent/50 bg-lore-surface p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="font-display text-lg">
+          <span className="text-lore-accent">✨</span> Regenerated preview
+        </h2>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:text-lore-text"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={onAccept}
+            disabled={accepting}
+            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+          >
+            {accepting ? "Applying…" : "Accept changes"}
+          </button>
+        </div>
+      </div>
+      {candidate.summary && (
+        <p className="mb-2 text-sm text-lore-muted">{candidate.summary}</p>
+      )}
+      <p className="mb-4 text-xs text-lore-muted">
+        Review the proposed content below. Accepting replaces the current values;
+        your manual edits are untouched until you accept.
+      </p>
+      {type === "npc" ? (
+        <NpcStatBlock id="preview" name={name} data={candidate.data} />
+      ) : (
+        <DescriptiveView
+          type={type as Exclude<RealmEntityType, "npc">}
+          data={candidate.data}
+        />
+      )}
+    </section>
+  );
+}
+
+function ExpandButton({
+  configured,
+  pending,
+  onClick,
+}: {
+  configured: boolean;
+  pending: boolean;
+  onClick: () => void;
+}) {
+  if (!configured) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="AI generation isn't configured (set ANTHROPIC_API_KEY)."
+        className="cursor-not-allowed rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-muted opacity-60"
+      >
+        Expand with Generator
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={pending}
+      className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+    >
+      {pending ? "Expanding…" : "✨ Expand with Generator"}
+    </button>
+  );
+}
+
+function RegenerateButton({
+  configured,
+  pending,
+  onClick,
+}: {
+  configured: boolean;
+  pending: boolean;
+  onClick: () => void;
+}) {
+  if (!configured) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="AI generation isn't configured (set ANTHROPIC_API_KEY)."
+        className="cursor-not-allowed rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-muted opacity-60"
+      >
+        Regenerate
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={pending}
+      className="rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+    >
+      {pending ? "Regenerating…" : "✨ Regenerate"}
+    </button>
+  );
+}
+
+function RegenButton({
+  onClick,
+  pending,
+  title = "Regenerate this section",
+}: {
+  onClick: () => void;
+  pending: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={pending}
+      title={title}
+      aria-label={title}
+      className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text disabled:opacity-50"
+    >
+      ⟳
+    </button>
+  );
+}
+
 function DescriptiveView({
   type,
   data,
+  onRegenerate,
+  regenerating = false,
 }: {
   type: Exclude<RealmEntityType, "npc">;
   data: Record<string, unknown>;
+  onRegenerate?: (fields: string[]) => void;
+  regenerating?: boolean;
 }) {
   const fields = REALM_FIELDS[type];
   const visible = fields.filter((f) => {
@@ -153,9 +392,18 @@ function DescriptiveView({
             f.kind === "textarea" ? "sm:col-span-2" : ""
           }`}
         >
-          <dt className="text-xs uppercase tracking-wide text-lore-muted">
-            {f.label}
-          </dt>
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-xs uppercase tracking-wide text-lore-muted">
+              {f.label}
+            </dt>
+            {onRegenerate && (
+              <RegenButton
+                onClick={() => onRegenerate([f.key])}
+                pending={regenerating}
+                title={`Regenerate ${f.label}`}
+              />
+            )}
+          </div>
           <dd
             className={`mt-1 ${
               f.kind === "textarea" ? "whitespace-pre-wrap" : ""
@@ -173,10 +421,14 @@ function NpcStatBlock({
   id,
   name,
   data,
+  onRegenerate,
+  regenerating = false,
 }: {
   id: string;
   name: string;
   data: Record<string, unknown>;
+  onRegenerate?: (fields: string[]) => void;
+  regenerating?: boolean;
 }) {
   const sheet = buildCharacterSheet(npcToSheetInput({ id, name, data }));
   const npc = data as Partial<NpcData>;
@@ -194,9 +446,18 @@ function NpcStatBlock({
       </div>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-          Ability Scores
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-xs uppercase tracking-widest text-lore-muted">
+            Ability Scores
+          </h2>
+          {onRegenerate && (
+            <RegenButton
+              onClick={() => onRegenerate(["abilityScores"])}
+              pending={regenerating}
+              title="Regenerate ability scores"
+            />
+          )}
+        </div>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {(Object.keys(ABILITY_LABELS) as Ability[]).map((ability) => (
             <div
@@ -219,9 +480,18 @@ function NpcStatBlock({
 
       <div className="mt-8 grid gap-8 sm:grid-cols-2">
         <section>
-          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Saving Throws
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-xs uppercase tracking-widest text-lore-muted">
+              Saving Throws
+            </h2>
+            {onRegenerate && (
+              <RegenButton
+                onClick={() => onRegenerate(["saveProficiencies"])}
+                pending={regenerating}
+                title="Regenerate saving throws"
+              />
+            )}
+          </div>
           <ul className="space-y-1.5">
             {sheet.savingThrows.map((save) => (
               <li
@@ -244,9 +514,18 @@ function NpcStatBlock({
         </section>
 
         <section>
-          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Skill Proficiencies
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-xs uppercase tracking-widest text-lore-muted">
+              Skill Proficiencies
+            </h2>
+            {onRegenerate && (
+              <RegenButton
+                onClick={() => onRegenerate(["skillProficiencies"])}
+                pending={regenerating}
+                title="Regenerate skill proficiencies"
+              />
+            )}
+          </div>
           {sheet.skillProficiencies.length === 0 ? (
             <p className="text-sm text-lore-muted">None.</p>
           ) : (
@@ -270,19 +549,6 @@ function NpcStatBlock({
         character primitives as Character View.
       </p>
     </>
-  );
-}
-
-function ExpandWithGeneratorButton() {
-  return (
-    <button
-      type="button"
-      disabled
-      title="Generators arrive in a later slice — you'll be able to expand this entity with AI then."
-      className="cursor-not-allowed rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-muted opacity-60"
-    >
-      Expand with Generator
-    </button>
   );
 }
 

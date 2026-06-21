@@ -12,6 +12,7 @@ import {
 } from "@/lib/realms";
 
 import { EntityForm } from "./entity-form";
+import { GenerateForm } from "./generate-form";
 import { GraphView } from "./graph-view";
 
 type ViewMode = "grid" | "list" | "graph";
@@ -20,6 +21,7 @@ export function RealmsBrowser() {
   const [typeFilter, setTypeFilter] = useState<RealmEntityType | undefined>();
   const [view, setView] = useState<ViewMode>("grid");
   const [creating, setCreating] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [createType, setCreateType] = useState<RealmEntityType>("npc");
 
   const counts = trpc.realms.counts.useQuery();
@@ -28,8 +30,14 @@ export function RealmsBrowser() {
   );
 
   function startCreating() {
+    setGenerating(false);
     setCreateType(typeFilter ?? "npc");
     setCreating(true);
+  }
+
+  function startGenerating() {
+    setCreating(false);
+    setGenerating(true);
   }
 
   return (
@@ -74,13 +82,31 @@ export function RealmsBrowser() {
           <div className="flex items-center gap-3">
             <ViewToggle view={view} onChange={setView} />
             <button
-              onClick={() => (creating ? setCreating(false) : startCreating())}
+              onClick={() =>
+                generating ? setGenerating(false) : startGenerating()
+              }
               className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+            >
+              {generating ? "Cancel" : "✨ Generate"}
+            </button>
+            <button
+              onClick={() => (creating ? setCreating(false) : startCreating())}
+              className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
             >
               {creating ? "Cancel" : "+ New"}
             </button>
           </div>
         </div>
+
+        {generating && (
+          <div className="mb-8">
+            <GenerateForm
+              key={typeFilter ?? "npc"}
+              defaultType={typeFilter ?? "npc"}
+              onCancel={() => setGenerating(false)}
+            />
+          </div>
+        )}
 
         {creating && (
           <div className="mb-8 space-y-3">
@@ -111,7 +137,10 @@ export function RealmsBrowser() {
 
         {view === "graph" ? (
           <GraphView />
-        ) : !list.isLoading && (list.data?.length ?? 0) === 0 && !creating ? (
+        ) : !list.isLoading &&
+          (list.data?.length ?? 0) === 0 &&
+          !creating &&
+          !generating ? (
           <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
             No entities here yet. Create your first one to begin populating your
             world.

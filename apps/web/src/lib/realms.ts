@@ -245,3 +245,121 @@ export const REL_INVERSE_LABEL: Record<RealmRelationshipKind, string> = {
   rival_of: "Rival of",
   related_to: "Related to",
 };
+
+/* -------------------------------------------------------------------------- *
+ *  Graph view
+ * -------------------------------------------------------------------------- */
+
+/** Node fill per type for the Graph view (tailwind-300 palette, dark-theme safe). */
+export const REALM_TYPE_COLOR: Record<RealmEntityType, string> = {
+  region: "#6ee7b7",
+  settlement: "#fcd34d",
+  building: "#93c5fd",
+  tavern: "#f9a8d4",
+  shop: "#c4b5fd",
+  dungeon: "#fca5a5",
+  faction: "#fdba74",
+  npc: "#67e8f9",
+};
+
+export type GraphLayoutNode = { id: string };
+export type GraphLayoutEdge = { source: string; target: string };
+export type Point = { x: number; y: number };
+
+export type GraphLayoutOptions = {
+  width?: number;
+  height?: number;
+  iterations?: number;
+};
+
+/**
+ * Deterministic force-directed layout (Fruchterman–Reingold). Pure and
+ * seedless — initial positions are placed on a ring by index and the simulation
+ * runs a fixed number of iterations — so the same graph always lays out the
+ * same way and the result is unit-testable. No external dependency; the caller
+ * renders the returned positions however it likes (SVG here).
+ */
+export function layoutGraph(
+  nodes: readonly GraphLayoutNode[],
+  edges: readonly GraphLayoutEdge[],
+  options?: GraphLayoutOptions,
+): Record<string, Point> {
+  const width = options?.width ?? 1000;
+  const height = options?.height ?? 1000;
+  const iterations = options?.iterations ?? 300;
+  const n = nodes.length;
+  const result: Record<string, Point> = {};
+  if (n === 0) return result;
+  if (n === 1) {
+    result[nodes[0]!.id] = { x: width / 2, y: height / 2 };
+    return result;
+  }
+
+  const k = Math.sqrt((width * height) / n); // ideal edge length
+  const index = new Map(nodes.map((node, i) => [node.id, i]));
+  const pos = nodes.map((_, i) => {
+    const angle = (2 * Math.PI * i) / n;
+    return {
+      x: width / 2 + (Math.cos(angle) * width) / 4,
+      y: height / 2 + (Math.sin(angle) * height) / 4,
+    };
+  });
+  const validEdges = edges.filter(
+    (e) =>
+      e.source !== e.target && index.has(e.source) && index.has(e.target),
+  );
+
+  let temperature = width / 10;
+  const cooldown = temperature / (iterations + 1);
+
+  for (let iter = 0; iter < iterations; iter++) {
+    const disp = pos.map(() => ({ x: 0, y: 0 }));
+
+    // Repulsion between every pair of nodes.
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const dx = pos[i]!.x - pos[j]!.x;
+        const dy = pos[i]!.y - pos[j]!.y;
+        const dist = Math.hypot(dx, dy) || 0.01;
+        const force = (k * k) / dist;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        disp[i]!.x += ux * force;
+        disp[i]!.y += uy * force;
+        disp[j]!.x -= ux * force;
+        disp[j]!.y -= uy * force;
+      }
+    }
+
+    // Attraction along edges.
+    for (const edge of validEdges) {
+      const i = index.get(edge.source)!;
+      const j = index.get(edge.target)!;
+      const dx = pos[i]!.x - pos[j]!.x;
+      const dy = pos[i]!.y - pos[j]!.y;
+      const dist = Math.hypot(dx, dy) || 0.01;
+      const force = (dist * dist) / k;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      disp[i]!.x -= ux * force;
+      disp[i]!.y -= uy * force;
+      disp[j]!.x += ux * force;
+      disp[j]!.y += uy * force;
+    }
+
+    // Displace, capped by the cooling temperature, and clamp into the box.
+    for (let i = 0; i < n; i++) {
+      const d = Math.hypot(disp[i]!.x, disp[i]!.y) || 0.01;
+      const limited = Math.min(d, temperature);
+      pos[i]!.x = Math.min(width, Math.max(0, pos[i]!.x + (disp[i]!.x / d) * limited));
+      pos[i]!.y = Math.min(height, Math.max(0, pos[i]!.y + (disp[i]!.y / d) * limited));
+    }
+
+    temperature = Math.max(0, temperature - cooldown);
+  }
+
+  nodes.forEach((node, i) => {
+    result[node.id] = pos[i]!;
+  });
+  return result;
+}

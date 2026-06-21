@@ -145,6 +145,11 @@ export function CharacterSheetView({ id }: { id: string }) {
             suffix=" ft"
             onCommit={(speed) => update.mutate({ id, speed })}
           />
+          <EditableStat
+            label="XP"
+            value={character.xp}
+            onCommit={(xp) => update.mutate({ id, xp })}
+          />
           <Stat label="Init" value={signed(sheet.initiative)} />
           <Stat label="Prof" value={signed(sheet.proficiencyBonus)} />
         </div>
@@ -233,8 +238,44 @@ export function CharacterSheetView({ id }: { id: string }) {
         </section>
       </div>
 
+      <section className="mt-8">
+        <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
+          Portrait
+        </h2>
+        {character.portraitUrl ? (
+          // Portrait is a URL stub (#56); upload pipeline is deferred.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={character.portraitUrl}
+            alt={`${character.name} portrait`}
+            className="mb-2 h-40 w-40 rounded-lg border border-lore-border object-cover"
+          />
+        ) : (
+          <p className="mb-2 text-sm text-lore-muted">No portrait yet.</p>
+        )}
+        <EditableText
+          value={character.portraitUrl}
+          placeholder="Portrait image URL…"
+          onCommit={(portraitUrl) => update.mutate({ id, portraitUrl })}
+          ariaLabel="Portrait URL"
+          className="text-sm"
+        />
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
+          Notes
+        </h2>
+        <EditableTextArea
+          value={character.notes}
+          placeholder="Backstory, goals, session notes…"
+          onCommit={(notes) => update.mutate({ id, notes })}
+          ariaLabel="Notes"
+        />
+      </section>
+
       <p className="mt-10 text-xs text-lore-muted">
-        Click any score, HP, AC, name, or detail to edit. Derived values are
+        Click any score, HP, AC, XP, name, or detail to edit. Derived values are
         recomputed by <code className="text-lore-text">@app/engine</code>.
       </p>
 
@@ -346,6 +387,69 @@ function EditableText({
       onClick={start}
       aria-label={ariaLabel ? `Edit ${ariaLabel}` : undefined}
       className={`-mx-1 rounded px-1 text-left hover:bg-lore-surface ${className} ${
+        value ? "" : "italic text-lore-muted"
+      }`}
+    >
+      {value || placeholder || "—"}
+    </button>
+  );
+}
+
+function EditableTextArea({
+  value,
+  onCommit,
+  placeholder,
+  ariaLabel,
+}: {
+  value: string;
+  onCommit: (value: string) => void;
+  placeholder?: string;
+  ariaLabel?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus();
+  }, [editing]);
+
+  function start() {
+    setDraft(value);
+    setEditing(true);
+  }
+
+  function commit() {
+    setEditing(false);
+    const next = draft.trim();
+    if (next !== value) onCommit(next);
+  }
+
+  if (editing) {
+    return (
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        aria-label={ariaLabel}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          // Enter inserts a newline; Cmd/Ctrl+Enter commits, Escape cancels.
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) commit();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        rows={5}
+        className={`${EDIT_INPUT_CLASS} w-full whitespace-pre-wrap`}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={start}
+      aria-label={ariaLabel ? `Edit ${ariaLabel}` : undefined}
+      className={`block w-full whitespace-pre-wrap rounded border border-lore-border bg-lore-surface px-3 py-2 text-left text-sm hover:border-lore-accent ${
         value ? "" : "italic text-lore-muted"
       }`}
     >

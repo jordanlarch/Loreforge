@@ -18,7 +18,13 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { characters, codexClasses, getDb } from "@app/db";
+import {
+  campaignCharacters,
+  campaigns,
+  characters,
+  codexClasses,
+  getDb,
+} from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -42,6 +48,45 @@ const classLevel = z.object({
   subclass: z.string().trim().max(60).optional(),
 });
 
+// Nested fields are required (not `.default()`-ed): an item always has a
+// quantity + equipped flag and a spell always has a prepared flag. Keeping the
+// input shape identical to the output shape lets the optimistic cache update
+// merge mutation variables into the strictly-typed row without divergence.
+
+/** One inventory/equipment entry (#56, rich shape). */
+const equipmentItem = z.object({
+  name: z.string().trim().min(1).max(120),
+  quantity: z.number().int().min(0).max(100_000),
+  equipped: z.boolean(),
+  slot: z.string().trim().max(40).optional(),
+  smithyItemId: z.string().uuid().optional(),
+  weight: z.number().min(0).max(100_000).optional(),
+  rarity: z.string().trim().max(40).optional(),
+  attunement: z.boolean().optional(),
+  description: z.string().trim().max(2000).optional(),
+});
+
+/** A spell on the character's list; `prepared` separates known vs prepared. */
+const characterSpell = z.object({
+  name: z.string().trim().min(1).max(120),
+  level: z.number().int().min(0).max(9),
+  prepared: z.boolean(),
+  alwaysPrepared: z.boolean().optional(),
+  source: z.string().trim().max(80).optional(),
+});
+
+/** Unified spell loadout: one list + per-level slot pools keyed "1".."9". */
+const spellLoadout = z.object({
+  spells: z.array(characterSpell).max(500),
+  slots: z.record(
+    z.string(),
+    z.object({
+      max: z.number().int().min(0).max(99),
+      used: z.number().int().min(0).max(99),
+    }),
+  ),
+});
+
 /**
  * Field validators shared by `create` and `update` so the inline-edit gate (#7)
  * enforces exactly the same rules as creation. `create` layers defaults on the
@@ -58,6 +103,11 @@ const characterFields = {
   speed: z.number().int().min(0).max(200),
   saveProficiencies: z.array(ABILITY).max(6),
   skillProficiencies: z.array(z.string().trim().max(40)).max(30),
+  xp: z.number().int().min(0).max(10_000_000),
+  portraitUrl: z.string().trim().max(2000),
+  notes: z.string().trim().max(20_000),
+  equipment: z.array(equipmentItem).max(500),
+  spells: spellLoadout,
 } as const;
 
 const createInput = z.object({
@@ -67,6 +117,11 @@ const createInput = z.object({
   speed: characterFields.speed.default(30),
   saveProficiencies: characterFields.saveProficiencies.default([]),
   skillProficiencies: characterFields.skillProficiencies.default([]),
+  xp: characterFields.xp.default(0),
+  portraitUrl: characterFields.portraitUrl.default(""),
+  notes: characterFields.notes.default(""),
+  equipment: characterFields.equipment.default([]),
+  spells: characterFields.spells.default({ spells: [], slots: {} }),
 });
 
 const updatePatch = z.object(characterFields).partial();
@@ -253,5 +308,116 @@ export const charactersRouter = createTRPCRouter({
         .returning();
 
       return { character: row, hpGain };
+    }),
+
+  /* ----------------------------------------------------------------------- *
+   *  Character ↔ campaign membership (#56)
+   * ----------------------------------------------------------------------- */
+
+  /** Campaigns the given owned character currently belongs to. */
+  campaigns: protectedProcedure
+    .input(z.object({ characterId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      return db
+        .select({
+          campaignId: campaigns.id,
+          name: campaigns.name,
+          role: campaignCharacters.role,
+          status: campaignCharacters.status,
+          joinedAt: campaignCharacters.joinedAt,
+        })
+        .from(campaignCharacters)
+        .innerJoin(campaigns, eq(campaigns.id, campaignCharacters.campaignId))
+        .where(
+          and(
+            eq(campaignCharacters.characterId, input.characterId),
+            eq(campaignCharacters.ownerId, ctx.user.id),
+          ),
+        )
+        .orderBy(desc(campaignCharacters.joinedAt));
+    }),
+
+  /** Add an owned character to an owned campaign (idempotent on the pair). */
+  addToCampaign: protectedProcedure
+    .input(
+      z.object({
+        characterId: z.string().uuid(),
+        campaignId: z.string().uuid(),
+        role: z.enum(["pc", "companion", "npc-ally"]).default("pc"),
+        status: z.enum(["active", "bench"]).default("active"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+
+      const [char] = await db
+        .select({ id: characters.id })
+        .from(characters)
+        .where(
+          and(
+            eq(characters.id, input.characterId),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!char) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+
+      const [camp] = await db
+        .select({ id: campaigns.id })
+        .from(campaigns)
+        .where(
+          and(
+            eq(campaigns.id, input.campaignId),
+            eq(campaigns.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!camp) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Campaign not found.",
+        });
+      }
+
+      const [row] = await db
+        .insert(campaignCharacters)
+        .values({
+          campaignId: input.campaignId,
+          characterId: input.characterId,
+          ownerId: ctx.user.id,
+          role: input.role,
+          status: input.status,
+        })
+        .onConflictDoNothing()
+        .returning();
+      return row ?? null;
+    }),
+
+  /** Remove a character from a campaign (owner-scoped, idempotent). */
+  removeFromCampaign: protectedProcedure
+    .input(
+      z.object({
+        characterId: z.string().uuid(),
+        campaignId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db
+        .delete(campaignCharacters)
+        .where(
+          and(
+            eq(campaignCharacters.characterId, input.characterId),
+            eq(campaignCharacters.campaignId, input.campaignId),
+            eq(campaignCharacters.ownerId, ctx.user.id),
+          ),
+        );
+      return { ok: true };
     }),
 });

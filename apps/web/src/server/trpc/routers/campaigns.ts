@@ -6,11 +6,11 @@
  * campaign entity (create / list / get); the `engine` router owns the
  * per-campaign command/state surface.
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { campaigns, getDb } from "@app/db";
+import { campaignCharacters, campaigns, characters, getDb } from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -71,5 +71,74 @@ export const campaignsRouter = createTRPCRouter({
         .values({ ...input, ownerId: ctx.user.id })
         .returning();
       return row;
+    }),
+
+  /** Patch an owned campaign's editable fields (Overview inline edit, #55). */
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        name: z.string().trim().min(1).max(120).optional(),
+        description: z.string().trim().max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const { id, ...patch } = input;
+      const [row] = await db
+        .update(campaigns)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(and(eq(campaigns.id, id), eq(campaigns.ownerId, ctx.user.id)))
+        .returning();
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Campaign not found.",
+        });
+      }
+      return row;
+    }),
+
+  /**
+   * The party roster for an owned campaign (#55 Overview widget, #61 Party tab):
+   * membership rows joined with each character's core sheet inputs so the client
+   * can derive the card stats through `@app/engine` (no math in the app layer).
+   */
+  party: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      return db
+        .select({
+          membershipId: campaignCharacters.id,
+          role: campaignCharacters.role,
+          status: campaignCharacters.status,
+          joinedAt: campaignCharacters.joinedAt,
+          id: characters.id,
+          name: characters.name,
+          species: characters.species,
+          background: characters.background,
+          classes: characters.classes,
+          abilityScores: characters.abilityScores,
+          maxHp: characters.maxHp,
+          baseAc: characters.baseAc,
+          speed: characters.speed,
+          saveProficiencies: characters.saveProficiencies,
+          skillProficiencies: characters.skillProficiencies,
+          portraitUrl: characters.portraitUrl,
+        })
+        .from(campaignCharacters)
+        .innerJoin(
+          characters,
+          eq(characters.id, campaignCharacters.characterId),
+        )
+        .where(
+          and(
+            eq(campaignCharacters.campaignId, input.campaignId),
+            eq(campaignCharacters.ownerId, ctx.user.id),
+          ),
+        )
+        .orderBy(asc(campaignCharacters.joinedAt));
     }),
 });

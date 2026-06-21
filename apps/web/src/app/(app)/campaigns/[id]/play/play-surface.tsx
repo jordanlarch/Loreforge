@@ -123,10 +123,13 @@ function LiveBattle({
   session,
   title,
   context,
+  backHref,
 }: {
   session: LiveSession;
   title: string;
   context: string;
+  /** Optional "back to workspace" target (absent for the sandbox). */
+  backHref?: string;
 }) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
@@ -158,6 +161,14 @@ function LiveBattle({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {backHref && (
+        <Link
+          href={backHref}
+          className="mb-2 inline-block text-sm text-lore-muted transition-colors hover:text-lore-text"
+        >
+          ← Back to Workspace
+        </Link>
+      )}
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold">{title}</h1>
@@ -295,6 +306,7 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
       session={session}
       title={campaign.data.name}
       context="Live campaign"
+      backHref={`/campaigns/${campaignId}`}
     />
   );
 }

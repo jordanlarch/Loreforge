@@ -16,7 +16,8 @@ extension — XP/equipment/spells/portrait/notes + character↔campaign membersh
 **#66 done** (rich Building generator on the #54 pattern, cascade-enabled);
 **#67 done** (rich Faction generator on the #54 pattern, cascade-enabled);
 **#68 done** (rich Dungeon generator on the #54 pattern, cascade-enabled) —
-all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6).
+all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
+**#55 done** (campaign workspace shell + Overview tab at `/campaigns/[id]`).
 
 ## How to use this file
 
@@ -167,13 +168,15 @@ detail, Expand-with-Generator, generate→navigate, Advanced Form at the spec pa
 
 ### 3.6 Campaigns workspace — `docs/ui-flows/campaigns-workspace.md`
 
-**No `/campaigns/[id]` workspace route exists** — only a minimal list browser +
-`/campaigns/[id]/play`. The 9-tab workspace is 0/9 built.
+**The `/campaigns/[id]` workspace shell now exists** (#55): nine-tab bar with the
+Overview tab populated from real data; the other eight tabs are stubbed and land
+in their own slices. Opening a campaign (from the browser or after create) goes
+to the workspace, not straight to `/play`.
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| CAMP-1 | Workspace shell at `/campaigns/[id]` (header, sidebar, tab bar, right pane, footer) | P4 / M5 | #55 | Missing | Entire surface absent. |
-| CAMP-2 | Tab 1 Overview (continue/next session, party/world/hooks/NPC/session widgets, activity feed, pinned memory) | P4 / M5 | #55 | Missing | — |
+| CAMP-1 | Workspace shell at `/campaigns/[id]` (header, sidebar, tab bar, right pane, footer) | P4 / M5 | #55 | Partial | **#55**: shell built — header (back link, Live:Off indicator, title, pinned Start Live Session) + nine-tab bar with `?tab=` deep links; non-Overview tabs stubbed. Collapsible left sidebar, contextual right pane, and footer/toast layer deferred to later tab slices. |
+| CAMP-2 | Tab 1 Overview (continue/next session, party/world/hooks/NPC/session widgets, activity feed, pinned memory) | P4 / M5 | #55 | Partial | **#55**: Overview shows hero (name + pitch with inline edit via `campaigns.update`), Start Live Session + Continue entry points, a party summary + count from the membership link (`campaigns.party`), world/hooks/sessions stat cards (stubbed), and created/updated metadata. Activity feed, pinned AI-memory highlights, and AI next-step hints deferred (memory tier is P5, CAMP-13). |
 | CAMP-3 | Tab 2 Party (campaign-scoped character dashboard, companions, shared resources, bench) | P4 / M5 | #61 | Missing | Depends on character↔campaign link (CHAR-1). |
 | CAMP-4 | Tab 3 World (campaign-scoped Realms IA, discovery states, graph, add-from-Realms) | P4 / M5 | #60 | Missing | Includes per-campaign discovery state (Q11). |
 | CAMP-5 | Tab 4 Hooks (Plot Hook Kanban: Suggested/Open/Active/Resolved/Abandoned, timeline, detail panel) | P4 / M5 | #59 | Missing | Q7 lifecycle. |
@@ -186,7 +189,7 @@ detail, Expand-with-Generator, generate→navigate, Advanced Form at the spec pa
 | CAMP-12 | Campaigns list: filter bar, rich cards (banner/roster/stats), card actions, templates section | P4 | doc-only | Partial | Today: name/description grid → play. |
 | CAMP-13 | AI Memory panel (pins, recaps, entity awareness, drift detection) | P5 | doc-only | Missing | Memory tier is P5. |
 | CAMP-14 | Multiplayer invite/seat flow (email/link invites, permissions, player-mode subset UI) | P4 | doc-only | Missing | — |
-| CAMP-15 | Cross-surface entry ("Add to Campaign" from Characters/Realms; "Back to Workspace" from play); deep links `?tab=` | P4 | #55 | Missing | — |
+| CAMP-15 | Cross-surface entry ("Add to Campaign" from Characters/Realms; "Back to Workspace" from play); deep links `?tab=` | P4 | #55 | Partial | **#55**: "Back to Workspace" link added to Live Play; workspace tabs deep-linkable via `?tab=<slug>`. "Add to Campaign" from Characters/Realms still pending (Party tab #61 covers the in-workspace add). |
 
 ### 3.7 Live Play — `docs/ui-flows/live-play-surface.md`
 

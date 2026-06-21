@@ -7,8 +7,10 @@ milestone. If something is "we'll do it later," it belongs here.
 **Status (2026-06-21):** local-canonical. This file is the source of truth. GitHub
 issues are mirrored **opportunistically** (not required) — see "Tracking" below. Issues
 #1–#50 are closed (prior milestones). The **M5-frontier slices are mirrored to GitHub
-issues #54–#68** (rows with a `#NN` in Tracking); the rest are `doc-only`. Docs PR #52,
-generator-pipeline PR #53 are open.
+issues #54–#68** (rows with a `#NN` in Tracking); the rest are `doc-only`. PRs #52
+(docs), #53 (generator pipeline), and #69 (#54 rich Settlement schema) are merged.
+**#54 done** (rich Settlement schema + tabbed detail); **#56 done** (character schema
+extension — XP/equipment/spells/portrait/notes + character↔campaign membership).
 
 ## How to use this file
 
@@ -111,7 +113,7 @@ features regardless of UI work. Router exposes only `list/get/create/update/leve
 
 | ID | Item | Source | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|---|
-| CHAR-1 | Character schema extension: XP, equipment/inventory, spells/slots, portrait, notes, campaign links | dashboard+view docs | P2 (deepen) / P4 | #56 | Missing | Foundational — unblocks CHAR-3/6/7/8 and dashboard XP/campaign features. |
+| CHAR-1 | Character schema extension: XP, equipment/inventory, spells/slots, portrait, notes, campaign links | dashboard+view docs | P2 (deepen) / P4 | #56 | Partial | **Schema done (#56)**: migration `0008` adds xp/portrait/notes/equipment(rich)/spells(unified) + `campaign_characters` membership table; router handles new fields + add/remove/list membership; sheet round-trips XP + notes + portrait-URL stub. Full Equipment/Spells/Personality tab UIs are CHAR-7; portrait upload pipeline deferred. Unblocks CHAR-3/7/9, CAMP-3, SMITH-5. |
 | CHAR-2 | Dashboard filter+sort bar, Grid/List toggle, card ⋯ menu (Duplicate/Export/Share/Archive/Delete), search | characters-dashboard.md | P2 (deepen) | doc-only | Missing | List is create + view only. |
 | CHAR-3 | Dashboard XP bars, Last Played, campaign grouping + Play Now, right sidebar, bulk select | characters-dashboard.md | P4 | doc-only | Missing | Depends on CHAR-1 + campaigns. |
 | CHAR-4 | Creation wizard steps 1,4,7,8,9 (Concept, Background, Equipment, Features/Spells, Flavor) — 5 of 10 built | character-creation-wizard.md | P2 (deepen) | doc-only | Partial | Built: Species, Class, Abilities, Skills, Review. |

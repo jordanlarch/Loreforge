@@ -12,6 +12,7 @@ import {
   emptyDataFor,
   emptyGroupItem,
   emptyNpcData,
+  isCascadeParent,
   layoutGraph,
   npcToSheetInput,
   realmSections,
@@ -165,9 +166,39 @@ describe("rich Settlement schema", () => {
   });
 });
 
+describe("rich Tavern schema", () => {
+  it("groups tavern fields into ordered sections (tabs)", () => {
+    const sections = realmSections("tavern");
+    expect(sections.length).toBeGreaterThan(1);
+    expect(sections[0]!.name).toBe("Overview");
+    expect(sections.map((s) => s.name)).toContain("Menu");
+    const total = sections.reduce((n, s) => n + s.fields.length, 0);
+    expect(total).toBe(REALM_FIELDS.tavern.length);
+  });
+
+  it("preserves the original thin keys so legacy taverns stay valid", () => {
+    const keys = REALM_FIELDS.tavern.map((f) => f.key);
+    for (const legacy of ["proprietor", "specialty", "atmosphere", "notes"]) {
+      expect(keys).toContain(legacy);
+    }
+  });
+
+  it("declares a structured menu group with category options", () => {
+    const menu = REALM_FIELDS.tavern.find((f) => f.key === "menu");
+    expect(menu?.kind).toBe("group");
+    const category = (menu?.fields ?? []).find((s) => s.key === "category");
+    expect(category?.kind).toBe("select");
+    expect(category?.options).toContain("Drink");
+  });
+
+  it("is a cascade parent so generation emits child NPC stubs", () => {
+    expect(isCascadeParent("tavern")).toBe(true);
+  });
+});
+
 describe("single-section descriptive types", () => {
-  it("keeps non-settlement types in a single default section", () => {
-    for (const type of ["region", "tavern", "shop", "faction"] as const) {
+  it("keeps non-sectioned types in a single default section", () => {
+    for (const type of ["region", "building", "shop", "dungeon", "faction"] as const) {
       const sections = realmSections(type);
       expect(sections).toHaveLength(1);
     }

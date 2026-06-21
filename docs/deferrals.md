@@ -10,7 +10,8 @@ issues are mirrored **opportunistically** (not required) — see "Tracking" belo
 issues #54–#68** (rows with a `#NN` in Tracking); the rest are `doc-only`. PRs #52
 (docs), #53 (generator pipeline), and #69 (#54 rich Settlement schema) are merged.
 **#54 done** (rich Settlement schema + tabbed detail); **#56 done** (character schema
-extension — XP/equipment/spells/portrait/notes + character↔campaign membership).
+extension — XP/equipment/spells/portrait/notes + character↔campaign membership);
+**#64 done** (rich Tavern generator on the #54 pattern, cascade-enabled).
 
 ## How to use this file
 
@@ -59,7 +60,7 @@ roadmap §6 P4 (Tavern → Shop → Building → Faction → Settlement → Regi
 
 | ID | Item | Source | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|---|
-| GENR-1 | Tavern generator (menu + floor plan patterns) | roadmap P4 #2 | P4 / M5 | #64 | Deferred | Generic form can emit a thin Tavern; no rich generator/tabs. |
+| GENR-1 | Tavern generator (menu + floor plan patterns) | roadmap P4 #2 | P4 / M5 | #64 | Done | **#64**: rich sectioned Tavern schema (Overview/Atmosphere/Menu group/Patrons & Amenities/Lore & Rumors) on the #54 pattern; tavern is now a cascade parent (emits tavernkeeper + patron NPC stubs + edges); generate/expand/regenerate + tabbed detail + per-section regenerate all work. Interactive floor-plan map deferred (REALM-5 / maps track). |
 | GENR-2 | Shop generator (inventory ↔ engine transactions) | roadmap P4 #3 | P4 / M5 | #65 | Deferred | — |
 | GENR-3 | Building generator (floor plans, custom sections) | roadmap P4 #4 | P4 / M5 | #66 | Deferred | — |
 | GENR-4 | Faction generator (crest, relational graph) | roadmap P4 #5 | P4 / M5 | #67 | Deferred | — |

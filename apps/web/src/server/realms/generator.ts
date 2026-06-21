@@ -250,14 +250,24 @@ function groundingBlock(grounding: Grounding): string {
   return parts.length > 0 ? `\n\n${parts.join("\n")}` : "";
 }
 
+/** Type-specific nudge for what the child stubs should be. */
+const CHILD_HINTS: Partial<Record<RealmEntityType, string>> = {
+  tavern:
+    "For a Tavern these are NPCs (type 'npc'): the tavernkeeper plus 1-3 memorable regular patrons, each related to the tavern (relationshipKind 'related_to').",
+};
+
 function childGuidance(type: RealmEntityType): string {
+  const hint = CHILD_HINTS[type];
   return [
     "",
     `Also propose 2-5 child entities this ${REALM_TYPE_LABEL[type]} should contain as STUBS`,
     "(name + one-line summary + relationshipKind). Do NOT flesh them out — they are placeholders",
     "the user expands later. relationshipKind is from the parent's perspective",
     `(one of: ${REALM_RELATIONSHIP_KINDS.join(", ")}; e.g. a region 'located_in' a settlement means the settlement is in the region).`,
-  ].join("\n");
+    hint ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function kvLines(

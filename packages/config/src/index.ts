@@ -10,6 +10,10 @@ const serverSchema = z.object({
   TRIGGER_SECRET_KEY: z.string().optional(),
   TRIGGER_PROJECT_REF: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
+  // AI generators (Realms generator pipeline). Optional/env-gated: the app runs
+  // without it, but generation endpoints return a clean "not configured" error.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().optional(),
 });
 
 const clientSchema = z.object({

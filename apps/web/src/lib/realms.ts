@@ -29,6 +29,20 @@ export const REALM_ENTITY_TYPES = [
 
 export type RealmEntityType = (typeof REALM_ENTITY_TYPES)[number];
 
+/**
+ * Types whose generator emits child stubs and so support cascading generation
+ * (Realms generator pipeline, D6). Browser-safe so the generate form and the
+ * server orchestrator share one definition.
+ */
+export const CASCADE_PARENT_TYPES: readonly RealmEntityType[] = [
+  "region",
+  "settlement",
+];
+
+export function isCascadeParent(type: RealmEntityType): boolean {
+  return CASCADE_PARENT_TYPES.includes(type);
+}
+
 /** Singular display label for a type (detail header, card subtitle). */
 export const REALM_TYPE_LABEL: Record<RealmEntityType, string> = {
   region: "Region",

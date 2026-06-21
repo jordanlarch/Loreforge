@@ -30,9 +30,38 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
+type GenCandidate = { summary: string; data: Record<string, unknown> };
+
 export function RealmEntityDetail({ id }: { id: string }) {
   const query = trpc.realms.get.useQuery({ id });
+  const utils = trpc.useUtils();
+  const generatorStatus = trpc.realms.generatorStatus.useQuery();
+
   const [editing, setEditing] = useState(false);
+  const [candidate, setCandidate] = useState<GenCandidate | null>(null);
+
+  async function invalidate() {
+    await Promise.all([
+      utils.realms.get.invalidate({ id }),
+      utils.realms.counts.invalidate(),
+      utils.realms.list.invalidate(),
+    ]);
+  }
+
+  const expand = trpc.realms.expandStub.useMutation({
+    onSuccess: async () => {
+      await invalidate();
+    },
+  });
+  const regenerate = trpc.realms.regenerate.useMutation({
+    onSuccess: (data) => setCandidate(data),
+  });
+  const accept = trpc.realms.update.useMutation({
+    onSuccess: async () => {
+      setCandidate(null);
+      await invalidate();
+    },
+  });
 
   if (query.isLoading) {
     return (
@@ -55,6 +84,8 @@ export function RealmEntityDetail({ id }: { id: string }) {
   }
 
   const type = entity.type as RealmEntityType;
+  const configured = generatorStatus.data?.configured ?? true;
+  const genError = expand.error ?? regenerate.error ?? accept.error;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -82,8 +113,8 @@ export function RealmEntityDetail({ id }: { id: string }) {
             <p className="mt-3 max-w-2xl text-lore-muted">{entity.summary}</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {!editing && (
+        {!editing && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -91,10 +122,48 @@ export function RealmEntityDetail({ id }: { id: string }) {
             >
               Edit
             </button>
-          )}
-          <ExpandWithGeneratorButton />
-        </div>
+            {entity.isStub ? (
+              <ExpandButton
+                configured={configured}
+                pending={expand.isPending}
+                onClick={() => expand.mutate({ id: entity.id })}
+              />
+            ) : (
+              <RegenerateButton
+                configured={configured}
+                pending={regenerate.isPending}
+                onClick={() => regenerate.mutate({ id: entity.id })}
+              />
+            )}
+          </div>
+        )}
       </header>
+
+      {genError && (
+        <p className="mt-4 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          {genError.message}
+        </p>
+      )}
+
+      {candidate && !editing && (
+        <RegeneratePreview
+          type={type}
+          name={entity.name}
+          candidate={candidate}
+          accepting={accept.isPending}
+          onAccept={() =>
+            accept.mutate({
+              id: entity.id,
+              type,
+              name: entity.name,
+              summary: candidate.summary,
+              isStub: false,
+              data: candidate.data,
+            })
+          }
+          onDiscard={() => setCandidate(null)}
+        />
+      )}
 
       {editing ? (
         <div className="mt-8">
@@ -119,6 +188,130 @@ export function RealmEntityDetail({ id }: { id: string }) {
 
       {!editing && <RelationshipPanel entityId={entity.id} />}
     </div>
+  );
+}
+
+function RegeneratePreview({
+  type,
+  name,
+  candidate,
+  accepting,
+  onAccept,
+  onDiscard,
+}: {
+  type: RealmEntityType;
+  name: string;
+  candidate: GenCandidate;
+  accepting: boolean;
+  onAccept: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <section className="mt-8 rounded-lg border border-lore-accent/50 bg-lore-surface p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="font-display text-lg">
+          <span className="text-lore-accent">✨</span> Regenerated preview
+        </h2>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:text-lore-text"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={onAccept}
+            disabled={accepting}
+            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+          >
+            {accepting ? "Applying…" : "Accept changes"}
+          </button>
+        </div>
+      </div>
+      {candidate.summary && (
+        <p className="mb-2 text-sm text-lore-muted">{candidate.summary}</p>
+      )}
+      <p className="mb-4 text-xs text-lore-muted">
+        Review the proposed content below. Accepting replaces the current values;
+        your manual edits are untouched until you accept.
+      </p>
+      {type === "npc" ? (
+        <NpcStatBlock id="preview" name={name} data={candidate.data} />
+      ) : (
+        <DescriptiveView
+          type={type as Exclude<RealmEntityType, "npc">}
+          data={candidate.data}
+        />
+      )}
+    </section>
+  );
+}
+
+function ExpandButton({
+  configured,
+  pending,
+  onClick,
+}: {
+  configured: boolean;
+  pending: boolean;
+  onClick: () => void;
+}) {
+  if (!configured) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="AI generation isn't configured (set ANTHROPIC_API_KEY)."
+        className="cursor-not-allowed rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-muted opacity-60"
+      >
+        Expand with Generator
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={pending}
+      className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+    >
+      {pending ? "Expanding…" : "✨ Expand with Generator"}
+    </button>
+  );
+}
+
+function RegenerateButton({
+  configured,
+  pending,
+  onClick,
+}: {
+  configured: boolean;
+  pending: boolean;
+  onClick: () => void;
+}) {
+  if (!configured) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="AI generation isn't configured (set ANTHROPIC_API_KEY)."
+        className="cursor-not-allowed rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-muted opacity-60"
+      >
+        Regenerate
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={pending}
+      className="rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+    >
+      {pending ? "Regenerating…" : "✨ Regenerate"}
+    </button>
   );
 }
 
@@ -270,19 +463,6 @@ function NpcStatBlock({
         character primitives as Character View.
       </p>
     </>
-  );
-}
-
-function ExpandWithGeneratorButton() {
-  return (
-    <button
-      type="button"
-      disabled
-      title="Generators arrive in a later slice — you'll be able to expand this entity with AI then."
-      className="cursor-not-allowed rounded-lg border border-lore-border px-4 py-1.5 text-sm text-lore-muted opacity-60"
-    >
-      Expand with Generator
-    </button>
   );
 }
 

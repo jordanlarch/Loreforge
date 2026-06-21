@@ -50,6 +50,13 @@
       "when": 1781987346707,
       "tag": "0006_redundant_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782010788733,
+      "tag": "0007_sloppy_lester",
+      "breakpoints": true
     }
   ]
 }

@@ -7,11 +7,12 @@ import { buildCharacterSheet, type Ability } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 import {
-  REALM_FIELDS,
   REALM_TYPE_LABEL,
   npcToSheetInput,
+  realmSections,
   type NpcData,
   type RealmEntityType,
+  type RealmFieldDescriptor,
 } from "@/lib/realms";
 
 import { EntityForm } from "../entity-form";
@@ -357,6 +358,17 @@ function RegenButton({
   );
 }
 
+/** Whether a descriptor has a meaningful value in `data` (for hide-empty). */
+function hasFieldValue(field: RealmFieldDescriptor, data: Record<string, unknown>): boolean {
+  const v = data[field.key];
+  if (field.kind === "number") return typeof v === "number" && v > 0;
+  if (field.kind === "list") {
+    return Array.isArray(v) && v.some((s) => String(s ?? "").trim() !== "");
+  }
+  if (field.kind === "group") return Array.isArray(v) && v.length > 0;
+  return typeof v === "string" && v.trim() !== "";
+}
+
 function DescriptiveView({
   type,
   data,
@@ -368,14 +380,13 @@ function DescriptiveView({
   onRegenerate?: (fields: string[]) => void;
   regenerating?: boolean;
 }) {
-  const fields = REALM_FIELDS[type];
-  const visible = fields.filter((f) => {
-    const v = data[f.key];
-    if (f.kind === "number") return typeof v === "number" && v > 0;
-    return typeof v === "string" && v.trim() !== "";
-  });
+  const sections = realmSections(type);
+  const [active, setActive] = useState(0);
 
-  if (visible.length === 0) {
+  const anyVisible = sections.some((s) =>
+    s.fields.some((f) => hasFieldValue(f, data)),
+  );
+  if (!anyVisible) {
     return (
       <p className="mt-8 text-sm text-lore-muted">
         No details yet — use Edit to fill them in.
@@ -383,37 +394,174 @@ function DescriptiveView({
     );
   }
 
+  // Single-section types (region, tavern, …) render without a tab bar so they
+  // look exactly as before; only multi-section types (Settlement) show tabs.
+  const tabbed = sections.length > 1;
+  const current = sections[Math.min(active, sections.length - 1)]!;
+
   return (
-    <dl className="mt-8 grid gap-4 sm:grid-cols-2">
-      {visible.map((f) => (
+    <div className="mt-8">
+      {tabbed && (
         <div
-          key={f.key}
-          className={`rounded-lg border border-lore-border bg-lore-surface p-4 ${
-            f.kind === "textarea" ? "sm:col-span-2" : ""
-          }`}
+          role="tablist"
+          aria-label="Detail sections"
+          className="flex flex-wrap gap-1 border-b border-lore-border"
         >
-          <div className="flex items-center justify-between gap-2">
-            <dt className="text-xs uppercase tracking-wide text-lore-muted">
-              {f.label}
-            </dt>
-            {onRegenerate && (
-              <RegenButton
-                onClick={() => onRegenerate([f.key])}
-                pending={regenerating}
-                title={`Regenerate ${f.label}`}
-              />
-            )}
-          </div>
-          <dd
-            className={`mt-1 ${
-              f.kind === "textarea" ? "whitespace-pre-wrap" : ""
-            }`}
-          >
-            {String(data[f.key])}
-          </dd>
+          {sections.map((s, i) => {
+            const filled = s.fields.some((f) => hasFieldValue(f, data));
+            return (
+              <button
+                key={s.name}
+                type="button"
+                role="tab"
+                aria-selected={i === active}
+                onClick={() => setActive(i)}
+                className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
+                  i === active
+                    ? "border-lore-accent text-lore-text"
+                    : "border-transparent text-lore-muted hover:text-lore-text"
+                }`}
+              >
+                {s.name}
+                {!filled && <span className="ml-1 text-lore-muted/60">·</span>}
+              </button>
+            );
+          })}
         </div>
-      ))}
-    </dl>
+      )}
+
+      <SectionBody
+        key={current.name}
+        section={current}
+        data={data}
+        onRegenerate={onRegenerate}
+        regenerating={regenerating}
+      />
+    </div>
+  );
+}
+
+function SectionBody({
+  section,
+  data,
+  onRegenerate,
+  regenerating = false,
+}: {
+  section: { name: string; fields: readonly RealmFieldDescriptor[] };
+  data: Record<string, unknown>;
+  onRegenerate?: (fields: string[]) => void;
+  regenerating?: boolean;
+}) {
+  const visible = section.fields.filter((f) => hasFieldValue(f, data));
+
+  return (
+    <div className="pt-5">
+      {onRegenerate && (
+        <div className="mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => onRegenerate(section.fields.map((f) => f.key))}
+            disabled={regenerating}
+            className="rounded border border-lore-border px-3 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text disabled:opacity-50"
+          >
+            {regenerating ? "Regenerating…" : `⟳ Regenerate ${section.name}`}
+          </button>
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <p className="text-sm text-lore-muted">
+          Nothing here yet — use Edit to fill in {section.name}.
+        </p>
+      ) : (
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {visible.map((f) => (
+            <div
+              key={f.key}
+              className={`rounded-lg border border-lore-border bg-lore-surface p-4 ${
+                f.kind === "textarea" || f.kind === "list" || f.kind === "group"
+                  ? "sm:col-span-2"
+                  : ""
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-xs uppercase tracking-wide text-lore-muted">
+                  {f.label}
+                </dt>
+                {onRegenerate && (
+                  <RegenButton
+                    onClick={() => onRegenerate([f.key])}
+                    pending={regenerating}
+                    title={`Regenerate ${f.label}`}
+                  />
+                )}
+              </div>
+              <dd className="mt-1">
+                <FieldValue field={f} value={data[f.key]} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function FieldValue({
+  field,
+  value,
+}: {
+  field: RealmFieldDescriptor;
+  value: unknown;
+}) {
+  if (field.kind === "list") {
+    const items = Array.isArray(value)
+      ? value.map((v) => String(v ?? "").trim()).filter(Boolean)
+      : [];
+    return (
+      <ul className="list-disc space-y-1 pl-5">
+        {items.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (field.kind === "group") {
+    const items = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+    return (
+      <ul className="space-y-3">
+        {items.map((item, i) => (
+          <li
+            key={i}
+            className="rounded border border-lore-border bg-lore-bg p-3"
+          >
+            {(field.fields ?? []).map((sub) => {
+              const sv = String(item?.[sub.key] ?? "").trim();
+              if (!sv) return null;
+              return (
+                <div key={sub.key} className="mb-1 last:mb-0">
+                  <span className="text-xs uppercase tracking-wide text-lore-muted">
+                    {sub.label}:{" "}
+                  </span>
+                  <span
+                    className={sub.kind === "textarea" ? "whitespace-pre-wrap" : ""}
+                  >
+                    {sv}
+                  </span>
+                </div>
+              );
+            })}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <span className={field.kind === "textarea" ? "whitespace-pre-wrap" : ""}>
+      {String(value ?? "")}
+    </span>
   );
 }
 

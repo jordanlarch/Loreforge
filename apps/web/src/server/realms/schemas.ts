@@ -15,6 +15,7 @@ import {
   REALM_FIELDS,
   type RealmEntityType,
   type RealmFieldDescriptor,
+  type RealmSubFieldDescriptor,
 } from "@/lib/realms";
 
 export const ABILITY = z.enum(["str", "dex", "con", "int", "wis", "cha"]);
@@ -48,26 +49,49 @@ export const npcData = z.object({
   skillProficiencies: z.array(z.string().trim().max(40)).max(30).default([]),
 });
 
+/** zod for a single scalar field/sub-field (text/textarea/number/select). */
+function scalarSchema(
+  field: RealmFieldDescriptor | RealmSubFieldDescriptor,
+): z.ZodTypeAny {
+  if (field.kind === "number") {
+    return z
+      .number()
+      .int()
+      .min(field.min ?? 0)
+      .max(field.max ?? 100_000_000)
+      .default(field.min ?? 0);
+  }
+  if (field.kind === "select") {
+    const options = (field.options ?? [""]) as [string, ...string[]];
+    return z.enum(options).default(options[0]);
+  }
+  return z
+    .string()
+    .trim()
+    .max(field.max ?? (field.kind === "textarea" ? 4000 : 200))
+    .default("");
+}
+
 /** Derive a zod `data` schema from a descriptive type's field descriptors. */
 function buildFieldsSchema(fields: readonly RealmFieldDescriptor[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const field of fields) {
-    if (field.kind === "number") {
+    if (field.kind === "list") {
       shape[field.key] = z
-        .number()
-        .int()
-        .min(field.min ?? 0)
-        .max(field.max ?? 100_000_000)
-        .default(field.min ?? 0);
-    } else if (field.kind === "select") {
-      const options = (field.options ?? [""]) as [string, ...string[]];
-      shape[field.key] = z.enum(options).default(options[0]);
+        .array(z.string().trim().max(field.max ?? 500))
+        .max(100)
+        .default([]);
+    } else if (field.kind === "group") {
+      const itemShape: Record<string, z.ZodTypeAny> = {};
+      for (const sub of field.fields ?? []) {
+        itemShape[sub.key] = scalarSchema(sub);
+      }
+      shape[field.key] = z
+        .array(z.object(itemShape))
+        .max(100)
+        .default([]);
     } else {
-      shape[field.key] = z
-        .string()
-        .trim()
-        .max(field.max ?? (field.kind === "textarea" ? 4000 : 200))
-        .default("");
+      shape[field.key] = scalarSchema(field);
     }
   }
   return z.object(shape);

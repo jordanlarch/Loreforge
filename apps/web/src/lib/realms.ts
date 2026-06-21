@@ -147,20 +147,84 @@ export function npcToSheetInput(row: {
  *  one source of truth for the shape.
  * -------------------------------------------------------------------------- */
 
-export type RealmFieldKind = "text" | "textarea" | "number" | "select";
+/**
+ * Scalar field kinds plus two rich kinds:
+ * - `list`  — an array of strings (e.g. rumors, key laws).
+ * - `group` — an array of small objects with their own scalar sub-fields
+ *             (e.g. notable locations `[{ name, description }]`).
+ *
+ * The same descriptors drive the form, the tabbed detail view, the zod `data`
+ * validator, and the generator's tool schema + prompt — one source of truth so a
+ * new rich type is authored by writing descriptors, not bespoke code (GEN-1).
+ */
+export type RealmFieldKind =
+  | "text"
+  | "textarea"
+  | "number"
+  | "select"
+  | "list"
+  | "group";
+
+/** Scalar kinds allowed inside a `group` item's sub-fields. */
+export type RealmSubFieldKind = "text" | "textarea" | "number" | "select";
+
+export type RealmSubFieldDescriptor = {
+  key: string;
+  label: string;
+  kind: RealmSubFieldKind;
+  placeholder?: string;
+  options?: readonly string[];
+  max?: number;
+  min?: number;
+};
 
 export type RealmFieldDescriptor = {
   key: string;
   label: string;
   kind: RealmFieldKind;
+  /** Tab/section this field belongs to (detail view + form). Default `Details`. */
+  section?: string;
   placeholder?: string;
   /** Allowed values for `select` (first is the default). */
   options?: readonly string[];
-  /** Max string length (text/textarea) or max value (number). */
+  /** Max string length (text/textarea/list item) or max value (number). */
   max?: number;
   /** Min value (number). */
   min?: number;
+  /** Singular label for the add-row button on `list`/`group`. */
+  itemLabel?: string;
+  /** Sub-fields for a `group` item. */
+  fields?: readonly RealmSubFieldDescriptor[];
 };
+
+/** The default section name for descriptors that don't declare one. */
+export const DEFAULT_SECTION = "Details";
+
+/** A section (tab) and the descriptors it contains, in declaration order. */
+export type RealmSection = {
+  name: string;
+  fields: readonly RealmFieldDescriptor[];
+};
+
+/**
+ * Group a type's descriptors into ordered sections (tabs). Sections appear in
+ * first-seen order; fields keep their declaration order within a section.
+ */
+export function realmSections(
+  type: Exclude<RealmEntityType, "npc">,
+): RealmSection[] {
+  const order: string[] = [];
+  const byName = new Map<string, RealmFieldDescriptor[]>();
+  for (const field of REALM_FIELDS[type]) {
+    const name = field.section ?? DEFAULT_SECTION;
+    if (!byName.has(name)) {
+      byName.set(name, []);
+      order.push(name);
+    }
+    byName.get(name)!.push(field);
+  }
+  return order.map((name) => ({ name, fields: byName.get(name)! }));
+}
 
 /** Per-type descriptive fields. NPC is mechanical and handled separately. */
 export const REALM_FIELDS: Record<
@@ -172,11 +236,55 @@ export const REALM_FIELDS: Record<
     { key: "climate", label: "Climate", kind: "text", placeholder: "Temperate, arctic…" },
     { key: "features", label: "Notable Features", kind: "textarea", placeholder: "Landmarks, dangers, resources…" },
   ],
+  // Settlement is the rich pilot type (GEN-1): sectioned into tabs, with `list`
+  // and `group` fields. Keeps the original thin keys (size/population/
+  // government/notes) so existing settlements remain valid.
   settlement: [
-    { key: "size", label: "Size", kind: "select", options: ["Hamlet", "Village", "Town", "City", "Metropolis"] },
-    { key: "population", label: "Population", kind: "number", min: 0, max: 100_000_000 },
-    { key: "government", label: "Government", kind: "text", placeholder: "Council, monarchy…" },
-    { key: "notes", label: "Notes", kind: "textarea" },
+    // —— Overview ——
+    { key: "size", label: "Size", kind: "select", section: "Overview", options: ["Hamlet", "Village", "Town", "City", "Metropolis"] },
+    { key: "population", label: "Population", kind: "number", section: "Overview", min: 0, max: 100_000_000 },
+    { key: "wealth", label: "Wealth", kind: "select", section: "Overview", options: ["Destitute", "Poor", "Modest", "Comfortable", "Wealthy", "Opulent"] },
+    { key: "government", label: "Government", kind: "text", section: "Overview", placeholder: "Council, monarchy…" },
+    { key: "tagline", label: "Tagline", kind: "text", section: "Overview", placeholder: "A vivid one-line hook" },
+    { key: "notes", label: "Description", kind: "textarea", section: "Overview", placeholder: "A paragraph capturing the feel of the place…" },
+    // —— Geography & Defenses ——
+    { key: "location", label: "Location", kind: "text", section: "Geography & Defenses", placeholder: "Crossroads, coastal, mountain pass…" },
+    { key: "terrain", label: "Terrain", kind: "text", section: "Geography & Defenses", placeholder: "Surrounding land" },
+    { key: "climate", label: "Climate", kind: "text", section: "Geography & Defenses", placeholder: "Temperate, arid…" },
+    { key: "defenses", label: "Defenses", kind: "textarea", section: "Geography & Defenses", placeholder: "Walls, garrison, readiness…" },
+    { key: "districts", label: "Districts", kind: "list", section: "Geography & Defenses", itemLabel: "District", placeholder: "The Gate Quarter" },
+    // —— Society & Economy ——
+    { key: "demographics", label: "Demographics", kind: "textarea", section: "Society & Economy", placeholder: "Peoples and their proportions" },
+    { key: "culture", label: "Culture", kind: "textarea", section: "Society & Economy", placeholder: "Customs, religion, festivals…" },
+    { key: "economy", label: "Economy", kind: "textarea", section: "Society & Economy", placeholder: "Trade, industry, resources" },
+    // —— Notable Places ——
+    {
+      key: "notableLocations",
+      label: "Notable Locations",
+      kind: "group",
+      section: "Notable Places",
+      itemLabel: "Location",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "The Iron Gate Inn" },
+        { key: "kind", label: "Kind", kind: "text", placeholder: "Tavern, temple, market…" },
+        { key: "description", label: "Description", kind: "textarea" },
+      ],
+    },
+    // —— People & Secrets ——
+    {
+      key: "notableFigures",
+      label: "Notable Figures",
+      kind: "group",
+      section: "People & Secrets",
+      itemLabel: "Figure",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "Captain Vane" },
+        { key: "role", label: "Role", kind: "text", placeholder: "Captain of the Guard" },
+      ],
+    },
+    { key: "rumors", label: "Rumors", kind: "list", section: "People & Secrets", itemLabel: "Rumor", placeholder: "A whisper heard in the streets" },
+    { key: "hooks", label: "Plot Hooks", kind: "list", section: "People & Secrets", itemLabel: "Hook", placeholder: "Why might adventurers come here?" },
+    { key: "secrets", label: "Secrets", kind: "textarea", section: "People & Secrets", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
   building: [
     { key: "kind", label: "Kind", kind: "text", placeholder: "Temple, keep, manor…" },
@@ -212,13 +320,27 @@ export const REALM_FIELDS: Record<
 /** A blank `data` payload for a type, suitable for seeding a create form. */
 export function emptyDataFor(type: RealmEntityType): Record<string, unknown> {
   if (type === "npc") return emptyNpcData() as unknown as Record<string, unknown>;
-  const data: Record<string, string | number> = {};
+  const data: Record<string, unknown> = {};
   for (const field of REALM_FIELDS[type]) {
     if (field.kind === "number") data[field.key] = field.min ?? 0;
     else if (field.kind === "select") data[field.key] = field.options?.[0] ?? "";
+    else if (field.kind === "list" || field.kind === "group") data[field.key] = [];
     else data[field.key] = "";
   }
   return data;
+}
+
+/** A blank `group` item ({} of empty sub-field values) for the form. */
+export function emptyGroupItem(
+  field: RealmFieldDescriptor,
+): Record<string, string | number> {
+  const item: Record<string, string | number> = {};
+  for (const sub of field.fields ?? []) {
+    if (sub.kind === "number") item[sub.key] = sub.min ?? 0;
+    else if (sub.kind === "select") item[sub.key] = sub.options?.[0] ?? "";
+    else item[sub.key] = "";
+  }
+  return item;
 }
 
 /* -------------------------------------------------------------------------- *

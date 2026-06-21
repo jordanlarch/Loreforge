@@ -6,9 +6,10 @@ import type { Ability } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 import {
-  REALM_FIELDS,
   REALM_TYPE_LABEL,
   emptyDataFor,
+  emptyGroupItem,
+  realmSections,
   type NpcData,
   type RealmEntityType,
   type RealmFieldDescriptor,
@@ -168,23 +169,43 @@ function DescriptiveFields({
   data: Record<string, unknown>;
   setData: (next: Record<string, unknown>) => void;
 }) {
-  const fields = REALM_FIELDS[type];
-  function set(key: string, value: string | number) {
+  const sections = realmSections(type);
+  const sectioned = sections.length > 1;
+
+  function set(key: string, value: unknown) {
     setData({ ...data, [key]: value });
   }
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {fields.map((field) => (
-        <div
-          key={field.key}
-          className={field.kind === "textarea" ? "sm:col-span-2" : ""}
-        >
-          <DescriptiveField
-            field={field}
-            value={data[field.key]}
-            onChange={(v) => set(field.key, v)}
-          />
-        </div>
+    <div className="space-y-6">
+      {sections.map((section) => (
+        <fieldset key={section.name} className="space-y-4">
+          {sectioned && (
+            <legend className="text-xs uppercase tracking-widest text-lore-muted">
+              {section.name}
+            </legend>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {section.fields.map((field) => (
+              <div
+                key={field.key}
+                className={
+                  field.kind === "textarea" ||
+                  field.kind === "list" ||
+                  field.kind === "group"
+                    ? "sm:col-span-2"
+                    : ""
+                }
+              >
+                <DescriptiveField
+                  field={field}
+                  value={data[field.key]}
+                  onChange={(v) => set(field.key, v)}
+                />
+              </div>
+            ))}
+          </div>
+        </fieldset>
       ))}
     </div>
   );
@@ -197,8 +218,14 @@ function DescriptiveField({
 }: {
   field: RealmFieldDescriptor;
   value: unknown;
-  onChange: (value: string | number) => void;
+  onChange: (value: unknown) => void;
 }) {
+  if (field.kind === "list") {
+    return <ListEditor field={field} value={value} onChange={onChange} />;
+  }
+  if (field.kind === "group") {
+    return <GroupEditor field={field} value={value} onChange={onChange} />;
+  }
   return (
     <Field label={field.label}>
       {field.kind === "select" ? (
@@ -239,6 +266,191 @@ function DescriptiveField({
         />
       )}
     </Field>
+  );
+}
+
+function ListEditor({
+  field,
+  value,
+  onChange,
+}: {
+  field: RealmFieldDescriptor;
+  value: unknown;
+  onChange: (value: string[]) => void;
+}) {
+  const items = Array.isArray(value) ? value.map((v) => String(v ?? "")) : [];
+  const itemLabel = field.itemLabel ?? "item";
+
+  function update(next: string[]) {
+    onChange(next);
+  }
+
+  return (
+    <Field label={field.label}>
+      <div className="space-y-2">
+        {items.map((item, i) => (
+          <div key={i} className="flex gap-2">
+            <input
+              value={item}
+              onChange={(e) => {
+                const next = [...items];
+                next[i] = e.target.value;
+                update(next);
+              }}
+              placeholder={field.placeholder}
+              className={inputClass}
+            />
+            <RemoveButton
+              onClick={() => update(items.filter((_, j) => j !== i))}
+            />
+          </div>
+        ))}
+        <AddButton
+          label={`Add ${itemLabel}`}
+          onClick={() => update([...items, ""])}
+        />
+      </div>
+    </Field>
+  );
+}
+
+function GroupEditor({
+  field,
+  value,
+  onChange,
+}: {
+  field: RealmFieldDescriptor;
+  value: unknown;
+  onChange: (value: Record<string, unknown>[]) => void;
+}) {
+  const items = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+  const itemLabel = field.itemLabel ?? "item";
+  const subs = field.fields ?? [];
+
+  function update(next: Record<string, unknown>[]) {
+    onChange(next);
+  }
+
+  return (
+    <Field label={field.label}>
+      <div className="space-y-3">
+        {items.map((item, i) => (
+          <div
+            key={i}
+            className="space-y-3 rounded border border-lore-border bg-lore-bg p-3"
+          >
+            <div className="flex justify-end">
+              <RemoveButton
+                onClick={() => update(items.filter((_, j) => j !== i))}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {subs.map((sub) => (
+                <div
+                  key={sub.key}
+                  className={sub.kind === "textarea" ? "sm:col-span-2" : ""}
+                >
+                  <Field label={sub.label}>
+                    {sub.kind === "select" ? (
+                      <select
+                        value={String(item[sub.key] ?? sub.options?.[0] ?? "")}
+                        onChange={(e) => {
+                          const next = [...items];
+                          next[i] = { ...item, [sub.key]: e.target.value };
+                          update(next);
+                        }}
+                        className={inputClass}
+                      >
+                        {(sub.options ?? []).map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : sub.kind === "number" ? (
+                      <input
+                        type="number"
+                        min={sub.min}
+                        max={sub.max}
+                        value={Number(item[sub.key] ?? 0)}
+                        onChange={(e) => {
+                          const next = [...items];
+                          next[i] = {
+                            ...item,
+                            [sub.key]: Number.parseInt(e.target.value, 10) || 0,
+                          };
+                          update(next);
+                        }}
+                        className={inputClass}
+                      />
+                    ) : sub.kind === "textarea" ? (
+                      <textarea
+                        value={String(item[sub.key] ?? "")}
+                        onChange={(e) => {
+                          const next = [...items];
+                          next[i] = { ...item, [sub.key]: e.target.value };
+                          update(next);
+                        }}
+                        rows={2}
+                        placeholder={sub.placeholder}
+                        className={inputClass}
+                      />
+                    ) : (
+                      <input
+                        value={String(item[sub.key] ?? "")}
+                        onChange={(e) => {
+                          const next = [...items];
+                          next[i] = { ...item, [sub.key]: e.target.value };
+                          update(next);
+                        }}
+                        placeholder={sub.placeholder}
+                        className={inputClass}
+                      />
+                    )}
+                  </Field>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        <AddButton
+          label={`Add ${itemLabel}`}
+          onClick={() => update([...items, emptyGroupItem(field)])}
+        />
+      </div>
+    </Field>
+  );
+}
+
+function AddButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded border border-dashed border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+    >
+      + {label}
+    </button>
+  );
+}
+
+function RemoveButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Remove"
+      title="Remove"
+      className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-red-500/60 hover:text-red-400"
+    >
+      ✕
+    </button>
   );
 }
 

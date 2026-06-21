@@ -41,6 +41,7 @@ export const CASCADE_PARENT_TYPES: readonly RealmEntityType[] = [
   "shop",
   "building",
   "faction",
+  "dungeon",
 ];
 
 export function isCascadeParent(type: RealmEntityType): boolean {
@@ -434,11 +435,46 @@ export const REALM_FIELDS: Record<
     { key: "hooks", label: "Plot Hooks", kind: "list", section: "Lore & Rumors", itemLabel: "Hook", placeholder: "An adventure seed" },
     { key: "secrets", label: "Secrets", kind: "textarea", section: "Lore & Rumors", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
+  // Dungeon is a rich generator type (#68): sectioned tabs with a structured
+  // rooms group (the signature feature), hazards/monster lists, and lore/secret
+  // sections, plus a boss/key-NPC cascade. Keeps the original thin keys
+  // (kind/depth/threat/hook) so existing dungeons stay valid — `kind` stays free
+  // text and the threat options are preserved so legacy values don't fail the
+  // enum.
   dungeon: [
-    { key: "kind", label: "Kind", kind: "text", placeholder: "Crypt, cavern, ruin…" },
-    { key: "depth", label: "Levels / Depth", kind: "number", min: 0, max: 1000 },
-    { key: "threat", label: "Threat", kind: "select", options: ["Low", "Moderate", "Deadly"] },
-    { key: "hook", label: "Hook", kind: "textarea", placeholder: "Why would the party come here?" },
+    // —— Overview ——
+    { key: "kind", label: "Type", kind: "text", section: "Overview", placeholder: "Crypt, cavern, ruin…" },
+    { key: "depth", label: "Levels / Depth", kind: "number", section: "Overview", min: 0, max: 1000 },
+    { key: "threat", label: "Threat", kind: "select", section: "Overview", options: ["Low", "Moderate", "Deadly"] },
+    { key: "partyLevel", label: "Party Level", kind: "number", section: "Overview", min: 1, max: 20 },
+    { key: "tagline", label: "Tagline", kind: "text", section: "Overview", placeholder: "A vivid one-line hook" },
+    { key: "hook", label: "Hook", kind: "textarea", section: "Overview", placeholder: "Why would the party come here?" },
+    { key: "notes", label: "Description", kind: "textarea", section: "Overview", placeholder: "What the place is and how it reads…" },
+    // —— Atmosphere & Lore ——
+    { key: "atmosphere", label: "Atmosphere", kind: "textarea", section: "Atmosphere & Lore", placeholder: "The sights, sounds, and smells within" },
+    { key: "history", label: "History", kind: "textarea", section: "Atmosphere & Lore", placeholder: "How the dungeon came to be" },
+    { key: "overarchingThreat", label: "Overarching Threat", kind: "textarea", section: "Atmosphere & Lore", placeholder: "The looming danger that ties it together" },
+    // —— Rooms —— (the Dungeon's signature tab: each room is a structured entry)
+    {
+      key: "rooms",
+      label: "Rooms",
+      kind: "group",
+      section: "Rooms",
+      itemLabel: "Room",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "The Threshold of Tears" },
+        { key: "description", label: "Description", kind: "textarea" },
+        { key: "encounter", label: "Encounter", kind: "text", placeholder: "Monsters, trap, or puzzle here" },
+        { key: "treasure", label: "Treasure", kind: "text", placeholder: "What can be found here" },
+      ],
+    },
+    // —— Hazards & Monsters ——
+    { key: "wanderingMonsters", label: "Wandering Monsters", kind: "list", section: "Hazards & Monsters", itemLabel: "Monster", placeholder: "A creature that roams the halls" },
+    { key: "hazards", label: "Hazards", kind: "list", section: "Hazards & Monsters", itemLabel: "Hazard", placeholder: "A trap or environmental danger" },
+    // —— Secrets & Hooks ——
+    { key: "rumors", label: "Rumors", kind: "list", section: "Secrets & Hooks", itemLabel: "Rumor", placeholder: "A rumor heard about this place" },
+    { key: "hooks", label: "Plot Hooks", kind: "list", section: "Secrets & Hooks", itemLabel: "Hook", placeholder: "An adventure seed" },
+    { key: "secrets", label: "Secrets", kind: "textarea", section: "Secrets & Hooks", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
   // Faction is a rich generator type (#67): sectioned tabs covering identity,
   // goals/methods, organization, relationships, and lore/secrets, plus a

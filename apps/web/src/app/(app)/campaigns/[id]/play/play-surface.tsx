@@ -47,6 +47,7 @@ import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
+import { LivePlayTopBar } from "./live-top-bar";
 import { PartyRail } from "./party-rail";
 import { ReactionPrompt } from "./reaction-prompt";
 import { useLiveSession } from "./use-live-session";
@@ -179,6 +180,9 @@ function LiveBattle({
   const [armed, setArmed] = useState<ArmedAction>(null);
   const [aimCell, setAimCell] = useState<Cell | null>(null);
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
+  // Client-side session pause (#101): freezes the local turn UI + clock. The
+  // server-authoritative engine freeze is a deferred follow-up.
+  const [paused, setPaused] = useState(false);
 
   // A fresh arm clears any stale aim from a prior AoE cast.
   useEffect(() => {
@@ -343,55 +347,29 @@ function LiveBattle({
     );
   }
 
+  const sceneName = session.state.currentSceneId
+    ? session.state.scenes[session.state.currentSceneId]?.name
+    : undefined;
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      {backHref && (
-        <Link
-          href={backHref}
-          className="mb-2 inline-block text-sm text-lore-muted transition-colors hover:text-lore-text"
-        >
-          ← Back to Workspace
-        </Link>
-      )}
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">{title}</h1>
-          <p className="text-sm text-lore-muted">
-            {context} · Round {vm.round}
-            {vm.activeName ? ` · ${vm.activeName}'s turn` : ""}
-            {vm.movement
-              ? ` · ${vm.movement.total - vm.movement.used}/${vm.movement.total} ft`
-              : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="rounded border border-lore-border bg-lore-surface px-2 py-1 text-xs text-lore-muted"
-            title="Connected clients in this live session"
-          >
-            {session.peers} online
-          </span>
-          {session.rejected && (
-            <span className="rounded border border-lore-border bg-lore-surface px-2 py-1 text-xs text-lore-muted">
-              Illegal move — out of range, blocked, or occupied.
-            </span>
-          )}
-          <button
-            onClick={session.endTurn}
-            disabled={session.isBusy}
-            className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
-          >
-            End turn
-          </button>
-          <button
-            onClick={session.reset}
-            disabled={session.isBusy}
-            className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
-          >
-            Reset
-          </button>
-        </div>
-      </header>
+      <LivePlayTopBar
+        title={title}
+        sceneName={sceneName ?? context}
+        peers={session.peers}
+        round={vm.round}
+        activeName={vm.activeName}
+        movementLeft={vm.movement ? vm.movement.total - vm.movement.used : undefined}
+        movementTotal={vm.movement?.total}
+        backHref={backHref}
+        paused={paused}
+        onTogglePause={() => setPaused((p) => !p)}
+        isBusy={session.isBusy}
+        showTurnActions={controllableTurn}
+        onEndTurn={session.endTurn}
+        onReset={session.reset}
+        rejected={session.rejected}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
         {/* Map zone */}
@@ -402,7 +380,7 @@ function LiveBattle({
             order={vm.order}
           />
 
-          {controllableTurn && (
+          {controllableTurn && !paused && (
             <CombatActionBar
               weapons={weapons}
               spells={castableSpells}
@@ -418,18 +396,24 @@ function LiveBattle({
             />
           )}
 
+          {paused && (
+            <div className="mb-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
+              ⏸ Session paused — turn actions are frozen. Press Resume to continue.
+            </div>
+          )}
+
           <div className="inline-block overflow-hidden rounded-lg border border-lore-border bg-lore-bg">
             <BattleMap
               cols={vm.cols}
               rows={vm.rows}
               walls={vm.walls}
               tokens={vm.tokens}
-              reachable={armed ? [] : vm.reachable}
-              onMoveToken={session.moveToken}
-              targeting={targeting}
-              onPickTarget={onPickTarget}
-              aiming={aiming}
-              onAimCell={setAimCell}
+              reachable={paused || armed ? [] : vm.reachable}
+              onMoveToken={paused ? () => {} : session.moveToken}
+              targeting={paused ? undefined : targeting}
+              onPickTarget={paused ? () => {} : onPickTarget}
+              aiming={paused ? undefined : aiming}
+              onAimCell={paused ? () => {} : setAimCell}
             />
           </div>
           <p className="mt-2 text-xs text-lore-muted">

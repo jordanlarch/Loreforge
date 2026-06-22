@@ -11,20 +11,33 @@
  */
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
   areHostile,
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
+  type EntityState,
   type WorldState,
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
-import type { BattleToken } from "./battle-map";
+import {
+  castableSpellsFor,
+  controllableReactors,
+  deriveStrike,
+  MELEE_REACH_FT,
+  reactionWindowKey,
+  targetsInRange,
+  type CastableSpell,
+} from "@/lib/live-combat";
+import type { BattleToken, TargetingOverlay } from "./battle-map";
 import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
+import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
+import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
+import { ReactionPrompt } from "./reaction-prompt";
 import { useLiveSession } from "./use-live-session";
 
 const BattleMap = dynamic(() => import("./battle-map"), {
@@ -45,7 +58,7 @@ type ViewModel = {
   activeName: string | undefined;
   round: number;
   movement: { used: number; total: number } | undefined;
-  order: { id: string; name: string; isActive: boolean }[];
+  order: InitiativeChip[];
 };
 
 function buildViewModel(state: WorldState): ViewModel | null {
@@ -96,11 +109,16 @@ function buildViewModel(state: WorldState): ViewModel | null {
     ).filter((c) => !occupied.has(`${c.x},${c.y}`));
   }
 
-  const order = encounter.order.map((entry) => ({
-    id: entry.entity,
-    name: state.entities[entry.entity]?.name ?? entry.entity,
-    isActive: entry.entity === activeRef,
-  }));
+  const order: InitiativeChip[] = encounter.order.map((entry) => {
+    const e = state.entities[entry.entity];
+    return {
+      id: entry.entity,
+      name: e?.name ?? entry.entity,
+      isActive: entry.entity === activeRef,
+      hostile: areHostile(FIXTURE_BATTLE_PARTY_SIDE, encounter.sides[entry.entity]),
+      alive: e?.alive ?? true,
+    };
+  });
 
   return {
     cols: map.width,
@@ -137,6 +155,67 @@ function LiveBattle({
     () => (session.state ? buildViewModel(session.state) : null),
     [session.state],
   );
+
+  // Combat-loop UI state: the armed action (driving the map target picker) and
+  // the last reaction window the player already dismissed.
+  const [armed, setArmed] = useState<ArmedAction>(null);
+  const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
+
+  const state = session.state;
+
+  // The active combatant, and whether the local player controls this turn.
+  const activeEntity: EntityState | undefined = useMemo(() => {
+    if (!state?.encounter) return undefined;
+    const ref = state.encounter.order[state.encounter.activeIndex]?.entity;
+    return ref ? state.entities[ref] : undefined;
+  }, [state]);
+
+  const controllableTurn =
+    !!activeEntity &&
+    activeEntity.alive &&
+    activeEntity.actionEconomy !== undefined &&
+    state?.encounter?.sides[activeEntity.id] === FIXTURE_BATTLE_PARTY_SIDE;
+
+  const castableSpells: CastableSpell[] = activeEntity
+    ? castableSpellsFor(activeEntity)
+    : [];
+
+  // While an action is armed, resolve the range + valid targets for the picker.
+  const targeting: TargetingOverlay | undefined = useMemo(() => {
+    if (!state || !armed || !activeEntity?.position) return undefined;
+    const rangeFt =
+      armed.kind === "attack" ? MELEE_REACH_FT : armed.spell.rangeFt;
+    const targetableIds = targetsInRange(state, activeEntity.id, rangeFt).map(
+      (e) => e.id,
+    );
+    return {
+      origin: activeEntity.position,
+      rangeCells: Math.floor(rangeFt / FEET_PER_CELL),
+      targetableIds,
+    };
+  }, [state, armed, activeEntity]);
+
+  function onPickTarget(targetId: string) {
+    if (!armed || !activeEntity) return;
+    if (armed.kind === "attack") {
+      const strike = deriveStrike(activeEntity);
+      session.attack(activeEntity.id, targetId, strike.attackBonus, strike.damage);
+    } else {
+      session.castSpell(
+        activeEntity.id,
+        armed.spell.id,
+        armed.spell.level,
+        [targetId],
+      );
+    }
+    setArmed(null);
+  }
+
+  // A pending opportunity-attack the local player can take (one at a time).
+  const reaction = state ? controllableReactors(state, FIXTURE_BATTLE_PARTY_SIDE)[0] : undefined;
+  const reactionKey = state ? reactionWindowKey(state) : null;
+  const showReaction =
+    !!reaction && !!reactionKey && reactionKey !== dismissedReaction;
 
   if (session.error) {
     return (
@@ -214,46 +293,65 @@ function LiveBattle({
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
         {/* Map zone */}
         <section>
+          <CombatOverlay
+            round={vm.round}
+            activeName={vm.activeName}
+            order={vm.order}
+          />
+
+          {controllableTurn && (
+            <CombatActionBar
+              spells={castableSpells}
+              armed={armed}
+              disabled={session.isBusy}
+              onAttack={() => setArmed({ kind: "attack" })}
+              onCast={(spell) => setArmed({ kind: "cast", spell })}
+              onCancel={() => setArmed(null)}
+            />
+          )}
+
           <div className="inline-block overflow-hidden rounded-lg border border-lore-border bg-lore-bg">
             <BattleMap
               cols={vm.cols}
               rows={vm.rows}
               walls={vm.walls}
               tokens={vm.tokens}
-              reachable={vm.reachable}
+              reachable={armed ? [] : vm.reachable}
               onMoveToken={session.moveToken}
+              targeting={targeting}
+              onPickTarget={onPickTarget}
             />
           </div>
           <p className="mt-2 text-xs text-lore-muted">
-            Drag the highlighted active token within its movement radius. The
-            engine validates every move — illegal drops snap back.
+            {armed
+              ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
+              : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast above. The engine validates everything."}
           </p>
         </section>
 
         {/* HUD + initiative rail */}
         <aside className="space-y-4">
-          <CharacterHud session={session} />
+          {showReaction && reaction && (
+            <ReactionPrompt
+              reactorName={reaction.reactor.name}
+              moverName={reaction.mover.name}
+              onTake={() => {
+                const strike = deriveStrike(reaction.reactor);
+                session.opportunityAttack(
+                  reaction.reactor.id,
+                  reaction.mover.id,
+                  strike.attackBonus,
+                  strike.damage,
+                );
+                if (reactionKey) setDismissedReaction(reactionKey);
+              }}
+              onPass={() => {
+                if (reactionKey) setDismissedReaction(reactionKey);
+              }}
+            />
+          )}
 
-          <div className="rounded-lg border border-lore-border bg-lore-surface p-4">
-            <h2 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
-              Initiative
-            </h2>
-            <ol className="space-y-1 text-sm">
-              {vm.order.map((c) => (
-                <li
-                  key={c.id}
-                  className={`flex items-center gap-2 rounded px-2 py-1 ${
-                    c.isActive
-                      ? "bg-lore-accent-dim text-lore-text"
-                      : "text-lore-muted"
-                  }`}
-                >
-                  {c.isActive && <span aria-hidden>▶</span>}
-                  {c.name}
-                </li>
-              ))}
-            </ol>
-          </div>
+          <CharacterHud session={session} />
 
           <ChatZone entries={session.chat} onSend={session.sendChat} />
         </aside>

@@ -184,6 +184,12 @@ export function eventEntry(action: BattleAction, deps: ChatDeps): ChatEntry {
     case "attack":
       text = "An attack was resolved by the engine.";
       break;
+    case "opportunity_attack":
+      text = "An opportunity attack was resolved by the engine.";
+      break;
+    case "cast_spell":
+      text = `A spell (${action.spellId}) was cast.`;
+      break;
     default:
       text = "The engine resolved an action.";
   }

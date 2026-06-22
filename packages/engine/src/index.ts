@@ -262,7 +262,9 @@ export {
   FIXTURE_BATTLE_PARTY_SIDE,
   FIXTURE_BATTLE_SCENE_ID,
   attackAction,
+  castAction,
   moveAction,
+  opportunityAttackAction,
   type BattleAction,
 } from "./fixtures/battle";
 export type {

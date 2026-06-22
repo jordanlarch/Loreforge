@@ -14,9 +14,11 @@
 import { Engine } from "../engine";
 import type {
   AttackCommand,
+  CastSpellCommand,
   Command,
   EndTurnCommand,
   MoveEntityCommand,
+  OpportunityAttackCommand,
 } from "../commands/types";
 import type { EntityRef, GridPosition } from "../entities/types";
 import type { WorldState } from "../projections/world-state";
@@ -84,6 +86,8 @@ export const FIXTURE_BATTLE_COMMANDS: Command[] = [
       classes: ELARA.classes,
       sceneId: FIXTURE_BATTLE_SCENE_ID,
       position: { x: 2, y: 6 },
+      // Make the Bard a caster so the live cast loop (#58) is exercisable.
+      spellcasting: { ability: "cha" },
     },
   },
   {
@@ -130,10 +134,16 @@ export const FIXTURE_BATTLE_COMMANDS: Command[] = [
 
 /**
  * A player-issued action the live channel replays on top of the base encounter:
- * drag-to-move, end-the-turn, or a HUD quick-attack (#63). All go through the
- * real command path, so the engine remains the authority on legality.
+ * drag-to-move, end-the-turn, a HUD quick-attack (#63), a spell cast, or an
+ * opportunity attack (#58). All go through the real command path, so the engine
+ * remains the authority on legality.
  */
-export type BattleAction = MoveEntityCommand | EndTurnCommand | AttackCommand;
+export type BattleAction =
+  | MoveEntityCommand
+  | EndTurnCommand
+  | AttackCommand
+  | CastSpellCommand
+  | OpportunityAttackCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {
@@ -148,6 +158,26 @@ export function attackAction(
   damage: { notation: string; type: string },
 ): AttackCommand {
   return { type: "attack", attacker, target, attackBonus, damage };
+}
+
+/** Convenience constructor for a single-target spell cast (#58). */
+export function castAction(
+  caster: EntityRef,
+  spellId: string,
+  slotLevel: number,
+  targets: EntityRef[],
+): CastSpellCommand {
+  return { type: "cast_spell", caster, spellId, slotLevel, targets };
+}
+
+/** Convenience constructor for an opportunity-attack reaction (#58). */
+export function opportunityAttackAction(
+  reactor: EntityRef,
+  target: EntityRef,
+  attackBonus: number,
+  damage: { notation: string; type: string },
+): OpportunityAttackCommand {
+  return { type: "opportunity_attack", reactor, target, attackBonus, damage };
 }
 
 /**

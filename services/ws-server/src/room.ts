@@ -159,9 +159,14 @@ export function isBattleAction(value: unknown): value is BattleAction {
     entity?: unknown;
     to?: unknown;
     attacker?: unknown;
+    reactor?: unknown;
     target?: unknown;
     attackBonus?: unknown;
     damage?: unknown;
+    caster?: unknown;
+    spellId?: unknown;
+    slotLevel?: unknown;
+    targets?: unknown;
   };
   if (action.type === "end_turn") return true;
   if (action.type === "move_entity") {
@@ -173,6 +178,24 @@ export function isBattleAction(value: unknown): value is BattleAction {
       typeof action.target === "string" &&
       typeof action.attackBonus === "number" &&
       isDamage(action.damage)
+    );
+  }
+  if (action.type === "opportunity_attack") {
+    return (
+      typeof action.reactor === "string" &&
+      typeof action.target === "string" &&
+      typeof action.attackBonus === "number" &&
+      isDamage(action.damage)
+    );
+  }
+  if (action.type === "cast_spell") {
+    return (
+      typeof action.caster === "string" &&
+      typeof action.spellId === "string" &&
+      typeof action.slotLevel === "number" &&
+      (action.targets === undefined ||
+        (Array.isArray(action.targets) &&
+          action.targets.every((t) => typeof t === "string")))
     );
   }
   return false;

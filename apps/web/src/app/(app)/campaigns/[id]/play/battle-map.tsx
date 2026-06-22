@@ -42,6 +42,15 @@ export type BattleToken = {
   draggable: boolean;
 };
 
+/** Active targeting overlay: a range area around an origin + pickable targets. */
+export type TargetingOverlay = {
+  origin: Cell;
+  /** Range in cells (SRD 5-5-5 → a Chebyshev square of this radius). */
+  rangeCells: number;
+  /** Ids of tokens that may be picked as the target. */
+  targetableIds: string[];
+};
+
 export type BattleMapProps = {
   cols: number;
   rows: number;
@@ -50,6 +59,9 @@ export type BattleMapProps = {
   /** Cells the active combatant can still reach this turn (movement radius). */
   reachable: Cell[];
   onMoveToken: (id: string, to: Cell) => void;
+  /** When present, the map is in target-picking mode (#58). */
+  targeting?: TargetingOverlay;
+  onPickTarget?: (id: string) => void;
 };
 
 const CELL_SIZE = 44;
@@ -135,7 +147,14 @@ export default function BattleMap(props: BattleMapProps) {
   useEffect(() => {
     if (readyRef.current) redraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.cols, props.rows, props.walls, props.tokens, props.reachable]);
+  }, [
+    props.cols,
+    props.rows,
+    props.walls,
+    props.tokens,
+    props.reachable,
+    props.targeting,
+  ]);
 
   function onPointerMove(event: { global: { x: number; y: number } }) {
     const drag = dragRef.current;
@@ -166,7 +185,8 @@ export default function BattleMap(props: BattleMapProps) {
     if (!world) return;
     world.removeChildren().forEach((child) => child.destroy());
 
-    const { cols, rows, walls, tokens, reachable } = propsRef.current;
+    const { cols, rows, walls, tokens, reachable, targeting } =
+      propsRef.current;
 
     // Grid lines.
     const grid = new Graphics();
@@ -201,13 +221,32 @@ export default function BattleMap(props: BattleMapProps) {
       world.addChild(wallGfx);
     }
 
+    // Targeting range area (a Chebyshev square around the origin).
+    if (targeting) {
+      const { origin, rangeCells } = targeting;
+      const x0 = Math.max(0, origin.x - rangeCells);
+      const y0 = Math.max(0, origin.y - rangeCells);
+      const x1 = Math.min(cols - 1, origin.x + rangeCells);
+      const y1 = Math.min(rows - 1, origin.y + rangeCells);
+      const px = cellToPixel({ x: x0, y: y0 }, CELL_SIZE);
+      const w = (x1 - x0 + 1) * CELL_SIZE;
+      const h = (y1 - y0 + 1) * CELL_SIZE;
+      const ring = new Graphics();
+      ring.rect(px.x, px.y, w, h).fill({ color: TOKEN_COLORS.hostile, alpha: 0.08 });
+      ring
+        .rect(px.x, px.y, w, h)
+        .stroke({ width: 2, color: TOKEN_COLORS.hostile, alpha: 0.7 });
+      world.addChild(ring);
+    }
+
     // Tokens.
+    const targetable = new Set(targeting?.targetableIds ?? []);
     for (const token of tokens) {
-      world.addChild(buildToken(token));
+      world.addChild(buildToken(token, targetable.has(token.id)));
     }
   }
 
-  function buildToken(token: BattleToken): Container {
+  function buildToken(token: BattleToken, targetable: boolean): Container {
     const sprite = new Container();
     const center = cellCenter(token.position, CELL_SIZE);
     sprite.position.set(center.x, center.y);
@@ -226,6 +265,16 @@ export default function BattleMap(props: BattleMapProps) {
         alpha: 0.9,
       });
       sprite.addChild(ring);
+    }
+
+    if (targetable) {
+      const reticle = new Graphics();
+      reticle.circle(0, 0, radius + 6).stroke({
+        width: 3,
+        color: TOKEN_COLORS.hostile,
+        alpha: 0.95,
+      });
+      sprite.addChild(reticle);
     }
 
     const body = new Graphics();
@@ -261,7 +310,12 @@ export default function BattleMap(props: BattleMapProps) {
     }
     sprite.addChild(bar);
 
-    if (token.draggable) {
+    if (targetable) {
+      // Targeting takes precedence over dragging: tap an enemy to pick it.
+      sprite.eventMode = "static";
+      sprite.cursor = "crosshair";
+      sprite.on("pointertap", () => propsRef.current.onPickTarget?.(token.id));
+    } else if (token.draggable) {
       sprite.eventMode = "static";
       sprite.cursor = "grab";
       sprite.on("pointerdown", () => {

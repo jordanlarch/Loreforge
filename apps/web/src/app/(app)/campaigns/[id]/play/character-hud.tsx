@@ -9,6 +9,8 @@ import {
   type WorldState,
 } from "@app/engine";
 
+import { deriveStrike } from "@/lib/live-combat";
+
 /** The slice of the live session the HUD drives (decoupled from the hook). */
 type HudSession = {
   state?: WorldState;
@@ -83,22 +85,15 @@ export function CharacterHud({ session }: { session: HudSession }) {
     Math.min(100, Math.round((entity.hp.current / Math.max(1, entity.hp.max)) * 100)),
   );
 
-  // Derive a generic weapon "Strike" from the live entity (real weapon lists
-  // ride the sheet in #58): finesse-style best of STR/DEX, proficiency added.
-  const strMod = abilityModifier(entity.abilityScores.str);
-  const dexMod = abilityModifier(entity.abilityScores.dex);
-  const atkMod = Math.max(strMod, dexMod);
-  const attackBonus = entity.proficiencyBonus + atkMod;
-  const damageNotation = atkMod !== 0 ? `1d8${fmtMod(atkMod)}` : "1d8";
+  // Generic weapon "Strike" derived from the live entity (shared with the map
+  // action bar); real weapon lists ride the sheet later.
+  const strike = deriveStrike(entity);
 
   const chosenTarget = targetId || targets[0]?.id || "";
 
   function onStrike() {
     if (!chosenTarget) return;
-    session.attack(entity.id, chosenTarget, attackBonus, {
-      notation: damageNotation,
-      type: "slashing",
-    });
+    session.attack(entity.id, chosenTarget, strike.attackBonus, strike.damage);
   }
 
   const borderClass = yourTurn
@@ -250,9 +245,7 @@ export function CharacterHud({ session }: { session: HudSession }) {
       {/* Attacks */}
       <Section title="Attacks">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-lore-text">
-            Strike {fmtMod(attackBonus)} · {damageNotation}
-          </span>
+          <span className="text-lore-text">{strike.label}</span>
           {targets.length > 0 ? (
             <>
               <select

@@ -105,6 +105,30 @@ describe("eventEntry", () => {
         deps(),
       ).text,
     ).toMatch(/attack/i);
+    expect(
+      eventEntry(
+        {
+          type: "opportunity_attack",
+          reactor: "a",
+          target: "b",
+          attackBonus: 5,
+          damage: { notation: "1d8+3", type: "slashing" },
+        },
+        deps(),
+      ).text,
+    ).toMatch(/opportunity/i);
+    expect(
+      eventEntry(
+        {
+          type: "cast_spell",
+          caster: "a",
+          spellId: "fire-bolt",
+          slotLevel: 0,
+          targets: ["b"],
+        },
+        deps(),
+      ).text,
+    ).toMatch(/fire-bolt/);
   });
 });
 

@@ -23,7 +23,8 @@ all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
 **#59 done** (campaign workspace Plot Hook Kanban + accept-from-Realms lifecycle, migration `0010`);
 **#62 done** (campaign creation flows — Quick Forge / Guided Setup / Empty World);
 **#57 done** (Live Play narrative chat + player input modes, server-authoritative chat on the shared Yjs doc);
-**#63 done** (Live Play character HUD right rail with engine-routed quick-attack).
+**#63 done** (Live Play character HUD right rail with engine-routed quick-attack);
+**#58 done** (Live Play full combat loop: map target picker + range rings, combat overlay, engine-resolved attack/cast, timed opportunity-attack reaction prompt).
 
 ## How to use this file
 
@@ -210,10 +211,10 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 | PLAY-3 | Character HUD right rail (abilities, HP/AC, conditions, resources, attacks, inventory quick-use) | P4 | #63 | Partial | **#63**: Live Stats HUD for the active combatant in the play surface right rail, driven entirely by the synced `WorldState` so it updates live as engine events resolve — abilities + mods, HP bar/temp/AC/speed/prof, action-economy chips, conditions, concentration, spell slots, death saves, active-turn highlight, and a compact mode. **Quick-attack routes through the engine**: a derived "Strike" (`attackAction` added to the live `BattleAction` set; validated server-side) against a hostile-target picker. **Deferred:** real weapon/attack lists + inventory from the sheet on the live entity (item quick-use is a narrative stub today), portrait, quick-roll buttons, and HP-change toasts — land with the combat loop #58. |
 | PLAY-4 | Party rail (collapsed chips, hover mini-HUD, assist pulses) | P4 | doc-only | Missing | — |
 | PLAY-5 | Full top bar (scene breadcrumb, dual clocks, Pause, tools row: pacing/TTS/memory/inventory) | P4 | doc-only | Missing | — |
-| PLAY-6 | Combat overlay (round banner, horizontal initiative on map, range rings) + full combat loop (attacks/spells/reactions/targeting/resolution) | P4 | #58 | Partial | Today: move + end-turn only. |
+| PLAY-6 | Combat overlay (round banner, horizontal initiative on map, range rings) + full combat loop (attacks/spells/reactions/targeting/resolution) | P4 | #58 | Partial | **#58**: combat overlay above the map (round banner + horizontal initiative strip + movement radius + targeting range square); a combat **action bar** on a controllable turn (Attack + Cast menu) that arms the map's **target picker** (range ring + tap-to-pick highlighted enemies); attack + single-target spell cast resolved by the **engine** (`attackAction`/`castAction` added to the live `BattleAction` set, validated server-side). **Deferred:** real weapon/attack lists + spell book from the sheet (cast menu is a curated 3-spell subset: Fire Bolt / Sacred Flame / Guiding Bolt; attack is a generic 1d8 Strike), area/AoE aim picker (single-target only), Ready action, resolution detail display (rolls surface only as a terse chat event row), HP-change toasts. |
 | PLAY-7 | Map zoom levels L0–L4 + layer toggles + Edit Map + fog of war + token interaction menus + text-driven movement | P4 | doc-only | Missing | Today: single tactical grid, drag-only. |
 | PLAY-8 | Scene transitions (cross-fade, location banner, auto-forge stubs on travel) | P4 | doc-only | Missing | — |
-| PLAY-9 | Tier 4 reaction windows (timed prompts, auto-pass), pacing controls | P4 | #58 | Missing | — |
+| PLAY-9 | Tier 4 reaction windows (timed prompts, auto-pass), pacing controls | P4 | #58 | Partial | **#58**: timed opportunity-attack prompt — when the engine opens a reaction window (`encounter.reactionWindow`) for a party-controlled reactor, a 12s countdown prompt offers Opportunity Attack (engine `opportunity_attack`) or Pass; auto-passes on timeout; dismissed windows stay dismissed. **Deferred:** Ready-action triggers, reaction prompts for hostile/AI reactors (no enemy AI to move yet, so OA-for-player rarely fires in the current sandbox), and broader pacing controls. |
 | PLAY-10 | TTS (toggle, per-NPC voices, Listen, queue) | P4 (TTS) | doc-only | Missing | TTS in v1; STT is v1.5 (V15-*). |
 | PLAY-11 | Inline memory & retcon (panel, per-entry "Retcon from here", ghost-timeline confirm) | P5 | doc-only | Missing | Retcon UI is P6/E5. |
 | PLAY-12 | End-session flow (stats summary, auto-recap, memory pin, redirect to workspace) | P4/P5 | doc-only | Missing | — |

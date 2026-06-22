@@ -210,6 +210,26 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
         t: "cmd",
         action: { type: "attack", attacker, target, attackBonus, damage },
       }),
+    castSpell: (
+      caster: string,
+      spellId: string,
+      slotLevel: number,
+      targets: string[],
+    ) =>
+      send({
+        t: "cmd",
+        action: { type: "cast_spell", caster, spellId, slotLevel, targets },
+      }),
+    opportunityAttack: (
+      reactor: string,
+      target: string,
+      attackBonus: number,
+      damage: { notation: string; type: string },
+    ) =>
+      send({
+        t: "cmd",
+        action: { type: "opportunity_attack", reactor, target, attackBonus, damage },
+      }),
     reset: () => send({ t: "reset" }),
   };
 }

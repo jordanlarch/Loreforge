@@ -13,6 +13,7 @@
   "dependencies": {
     "@app/db": "*",
     "@app/engine": "*",
+    "@app/llm": "*",
     "@hocuspocus/server": "^2.15.2",
     "drizzle-orm": "^0.43.1",
     "jose": "^5.9.6",

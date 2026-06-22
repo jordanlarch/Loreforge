@@ -4,8 +4,9 @@ import * as Y from "yjs";
 import {
   appendChat,
   chatArray,
-  composeChat,
+  composePlayerInput,
   eventEntry,
+  gmEntry,
   isChatInput,
   isOoc,
   rollDice,
@@ -51,36 +52,62 @@ describe("ooc helpers", () => {
   });
 });
 
-describe("composeChat", () => {
-  it("produces a player line plus a stubbed GM echo for normal input", () => {
-    const entries = composeChat(
+describe("composePlayerInput", () => {
+  it("produces just the player line and flags a GM response for normal input", () => {
+    const { entries, respond } = composePlayerInput(
       { author: "Player", mode: "speak", text: "Hail, traveler." },
       deps(),
     );
-    expect(entries.map((e) => e.kind)).toEqual(["player", "gm"]);
+    expect(entries.map((e) => e.kind)).toEqual(["player"]);
     expect(entries[0]!.mode).toBe("speak");
-    expect(entries[1]!.author).toBe("GM");
+    expect(respond).toBe(true);
   });
 
-  it("turns /roll into a single dice widget entry", () => {
-    const entries = composeChat(
+  it("turns /roll into a single dice widget entry with no GM response", () => {
+    const { entries, respond } = composePlayerInput(
       { author: "Player", text: "/roll 1d20+5" },
       deps(() => 0.95),
     );
     expect(entries).toHaveLength(1);
     expect(entries[0]!.kind).toBe("roll");
     expect(entries[0]!.dice?.notation).toBe("1d20+5");
+    expect(respond).toBe(false);
   });
 
-  it("classifies ((ooc)) input", () => {
-    const entries = composeChat({ author: "Player", text: "((afk))" }, deps());
+  it("classifies ((ooc)) input and suppresses the GM response", () => {
+    const { entries, respond } = composePlayerInput(
+      { author: "Player", text: "((afk))" },
+      deps(),
+    );
     expect(entries).toHaveLength(1);
     expect(entries[0]!.kind).toBe("ooc");
     expect(entries[0]!.text).toBe("afk");
+    expect(respond).toBe(false);
   });
 
   it("ignores empty input", () => {
-    expect(composeChat({ author: "Player", text: "   " }, deps())).toEqual([]);
+    const { entries, respond } = composePlayerInput(
+      { author: "Player", text: "   " },
+      deps(),
+    );
+    expect(entries).toEqual([]);
+    expect(respond).toBe(false);
+  });
+});
+
+describe("gmEntry", () => {
+  it("stamps a GM entry and carries mentions when present", () => {
+    const entry = gmEntry("The door creaks open.", deps(), {
+      mentions: ["Old Door"],
+    });
+    expect(entry.kind).toBe("gm");
+    expect(entry.author).toBe("GM");
+    expect(entry.mentions).toEqual(["Old Door"]);
+  });
+
+  it("omits mentions when none are referenced", () => {
+    const entry = gmEntry("Silence falls.", deps());
+    expect(entry.mentions).toBeUndefined();
   });
 });
 
@@ -145,7 +172,10 @@ describe("isChatInput", () => {
 describe("appendChat", () => {
   it("pushes entries onto the shared chat array", () => {
     const doc = new Y.Doc();
-    appendChat(doc, composeChat({ author: "Player", text: "((hi))" }, deps()));
+    appendChat(
+      doc,
+      composePlayerInput({ author: "Player", text: "((hi))" }, deps()).entries,
+    );
     expect(chatArray(doc).toArray()).toHaveLength(1);
     expect(chatArray(doc).get(0).kind).toBe("ooc");
   });

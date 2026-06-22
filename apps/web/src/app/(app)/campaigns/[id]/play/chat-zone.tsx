@@ -127,7 +127,23 @@ function ChatRow({ entry }: { entry: ChatEntry }) {
       <span className={isGm ? "text-lore-muted" : "text-lore-text"}>
         {entry.text}
       </span>
+      {entry.mentions && entry.mentions.length > 0 ? (
+        <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
+          {entry.mentions.map((name) => (
+            <EntityChip key={name} name={name} />
+          ))}
+        </span>
+      ) : null}
     </div>
+  );
+}
+
+/** A referenced world entity rendered as an @Entity chip in narration (#96). */
+function EntityChip({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center rounded border border-lore-accent/40 bg-lore-accent-dim px-1.5 py-0.5 text-xs text-lore-accent">
+      @{name}
+    </span>
   );
 }
 

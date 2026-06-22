@@ -39,6 +39,8 @@ export interface ChatEntry {
   mode?: string;
   text: string;
   dice?: DiceRoll;
+  /** World-entity names the GM referenced (@Entity chips, #96). */
+  mentions?: string[];
   ts: number;
 }
 
@@ -102,7 +104,8 @@ export function stripOoc(text: string): string {
   return text.trim().slice(2, -2).trim();
 }
 
-function gmEcho(mode: string | undefined, text: string): string {
+/** Stubbed GM line used when AI-GM narration is unconfigured or fails (#96). */
+export function gmEcho(mode: string | undefined, text: string): string {
   switch (mode) {
     case "action":
       return `The GM weighs your action and the scene shifts in answer.`;
@@ -119,14 +122,31 @@ function gmEcho(mode: string | undefined, text: string): string {
   }
 }
 
+/** The immediate entries a player input produces + whether the GM responds. */
+export interface ComposedInput {
+  entries: ChatEntry[];
+  /**
+   * True when a GM narration should follow (a normal moded line). Slash, OOC,
+   * roll, and empty inputs are self-contained and get no GM response. The GM
+   * entry is produced asynchronously by the caller (real narration or the stub)
+   * so this stays pure + synchronous.
+   */
+  respond: boolean;
+}
+
 /**
- * Compose the chat entries produced by one player input. A `/roll` slash yields
- * a single dice widget; an `((ooc))` line yields an out-of-character note; a
- * normal line yields the player entry plus a stubbed GM echo.
+ * Compose the *immediate* entries for one player input (#96). A `/roll` slash
+ * yields a dice widget; `((ooc))` an out-of-character note; `/help` an engine
+ * hint; a normal line yields the player entry and flags `respond` so the caller
+ * can append a GM narration. Pure + synchronous — the async GM call lives in the
+ * caller, since narration needs the LLM + world context.
  */
-export function composeChat(input: ChatInput, deps: ChatDeps): ChatEntry[] {
+export function composePlayerInput(
+  input: ChatInput,
+  deps: ChatDeps,
+): ComposedInput {
   const text = input.text.trim();
-  if (text.length === 0) return [];
+  if (text.length === 0) return { entries: [], respond: false };
   const stamp = () => ({ id: deps.uuid(), ts: deps.now() });
 
   if (text.startsWith("/")) {
@@ -135,40 +155,75 @@ export function composeChat(input: ChatInput, deps: ChatDeps): ChatEntry[] {
     if (cmd === "roll" || cmd === "r") {
       const roll = rollDice(rest.join("") || "1d20", deps.rng);
       if (roll) {
-        return [
-          {
-            ...stamp(),
-            kind: "roll",
-            author: input.author,
-            text: `rolled ${roll.notation}`,
-            dice: roll,
-          },
-        ];
+        return {
+          entries: [
+            {
+              ...stamp(),
+              kind: "roll",
+              author: input.author,
+              text: `rolled ${roll.notation}`,
+              dice: roll,
+            },
+          ],
+          respond: false,
+        };
       }
     }
     if (cmd === "help") {
-      return [
-        {
-          ...stamp(),
-          kind: "event",
-          author: "Engine",
-          text: "Commands: /roll NdM±K · wrap ((text)) for out-of-character.",
-        },
-      ];
+      return {
+        entries: [
+          {
+            ...stamp(),
+            kind: "event",
+            author: "Engine",
+            text: "Commands: /roll NdM±K · wrap ((text)) for out-of-character.",
+          },
+        ],
+        respond: false,
+      };
     }
     // Unknown slash falls through to a normal player line.
   }
 
   if (isOoc(text)) {
-    return [
-      { ...stamp(), kind: "ooc", author: input.author, text: stripOoc(text) },
-    ];
+    return {
+      entries: [
+        { ...stamp(), kind: "ooc", author: input.author, text: stripOoc(text) },
+      ],
+      respond: false,
+    };
   }
 
-  return [
-    { ...stamp(), kind: "player", author: input.author, mode: input.mode, text },
-    { ...stamp(), kind: "gm", author: "GM", text: gmEcho(input.mode, text) },
-  ];
+  return {
+    entries: [
+      {
+        ...stamp(),
+        kind: "player",
+        author: input.author,
+        mode: input.mode,
+        text,
+      },
+    ],
+    respond: true,
+  };
+}
+
+/** A GM chat entry (real narration or the {@link gmEcho} stub), with mentions. */
+export function gmEntry(
+  text: string,
+  deps: ChatDeps,
+  opts?: { mentions?: string[] },
+): ChatEntry {
+  return {
+    id: deps.uuid(),
+    ts: deps.now(),
+    kind: "gm",
+    author: "GM",
+    text,
+    ...(opts?.mentions && opts.mentions.length > 0
+      ? { mentions: opts.mentions }
+      : {}),
+  };
 }
 
 /** A terse engine-event chat row for an accepted battle command. */

@@ -26,12 +26,23 @@ import {
 } from "./auth.js";
 import {
   appendChat,
-  composeChat,
+  chatArray,
+  composePlayerInput,
   eventEntry,
+  gmEcho,
+  gmEntry,
   isChatInput,
   type ChatDeps,
+  type ChatEntry,
 } from "./chat.js";
-import { getCampaignParty, getEventStore, isCampaignOwner } from "./db.js";
+import {
+  getCampaignParty,
+  getEventStore,
+  isCampaignOwner,
+  loadChatMessages,
+  persistChatMessages,
+} from "./db.js";
+import { getNarrationClient, narrate } from "./narration.js";
 import { writeProjection } from "./projection.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
@@ -99,6 +110,55 @@ function roomFor(documentName: string): LiveRoom {
   return room;
 }
 
+/**
+ * Append entries to the shared chat array and, for a persisted campaign room,
+ * durably store them (#96). `seq` is the doc's chat length before the push,
+ * which equals the persisted count, so re-hydration order is preserved. Sandbox
+ * rooms stay ephemeral (no persistence).
+ */
+async function appendAndPersist(
+  document: Parameters<typeof appendChat>[0],
+  documentName: string,
+  entries: ChatEntry[],
+): Promise<void> {
+  if (entries.length === 0) return;
+  const startSeq = chatArray(document).length;
+  appendChat(document, entries);
+  const parsed = parseRoom(documentName);
+  if (parsed?.kind === "campaign") {
+    await persistChatMessages(parsed.campaignId, entries, startSeq);
+  }
+}
+
+/**
+ * Produce the GM's reply to a player line (#96): real AI-GM narration when
+ * configured (with the live scene + recent chat as context), falling back to the
+ * stubbed echo on missing config or any narration failure. The deterministic
+ * engine still owns all mechanics — this is fiction only.
+ */
+async function composeGmReply(
+  room: LiveRoom,
+  priorChat: ChatEntry[],
+  message: { mode?: string; text: string },
+): Promise<ChatEntry> {
+  const client = getNarrationClient();
+  if (client) {
+    try {
+      const result = await narrate({
+        client,
+        state: await room.getState(),
+        recentChat: priorChat,
+        playerLine: message.text,
+        mode: message.mode,
+      });
+      return gmEntry(result.text, chatDeps, { mentions: result.mentions });
+    } catch {
+      // Fall through to the stub on any narration failure (transport/empty).
+    }
+  }
+  return gmEntry(gmEcho(message.mode, message.text), chatDeps);
+}
+
 const server = new Hocuspocus({
   name: "loreforge-ws",
   port: PORT,
@@ -132,6 +192,13 @@ const server = new Hocuspocus({
     const room = roomFor(documentName);
     await room.ensureSeeded();
     writeProjection(document, await room.getState());
+    // Re-hydrate persisted chat so a cold-loaded campaign room resumes the
+    // conversation instead of starting blank (#96). Sandbox rooms are ephemeral.
+    const parsed = parseRoom(documentName);
+    if (parsed?.kind === "campaign") {
+      const history = await loadChatMessages(parsed.campaignId);
+      if (history.length > 0) appendChat(document, history);
+    }
     return document;
   },
 
@@ -148,8 +215,10 @@ const server = new Hocuspocus({
       const { accepted } = await room.apply(message.action);
       if (accepted) {
         writeProjection(document, await room.getState());
-        // Surface the accepted engine action as a chat event row (#57).
-        appendChat(document, [eventEntry(message.action, chatDeps)]);
+        // Surface the accepted engine action as a chat event row (#57, #96).
+        await appendAndPersist(document, documentName, [
+          eventEntry(message.action, chatDeps),
+        ]);
       } else {
         connection.sendStateless(REJECTED);
       }
@@ -157,13 +226,19 @@ const server = new Hocuspocus({
     }
 
     if (message.t === "chat") {
-      appendChat(
-        document,
-        composeChat(
-          { author: PLAYER_LABEL, mode: message.mode, text: message.text },
-          chatDeps,
-        ),
+      const { entries, respond } = composePlayerInput(
+        { author: PLAYER_LABEL, mode: message.mode, text: message.text },
+        chatDeps,
       );
+      // Capture the conversation *before* the player's line so it isn't echoed
+      // back to the narrator as duplicate context.
+      const priorChat = chatArray(document).toArray();
+      await appendAndPersist(document, documentName, entries);
+
+      if (respond) {
+        const gm = await composeGmReply(room, priorChat, message);
+        await appendAndPersist(document, documentName, [gm]);
+      }
       return;
     }
 

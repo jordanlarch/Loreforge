@@ -23,6 +23,8 @@ export interface ChatEntry {
   mode?: string;
   text: string;
   dice?: DiceRoll;
+  /** World-entity names the GM referenced, rendered as @Entity chips (#96). */
+  mentions?: string[];
   ts: number;
 }
 

@@ -3,11 +3,21 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { buildCharacterSheet, type Ability } from "@app/engine";
+import {
+  buildCharacterSheet,
+  MAX_CHARACTER_LEVEL,
+  xpProgress,
+  type Ability,
+} from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 
+import { EquipmentTab } from "./equipment-tab";
 import { LevelUpDialog } from "./level-up-dialog";
+import { SpellsTab } from "./spells-tab";
+
+const TABS = ["Overview", "Equipment", "Spells", "Notes"] as const;
+type Tab = (typeof TABS)[number];
 
 const ABILITY_LABELS: Record<Ability, string> = {
   str: "Strength",
@@ -26,6 +36,7 @@ export function CharacterSheetView({ id }: { id: string }) {
   const utils = trpc.useUtils();
   const query = trpc.characters.get.useQuery({ id });
   const [levelingUp, setLevelingUp] = useState(false);
+  const [tab, setTab] = useState<Tab>("Overview");
 
   const update = trpc.characters.update.useMutation({
     async onMutate(vars) {
@@ -76,6 +87,8 @@ export function CharacterSheetView({ id }: { id: string }) {
   }
 
   const sheet = buildCharacterSheet(character);
+  const progress = xpProgress(character.xp, sheet.level);
+  const atCap = sheet.level >= MAX_CHARACTER_LEVEL;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -120,13 +133,44 @@ export function CharacterSheetView({ id }: { id: string }) {
               ariaLabel="Background"
             />
           </p>
-          <button
-            type="button"
-            onClick={() => setLevelingUp(true)}
-            className="mt-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent"
-          >
-            Level Up
-          </button>
+          <div className="mt-3 max-w-xs">
+            <div className="mb-1 flex items-center justify-between text-xs text-lore-muted">
+              <span>
+                XP {character.xp.toLocaleString()}
+                {atCap
+                  ? " · Max level"
+                  : ` / ${progress.ceiling?.toLocaleString()}`}
+              </span>
+              {!atCap && progress.nextLevel && (
+                <span>→ Lvl {progress.nextLevel}</span>
+              )}
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-lore-surface">
+              <div
+                className="h-full rounded-full bg-lore-accent transition-all"
+                style={{ width: `${Math.round(progress.fraction * 100)}%` }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setLevelingUp(true)}
+              disabled={!progress.canLevelUp}
+              title={
+                atCap
+                  ? "Already at the level 20 cap"
+                  : progress.canLevelUp
+                    ? undefined
+                    : `Need ${progress.remaining?.toLocaleString()} more XP to level up`
+              }
+              className="mt-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {atCap
+                ? "Max level"
+                : progress.canLevelUp
+                  ? "Level Up"
+                  : "Level Up (locked)"}
+            </button>
+          </div>
         </div>
         <div className="flex gap-3 text-center">
           <EditableStat
@@ -155,6 +199,25 @@ export function CharacterSheetView({ id }: { id: string }) {
         </div>
       </header>
 
+      <nav className="mt-6 flex flex-wrap gap-1 border-b border-lore-border">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm transition-colors ${
+              tab === t
+                ? "border-lore-accent text-lore-text"
+                : "border-transparent text-lore-muted hover:text-lore-text"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "Overview" && (
+        <>
       <section className="mt-8">
         <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
           Ability Scores
@@ -262,22 +325,46 @@ export function CharacterSheetView({ id }: { id: string }) {
         />
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-          Notes
-        </h2>
-        <EditableTextArea
-          value={character.notes}
-          placeholder="Backstory, goals, session notes…"
-          onCommit={(notes) => update.mutate({ id, notes })}
-          ariaLabel="Notes"
-        />
-      </section>
-
       <p className="mt-10 text-xs text-lore-muted">
         Click any score, HP, AC, XP, name, or detail to edit. Derived values are
         recomputed by <code className="text-lore-text">@app/engine</code>.
       </p>
+        </>
+      )}
+
+      {tab === "Equipment" && (
+        <div className="mt-8">
+          <EquipmentTab
+            equipment={character.equipment}
+            saving={update.isPending}
+            onSave={(equipment) => update.mutate({ id, equipment })}
+          />
+        </div>
+      )}
+
+      {tab === "Spells" && (
+        <div className="mt-8">
+          <SpellsTab
+            spells={character.spells}
+            saving={update.isPending}
+            onSave={(spells) => update.mutate({ id, spells })}
+          />
+        </div>
+      )}
+
+      {tab === "Notes" && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
+            Notes
+          </h2>
+          <EditableTextArea
+            value={character.notes}
+            placeholder="Backstory, goals, session notes…"
+            onCommit={(notes) => update.mutate({ id, notes })}
+            ariaLabel="Notes"
+          />
+        </section>
+      )}
 
       {levelingUp && (
         <LevelUpDialog

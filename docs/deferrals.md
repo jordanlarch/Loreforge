@@ -24,7 +24,8 @@ all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
 **#62 done** (campaign creation flows — Quick Forge / Guided Setup / Empty World);
 **#57 done** (Live Play narrative chat + player input modes, server-authoritative chat on the shared Yjs doc);
 **#63 done** (Live Play character HUD right rail with engine-routed quick-attack);
-**#58 done** (Live Play full combat loop: map target picker + range rings, combat overlay, engine-resolved attack/cast, timed opportunity-attack reaction prompt).
+**#58 done** (Live Play full combat loop: map target picker + range rings, combat overlay, engine-resolved attack/cast, timed opportunity-attack reaction prompt);
+**CHAR-7/CHAR-9 done** (tabbed character sheet with Equipment + Spells + Notes tabs; XP-gated level-up with engine XP-threshold helpers).
 
 ## How to use this file
 
@@ -132,10 +133,10 @@ features regardless of UI work. Router exposes only `list/get/create/update/leve
 | CHAR-3 | Dashboard XP bars, Last Played, campaign grouping + Play Now, right sidebar, bulk select | characters-dashboard.md | P4 | doc-only | Missing | Depends on CHAR-1 + campaigns. |
 | CHAR-4 | Creation wizard steps 1,4,7,8,9 (Concept, Background, Equipment, Features/Spells, Flavor) — 5 of 10 built | character-creation-wizard.md | P2 (deepen) | doc-only | Partial | Built: Species, Class, Abilities, Skills, Review. |
 | CHAR-5 | Wizard polish: full layout (right preview pane, footer), drafts/auto-save, undo stack, randomizers, 4d6 roll, success toast | character-creation-wizard.md | P2 (deepen) | doc-only | Missing | — |
-| CHAR-6 | Inline sheet: tabbed layout (8 tabs), right Live Stats HUD, left summary card, floating Save/Cancel toolbar, auto-save | character-view-inline-editing.md | P2 (deepen) | doc-only | Partial | Today: single scroll page, field-at-a-time commit, core fields only. |
-| CHAR-7 | Inline sheet tabs requiring schema: Combat (attacks/death saves), Equipment, Features, Spells, Personality, Notes | character-view-inline-editing.md | P4 | doc-only | Missing | Depends on CHAR-1. |
+| CHAR-6 | Inline sheet: tabbed layout (8 tabs), right Live Stats HUD, left summary card, floating Save/Cancel toolbar, auto-save | character-view-inline-editing.md | P2 (deepen) | doc-only | Partial | **Tabbed layout shipped** (Overview / Equipment / Spells / Notes) over the inline sheet. Still deferred: full 8-tab set (Combat/Features/Personality), right Live Stats HUD on the view, left summary card, floating Save/Cancel toolbar, auto-save. |
+| CHAR-7 | Inline sheet tabs requiring schema: Combat (attacks/death saves), Equipment, Features, Spells, Personality, Notes | character-view-inline-editing.md | P4 | doc-only | Partial | **Done**: Equipment tab (rich item editor — qty/equipped/slot/rarity/weight/attunement/description + carried weight; local draft → `characters.update`), Spells tab (known/prepared list grouped by level + per-level slot pools), and a Notes tab. **Deferred**: Combat tab (attacks/death saves), Features tab, Personality tab, and Smithy "Equip from library" (SMITH-5). |
 | CHAR-8 | Level-up: 5-step wizard parity, Spells & Magic step, Review/confirm + celebration, feature/ASI/subclass application, version history | level-up-wizard.md | P2 (deepen) | doc-only | Partial | Today: single-screen HP + class-level increment; features listed as stubs, not applied. |
-| CHAR-9 | XP-gated level-up (threshold check + post-level reset) | level-up-wizard.md | P4 | doc-only | Missing | Button always available; depends on CHAR-1 XP field. |
+| CHAR-9 | XP-gated level-up (threshold check + post-level reset) | level-up-wizard.md | P4 | doc-only | Done | **Done**: engine `XP_THRESHOLDS` / `xpForLevel` / `levelForXp` / `xpProgress` (5E DMG table, 1–20); the sheet shows an XP progress bar toward the next level and **gates the Level Up button** until the threshold is met ("Level Up (locked)" with a "need X more XP" hint; "Max level" at 20). Standard cumulative thresholds (no XP reset); milestone-mode override is not offered. |
 
 ### 3.4 Smithy — `docs/ui-flows/smithy.md`
 

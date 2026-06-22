@@ -11,6 +11,7 @@ import {
   hpGainOnLevelUp,
   hpRollFromSeed,
   isValidPointBuy,
+  levelForXp,
   levelUpSeed,
   maxHpAtFirstLevel,
   POINT_BUY_BUDGET,
@@ -18,6 +19,8 @@ import {
   pointBuyRemaining,
   SKILLS,
   SKILL_ABILITY,
+  xpForLevel,
+  xpProgress,
   STANDARD_ARRAY,
   totalPointBuyCost,
 } from "./character-build";
@@ -175,5 +178,51 @@ describe("level-up feature stubs", () => {
 
   it("surfaces only the generic features stub at non-ASI levels", () => {
     expect(featureStubsForLevel("Wizard", 3)).toEqual(["New Wizard features"]);
+  });
+});
+
+describe("xp thresholds", () => {
+  it("maps level → cumulative XP (5E table)", () => {
+    expect(xpForLevel(1)).toBe(0);
+    expect(xpForLevel(2)).toBe(300);
+    expect(xpForLevel(5)).toBe(6_500);
+    expect(xpForLevel(20)).toBe(355_000);
+  });
+
+  it("clamps out-of-range levels", () => {
+    expect(xpForLevel(0)).toBe(0);
+    expect(xpForLevel(99)).toBe(355_000);
+  });
+
+  it("derives the level a given XP total has reached", () => {
+    expect(levelForXp(0)).toBe(1);
+    expect(levelForXp(299)).toBe(1);
+    expect(levelForXp(300)).toBe(2);
+    expect(levelForXp(6_499)).toBe(4);
+    expect(levelForXp(6_500)).toBe(5);
+    expect(levelForXp(10_000_000)).toBe(20);
+  });
+
+  it("reports progress toward the next level and gates level-up", () => {
+    const mid = xpProgress(450, 2); // band 300→900, halfway
+    expect(mid.nextLevel).toBe(3);
+    expect(mid.floor).toBe(300);
+    expect(mid.ceiling).toBe(900);
+    expect(mid.remaining).toBe(450);
+    expect(mid.fraction).toBeCloseTo(0.25);
+    expect(mid.canLevelUp).toBe(false);
+
+    const ready = xpProgress(900, 2);
+    expect(ready.canLevelUp).toBe(true);
+    expect(ready.remaining).toBe(0);
+  });
+
+  it("caps progress at level 20", () => {
+    const capped = xpProgress(500_000, 20);
+    expect(capped.nextLevel).toBeNull();
+    expect(capped.ceiling).toBeNull();
+    expect(capped.remaining).toBeNull();
+    expect(capped.fraction).toBe(1);
+    expect(capped.canLevelUp).toBe(false);
   });
 });

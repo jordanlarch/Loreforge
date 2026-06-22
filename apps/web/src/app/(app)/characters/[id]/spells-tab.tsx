@@ -1,0 +1,245 @@
+"use client";
+
+/**
+ * Spells tab (#56 schema → CHAR-7). Edits the unified `spells` loadout (known/
+ * prepared list + per-level slot pools) as a local draft, committed via
+ * `characters.update`. The deterministic engine still owns cast resolution; this
+ * is the character's spellbook of record.
+ */
+import { useState } from "react";
+
+import {
+  blankSpell,
+  groupSpellsByLevel,
+  spellLevelLabel,
+  SPELL_LEVELS,
+  type CharacterSpell,
+  type SpellLoadout,
+} from "@/lib/character";
+
+export function SpellsTab({
+  spells,
+  saving,
+  onSave,
+}: {
+  spells: SpellLoadout;
+  saving: boolean;
+  onSave: (spells: SpellLoadout) => void;
+}) {
+  const [draft, setDraft] = useState<SpellLoadout>(spells);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(spells);
+
+  function patchSpell(index: number, fields: Partial<CharacterSpell>) {
+    setDraft((d) => ({
+      ...d,
+      spells: d.spells.map((s, i) => (i === index ? { ...s, ...fields } : s)),
+    }));
+  }
+
+  function setSlot(level: number, field: "max" | "used", value: number) {
+    setDraft((d) => {
+      const key = String(level);
+      const current = d.slots[key] ?? { max: 0, used: 0 };
+      return {
+        ...d,
+        slots: { ...d.slots, [key]: { ...current, [field]: Math.max(0, value) } },
+      };
+    });
+  }
+
+  function clean(loadout: SpellLoadout): SpellLoadout {
+    const slots: SpellLoadout["slots"] = {};
+    for (const [key, slot] of Object.entries(loadout.slots)) {
+      if (slot.max > 0) slots[key] = { max: slot.max, used: Math.min(slot.used, slot.max) };
+    }
+    return {
+      spells: loadout.spells
+        .filter((s) => s.name.trim().length > 0)
+        .map((s) => ({
+          ...s,
+          name: s.name.trim(),
+          source: s.source?.trim() || undefined,
+        })),
+      slots,
+    };
+  }
+
+  const grouped = groupSpellsByLevel(draft.spells);
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-lore-muted">
+          {draft.spells.length} spell{draft.spells.length === 1 ? "" : "s"} known
+        </p>
+        <div className="flex items-center gap-2">
+          {dirty && (
+            <button
+              type="button"
+              onClick={() => setDraft(spells)}
+              className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:text-lore-text"
+            >
+              Revert
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onSave(clean(draft))}
+            disabled={!dirty || saving}
+            className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+          >
+            {saving ? "Saving…" : dirty ? "Save changes" : "Saved"}
+          </button>
+        </div>
+      </div>
+
+      {/* Spell slot pools */}
+      <section className="mb-6">
+        <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
+          Spell Slots
+        </h3>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+          {SPELL_LEVELS.map((level) => {
+            const slot = draft.slots[String(level)] ?? { max: 0, used: 0 };
+            return (
+              <div
+                key={level}
+                className={`rounded-lg border p-2 text-center ${
+                  slot.max > 0
+                    ? "border-lore-border bg-lore-surface"
+                    : "border-dashed border-lore-border opacity-60"
+                }`}
+              >
+                <div className="text-[10px] uppercase tracking-widest text-lore-muted">
+                  Lvl {level}
+                </div>
+                <div className="mt-1 flex items-center justify-center gap-1 text-sm">
+                  <input
+                    type="number"
+                    min={0}
+                    max={99}
+                    aria-label={`Level ${level} slots used`}
+                    value={slot.used}
+                    onChange={(e) =>
+                      setSlot(level, "used", Number(e.target.value) || 0)
+                    }
+                    className={`${INPUT} w-12 text-center`}
+                  />
+                  <span className="text-lore-muted">/</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={99}
+                    aria-label={`Level ${level} slots max`}
+                    value={slot.max}
+                    onChange={(e) =>
+                      setSlot(level, "max", Number(e.target.value) || 0)
+                    }
+                    className={`${INPUT} w-12 text-center`}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-xs text-lore-muted">Used / Max per spell level.</p>
+      </section>
+
+      {/* Known / prepared spells, grouped by level */}
+      {draft.spells.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-lore-border p-8 text-center text-sm text-lore-muted">
+          No spells yet.
+        </p>
+      ) : (
+        <div className="space-y-5">
+          {grouped.map((group) => (
+            <section key={group.level}>
+              <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
+                {spellLevelLabel(group.level)}
+              </h3>
+              <ul className="space-y-2">
+                {group.spells.map((spell) => {
+                  const index = draft.spells.indexOf(spell);
+                  return (
+                    <li
+                      key={index}
+                      className="flex flex-wrap items-center gap-3 rounded-lg border border-lore-border bg-lore-surface p-3"
+                    >
+                      <input
+                        value={spell.name}
+                        onChange={(e) =>
+                          patchSpell(index, { name: e.target.value })
+                        }
+                        placeholder="Spell name"
+                        className={`${INPUT} min-w-[160px] flex-1`}
+                      />
+                      <select
+                        aria-label="Spell level"
+                        value={spell.level}
+                        onChange={(e) =>
+                          patchSpell(index, { level: Number(e.target.value) })
+                        }
+                        className={INPUT}
+                      >
+                        <option value={0}>Cantrip</option>
+                        {SPELL_LEVELS.map((l) => (
+                          <option key={l} value={l}>
+                            Level {l}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={spell.source ?? ""}
+                        onChange={(e) =>
+                          patchSpell(index, { source: e.target.value })
+                        }
+                        placeholder="Source"
+                        className={`${INPUT} w-28`}
+                      />
+                      <label className="flex items-center gap-1.5 text-sm text-lore-muted">
+                        <input
+                          type="checkbox"
+                          checked={spell.prepared}
+                          onChange={(e) =>
+                            patchSpell(index, { prepared: e.target.checked })
+                          }
+                        />
+                        Prepared
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDraft((d) => ({
+                            ...d,
+                            spells: d.spells.filter((_, j) => j !== index),
+                          }))
+                        }
+                        aria-label={`Remove ${spell.name || "spell"}`}
+                        className="rounded px-2 py-1 text-lore-muted transition-colors hover:text-red-400"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() =>
+          setDraft((d) => ({ ...d, spells: [...d.spells, blankSpell(0)] }))
+        }
+        className="mt-4 rounded border border-dashed border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+      >
+        + Add spell
+      </button>
+    </div>
+  );
+}
+
+const INPUT =
+  "rounded border border-lore-border bg-lore-bg px-2 py-1.5 text-sm text-lore-text outline-none focus:border-lore-accent";

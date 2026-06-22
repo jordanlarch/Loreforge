@@ -252,6 +252,8 @@ function groundingBlock(grounding: Grounding): string {
 
 /** Type-specific nudge for what the child stubs should be. */
 const CHILD_HINTS: Partial<Record<RealmEntityType, string>> = {
+  region:
+    "For a Region propose its contained places as stubs: 2-4 Settlements (type 'settlement', relationshipKind 'located_in') plus optionally a notable Dungeon (type 'dungeon', 'located_in'), a Faction operating in the region (type 'faction', 'related_to'), and 1-2 notable NPCs (type 'npc', 'related_to'). Favor settlements so the region reads as populated.",
   tavern:
     "For a Tavern these are NPCs (type 'npc'): the tavernkeeper plus 1-3 memorable regular patrons, each related to the tavern (relationshipKind 'related_to').",
   shop:

@@ -78,7 +78,7 @@ Start thin slices now so they don't ambush M7.
 | Slice | Deferral | Why early |
 |---|---|---|
 | ~~Top-120 spell push + golden tests~~ ✅ (C1, batch 1) | ENG-2 | Alpha gate = 100% golden on the shipped set. **Shipped:** registry 8 → 21 (the cleanly-declarative SRD set the engine resolves today) + a deterministic **golden snapshot harness** (`engine.spells.golden.test.ts`) that casts every registry spell and locks its damage/heal/hit/save outcome. Remaining top-120 batches + condition/rider spells wait on the Effect system. |
-| LLM tool-adherence harness (>98% on fixtures) | ENG-6 | Hard alpha gate; no harness exists yet. |
+| ~~LLM tool-adherence harness (>98% on fixtures)~~ ✅ (C2, skeleton) | ENG-6 | Hard alpha gate. **Shipped:** `services/ws-server/src/adherence/` — fixture battery + graders for the `call_for_check` / `choose_target` / `narrate` orchestrators, `runAdherence` runner, and a vitest ≥98% gate (fake clients in CI; live model when `ANTHROPIC_API_KEY` is set). Broadening the battery + a nightly real-model run are deferred. |
 | 6-client Tier-4 sync stress (P95 broadcast <500ms) | — | Alpha gate; never load-tested. |
 
 ---

@@ -10,7 +10,7 @@
  * the same account share one live battle. The renderer below is unchanged.
  */
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   areHostile,
@@ -22,6 +22,7 @@ import {
 
 import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
+import { joinedSincePrompt } from "@/lib/live-presence";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import {
   aoeAffectedCells,
@@ -186,6 +187,16 @@ function LiveBattle({
     transitionSceneId,
     transitionSceneName,
   );
+
+  // Async → Live affordance (#105): when a peer joins, surface a dismissible
+  // "you're now Live" prompt. The shell is identical in both modes.
+  const [joinPrompt, setJoinPrompt] = useState<string | null>(null);
+  const prevPeers = useRef(session.peers);
+  useEffect(() => {
+    const msg = joinedSincePrompt(prevPeers.current, session.peers);
+    prevPeers.current = session.peers;
+    if (msg) setJoinPrompt(msg);
+  }, [session.peers]);
 
   // A fresh arm clears any stale aim from a prior AoE cast.
   useEffect(() => {
@@ -373,6 +384,19 @@ function LiveBattle({
         onReset={session.reset}
         rejected={session.rejected}
       />
+
+      {joinPrompt && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
+          <span>⚡ {joinPrompt}</span>
+          <button
+            type="button"
+            onClick={() => setJoinPrompt(null)}
+            className="shrink-0 rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
         {/* Map zone */}

@@ -15,6 +15,7 @@ import { CombatTab } from "./combat-tab";
 import { HooksTab } from "./hooks-tab";
 import { OverviewTab } from "./overview-tab";
 import { PartyTab } from "./party-tab";
+import { SettingsTab } from "./settings-tab";
 import { WorldTab } from "./world-tab";
 
 /**
@@ -139,6 +140,8 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
           <HooksTab campaignId={campaignId} />
         ) : active === "combat" ? (
           <CombatTab campaignId={campaignId} />
+        ) : active === "settings" ? (
+          <SettingsTab campaignId={campaignId} />
         ) : (
           <StubTab
             label={

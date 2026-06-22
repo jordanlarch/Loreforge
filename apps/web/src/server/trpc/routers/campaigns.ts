@@ -15,8 +15,14 @@ import {
   campaignWorldEntities,
   campaigns,
   characters,
+  chatMessages,
   encounters,
+  engineCommandLog,
+  engineEvents,
+  engineSeeds,
+  engineSnapshots,
   getDb,
+  plotHooks,
   realmEntities,
   realmRelationships,
 } from "@app/db";
@@ -267,13 +273,20 @@ export const campaignsRouter = createTRPCRouter({
       };
     }),
 
-  /** Patch an owned campaign's editable fields (Overview inline edit, #55). */
+  /**
+   * Patch an owned campaign's editable fields (Overview inline edit #55, Settings
+   * tab #117). Covers name/description plus the campaign-level settings:
+   * GM persona, default play mode (Q19c), and art-style lock (Q16).
+   */
   update: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
         name: z.string().trim().min(1).max(120).optional(),
         description: z.string().trim().max(2000).optional(),
+        gmPersona: z.string().trim().max(2000).optional(),
+        playMode: z.enum(["async", "live"]).optional(),
+        artStyle: z.string().trim().max(120).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -291,6 +304,58 @@ export const campaignsRouter = createTRPCRouter({
         });
       }
       return row;
+    }),
+
+  /**
+   * Delete an owned campaign and its campaign-scoped data (Settings danger zone,
+   * #117). No FKs in the schema, so dependents are removed explicitly: the
+   * engine log/snapshots/command-log/seeds, durable chat, encounters, plot
+   * hooks, and the world/party *membership* rows. The user's characters and
+   * Realms entities are authored independently and are deliberately left intact —
+   * only their links to this campaign go.
+   */
+  delete: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.id);
+      const db = getDb();
+      const cid = input.id;
+      const owner = ctx.user.id;
+      // Engine tables are keyed by campaign only (no ownerId); safe now that
+      // ownership is verified above.
+      await db.delete(engineEvents).where(eq(engineEvents.campaignId, cid));
+      await db.delete(engineSnapshots).where(eq(engineSnapshots.campaignId, cid));
+      await db
+        .delete(engineCommandLog)
+        .where(eq(engineCommandLog.campaignId, cid));
+      await db.delete(engineSeeds).where(eq(engineSeeds.campaignId, cid));
+      await db.delete(chatMessages).where(eq(chatMessages.campaignId, cid));
+      await db
+        .delete(encounters)
+        .where(and(eq(encounters.campaignId, cid), eq(encounters.ownerId, owner)));
+      await db
+        .delete(plotHooks)
+        .where(and(eq(plotHooks.campaignId, cid), eq(plotHooks.ownerId, owner)));
+      await db
+        .delete(campaignWorldEntities)
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, cid),
+            eq(campaignWorldEntities.ownerId, owner),
+          ),
+        );
+      await db
+        .delete(campaignCharacters)
+        .where(
+          and(
+            eq(campaignCharacters.campaignId, cid),
+            eq(campaignCharacters.ownerId, owner),
+          ),
+        );
+      await db
+        .delete(campaigns)
+        .where(and(eq(campaigns.id, cid), eq(campaigns.ownerId, owner)));
+      return { ok: true };
     }),
 
   /**

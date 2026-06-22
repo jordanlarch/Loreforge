@@ -46,7 +46,7 @@ Highest leverage; each closes a DoD pillar.
 |---|---|---|---|---|
 | ~~**A1**~~ ✅ | **Combat tab + authored-encounter → Live seam** | CAMP-8 | #115 | **Shipped (#121).** `encounters` table + `campaigns.activeEncounterId`; Combat tab (catalog foe-roster builder) with **Run Now**; the WS server seeds `CampaignRoom` from the armed authored encounter instead of `FIXTURE_BATTLE_COMMANDS`. Removed the goblin-only wall; connects generators→play. |
 | ~~**A2**~~ ✅ | **Rich Region generator** | GENR-6 | #116 | **Shipped.** Rich sectioned Region descriptor (Overview / Geography & Climate / Settlements & Sites group / Powers & Conflicts / Lore & Hooks); deepest cascade. All 7 descriptive types now richly sectioned. |
-| **A3** | **Settings tab** | CAMP-10 | (new) | GM persona + play-mode + art-style-lock fields persisted on the campaign; danger-zone (delete). Small; unblocks GM-voice/art locks Live Play already implies (Q16). |
+| ~~**A3**~~ ✅ | **Settings tab** | CAMP-10 | #117 | **Shipped.** GM persona + play-mode + art-style-lock persisted on the campaign (migration 0013); danger-zone delete (clears campaign-scoped dependents). |
 | **A4** | **Notes tab** | CAMP-9 | (new) | DM-only/shared notes editor on a `campaign_notes` table; `@Entity` links + convert-to-hook can follow. Small. |
 
 **Deliberately deferred within A:** Sessions tab (CAMP-6) depends on the P5 memory tier

@@ -19,6 +19,9 @@ const DDL = `
     name text NOT NULL,
     description text NOT NULL DEFAULT '',
     active_encounter_id uuid,
+    gm_persona text NOT NULL DEFAULT '',
+    play_mode text NOT NULL DEFAULT 'async',
+    art_style text NOT NULL DEFAULT '',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   );

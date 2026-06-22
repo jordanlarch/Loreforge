@@ -10,6 +10,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+/** Default play tempo for a campaign (Q19c hybrid model). */
+export type CampaignPlayMode = "async" | "live";
+
 /**
  * Campaigns — the top-level unit of play, owned by a Supabase auth user.
  *
@@ -31,6 +34,16 @@ export const campaigns = pgTable(
      * goblin ambush. Null → default fixture. Set by `campaigns.runEncounter`.
      */
     activeEncounterId: uuid("active_encounter_id"),
+    /* —— Settings (CAMP-10, #117) —— */
+    /** GM persona / tone steering the AI-GM's narration voice. Free text. */
+    gmPersona: text("gm_persona").notNull().default(""),
+    /** Default play tempo (Q19c hybrid): "async" default or "live". */
+    playMode: text("play_mode")
+      .notNull()
+      .$type<CampaignPlayMode>()
+      .default("async"),
+    /** Campaign-level art-style lock label (Q16). Free text / preset label. */
+    artStyle: text("art_style").notNull().default(""),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

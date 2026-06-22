@@ -15,12 +15,15 @@ import {
   campaignWorldEntities,
   campaigns,
   characters,
+  encounters,
   getDb,
   realmEntities,
   realmRelationships,
 } from "@app/db";
+import { MONSTER_TEMPLATES } from "@app/engine";
 
 import { edgesWithin } from "@/lib/campaign-world";
+import { resetCampaignLog } from "@/server/engine/runtime";
 import {
   generateNewEntity,
   isConfigured as isGeneratorConfigured,
@@ -28,6 +31,19 @@ import {
   persistChildren,
 } from "@/server/realms/generator";
 import { parseData } from "@/server/realms/schemas";
+
+/** Max foe rows + total foes per authored encounter (map seat / sanity caps). */
+const MAX_ENCOUNTER_FOE_ROWS = 8;
+const MAX_ENCOUNTER_FOES = 8;
+
+/** A single foe row: a known monster template × count, optional name override. */
+const foeRowSchema = z.object({
+  template: z
+    .string()
+    .refine((slug) => slug in MONSTER_TEMPLATES, "Unknown monster template."),
+  count: z.number().int().min(1).max(MAX_ENCOUNTER_FOES),
+  name: z.string().trim().max(60).optional(),
+});
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -537,5 +553,141 @@ export const campaignsRouter = createTRPCRouter({
         )
         .returning();
       return row ?? null;
+    }),
+
+  /* ----------------------------------------------------------------------- *
+   *  Combat tab — authored encounters + Run Now → Live (#115, CAMP-8)
+   * ----------------------------------------------------------------------- */
+
+  /** The authored encounters for a campaign, with the armed one flagged. */
+  encounters: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const [campaign] = await db
+        .select({ activeEncounterId: campaigns.activeEncounterId })
+        .from(campaigns)
+        .where(eq(campaigns.id, input.campaignId))
+        .limit(1);
+      const rows = await db
+        .select()
+        .from(encounters)
+        .where(
+          and(
+            eq(encounters.campaignId, input.campaignId),
+            eq(encounters.ownerId, ctx.user.id),
+          ),
+        )
+        .orderBy(desc(encounters.createdAt));
+      return rows.map((row) => ({
+        ...row,
+        active: row.id === campaign?.activeEncounterId,
+      }));
+    }),
+
+  /** Create an authored encounter (name + foe roster) for a campaign. */
+  createEncounter: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        name: z.string().trim().min(1).max(120),
+        foes: z.array(foeRowSchema).min(1).max(MAX_ENCOUNTER_FOE_ROWS),
+        sourceEntityId: z.string().uuid().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const [row] = await db
+        .insert(encounters)
+        .values({
+          campaignId: input.campaignId,
+          ownerId: ctx.user.id,
+          name: input.name,
+          foes: input.foes,
+          sourceEntityId: input.sourceEntityId ?? null,
+        })
+        .returning();
+      return row;
+    }),
+
+  /** Delete an authored encounter; clears the armed pointer if it was active. */
+  deleteEncounter: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        encounterId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      await db
+        .delete(encounters)
+        .where(
+          and(
+            eq(encounters.id, input.encounterId),
+            eq(encounters.campaignId, input.campaignId),
+            eq(encounters.ownerId, ctx.user.id),
+          ),
+        );
+      await db
+        .update(campaigns)
+        .set({ activeEncounterId: null })
+        .where(
+          and(
+            eq(campaigns.id, input.campaignId),
+            eq(campaigns.ownerId, ctx.user.id),
+            eq(campaigns.activeEncounterId, input.encounterId),
+          ),
+        );
+      return { ok: true };
+    }),
+
+  /**
+   * Arm an authored encounter for Live Play (Run Now): point the campaign at it
+   * and wipe the engine log so the live room re-seeds with these foes on its
+   * next load. Destructive — discards the current fight's state, which is the
+   * intent of starting a new encounter.
+   */
+  runEncounter: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        encounterId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const [encounter] = await db
+        .select({ id: encounters.id })
+        .from(encounters)
+        .where(
+          and(
+            eq(encounters.id, input.encounterId),
+            eq(encounters.campaignId, input.campaignId),
+            eq(encounters.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!encounter) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Encounter not found.",
+        });
+      }
+      await db
+        .update(campaigns)
+        .set({ activeEncounterId: input.encounterId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(campaigns.id, input.campaignId),
+            eq(campaigns.ownerId, ctx.user.id),
+          ),
+        );
+      await resetCampaignLog(input.campaignId);
+      return { ok: true };
     }),
 });

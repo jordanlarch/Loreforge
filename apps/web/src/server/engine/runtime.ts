@@ -50,3 +50,17 @@ export function submitCommand(
 export function getCampaignState(campaignId: string): Promise<WorldState> {
   return getEngine().getState(campaignId);
 }
+
+/**
+ * Wipe a campaign's engine log so the live room re-seeds from scratch (CAMP-8).
+ * Arming a new authored encounter truncates the persisted events to zero; the WS
+ * server then re-seeds the (now empty) campaign with the freshly-armed encounter
+ * on its next load. The in-process engine/queue caches are dropped so a
+ * subsequent web-side read rehydrates from the truncated log rather than stale
+ * memory. Destructive by design: it discards the current fight's state.
+ */
+export async function resetCampaignLog(campaignId: string): Promise<void> {
+  await new PgEventStore(getDb()).truncate(campaignId, 0);
+  queues.delete(campaignId);
+  engine = undefined;
+}

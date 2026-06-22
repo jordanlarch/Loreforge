@@ -45,6 +45,7 @@ import {
   type ChatEntry,
 } from "./chat.js";
 import {
+  getCampaignEncounter,
   getCampaignParty,
   getEventStore,
   isCampaignOwner,
@@ -128,7 +129,12 @@ function roomFor(documentName: string): LiveRoom {
     const parsed = parseRoom(documentName);
     room =
       parsed?.kind === "campaign"
-        ? new CampaignRoom(parsed.campaignId, getEventStore(), getCampaignParty)
+        ? new CampaignRoom(
+            parsed.campaignId,
+            getEventStore(),
+            getCampaignParty,
+            getCampaignEncounter,
+          )
         : new BattleRoom();
     rooms.set(documentName, room);
   }

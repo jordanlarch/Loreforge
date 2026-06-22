@@ -17,11 +17,15 @@ import {
   campaigns,
   characters,
   chatMessages,
+  encounters,
 } from "@app/db";
 import {
+  expandEncounterFoes,
+  monsterTemplate,
   totalLevel,
   type Ability,
   type EventStore,
+  type FoeSpec,
   type PartyMember,
 } from "@app/engine";
 
@@ -115,6 +119,40 @@ export async function getCampaignParty(
         : {}),
     };
   });
+}
+
+/**
+ * The authored encounter armed for a campaign's Live Play (CAMP-8, #115), as the
+ * scene name + engine-ready {@link FoeSpec}s. Reads `campaigns.activeEncounterId`
+ * → the `encounters` row → expands its template×count roster through the engine
+ * monster catalog. Returns `undefined` when no encounter is armed (or it resolves
+ * to no foes), so the room falls back to the default goblin ambush.
+ */
+export async function getCampaignEncounter(
+  campaignId: string,
+): Promise<{ name: string; foes: FoeSpec[] } | undefined> {
+  const db = getDb();
+  const [campaign] = await db
+    .select({ activeEncounterId: campaigns.activeEncounterId })
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .limit(1);
+  if (!campaign?.activeEncounterId) return undefined;
+
+  const [encounter] = await db
+    .select({ name: encounters.name, foes: encounters.foes })
+    .from(encounters)
+    .where(
+      and(
+        eq(encounters.id, campaign.activeEncounterId),
+        eq(encounters.campaignId, campaignId),
+      ),
+    )
+    .limit(1);
+  if (!encounter) return undefined;
+
+  const foes = expandEncounterFoes(encounter.foes ?? [], monsterTemplate);
+  return foes.length > 0 ? { name: encounter.name, foes } : undefined;
 }
 
 /* ------------------------------------------------------------------------- *

@@ -18,11 +18,13 @@ import {
   Engine,
   FIXTURE_BATTLE_CAMPAIGN_ID,
   FIXTURE_BATTLE_COMMANDS,
+  FIXTURE_PARTY,
   buildPartyBattleCommands,
   type BattleAction,
   type Command,
   type CommandSummary,
   type EventStore,
+  type FoeSpec,
   type PartyMember,
   type WorldState,
 } from "@app/engine";
@@ -98,6 +100,11 @@ async function baselineSequence(commands: readonly Command[]): Promise<number> {
 /** Loads a campaign's active roster as engine-ready party members (#98). */
 export type PartyLoader = (campaignId: string) => Promise<PartyMember[]>;
 
+/** Loads a campaign's armed encounter (scene name + foes), if any (CAMP-8). */
+export type EncounterLoader = (
+  campaignId: string,
+) => Promise<{ name: string; foes: FoeSpec[] } | undefined>;
+
 export class CampaignRoom implements LiveRoom {
   private engine: Engine;
   private seeded = false;
@@ -107,18 +114,31 @@ export class CampaignRoom implements LiveRoom {
     private readonly store: EventStore,
     /** Optional roster loader; absent → always seed the fixture (tests, demos). */
     private readonly loadParty?: PartyLoader,
+    /** Optional authored-encounter loader; absent → default goblin ambush. */
+    private readonly loadEncounter?: EncounterLoader,
   ) {
     this.engine = new Engine({ store });
   }
 
   /**
-   * The seed command list for this campaign (#98): the goblin ambush populated
-   * with the campaign's real roster when one exists, else the fixture party. The
-   * roster lookup is deterministic enough to also recompute the reset baseline.
+   * The seed command list for this campaign (#98, CAMP-8): the campaign's real
+   * roster (or the fixture party) versus the armed authored encounter's foes (or
+   * the default goblin ambush). Both lookups are deterministic enough to also
+   * recompute the reset baseline.
    */
   private async seedCommands(): Promise<Command[]> {
     const party = this.loadParty ? await this.loadParty(this.campaignId) : [];
-    return party.length > 0 ? buildPartyBattleCommands(party) : FIXTURE_BATTLE_COMMANDS;
+    const members = party.length > 0 ? party : FIXTURE_PARTY;
+    const encounter = this.loadEncounter
+      ? await this.loadEncounter(this.campaignId)
+      : undefined;
+    // Untouched campaigns with no roster and no armed encounter reproduce the
+    // exact legacy fixture command list (keeps existing baselines stable).
+    if (party.length === 0 && !encounter) return FIXTURE_BATTLE_COMMANDS;
+    return buildPartyBattleCommands(
+      members,
+      encounter ? { foes: encounter.foes, sceneName: encounter.name } : undefined,
+    );
   }
 
   /**

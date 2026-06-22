@@ -5,6 +5,7 @@ import { codexRouter } from "./routers/codex";
 import { engineRouter } from "./routers/engine";
 import { healthRouter } from "./routers/health";
 import { hooksRouter } from "./routers/hooks";
+import { notesRouter } from "./routers/notes";
 import { realmsRouter } from "./routers/realms";
 import { smithyRouter } from "./routers/smithy";
 
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   campaigns: campaignsRouter,
   engine: engineRouter,
   hooks: hooksRouter,
+  notes: notesRouter,
   realms: realmsRouter,
   smithy: smithyRouter,
 });

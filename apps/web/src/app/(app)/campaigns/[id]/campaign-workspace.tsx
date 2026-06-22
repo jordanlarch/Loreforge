@@ -13,6 +13,7 @@ import { trpc } from "@/lib/trpc/client";
 
 import { CombatTab } from "./combat-tab";
 import { HooksTab } from "./hooks-tab";
+import { NotesTab } from "./notes-tab";
 import { OverviewTab } from "./overview-tab";
 import { PartyTab } from "./party-tab";
 import { SettingsTab } from "./settings-tab";
@@ -140,6 +141,8 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
           <HooksTab campaignId={campaignId} />
         ) : active === "combat" ? (
           <CombatTab campaignId={campaignId} />
+        ) : active === "notes" ? (
+          <NotesTab campaignId={campaignId} />
         ) : active === "settings" ? (
           <SettingsTab campaignId={campaignId} />
         ) : (

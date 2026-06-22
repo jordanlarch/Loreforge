@@ -167,6 +167,36 @@ export const plotHooks = pgTable(
   ],
 );
 
+/**
+ * Free-form campaign notes (#118, CAMP-9). A DM scratchpad scoped to a campaign:
+ * each note has a title, a body, and a `shared` flag (DM-only vs visible to
+ * players). `ownerId` is denormalized for owner-scoped queries, matching the
+ * no-FK, app-scoped convention. `@Entity` autolink + convert-to-hook +
+ * pin-to-memory are deferred follow-ups.
+ */
+export const campaignNotes = pgTable(
+  "campaign_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    title: text("title").notNull().default(""),
+    body: text("body").notNull().default(""),
+    /** DM-only (false) vs shared with players (true). */
+    shared: boolean("shared").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("campaign_notes_campaign_idx").on(t.campaignId),
+    index("campaign_notes_owner_idx").on(t.ownerId),
+  ],
+);
+
 /** A resolved dice expression rendered as a structured chat widget (#57). */
 export type ChatDiceRoll = {
   notation: string;

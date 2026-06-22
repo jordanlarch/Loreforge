@@ -11,6 +11,7 @@ import {
 } from "@/lib/campaign-workspace";
 import { trpc } from "@/lib/trpc/client";
 
+import { CombatTab } from "./combat-tab";
 import { HooksTab } from "./hooks-tab";
 import { OverviewTab } from "./overview-tab";
 import { PartyTab } from "./party-tab";
@@ -136,6 +137,8 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
           <WorldTab campaignId={campaignId} />
         ) : active === "hooks" ? (
           <HooksTab campaignId={campaignId} />
+        ) : active === "combat" ? (
+          <CombatTab campaignId={campaignId} />
         ) : (
           <StubTab
             label={

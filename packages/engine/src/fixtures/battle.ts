@@ -78,22 +78,63 @@ const PARTY_POSITIONS: readonly GridPosition[] = [
   { x: 2, y: 8 },
 ];
 
+/**
+ * Right-side starting cells for foes; caps an authored encounter's roster. The
+ * first two preserve the legacy goblin-ambush layout so the default fixture is
+ * unchanged; the rest extend the column for larger encounters.
+ */
+const FOE_POSITIONS: readonly GridPosition[] = [
+  { x: 9, y: 3 },
+  { x: 9, y: 6 },
+  { x: 9, y: 1 },
+  { x: 9, y: 8 },
+  { x: 10, y: 4 },
+  { x: 10, y: 7 },
+  { x: 11, y: 2 },
+  { x: 11, y: 5 },
+];
+
 /** Max party seeded onto the fixture map (one per {@link PARTY_POSITIONS} cell). */
 export const MAX_BATTLE_PARTY = PARTY_POSITIONS.length;
 
-/** The two goblin foes the ambush always fields (right column). */
-const GOBLINS = [
+/** Max foes seeded onto the map (one per {@link FOE_POSITIONS} cell). */
+export const MAX_BATTLE_FOES = FOE_POSITIONS.length;
+
+/**
+ * A foe to place into an authored encounter (CAMP-8). A trimmed monster statline
+ * — the engine `create_entity` fields — minus position, which
+ * {@link buildPartyBattleCommands} assigns from {@link FOE_POSITIONS}. Expand a
+ * {@link MonsterTemplate} × count into a flat list of these (unique ids) before
+ * seeding.
+ */
+export type FoeSpec = {
+  id: EntityRef;
+  name: string;
+  abilityScores: AbilityScores;
+  maxHp: number;
+  baseAc: number;
+  speed: number;
+};
+
+/** The two goblin foes the default ambush fields, as {@link FoeSpec}s. */
+const DEFAULT_FOES: readonly FoeSpec[] = [
   {
     id: "npc:goblin-a",
     name: "Goblin Cutter",
-    position: { x: 9, y: 3 } as GridPosition,
+    abilityScores: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+    maxHp: 7,
+    baseAc: 15,
+    speed: 30,
   },
   {
     id: "npc:goblin-b",
     name: "Goblin Sneak",
-    position: { x: 9, y: 6 } as GridPosition,
+    abilityScores: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+    maxHp: 7,
+    baseAc: 15,
+    speed: 30,
   },
-] as const;
+];
 
 /** The fixture party (Thorin + Elara), used by the sandbox + empty campaigns. */
 export const FIXTURE_PARTY: PartyMember[] = [
@@ -129,19 +170,27 @@ export const FIXTURE_PARTY: PartyMember[] = [
  */
 export function buildPartyBattleCommands(
   party: readonly PartyMember[],
+  opts?: {
+    /** Authored foe roster; defaults to the two-goblin ambush. */
+    foes?: readonly FoeSpec[];
+    /** Scene title; defaults to the goblin-ambush name. */
+    sceneName?: string;
+  },
 ): Command[] {
   const members = party.slice(0, MAX_BATTLE_PARTY);
+  const foes = (opts?.foes ?? DEFAULT_FOES).slice(0, MAX_BATTLE_FOES);
+  const sceneName = opts?.sceneName ?? "Salt Way Ambush";
   const sides: Record<EntityRef, string> = {};
   for (const m of members) sides[m.id] = FIXTURE_BATTLE_PARTY_SIDE;
-  for (const g of GOBLINS) sides[g.id] = FIXTURE_BATTLE_FOES_SIDE;
+  for (const f of foes) sides[f.id] = FIXTURE_BATTLE_FOES_SIDE;
 
   return [
     {
       type: "create_scene",
       scene: {
         id: FIXTURE_BATTLE_SCENE_ID,
-        name: "Salt Way Ambush",
-        description: "A muddy stretch of road, goblins lurking behind cairns.",
+        name: sceneName,
+        description: "A muddy stretch of road, foes lurking behind cairns.",
         map: { width: 12, height: 10, blockedCells: WALLS },
       },
     },
@@ -162,28 +211,66 @@ export function buildPartyBattleCommands(
         ...(m.spellcasting ? { spellcasting: m.spellcasting } : {}),
       },
     })),
-    ...GOBLINS.map((g): Command => ({
+    ...foes.map((f, i): Command => ({
       type: "create_entity",
       entity: {
-        id: g.id,
+        id: f.id,
         kind: "monster",
-        name: g.name,
-        abilityScores: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
-        maxHp: 7,
-        baseAc: 15,
-        speed: 30,
+        name: f.name,
+        abilityScores: f.abilityScores,
+        maxHp: f.maxHp,
+        baseAc: f.baseAc,
+        speed: f.speed,
         sceneId: FIXTURE_BATTLE_SCENE_ID,
-        position: g.position,
+        position: FOE_POSITIONS[i]!,
       },
     })),
     {
       type: "start_encounter",
       sceneId: FIXTURE_BATTLE_SCENE_ID,
-      combatants: [...members.map((m) => m.id), ...GOBLINS.map((g) => g.id)],
+      combatants: [...members.map((m) => m.id), ...foes.map((f) => f.id)],
       sides,
     },
     { type: "roll_initiative" },
   ];
+}
+
+/**
+ * Expand an authored foe roster (monster template slug × count) into a flat
+ * {@link FoeSpec} list with unique ids + count-suffixed names, ready for
+ * {@link buildPartyBattleCommands}. Unknown slugs are skipped; the total is
+ * capped at {@link MAX_BATTLE_FOES}. Ids are index-derived so the seed is
+ * deterministic (a reset reproduces the same encounter).
+ */
+export function expandEncounterFoes(
+  roster: readonly { template: string; count: number; name?: string }[],
+  resolve: (slug: string) => {
+    name: string;
+    abilityScores: AbilityScores;
+    maxHp: number;
+    baseAc: number;
+    speed: number;
+  } | undefined,
+): FoeSpec[] {
+  const foes: FoeSpec[] = [];
+  for (const entry of roster) {
+    const template = resolve(entry.template);
+    if (!template) continue;
+    const count = Math.max(1, Math.floor(entry.count));
+    for (let n = 0; n < count; n += 1) {
+      if (foes.length >= MAX_BATTLE_FOES) return foes;
+      const base = entry.name?.trim() || template.name;
+      foes.push({
+        id: `npc:foe-${foes.length}`,
+        name: count > 1 ? `${base} ${n + 1}` : base,
+        abilityScores: template.abilityScores,
+        maxHp: template.maxHp,
+        baseAc: template.baseAc,
+        speed: template.speed,
+      });
+    }
+  }
+  return foes;
 }
 
 /**

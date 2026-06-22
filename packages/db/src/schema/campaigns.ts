@@ -25,6 +25,12 @@ export const campaigns = pgTable(
     ownerId: uuid("owner_id").notNull(),
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
+    /**
+     * The authored encounter currently armed for Live Play (CAMP-8, #115). When
+     * set, the live room seeds this encounter's foes instead of the default
+     * goblin ambush. Null → default fixture. Set by `campaigns.runEncounter`.
+     */
+    activeEncounterId: uuid("active_encounter_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -33,6 +39,48 @@ export const campaigns = pgTable(
       .defaultNow(),
   },
   (t) => [index("campaigns_owner_idx").on(t.ownerId)],
+);
+
+/** A foe entry on an authored encounter: a monster-catalog template × count. */
+export type EncounterFoe = {
+  /** `MonsterTemplate` slug from `@app/engine` (goblin/orc/wolf/…). */
+  template: string;
+  /** How many of this template to field (capped at the map's foe slots). */
+  count: number;
+  /** Optional display-name override; defaults to the template name. */
+  name?: string;
+};
+
+/**
+ * Authored combat encounters for a campaign (CAMP-8, #115). An encounter is a
+ * named foe roster the DM builds in the Combat tab; "Run Now" arms it
+ * (`campaigns.activeEncounterId`) and the live room seeds it onto the battle
+ * map. Foes reference the engine monster catalog by template slug, so statlines
+ * stay in one place. `sourceEntityId` optionally records the Realms entity (e.g.
+ * a dungeon) an encounter was built from. `ownerId` is denormalized for
+ * owner-scoped queries, matching the app-scoped, no-FK convention.
+ */
+export const encounters = pgTable(
+  "encounters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    name: text("name").notNull(),
+    foes: jsonb("foes").$type<EncounterFoe[]>().notNull().default([]),
+    /** The Realms entity this encounter was built from, if any. */
+    sourceEntityId: uuid("source_entity_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("encounters_campaign_idx").on(t.campaignId),
+    index("encounters_owner_idx").on(t.ownerId),
+  ],
 );
 
 /**

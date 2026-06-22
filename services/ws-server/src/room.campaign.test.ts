@@ -4,6 +4,7 @@ import {
   FIXTURE_BATTLE_SCENE_ID,
   InMemoryEventStore,
   type EventStore,
+  type FoeSpec,
   type PartyMember,
 } from "@app/engine";
 
@@ -132,6 +133,67 @@ describe("CampaignRoom", () => {
     expect(await store.lastSequence(CAMPAIGN)).toBe(baseline);
     // The roster member is still present after a reset (3 combatants, not 4).
     expect((await room.getState()).encounter?.combatants).toHaveLength(3);
+  });
+
+  it("seeds an armed authored encounter's foes instead of the goblins (#115)", async () => {
+    const store = new InMemoryEventStore();
+    const foes: FoeSpec[] = [
+      {
+        id: "npc:foe-0",
+        name: "Ogre 1",
+        abilityScores: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
+        maxHp: 59,
+        baseAc: 11,
+        speed: 40,
+      },
+      {
+        id: "npc:foe-1",
+        name: "Ogre 2",
+        abilityScores: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
+        maxHp: 59,
+        baseAc: 11,
+        speed: 40,
+      },
+      {
+        id: "npc:foe-2",
+        name: "Ogre 3",
+        abilityScores: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
+        maxHp: 59,
+        baseAc: 11,
+        speed: 40,
+      },
+    ];
+    const room = new CampaignRoom(
+      CAMPAIGN,
+      store,
+      async () => [],
+      async () => ({ name: "Ogre Den", foes }),
+    );
+
+    const state = await room.getState();
+
+    expect(state.scenes[FIXTURE_BATTLE_SCENE_ID]?.name).toBe("Ogre Den");
+    // Fixture party (2 PCs) + the three authored ogres = 5 combatants.
+    expect(state.encounter?.combatants).toHaveLength(5);
+    expect(state.entities["npc:foe-0"]?.name).toBe("Ogre 1");
+    expect(state.entities["npc:foe-2"]?.hp.max).toBe(59);
+    // The default goblins are absent.
+    expect(state.entities["npc:goblin-a"]).toBeUndefined();
+  });
+
+  it("falls back to the default ambush when no encounter is armed (#115)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new CampaignRoom(
+      CAMPAIGN,
+      store,
+      async () => [],
+      async () => undefined,
+    );
+
+    const state = await room.getState();
+
+    expect(state.entities["npc:goblin-a"]).toBeDefined();
+    expect(state.encounter?.order).toHaveLength(4);
   });
 
   it("rejects an illegal move (into a wall) and leaves state unchanged", async () => {

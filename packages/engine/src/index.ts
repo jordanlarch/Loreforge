@@ -194,6 +194,12 @@ export {
   type TargetingType,
   type UpcastScaling,
 } from "./content/spells";
+export {
+  MONSTER_TEMPLATES,
+  MONSTER_TEMPLATE_LIST,
+  monsterTemplate,
+  type MonsterTemplate,
+} from "./content/monsters";
 export { fullCasterSlots } from "./content/spell-slots";
 export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
 export {
@@ -270,14 +276,17 @@ export {
   FIXTURE_BATTLE_SCENE_ID,
   FIXTURE_PARTY,
   MAX_BATTLE_PARTY,
+  MAX_BATTLE_FOES,
   attackAction,
   castAction,
   checkAction,
+  expandEncounterFoes,
   moveAction,
   opportunityAttackAction,
   readyAction,
   triggerReadiedAction,
   type BattleAction,
+  type FoeSpec,
   type PartyMember,
 } from "./fixtures/battle";
 export type {

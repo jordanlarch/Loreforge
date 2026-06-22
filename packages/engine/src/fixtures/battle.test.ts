@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { Engine } from "../engine";
 import type { AbilityScores } from "../entities/types";
+import { MONSTER_TEMPLATES, monsterTemplate } from "../content/monsters";
 import {
   buildFixtureBattle,
   buildPartyBattleCommands,
+  expandEncounterFoes,
   FIXTURE_BATTLE_FOES_SIDE,
   FIXTURE_BATTLE_PARTY_SIDE,
   FIXTURE_BATTLE_SCENE_ID,
+  MAX_BATTLE_FOES,
   MAX_BATTLE_PARTY,
   moveAction,
   type PartyMember,
@@ -133,5 +136,61 @@ describe("buildPartyBattleCommands", () => {
       (e) => e.kind === "character",
     );
     expect(pcs).toHaveLength(MAX_BATTLE_PARTY);
+  });
+
+  it("seeds an authored foe roster + scene name instead of the goblins", async () => {
+    const foes = expandEncounterFoes(
+      [{ template: "orc", count: 2 }],
+      monsterTemplate,
+    );
+    const engine = new Engine({ now: () => 0 });
+    for (const command of buildPartyBattleCommands([member("char:a")], {
+      foes,
+      sceneName: "Orc Warband",
+    })) {
+      await engine.execute("c:authored", command);
+    }
+    const state = await engine.getState("c:authored");
+    expect(state.scenes[FIXTURE_BATTLE_SCENE_ID]?.name).toBe("Orc Warband");
+    expect(state.entities["npc:goblin-a"]).toBeUndefined();
+    expect(state.entities["npc:foe-0"]?.name).toBe("Orc 1");
+    expect(state.entities["npc:foe-1"]?.name).toBe("Orc 2");
+    expect(state.encounter?.combatants).toHaveLength(3); // 1 PC + 2 orcs
+  });
+});
+
+describe("expandEncounterFoes", () => {
+  it("expands template × count into uniquely-id'd, count-suffixed foes", () => {
+    const foes = expandEncounterFoes(
+      [
+        { template: "goblin", count: 2 },
+        { template: "ogre", count: 1 },
+      ],
+      monsterTemplate,
+    );
+    expect(foes.map((f) => f.id)).toEqual(["npc:foe-0", "npc:foe-1", "npc:foe-2"]);
+    expect(foes.map((f) => f.name)).toEqual(["Goblin 1", "Goblin 2", "Ogre"]);
+    expect(foes[2]?.maxHp).toBe(MONSTER_TEMPLATES.ogre!.maxHp);
+  });
+
+  it("honors a name override and drops a single count's suffix", () => {
+    const foes = expandEncounterFoes(
+      [{ template: "wolf", count: 1, name: "Direwolf" }],
+      monsterTemplate,
+    );
+    expect(foes).toHaveLength(1);
+    expect(foes[0]?.name).toBe("Direwolf");
+  });
+
+  it("skips unknown templates and caps at the available foe cells", () => {
+    const foes = expandEncounterFoes(
+      [
+        { template: "made-up", count: 3 },
+        { template: "skeleton", count: 20 },
+      ],
+      monsterTemplate,
+    );
+    expect(foes).toHaveLength(MAX_BATTLE_FOES);
+    expect(foes.every((f) => f.name.startsWith("Skeleton"))).toBe(true);
   });
 });

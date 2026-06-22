@@ -180,6 +180,103 @@ export function hpRollFromSeed(
   });
 }
 
+/**
+ * Cumulative XP required to reach each character level (5E DMG table), indexed
+ * by level. `XP_THRESHOLDS[1] === 0`; index 0 is a placeholder so the array is
+ * 1-based. The cap is level 20.
+ */
+export const XP_THRESHOLDS = [
+  0, // index 0 (unused — levels are 1-based)
+  0, // 1
+  300, // 2
+  900, // 3
+  2_700, // 4
+  6_500, // 5
+  14_000, // 6
+  23_000, // 7
+  34_000, // 8
+  48_000, // 9
+  64_000, // 10
+  85_000, // 11
+  100_000, // 12
+  120_000, // 13
+  140_000, // 14
+  165_000, // 15
+  195_000, // 16
+  225_000, // 17
+  265_000, // 18
+  305_000, // 19
+  355_000, // 20
+] as const;
+
+/** The character-level cap (5E). */
+export const MAX_CHARACTER_LEVEL = 20;
+
+/** Cumulative XP required to reach `level` (clamped to [1, 20]). */
+export function xpForLevel(level: number): number {
+  const clamped = Math.max(1, Math.min(MAX_CHARACTER_LEVEL, Math.floor(level)));
+  return XP_THRESHOLDS[clamped]!;
+}
+
+/** The highest level whose XP threshold `xp` has reached (1–20). */
+export function levelForXp(xp: number): number {
+  let level = 1;
+  for (let l = 2; l <= MAX_CHARACTER_LEVEL; l += 1) {
+    if (xp >= XP_THRESHOLDS[l]!) level = l;
+    else break;
+  }
+  return level;
+}
+
+/**
+ * XP-gated level-up state for a character at `currentLevel` with `xp` points.
+ * `canLevelUp` is true once `xp` reaches the threshold for the next level. The
+ * fraction/remaining drive a progress bar toward the next level.
+ */
+export function xpProgress(
+  xp: number,
+  currentLevel: number,
+): {
+  currentLevel: number;
+  nextLevel: number | null;
+  /** Cumulative XP at the start of the current level band. */
+  floor: number;
+  /** Cumulative XP needed for the next level (null at the cap). */
+  ceiling: number | null;
+  /** XP still needed to reach the next level (0 once eligible; null at cap). */
+  remaining: number | null;
+  /** Progress through the current band in [0, 1] (1 at the cap). */
+  fraction: number;
+  canLevelUp: boolean;
+} {
+  const level = Math.max(1, Math.min(MAX_CHARACTER_LEVEL, currentLevel));
+  const floor = xpForLevel(level);
+  if (level >= MAX_CHARACTER_LEVEL) {
+    return {
+      currentLevel: level,
+      nextLevel: null,
+      floor,
+      ceiling: null,
+      remaining: null,
+      fraction: 1,
+      canLevelUp: false,
+    };
+  }
+  const ceiling = xpForLevel(level + 1);
+  const span = ceiling - floor;
+  const into = Math.max(0, xp - floor);
+  const fraction = span <= 0 ? 1 : Math.max(0, Math.min(1, into / span));
+  return {
+    currentLevel: level,
+    nextLevel: level + 1,
+    floor,
+    ceiling,
+    remaining: Math.max(0, ceiling - xp),
+    fraction,
+    canLevelUp: xp >= ceiling,
+  };
+}
+
 /** Universal levels that grant an Ability Score Improvement (5E). */
 export const ASI_LEVELS = [4, 8, 12, 16, 19] as const;
 

@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import {
   campaignCharacters,
+  campaignNotes,
   campaignWorldEntities,
   campaigns,
   characters,
@@ -310,7 +311,7 @@ export const campaignsRouter = createTRPCRouter({
    * Delete an owned campaign and its campaign-scoped data (Settings danger zone,
    * #117). No FKs in the schema, so dependents are removed explicitly: the
    * engine log/snapshots/command-log/seeds, durable chat, encounters, plot
-   * hooks, and the world/party *membership* rows. The user's characters and
+   * hooks, notes, and the world/party *membership* rows. The user's characters and
    * Realms entities are authored independently and are deliberately left intact —
    * only their links to this campaign go.
    */
@@ -336,6 +337,14 @@ export const campaignsRouter = createTRPCRouter({
       await db
         .delete(plotHooks)
         .where(and(eq(plotHooks.campaignId, cid), eq(plotHooks.ownerId, owner)));
+      await db
+        .delete(campaignNotes)
+        .where(
+          and(
+            eq(campaignNotes.campaignId, cid),
+            eq(campaignNotes.ownerId, owner),
+          ),
+        );
       await db
         .delete(campaignWorldEntities)
         .where(

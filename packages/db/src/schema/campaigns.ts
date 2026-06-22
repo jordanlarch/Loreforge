@@ -1,6 +1,8 @@
 import {
   boolean,
   index,
+  integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -101,5 +103,52 @@ export const plotHooks = pgTable(
   (t) => [
     index("plot_hooks_campaign_idx").on(t.campaignId),
     index("plot_hooks_owner_idx").on(t.ownerId),
+  ],
+);
+
+/** A resolved dice expression rendered as a structured chat widget (#57). */
+export type ChatDiceRoll = {
+  notation: string;
+  rolls: number[];
+  modifier: number;
+  total: number;
+};
+
+/**
+ * Durable live-play chat log (#96). Live narration rides the Yjs doc during a
+ * session (server-authoritative, see `services/ws-server/src/chat.ts`); this
+ * table makes it **persistent** so the conversation survives a room unload /
+ * cold reload and can be re-hydrated on rejoin.
+ *
+ * Deliberately separate from `engine_events`: chat is non-deterministic (AI-GM
+ * narration), so persisting it into the deterministic engine log would break
+ * replay. `seq` is a per-campaign monotonic order assigned by the WS server (the
+ * sole writer) so re-hydration preserves order without relying on timestamps.
+ * `mentions` records the world-entity names the GM referenced (@Entity chips).
+ */
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    /** Per-campaign monotonic ordering, assigned by the authoritative writer. */
+    seq: integer("seq").notNull(),
+    /** gm | player | event | roll | ooc */
+    kind: text("kind").notNull(),
+    author: text("author").notNull(),
+    /** Player input mode (speak/action/check/cast/attack/use_item), if any. */
+    mode: text("mode"),
+    text: text("text").notNull(),
+    /** Structured dice result for `roll` entries. */
+    dice: jsonb("dice").$type<ChatDiceRoll>(),
+    /** World-entity names the GM referenced (@Entity chips, #96). */
+    mentions: jsonb("mentions").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("chat_messages_campaign_seq_unique").on(t.campaignId, t.seq),
+    index("chat_messages_campaign_idx").on(t.campaignId),
   ],
 );

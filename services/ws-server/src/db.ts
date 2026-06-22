@@ -16,6 +16,7 @@ import {
   campaignCharacters,
   campaigns,
   characters,
+  chatMessages,
 } from "@app/db";
 import {
   totalLevel,
@@ -23,6 +24,8 @@ import {
   type EventStore,
   type PartyMember,
 } from "@app/engine";
+
+import type { ChatEntry, ChatEntryKind } from "./chat.js";
 
 let store: EventStore | undefined;
 
@@ -112,6 +115,69 @@ export async function getCampaignParty(
         : {}),
     };
   });
+}
+
+/* ------------------------------------------------------------------------- *
+ *  Live-play chat persistence (#96)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Load a campaign's persisted chat in order (#96), so a re-loaded room
+ * re-hydrates the conversation instead of starting blank. Maps the durable rows
+ * back onto the {@link ChatEntry} the Yjs doc + client expect.
+ */
+export async function loadChatMessages(
+  campaignId: string,
+): Promise<ChatEntry[]> {
+  const rows = await getDb()
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.campaignId, campaignId))
+    .orderBy(asc(chatMessages.seq));
+  return rows.map((row) => ({
+    id: row.id,
+    kind: row.kind as ChatEntryKind,
+    author: row.author,
+    mode: row.mode ?? undefined,
+    text: row.text,
+    dice: row.dice ?? undefined,
+    mentions: row.mentions ?? undefined,
+    ts: row.createdAt.getTime(),
+  }));
+}
+
+/**
+ * Persist a batch of chat entries for a campaign (#96), assigning each a
+ * per-campaign `seq` starting at `startSeq` (the doc's chat length before the
+ * append, which equals the persisted count). Best-effort: a failure (including a
+ * rare concurrent-seq collision) must never break the live channel, so it's
+ * swallowed — the Yjs doc remains the in-session source of truth.
+ */
+export async function persistChatMessages(
+  campaignId: string,
+  entries: readonly ChatEntry[],
+  startSeq: number,
+): Promise<void> {
+  if (entries.length === 0) return;
+  try {
+    await getDb()
+      .insert(chatMessages)
+      .values(
+        entries.map((entry, i) => ({
+          id: entry.id,
+          campaignId,
+          seq: startSeq + i,
+          kind: entry.kind,
+          author: entry.author,
+          mode: entry.mode ?? null,
+          text: entry.text,
+          dice: entry.dice ?? null,
+          mentions: entry.mentions ?? [],
+        })),
+      );
+  } catch {
+    // Chat persistence is best-effort; never break the live channel.
+  }
 }
 
 /** True iff the campaign exists and is owned by the given user. */

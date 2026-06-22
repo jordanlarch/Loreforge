@@ -14,7 +14,22 @@ import {
   isPlayerControlled,
   monsterAttackProfile,
   planMonsterTurn,
+  readiedTriggersToFire,
+  readyTriggerRange,
 } from "./enemy-ai.js";
+
+/** A readied melee strike held by `entity` against `target`. */
+function readied(target: string, trigger = "in_range:5") {
+  return {
+    trigger,
+    action: {
+      kind: "attack" as const,
+      target,
+      attackBonus: 5,
+      damage: { notation: "1d8+3", type: "slashing" },
+    },
+  };
+}
 
 function ent(
   over: Partial<EntityState> & { id: string; position: GridPosition },
@@ -143,6 +158,88 @@ describe("aiOpportunityAttacks", () => {
 
   it("returns nothing without an open window", () => {
     expect(aiOpportunityAttacks(battle(fleeing(), SIDES))).toEqual([]);
+  });
+});
+
+describe("readyTriggerRange", () => {
+  it("parses the encoded feet, defaulting to melee reach", () => {
+    expect(readyTriggerRange("in_range:30")).toBe(30);
+    expect(readyTriggerRange("in_range:5")).toBe(5);
+    expect(readyTriggerRange("enters_reach")).toBe(5); // unparseable → REACH_FEET
+  });
+});
+
+describe("readiedTriggersToFire", () => {
+  it("fires once the readied target is within trigger range", () => {
+    const hero = ent({
+      id: "hero",
+      kind: "character",
+      position: { x: 3, y: 3 },
+      readied: readied("goblin"),
+    });
+    const adjacent = ent({ id: "goblin", position: { x: 4, y: 3 } });
+    const far = ent({ id: "goblin", position: { x: 9, y: 3 } });
+
+    expect(
+      readiedTriggersToFire(battle([hero, adjacent], SIDES, 0)).map(
+        (f) => f.reactor.id,
+      ),
+    ).toEqual(["hero"]);
+    // Foe still out of reach → nothing fires yet.
+    expect(readiedTriggersToFire(battle([hero, far], SIDES, 0))).toEqual([]);
+  });
+
+  it("honours the encoded range for a readied ranged strike", () => {
+    const archer = ent({
+      id: "hero",
+      kind: "character",
+      position: { x: 0, y: 0 },
+      readied: readied("goblin", "in_range:30"), // 6 cells
+    });
+    const goblin = ent({ id: "goblin", position: { x: 5, y: 0 } }); // 5 cells = 25 ft
+    expect(
+      readiedTriggersToFire(battle([archer, goblin], SIDES, 0)).map(
+        (f) => f.target.id,
+      ),
+    ).toEqual(["goblin"]);
+  });
+
+  it("skips a reactor whose reaction is already spent or that is down", () => {
+    const spent = ent({
+      id: "hero",
+      kind: "character",
+      position: { x: 3, y: 3 },
+      reaction: "used",
+      readied: readied("goblin"),
+    });
+    const goblin = ent({ id: "goblin", position: { x: 4, y: 3 } });
+    expect(readiedTriggersToFire(battle([spent, goblin], SIDES, 0))).toEqual([]);
+
+    const down = ent({
+      id: "hero",
+      kind: "character",
+      position: { x: 3, y: 3 },
+      alive: false,
+      readied: readied("goblin"),
+    });
+    expect(readiedTriggersToFire(battle([down, goblin], SIDES, 0))).toEqual([]);
+  });
+
+  it("does not fire against a downed target", () => {
+    const hero = ent({
+      id: "hero",
+      kind: "character",
+      position: { x: 3, y: 3 },
+      readied: readied("goblin"),
+    });
+    const goblin = ent({ id: "goblin", position: { x: 4, y: 3 }, alive: false });
+    expect(readiedTriggersToFire(battle([hero, goblin], SIDES, 0))).toEqual([]);
+  });
+
+  it("returns nothing when no one holds a readied action", () => {
+    const hero = ent({ id: "hero", kind: "character", position: { x: 3, y: 3 } });
+    const goblin = ent({ id: "goblin", position: { x: 4, y: 3 } });
+    expect(readiedTriggersToFire(battle([hero, goblin], SIDES, 0))).toEqual([]);
   });
 });
 

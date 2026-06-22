@@ -76,6 +76,48 @@ export function aiOpportunityAttacks(
     .map((reactor) => ({ reactor, mover }));
 }
 
+/**
+ * The trigger range (in feet) encoded in a readied action's trigger string
+ * (`"in_range:30"`), or melee reach when the trigger carries no range. The live
+ * UI builds the string from the readied weapon's range so a bow shot fires when
+ * the foe enters bow range, a sword when it's adjacent.
+ */
+export function readyTriggerRange(trigger: string): number {
+  const match = /^in_range:(\d{1,3})$/.exec(trigger);
+  return match ? Number.parseInt(match[1]!, 10) : REACH_FEET;
+}
+
+/**
+ * The readied actions whose trigger condition is now met (combat loop): each
+ * alive, reaction-ready combatant holding a readied attack whose target is
+ * alive, in the same scene, and within the readied trigger range. The caller
+ * fires these via the engine `trigger_readied`. This is what makes "I ready a
+ * strike for when it closes" resolve automatically as foes advance.
+ */
+export function readiedTriggersToFire(
+  state: WorldState,
+): { reactor: EntityState; target: EntityState }[] {
+  const fired: { reactor: EntityState; target: EntityState }[] = [];
+  for (const reactor of Object.values(state.entities)) {
+    const readied = reactor.readied;
+    if (!readied || !reactor.alive || reactor.reaction !== "available") continue;
+    if (!reactor.position) continue;
+    const target = state.entities[readied.action.target];
+    if (
+      !target ||
+      !target.alive ||
+      !target.position ||
+      target.sceneId !== reactor.sceneId
+    ) {
+      continue;
+    }
+    if (distanceFeet(reactor.position, target.position) <= readyTriggerRange(readied.trigger)) {
+      fired.push({ reactor, target });
+    }
+  }
+  return fired;
+}
+
 /** Alive, placed combatants hostile to `monster` in the same scene. */
 export function enemyTargets(
   state: WorldState,

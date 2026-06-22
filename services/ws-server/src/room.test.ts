@@ -104,4 +104,28 @@ describe("isBattleAction", () => {
     expect(isBattleAction({ ...base, origin: { x: 5 } })).toBe(false);
     expect(isBattleAction({ ...base, origin: "nope" })).toBe(false);
   });
+
+  it("accepts a well-formed ready_action, rejecting malformed ones (#104)", () => {
+    const base = {
+      type: "ready_action",
+      entity: "pc:1",
+      trigger: "in_range:5",
+      action: {
+        kind: "attack",
+        target: "npc:1",
+        attackBonus: 5,
+        damage: { notation: "1d8+3", type: "slashing" },
+      },
+    };
+    expect(isBattleAction(base)).toBe(true);
+    expect(isBattleAction({ ...base, trigger: 5 })).toBe(false);
+    expect(isBattleAction({ ...base, action: { ...base.action, kind: "shove" } })).toBe(false);
+    expect(isBattleAction({ ...base, action: { ...base.action, target: 7 } })).toBe(false);
+    expect(isBattleAction({ ...base, action: undefined })).toBe(false);
+  });
+
+  it("accepts a trigger_readied command (#104)", () => {
+    expect(isBattleAction({ type: "trigger_readied", entity: "pc:1" })).toBe(true);
+    expect(isBattleAction({ type: "trigger_readied", entity: 5 })).toBe(false);
+  });
 });

@@ -29,6 +29,7 @@ import {
   aoeCaughtIds,
   castableSpellsFor,
   controllableReactors,
+  hostilesInScene,
   reactionWindowKey,
   targetsInRange,
   type CastableSpell,
@@ -216,6 +217,15 @@ function LiveBattle({
       : castableSpellsFor(activeEntity)
     : [];
 
+  // A confirmation line while the active PC holds a readied action (#104). The
+  // engine clears `readied` at the start of the owner's next turn.
+  const readiedNote =
+    activeEntity?.readied && state
+      ? `Readied a strike against ${
+          state.entities[activeEntity.readied.action.target]?.name ?? "a foe"
+        } — fires when they enter range.`
+      : undefined;
+
   // While a single-target action is armed, resolve the range + valid targets for
   // the picker. AoE casts use the aim overlay below instead.
   const targeting: TargetingOverlay | undefined = useMemo(() => {
@@ -223,10 +233,13 @@ function LiveBattle({
       return undefined;
     }
     const rangeFt =
-      armed.kind === "attack" ? armed.attack.rangeFt : armed.spell.rangeFt;
-    const targetableIds = targetsInRange(state, activeEntity.id, rangeFt).map(
-      (e) => e.id,
-    );
+      armed.kind === "cast" ? armed.spell.rangeFt : armed.attack.rangeFt;
+    // A readied strike picks any hostile in the scene (it fires later, when that
+    // foe enters range); an immediate attack/cast is limited to current range.
+    const targetableIds =
+      armed.kind === "ready"
+        ? hostilesInScene(state, activeEntity).map((e) => e.id)
+        : targetsInRange(state, activeEntity.id, rangeFt).map((e) => e.id);
     return {
       origin: activeEntity.position,
       rangeCells: Math.floor(rangeFt / FEET_PER_CELL),
@@ -263,6 +276,15 @@ function LiveBattle({
     if (armed.kind === "attack") {
       session.attack(
         activeEntity.id,
+        targetId,
+        armed.attack.attackBonus,
+        armed.attack.damage,
+      );
+    } else if (armed.kind === "ready") {
+      // Hold the strike; the server fires it when the foe enters this range.
+      session.readyAction(
+        activeEntity.id,
+        `in_range:${armed.attack.rangeFt}`,
         targetId,
         armed.attack.attackBonus,
         armed.attack.damage,
@@ -386,8 +408,10 @@ function LiveBattle({
               armed={armed}
               disabled={session.isBusy}
               aimReady={aimCell !== null}
+              readiedNote={readiedNote}
               onAttack={(attack) => setArmed({ kind: "attack", attack })}
               onCast={(spell) => setArmed({ kind: "cast", spell })}
+              onReady={(attack) => setArmed({ kind: "ready", attack })}
               onConfirm={onConfirmAim}
               onCancel={() => setArmed(null)}
             />
@@ -410,9 +434,11 @@ function LiveBattle({
           <p className="mt-2 text-xs text-lore-muted">
             {isAreaCast
               ? "Tap a cell to place the blast — the highlighted area shows who's caught — then Confirm. The engine resolves saves + damage."
-              : armed
-                ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
-                : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast above. The engine validates everything."}
+              : armed?.kind === "ready"
+                ? "Tap a foe to hold your strike for — the engine fires it automatically when they enter range on their turn."
+                : armed
+                  ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
+                  : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready above. The engine validates everything."}
           </p>
         </section>
 

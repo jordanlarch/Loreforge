@@ -268,6 +268,48 @@ describe("resolutionEntry (#99)", () => {
     expect(entry.text).toContain("14 damage");
   });
 
+  it("describes a readied action from the command, without engine detail (#104)", () => {
+    const entry = resolutionEntry(
+      {
+        type: "ready_action",
+        entity: "thorin",
+        trigger: "in_range:5",
+        action: {
+          kind: "attack",
+          target: "goblin",
+          attackBonus: 5,
+          damage: { notation: "1d8+3", type: "slashing" },
+        },
+      },
+      { entity: "thorin", trigger: "in_range:5" },
+      nameOf,
+      deps(),
+    );
+    expect(entry.text).toBe("Thorin readies an attack against Goblin.");
+  });
+
+  it("prefixes a fired readied strike as a Readied reaction (#104)", () => {
+    const entry = resolutionEntry(
+      { type: "trigger_readied", entity: "thorin" },
+      {
+        attacker: "thorin",
+        target: "goblin",
+        attackTotal: 19,
+        targetAc: 13,
+        hit: true,
+        critical: false,
+        damageType: "slashing",
+        damage: 9,
+        downed: false,
+      },
+      nameOf,
+      deps(),
+    );
+    expect(entry.text).toContain("Readied — ");
+    expect(entry.text).toContain("Thorin hits Goblin");
+    expect(entry.text).toContain("19 vs AC 13");
+  });
+
   it("falls back to the terse description when the summary lacks detail", () => {
     const entry = resolutionEntry(
       { type: "end_turn" },

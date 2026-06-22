@@ -20,6 +20,8 @@ import type {
   EndTurnCommand,
   MoveEntityCommand,
   OpportunityAttackCommand,
+  ReadyActionCommand,
+  TriggerReadiedCommand,
 } from "../commands/types";
 import type {
   Ability,
@@ -27,6 +29,7 @@ import type {
   ClassLevel,
   EntityRef,
   GridPosition,
+  ReadiedAction,
   SpellcastingInit,
 } from "../entities/types";
 import type { WorldState } from "../projections/world-state";
@@ -204,7 +207,9 @@ export type BattleAction =
   | AttackCommand
   | CastSpellCommand
   | OpportunityAttackCommand
-  | AbilityCheckCommand;
+  | AbilityCheckCommand
+  | ReadyActionCommand
+  | TriggerReadiedCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {
@@ -245,6 +250,20 @@ export function checkAction(
     ...(opts?.dc !== undefined ? { dc: opts.dc } : {}),
     ...(opts?.proficient ? { proficient: opts.proficient } : {}),
   };
+}
+
+/** Convenience constructor for readying an action against a trigger (#104). */
+export function readyAction(
+  entity: EntityRef,
+  trigger: string,
+  action: ReadiedAction,
+): ReadyActionCommand {
+  return { type: "ready_action", entity, trigger, action };
+}
+
+/** Convenience constructor for firing a readied action when its trigger hits (#104). */
+export function triggerReadiedAction(entity: EntityRef): TriggerReadiedCommand {
+  return { type: "trigger_readied", entity };
 }
 
 /** Convenience constructor for an opportunity-attack reaction (#58). */

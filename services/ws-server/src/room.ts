@@ -193,8 +193,27 @@ export function isBattleAction(value: unknown): value is BattleAction {
     slotLevel?: unknown;
     targets?: unknown;
     origin?: unknown;
+    trigger?: unknown;
+    action?: unknown;
   };
   if (action.type === "end_turn") return true;
+  if (action.type === "ready_action") {
+    const inner = action.action as
+      | { kind?: unknown; target?: unknown; attackBonus?: unknown; damage?: unknown }
+      | undefined;
+    return (
+      typeof action.entity === "string" &&
+      typeof action.trigger === "string" &&
+      inner !== undefined &&
+      inner.kind === "attack" &&
+      typeof inner.target === "string" &&
+      typeof inner.attackBonus === "number" &&
+      isDamage(inner.damage)
+    );
+  }
+  if (action.type === "trigger_readied") {
+    return typeof action.entity === "string";
+  }
   if (action.type === "move_entity") {
     return typeof action.entity === "string" && isGridPosition(action.to);
   }

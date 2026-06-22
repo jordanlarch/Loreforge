@@ -229,17 +229,23 @@ export async function narrateEnemyTurn(args: {
   recentChat: readonly ChatEntry[];
   actorName: string;
   outcome: string;
+  /** Framing line for the situation; defaults to "it is <actor>'s turn". A
+   * reaction (e.g. an opportunity attack) passes its own framing instead. */
+  situation?: string;
 }): Promise<NarrationResult> {
   const names = sceneEntityNames(args.state);
   const scene = sceneSummary(args.state);
   const history = recentLines(args.recentChat);
+  const framing =
+    args.situation ??
+    `It is ${args.actorName}'s turn (an enemy combatant the engine controls).`;
 
   const prompt = [
     scene ? `Scene: ${scene}` : "",
     names.length > 0 ? `Entities present: ${names.join(", ")}.` : "",
     history.length > 0 ? `Recent exchange:\n${history.join("\n")}` : "",
     "",
-    `It is ${args.actorName}'s turn (an enemy combatant the engine controls).`,
+    framing,
     `The dice have already decided the outcome: ${args.outcome} Narrate what happens, honouring this result exactly — do not contradict it or roll again.`,
   ]
     .filter(Boolean)

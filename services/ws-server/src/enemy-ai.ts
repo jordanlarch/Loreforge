@@ -51,6 +51,31 @@ export function activeEnemy(state: WorldState): EntityState | undefined {
   return entity;
 }
 
+/**
+ * The opportunity attacks an AI reactor should take from the current reaction
+ * window (combat loop): each AI-controlled, alive, reaction-ready combatant the
+ * engine flagged as eligible, paired with the mover that provoked it. Mirrors
+ * the client's `controllableReactors` but for the non-player side — players are
+ * prompted (#58); these the orchestrator resolves automatically.
+ */
+export function aiOpportunityAttacks(
+  state: WorldState,
+): { reactor: EntityState; mover: EntityState }[] {
+  const enc = state.encounter;
+  const window = enc?.reactionWindow;
+  if (!enc || !window) return [];
+  const mover = state.entities[window.mover];
+  if (!mover) return [];
+  return window.eligible
+    .filter((id) => !isPlayerControlled(state, id))
+    .map((id) => state.entities[id])
+    .filter(
+      (e): e is EntityState =>
+        e !== undefined && e.alive && e.reaction === "available",
+    )
+    .map((reactor) => ({ reactor, mover }));
+}
+
 /** Alive, placed combatants hostile to `monster` in the same scene. */
 export function enemyTargets(
   state: WorldState,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { CampaignTabSlug } from "@/lib/campaign-workspace";
+import { resumeSummary } from "@/lib/live-presence";
 import { trpc } from "@/lib/trpc/client";
 
 type CampaignData = {
@@ -40,6 +41,8 @@ export function OverviewTab({
 }) {
   const utils = trpc.useUtils();
   const party = trpc.campaigns.party.useQuery({ campaignId });
+  const playState = trpc.engine.state.useQuery({ campaignId });
+  const resume = resumeSummary(playState.data);
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(campaign.name);
@@ -63,6 +66,26 @@ export function OverviewTab({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* —— Resume banner (#105): mid-session pickup —— */}
+      {resume && (
+        <Link
+          href={`/campaigns/${campaignId}/play`}
+          className="flex items-center justify-between gap-4 rounded-lg border border-lore-accent bg-lore-accent-dim px-5 py-3 transition-colors hover:border-lore-accent"
+        >
+          <span className="text-sm text-lore-text">
+            📖 You&apos;re mid-session
+            {resume.sceneName ? ` at ${resume.sceneName}` : ""}
+            {resume.inCombat
+              ? ` — in combat${resume.round ? `, round ${resume.round}` : ""}`
+              : ""}
+            .
+          </span>
+          <span className="shrink-0 text-sm font-medium text-lore-accent">
+            Continue ▶
+          </span>
+        </Link>
+      )}
+
       {/* —— Hero —— */}
       <section className="rounded-lg border border-lore-border bg-lore-surface p-6">
         {editing ? (

@@ -65,7 +65,7 @@ Real M5 Live-Play gaps, lower leverage than A. Good once the spine is in.
 | ~~B2~~ ✅ | Full top bar (scene breadcrumb, clocks, Pause, tools row) | PLAY-5 | #101 — **Shipped (#126).** Structured `live-top-bar`: breadcrumb, campaign+scene label, Live/Async chip, scene breadcrumb, real-time clock, client-side Pause, End turn/Reset, tools row. In-game clock, server pause freeze, named roster, and tool panels deferred. |
 | ~~B3~~ ✅ | Scene transitions (cross-fade, location banner, travel auto-forge stubs) | PLAY-8 | #103 — **Shipped (#127).** Cross-fade + drop-in location banner on synced scene change (`isSceneChange` / `useSceneTransition`). Travel auto-forge, token animations, time/weather subtitle deferred. |
 | ~~B4~~ ✅ | Map upgrades (zoom L0–L4, layer toggles, fog of war, text-move) | PLAY-7 | #102 — **Shipped (#128).** `MapViewport`: CSS-scale zoom (in/out/reset) + layers panel (grid + movement). Hierarchical L0–L4, fog of war, Edit Map, token menus, text-move deferred. |
-| B5 | Async-play affordances (badge, Switch-to-Live prompt, resume banner) | PLAY-13 | #105 |
+| ~~B5~~ ✅ | Async-play affordances (badge, Switch-to-Live prompt, resume banner) | PLAY-13 | #105 — **Shipped (#129).** Switch-to-Live join prompt (peer increase) + Overview resume banner (`engine.state` → `resumeSummary`); badge shipped in B2. Push notifications / workspace join chip / turn-nudges deferred. |
 | B6 | Pacing controls remainder (round timers, initiative delay/hold) | PLAY-9 | #104 |
 
 ---

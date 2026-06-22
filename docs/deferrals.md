@@ -255,7 +255,7 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 | ENG-3 | Remaining ~240 SRD spells (toward full ~360) | roadmap §11 | post-GA / v1.x | doc-only | Deferred | Registry expansion, no schema break. |
 | ENG-4 | QuickJS Smithy sandbox (imperative escape hatch execution) | roadmap E5 | P6 | doc-only | Deferred | "Sandbox deferred" in P2 Smithy MVP note. |
 | ENG-5 | Retcon UI (ghost-timeline surfaced as undo/audit) | roadmap E5 | P6 | doc-only | Deferred | Event store is retcon-ready; UI not built. |
-| ENG-6 | LLM tool-adherence harness (>98% on fixtures) | roadmap §7 alpha gate | P6 | doc-only | Deferred | — |
+| ENG-6 | LLM tool-adherence harness (>98% on fixtures) | roadmap §7 alpha gate | P6 | doc-only | Partial | **C2 skeleton shipped** (`services/ws-server/src/adherence/`): a fixture battery + graders for the three orchestrator tool surfaces — `call_for_check` (ability/skill/DC routing), `choose_target` (legal monster target), and `narrate` (fiction-only; no leaked numbers/dice; mentions ⊆ on-scene set). `runAdherence` drives the real orchestrators (`decideCheck`/`decideMonsterTarget`/`narrate`) through a per-fixture `LlmClient` and reports an adherence rate; a vitest gate asserts ≥98%. CI runs it against deterministic fake clients (framework + graders self-tested, no network); a run with `ANTHROPIC_API_KEY` set points `clientFor` at the live model for the real gate. **Deferred:** broaden the battery (spell/item orchestrators as they land), wire a nightly real-model run, and track per-surface scores over time. |
 
 ---
 

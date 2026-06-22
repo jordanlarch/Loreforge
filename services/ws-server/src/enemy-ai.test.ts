@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { EntityState, GridPosition, WorldState } from "@app/engine";
+import type {
+  BattleAction,
+  EntityState,
+  GridPosition,
+  WorldState,
+} from "@app/engine";
 
 import {
   activeEnemy,
@@ -199,8 +204,10 @@ describe("planMonsterTurn", () => {
     const mage = ent({ id: "mage", kind: "character", position: { x: 11, y: 5 } });
     const state = battle([goblin, hero, mage], SIDES);
 
-    const attackOf = (plan: { type: string }[]): string =>
-      (plan.find((a) => a.type === "attack") as { target: string }).target;
+    const attackOf = (plan: BattleAction[]): string => {
+      const a = plan.find((x) => x.type === "attack");
+      return a && a.type === "attack" ? a.target : "";
+    };
 
     // Default: nearest is the hero (5 cells vs the mage's 6).
     expect(attackOf(planMonsterTurn(state, "goblin"))).toBe("hero");

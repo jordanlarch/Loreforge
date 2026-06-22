@@ -91,6 +91,16 @@ Each built surface was audited against its `docs/ui-flows/*.md`. Most surfaces a
 the docs describe. Gaps are grouped per surface; rows are deferral-worthy clusters, not
 every micro-item (read the flow doc for full detail).
 
+> **P4 backlog is now mirrored to GitHub issues #85–#105** (2026-06-21). The per-row
+> `Tracking` cells below still say `doc-only`, but the live queue is on GitHub. Mapping:
+> CHAR-3 → #85 · CHAR-7 (Combat/Features/Personality) → #86 · SMITH-5 → #87 ·
+> REALM-2 → #88 · REALM-3 → #89 · REALM-5 → #90 · REALM-6 → #91 · REALM-7 → #92 ·
+> CAMP-12 → #93 · CAMP-14 → #94 · CAMP-15 (Add-to-Campaign) → #95 ·
+> PLAY-1 → #96 · PLAY-2 → #97 · PLAY-3/PLAY-6 sheet bridge → #98 ·
+> PLAY-6 (AoE/resolution) → #99 · PLAY-4 → #100 · PLAY-5 → #101 · PLAY-7 → #102 ·
+> PLAY-8 → #103 · PLAY-9 (Ready/AI reactions) → #104 · PLAY-13 → #105.
+> (CHAR-9 is Done; not ticketed.)
+
 ### 3.1 Home — `docs/ui-flows/home.md`
 
 Built page is a P1 dev dashboard (surface cards + system status), not the cinematic

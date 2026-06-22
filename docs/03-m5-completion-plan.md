@@ -62,7 +62,7 @@ Real M5 Live-Play gaps, lower leverage than A. Good once the spine is in.
 | Order | Slice | Deferral | Issue |
 |---|---|---|---|
 | ~~B1~~ ✅ | Party rail (collapsed chips, hover mini-HUD) | PLAY-4 | #100 — **Shipped (#125).** Bottom rail of party-side chips (HP + action economy + active-turn pulse) with a hover mini-HUD, on pure `lib/live-party` helpers. Assist pulses + click-to-sheet deferred. |
-| B2 | Full top bar (scene breadcrumb, clocks, Pause, tools row) | PLAY-5 | #101 |
+| ~~B2~~ ✅ | Full top bar (scene breadcrumb, clocks, Pause, tools row) | PLAY-5 | #101 — **Shipped (#126).** Structured `live-top-bar`: breadcrumb, campaign+scene label, Live/Async chip, scene breadcrumb, real-time clock, client-side Pause, End turn/Reset, tools row. In-game clock, server pause freeze, named roster, and tool panels deferred. |
 | B3 | Scene transitions (cross-fade, location banner, travel auto-forge stubs) | PLAY-8 | #103 |
 | B4 | Map upgrades (zoom L0–L4, layer toggles, fog of war, text-move) | PLAY-7 | #102 |
 | B5 | Async-play affordances (badge, Switch-to-Live prompt, resume banner) | PLAY-13 | #105 |

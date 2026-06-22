@@ -10,8 +10,21 @@
  *   - Slice #42: Fireball, Burning Hands, Sacred Flame
  *   - Slice #43: Cure Wounds, Healing Word, Fire Bolt
  *
+ *   - Slice #40: Magic Missile, Guiding Bolt
+ *   - Slice #42: Fireball, Burning Hands, Sacred Flame
+ *   - Slice #43: Cure Wounds, Healing Word, Fire Bolt
+ *   - Batch 2 (C1 / ENG-2): the cleanly-declarative SRD spells that resolve on
+ *     today's pipeline (single-component damage via attack / save / auto-hit,
+ *     plus healing) — Ray of Frost, Shocking Grasp, Chill Touch, Produce Flame,
+ *     Thorn Whip, Poison Spray, Acid Splash, Vicious Mockery, Inflict Wounds,
+ *     Shatter, Cone of Cold, Mass Healing Word, Prayer of Healing. Spells whose
+ *     core effect is a *condition/rider* (Bless, Hold Person, Shield, …) wait on
+ *     the Effect system; their non-damage riders are noted in `description`.
+ *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
- * a malformed registry entry fails CI rather than at cast time.
+ * a malformed registry entry fails CI rather than at cast time, and every
+ * authored spell is exercised by a deterministic golden cast snapshot
+ * (`engine.spells.golden.test.ts`).
  */
 import type { SpellDefinition } from "./spells";
 
@@ -182,6 +195,271 @@ const FIRE_BOLT: SpellDefinition = {
     "You hurl a mote of fire at a creature or object within range. Make a ranged spell attack. On a hit, the target takes 1d10 fire damage. This spell's damage increases by 1d10 when you reach 5th level (2d10), 11th level (3d10), and 17th level (4d10).",
 };
 
+// ───────────────────────── Batch 2 (C1 / ENG-2) ─────────────────────────
+
+/** Ray of Frost — a cantrip ranged spell attack for 1d8 cold (slows on hit). */
+const RAY_OF_FROST: SpellDefinition = {
+  id: "ray-of-frost",
+  name: "Ray of Frost",
+  level: 0,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d8", type: "cold" }],
+  description:
+    "A frigid beam of blue-white light streaks toward a creature within range. Make a ranged spell attack. On a hit, the target takes 1d8 cold damage, and its speed is reduced by 10 feet until the start of your next turn. The damage increases by 1d8 at 5th, 11th, and 17th level. (The speed reduction is narrated; the slow rider is not yet mechanized.)",
+};
+
+/** Shocking Grasp — a cantrip melee spell attack for 1d8 lightning. */
+const SHOCKING_GRASP: SpellDefinition = {
+  id: "shocking-grasp",
+  name: "Shocking Grasp",
+  level: 0,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "melee" },
+  damage: [{ dice: "1d8", type: "lightning" }],
+  description:
+    "Lightning springs from your hand to a creature you try to touch. Make a melee spell attack; you have advantage if the target wears metal armor. On a hit, the target takes 1d8 lightning damage and can't take reactions until the start of its next turn. The damage increases by 1d8 at 5th, 11th, and 17th level. (The advantage-vs-metal and no-reaction riders are narrated, not yet mechanized.)",
+};
+
+/** Chill Touch — a cantrip ranged spell attack for 1d8 necrotic. */
+const CHILL_TOUCH: SpellDefinition = {
+  id: "chill-touch",
+  name: "Chill Touch",
+  level: 0,
+  school: "necromancy",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "round", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d8", type: "necrotic" }],
+  description:
+    "You create a ghostly, skeletal hand in the space of a creature within range. Make a ranged spell attack. On a hit, the target takes 1d8 necrotic damage and can't regain hit points until the start of your next turn. The damage increases by 1d8 at 5th, 11th, and 17th level. (The no-healing rider is narrated, not yet mechanized.)",
+};
+
+/** Produce Flame — a cantrip ranged spell attack for 1d8 fire (also a light). */
+const PRODUCE_FLAME: SpellDefinition = {
+  id: "produce-flame",
+  name: "Produce Flame",
+  level: 0,
+  school: "conjuration",
+  classes: ["Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 10 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d8", type: "fire" }],
+  description:
+    "A flickering flame appears in your hand, shedding light. You can hurl it at a creature within range: make a ranged spell attack, dealing 1d8 fire damage on a hit. The damage increases by 1d8 at 5th, 11th, and 17th level. (The shed-light effect is narrated, not yet mechanized.)",
+};
+
+/** Thorn Whip — a cantrip melee spell attack for 1d6 piercing (pulls on hit). */
+const THORN_WHIP: SpellDefinition = {
+  id: "thorn-whip",
+  name: "Thorn Whip",
+  level: 0,
+  school: "transmutation",
+  classes: ["Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "the stem of a plant with thorns" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "melee" },
+  damage: [{ dice: "1d6", type: "piercing" }],
+  description:
+    "You create a long, vine-like whip covered in thorns that lashes out at a creature within range. Make a melee spell attack. On a hit, the target takes 1d6 piercing damage, and if it is Large or smaller you pull it up to 10 feet closer. The damage increases by 1d6 at 5th, 11th, and 17th level. (The forced pull is narrated, not yet mechanized.)",
+};
+
+/** Poison Spray — a cantrip Con-save cantrip; 1d12 poison on a fail. */
+const POISON_SPRAY: SpellDefinition = {
+  id: "poison-spray",
+  name: "Poison Spray",
+  level: 0,
+  school: "conjuration",
+  classes: ["Druid", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 10 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d12", type: "poison" }],
+  description:
+    "You extend your hand toward a creature you can see within range and project a puff of noxious gas. The target makes a Constitution saving throw, taking 1d12 poison damage on a failed save. The damage increases by 1d12 at 5th, 11th, and 17th level.",
+};
+
+/** Acid Splash — a cantrip Dex-save cantrip hitting up to two creatures. */
+const ACID_SPLASH: SpellDefinition = {
+  id: "acid-splash",
+  name: "Acid Splash",
+  level: 0,
+  school: "conjuration",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d6", type: "acid" }],
+  description:
+    "You hurl a bubble of acid at one creature, or two creatures within 5 feet of each other. Each target makes a Dexterity saving throw, taking 1d6 acid damage on a failed save. The damage increases by 1d6 at 5th, 11th, and 17th level.",
+};
+
+/** Vicious Mockery — a bard cantrip; Wis save, 1d4 psychic on a fail. */
+const VICIOUS_MOCKERY: SpellDefinition = {
+  id: "vicious-mockery",
+  name: "Vicious Mockery",
+  level: 0,
+  school: "enchantment",
+  classes: ["Bard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d4", type: "psychic" }],
+  description:
+    "You unleash a string of insults laced with subtle enchantments at a creature you can see within range. It makes a Wisdom saving throw, taking 1d4 psychic damage on a failed save and having disadvantage on its next attack roll before the end of its next turn. The damage increases by 1d4 at 5th, 11th, and 17th level. (The disadvantage rider is narrated, not yet mechanized.)",
+};
+
+/** Inflict Wounds — a level-1 melee spell attack for 3d10 necrotic. */
+const INFLICT_WOUNDS: SpellDefinition = {
+  id: "inflict-wounds",
+  name: "Inflict Wounds",
+  level: 1,
+  school: "necromancy",
+  classes: ["Cleric"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "melee" },
+  damage: [{ dice: "3d10", type: "necrotic" }],
+  upcastScaling: { perSlotDice: "1d10", appliesTo: "damage" },
+  description:
+    "Make a melee spell attack against a creature you can reach. On a hit, the target takes 3d10 necrotic damage. When cast with a slot of 2nd level or higher, the damage increases by 1d10 for each slot level above 1st.",
+};
+
+/** Shatter — a level-2 10-ft-radius sphere; Con save-for-half, 3d8 thunder. */
+const SHATTER: SpellDefinition = {
+  id: "shatter",
+  name: "Shatter",
+  level: 2,
+  school: "evocation",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 10 } },
+  components: { verbal: true, somatic: true, material: "a chip of mica" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "3d8", type: "thunder" }],
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
+  description:
+    "A sudden loud ringing noise, painfully intense, erupts from a point of your choice within range. Each creature in a 10-foot-radius sphere centered on that point makes a Constitution saving throw, taking 3d8 thunder damage on a failed save, or half as much on a success. When cast with a slot of 3rd level or higher, the damage increases by 1d8 for each slot level above 2nd.",
+};
+
+/** Cone of Cold — a level-5 60-ft cone; Con save-for-half, 8d6 cold. */
+const CONE_OF_COLD: SpellDefinition = {
+  id: "cone-of-cold",
+  name: "Cone of Cold",
+  level: 5,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "cone", size: 60 } },
+  components: { verbal: true, somatic: true, material: "a small crystal or glass cone" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "8d6", type: "cold" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "A blast of cold air erupts from your hands. Each creature in a 60-foot cone makes a Constitution saving throw, taking 8d6 cold damage on a failed save, or half as much on a success. When cast with a slot of 6th level or higher, the damage increases by 1d6 for each slot level above 5th.",
+};
+
+/** Mass Healing Word — a level-3 bonus-action heal of 1d4 + mod to up to six. */
+const MASS_HEALING_WORD: SpellDefinition = {
+  id: "mass-healing-word",
+  name: "Mass Healing Word",
+  level: 3,
+  school: "abjuration",
+  classes: ["Cleric"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  healing: { dice: "1d4", addSpellMod: true },
+  upcastScaling: { perSlotDice: "1d4", appliesTo: "healing" },
+  description:
+    "Up to six creatures of your choice that you can see within range each regain hit points equal to 1d4 + your spellcasting ability modifier. When cast with a slot of 4th level or higher, the healing increases by 1d4 for each slot level above 3rd.",
+};
+
+/** Prayer of Healing — a level-2 heal of 2d8 + mod to up to six creatures. */
+const PRAYER_OF_HEALING: SpellDefinition = {
+  id: "prayer-of-healing",
+  name: "Prayer of Healing",
+  level: 2,
+  school: "abjuration",
+  classes: ["Cleric"],
+  castingTime: { unit: "minute", amount: 10 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  healing: { dice: "2d8", addSpellMod: true },
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "healing" },
+  description:
+    "Up to six creatures of your choice that you can see within range each regain hit points equal to 2d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs. When cast with a slot of 3rd level or higher, the healing increases by 1d8 for each slot level above 2nd.",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -192,6 +470,19 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [CURE_WOUNDS.id]: CURE_WOUNDS,
   [HEALING_WORD.id]: HEALING_WORD,
   [FIRE_BOLT.id]: FIRE_BOLT,
+  [RAY_OF_FROST.id]: RAY_OF_FROST,
+  [SHOCKING_GRASP.id]: SHOCKING_GRASP,
+  [CHILL_TOUCH.id]: CHILL_TOUCH,
+  [PRODUCE_FLAME.id]: PRODUCE_FLAME,
+  [THORN_WHIP.id]: THORN_WHIP,
+  [POISON_SPRAY.id]: POISON_SPRAY,
+  [ACID_SPLASH.id]: ACID_SPLASH,
+  [VICIOUS_MOCKERY.id]: VICIOUS_MOCKERY,
+  [INFLICT_WOUNDS.id]: INFLICT_WOUNDS,
+  [SHATTER.id]: SHATTER,
+  [CONE_OF_COLD.id]: CONE_OF_COLD,
+  [MASS_HEALING_WORD.id]: MASS_HEALING_WORD,
+  [PRAYER_OF_HEALING.id]: PRAYER_OF_HEALING,
 };
 
 /** Look up an authored spell definition by slug id. */

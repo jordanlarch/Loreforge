@@ -77,7 +77,7 @@ Start thin slices now so they don't ambush M7.
 
 | Slice | Deferral | Why early |
 |---|---|---|
-| Top-120 spell push + golden tests | ENG-2 | Alpha gate = 100% golden on the shipped set. Today's coverage (~5 registry spells + families) is also thin vs **M3's own DoD of "~30 T1 spells."** |
+| ~~Top-120 spell push + golden tests~~ ✅ (C1, batch 1) | ENG-2 | Alpha gate = 100% golden on the shipped set. **Shipped:** registry 8 → 21 (the cleanly-declarative SRD set the engine resolves today) + a deterministic **golden snapshot harness** (`engine.spells.golden.test.ts`) that casts every registry spell and locks its damage/heal/hit/save outcome. Remaining top-120 batches + condition/rider spells wait on the Effect system. |
 | LLM tool-adherence harness (>98% on fixtures) | ENG-6 | Hard alpha gate; no harness exists yet. |
 | 6-client Tier-4 sync stress (P95 broadcast <500ms) | — | Alpha gate; never load-tested. |
 

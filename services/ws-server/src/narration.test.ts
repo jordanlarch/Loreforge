@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { createFakeLlmClient } from "@app/llm";
 import type { WorldState } from "@app/engine";
 
-import { activePlayerEntity, decideCheck, narrate } from "./narration.js";
+import {
+  activePlayerEntity,
+  decideCheck,
+  decideMonsterTarget,
+  narrate,
+  narrateEnemyTurn,
+} from "./narration.js";
 import type { ChatEntry } from "./chat.js";
 
 /** A minimal world: one scene with a goblin + a hero present. */
@@ -159,6 +165,69 @@ describe("decideCheck", () => {
     expect(decision.dc).toBe(30);
     expect(decision.skill).toBeUndefined();
     expect(decision.proficient).toBe(false);
+  });
+});
+
+describe("decideMonsterTarget", () => {
+  const candidates = [
+    { id: "hero", name: "Thorin", hp: 18 },
+    { id: "mage", name: "Elara", hp: 6 },
+  ];
+
+  it("returns the model's chosen target when it's a legal candidate", async () => {
+    const client = createFakeLlmClient({ input: { targetId: "mage" } });
+    const chosen = await decideMonsterTarget({
+      client,
+      state: world(),
+      monsterName: "Snik",
+      candidates,
+    });
+    expect(chosen).toBe("mage");
+  });
+
+  it("ignores an out-of-set target id", async () => {
+    const client = createFakeLlmClient({ input: { targetId: "dragon" } });
+    const chosen = await decideMonsterTarget({
+      client,
+      state: world(),
+      monsterName: "Snik",
+      candidates,
+    });
+    expect(chosen).toBeUndefined();
+  });
+
+  it("offers the candidate list (id + hp) to the model", async () => {
+    const client = createFakeLlmClient({ input: { targetId: "hero" } });
+    await decideMonsterTarget({
+      client,
+      state: world(),
+      monsterName: "Snik",
+      candidates,
+    });
+    const prompt = client.calls[0]!.messages[0]!.content;
+    expect(prompt).toContain("Thorin");
+    expect(prompt).toContain("Elara");
+    expect(prompt).toContain("6 HP");
+  });
+});
+
+describe("narrateEnemyTurn", () => {
+  it("frames the monster's turn and injects the resolved outcome", async () => {
+    const client = createFakeLlmClient({
+      input: { narration: "Snik's blade bites deep." },
+    });
+    const result = await narrateEnemyTurn({
+      client,
+      state: world(),
+      recentChat: chat,
+      actorName: "Snik",
+      outcome: "Snik hits Thorin for 5 damage.",
+    });
+    expect(result.text).toBe("Snik's blade bites deep.");
+    const prompt = client.calls[0]!.messages[0]!.content;
+    expect(prompt).toContain("Snik's turn");
+    expect(prompt).toContain("already decided");
+    expect(prompt).toContain("hits Thorin for 5 damage");
   });
 });
 

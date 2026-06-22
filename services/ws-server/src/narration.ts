@@ -179,7 +179,20 @@ export async function narrate(args: {
     .filter(Boolean)
     .join("\n");
 
-  const res = await args.client.callTool({
+  return runNarration(args.client, prompt, names);
+}
+
+/**
+ * Shared tail for any GM narration: call the narrate tool, require non-empty
+ * prose, and filter `mentions` to the closed set of on-scene entity names. Throws
+ * on empty output so callers can fall back to a stub.
+ */
+async function runNarration(
+  client: LlmClient,
+  prompt: string,
+  names: string[],
+): Promise<NarrationResult> {
+  const res = await client.callTool({
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],
     tool: NARRATE_TOOL,
@@ -202,6 +215,37 @@ export async function narrate(args: {
     : [];
 
   return { text, mentions };
+}
+
+/**
+ * Narrate a non-player combatant's turn (PLAY combat loop). The engine has
+ * already resolved the mechanics; `outcome` is the factual result the prose must
+ * honour (e.g. "Goblin Cutter hits Thorin for 5 damage"). Same storyteller
+ * contract as {@link narrate} — fiction only, no dice or numbers invented.
+ */
+export async function narrateEnemyTurn(args: {
+  client: LlmClient;
+  state: WorldState | undefined;
+  recentChat: readonly ChatEntry[];
+  actorName: string;
+  outcome: string;
+}): Promise<NarrationResult> {
+  const names = sceneEntityNames(args.state);
+  const scene = sceneSummary(args.state);
+  const history = recentLines(args.recentChat);
+
+  const prompt = [
+    scene ? `Scene: ${scene}` : "",
+    names.length > 0 ? `Entities present: ${names.join(", ")}.` : "",
+    history.length > 0 ? `Recent exchange:\n${history.join("\n")}` : "",
+    "",
+    `It is ${args.actorName}'s turn (an enemy combatant the engine controls).`,
+    `The dice have already decided the outcome: ${args.outcome} Narrate what happens, honouring this result exactly — do not contradict it or roll again.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return runNarration(args.client, prompt, names);
 }
 
 /* -------------------------------------------------------------------------- *
@@ -298,4 +342,72 @@ export async function decideCheck(args: {
   const proficient = input.proficient === true;
 
   return { ability, skill, dc, proficient };
+}
+
+/* -------------------------------------------------------------------------- *
+ *  Orchestrator — pick which foe a monster attacks on its turn (combat loop)
+ * -------------------------------------------------------------------------- */
+
+/** A candidate target the monster could legally attack (engine-validated set). */
+export type MonsterTargetOption = { id: string; name: string; hp: number };
+
+const CHOOSE_TARGET_TOOL: EmitToolDefinition = {
+  name: "choose_target",
+  description: "Choose which hostile creature this monster attacks this turn.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      targetId: {
+        type: "string",
+        description:
+          "The id of the creature to attack, chosen ONLY from the provided candidate list.",
+      },
+    },
+    required: ["targetId"],
+  },
+};
+
+const TARGET_SYSTEM = [
+  "You are the tactical brain for a monster in a Dungeons & Dragons 5E (SRD 5.2) fight.",
+  "Pick the single most sensible target for this monster to attack from the candidates, considering threat and how close each is to defeat.",
+  "You choose the intent only — the deterministic engine resolves movement, reach, and the attack. You MUST respond by calling the choose_target tool.",
+].join("\n");
+
+/**
+ * The combat-loop orchestrator step (mirrors {@link decideCheck}): ask the model
+ * which candidate the monster should attack. The deterministic planner remains
+ * authoritative — it uses this only when it names a legal candidate, and falls
+ * back to nearest/weakest otherwise. Returns undefined if the choice is invalid.
+ */
+export async function decideMonsterTarget(args: {
+  client: LlmClient;
+  state: WorldState | undefined;
+  monsterName: string;
+  candidates: readonly MonsterTargetOption[];
+}): Promise<string | undefined> {
+  if (args.candidates.length === 0) return undefined;
+  const scene = sceneSummary(args.state);
+  const list = args.candidates
+    .map((c) => `- ${c.id}: ${c.name} (${c.hp} HP)`)
+    .join("\n");
+  const prompt = [
+    scene ? `Scene: ${scene}` : "",
+    `${args.monsterName} is choosing a target. Candidates:`,
+    list,
+    "Which candidate does it attack?",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const res = await args.client.callTool({
+    system: TARGET_SYSTEM,
+    messages: [{ role: "user", content: prompt }],
+    tool: CHOOSE_TARGET_TOOL,
+  });
+
+  const input = res.input as { targetId?: unknown };
+  const chosen = typeof input.targetId === "string" ? input.targetId : undefined;
+  return chosen && args.candidates.some((c) => c.id === chosen)
+    ? chosen
+    : undefined;
 }

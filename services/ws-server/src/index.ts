@@ -24,7 +24,7 @@ import {
   parseRoom,
   verifySupabaseToken,
 } from "./auth.js";
-import { checkAction } from "@app/engine";
+import { checkAction, type WorldState } from "@app/engine";
 import type { LlmClient } from "@app/llm";
 
 import {
@@ -50,9 +50,12 @@ import {
   abilityLabel,
   activePlayerEntity,
   decideCheck,
+  decideMonsterTarget,
   getNarrationClient,
   narrate,
+  narrateEnemyTurn,
 } from "./narration.js";
+import { activeEnemy, enemyTargets, planMonsterTurn } from "./enemy-ai.js";
 import { writeProjection } from "./projection.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
@@ -259,6 +262,133 @@ async function runCheck(
   await appendAndPersist(document, documentName, [gm]);
 }
 
+/** Resolve entity ids to display names from a state snapshot. */
+function nameResolver(state: WorldState): (id: string) => string {
+  return (id) => state.entities[id]?.name ?? id;
+}
+
+/** Hard cap on autonomous turns per trigger, so a stuck loop can't run forever. */
+const MAX_ENEMY_TURNS = 24;
+
+/** The factual one-line result of an enemy turn, for narration (undefined = skip). */
+function enemyTurnOutcome(
+  enemyName: string,
+  actions: readonly { type: string }[],
+  attackSummary: Record<string, unknown> | undefined,
+  nameOf: (id: string) => string,
+): string | undefined {
+  if (attackSummary) {
+    const target = nameOf(String(attackSummary.target ?? ""));
+    if (attackSummary.hit === true) {
+      const dmg =
+        typeof attackSummary.damage === "number" ? attackSummary.damage : 0;
+      const downed =
+        attackSummary.downed === true ? `, dropping ${target}` : "";
+      return `${enemyName} hits ${target} for ${dmg} damage${downed}.`;
+    }
+    return `${enemyName} attacks ${target} but misses.`;
+  }
+  if (actions.some((a) => a.type === "move_entity")) {
+    return `${enemyName} advances toward the party.`;
+  }
+  return undefined;
+}
+
+/**
+ * Run every queued non-player turn after a state change (combat loop). The
+ * deterministic planner (`planMonsterTurn`) is authoritative; the engine
+ * validates each action. When a narration client is present it (a) lets the LLM
+ * pick the target among legal candidates — the #97 "model proposes, engine
+ * disposes" pattern — and (b) narrates each turn. No-ops when it is a PC's turn.
+ */
+async function runEnemyTurns(
+  room: LiveRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  client: LlmClient | undefined,
+): Promise<void> {
+  let state = await room.getState();
+  if (!activeEnemy(state)) return;
+
+  if (client) setThinking(document, true);
+  try {
+    let guard = 0;
+    while (guard < MAX_ENEMY_TURNS) {
+      guard += 1;
+      const enemy = activeEnemy(state);
+      if (!enemy) break;
+
+      // Optional LLM target intent — only worth a call with a real choice.
+      let preferred: string | undefined;
+      if (client && enemy.alive) {
+        const candidates = enemyTargets(state, enemy).map((t) => ({
+          id: t.id,
+          name: t.name,
+          hp: t.hp.current,
+        }));
+        if (candidates.length > 1) {
+          try {
+            preferred = await decideMonsterTarget({
+              client,
+              state,
+              monsterName: enemy.name,
+              candidates,
+            });
+          } catch {
+            // Best-effort; the deterministic planner still picks a target.
+          }
+        }
+      }
+
+      const actions = planMonsterTurn(state, enemy.id, preferred);
+      let attackSummary: Record<string, unknown> | undefined;
+      for (const action of actions) {
+        const { accepted, summary } = await room.apply(action);
+        if (!accepted) continue;
+        state = await room.getState();
+        writeProjection(document, state);
+        if (action.type === "attack") {
+          attackSummary = summary as Record<string, unknown> | undefined;
+          await appendAndPersist(document, documentName, [
+            resolutionEntry(action, attackSummary, nameResolver(state), chatDeps),
+          ]);
+        }
+      }
+
+      if (client) {
+        const outcome = enemyTurnOutcome(
+          enemy.name,
+          actions,
+          attackSummary,
+          nameResolver(state),
+        );
+        if (outcome) {
+          try {
+            const narration = await narrateEnemyTurn({
+              client,
+              state,
+              recentChat: chatArray(document).toArray(),
+              actorName: enemy.name,
+              outcome,
+            });
+            await appendAndPersist(document, documentName, [
+              gmEntry(narration.text, chatDeps, {
+                mentions: narration.mentions,
+              }),
+            ]);
+          } catch {
+            // Narration is optional; the engine row already told the story.
+          }
+        }
+      }
+    }
+  } finally {
+    if (client) setThinking(document, false);
+  }
+}
+
 const server = new Hocuspocus({
   name: "loreforge-ws",
   port: PORT,
@@ -299,6 +429,9 @@ const server = new Hocuspocus({
       const history = await loadChatMessages(parsed.campaignId);
       if (history.length > 0) appendChat(document, history);
     }
+    // If a foe won initiative, let it act before the first player join sees the
+    // board — so combat never opens stuck on an enemy's turn.
+    await runEnemyTurns(room, document, documentName, getNarrationClient());
     return document;
   },
 
@@ -328,6 +461,9 @@ const server = new Hocuspocus({
             chatDeps,
           ),
         ]);
+        // The player's action may have ended their turn; let the engine-driven
+        // foes take theirs before control returns to the party (combat loop).
+        await runEnemyTurns(room, document, documentName, getNarrationClient());
       } else {
         connection.sendStateless(REJECTED);
       }
@@ -373,6 +509,8 @@ const server = new Hocuspocus({
     // message.t === "reset"
     await room.reset();
     writeProjection(document, await room.getState());
+    // A fresh encounter may open on an enemy's initiative.
+    await runEnemyTurns(room, document, documentName, getNarrationClient());
   },
 
   async onDisconnect({ documentName, clientsCount }) {

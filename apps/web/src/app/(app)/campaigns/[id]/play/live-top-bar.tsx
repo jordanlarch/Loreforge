@@ -15,6 +15,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { turnTimerTone, type PacingPrefs } from "../../../../../lib/live-pacing";
+
+import { PacingControls } from "./pacing-controls";
+
 /** Format a duration in seconds as `m:ss` (or `h:mm:ss` past an hour). */
 export function formatDuration(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -46,12 +50,25 @@ function useSessionClock(paused: boolean): number {
   return elapsed;
 }
 
-const TOOLS: { key: string; label: string; note: string }[] = [
-  { key: "pacing", label: "🎚 Pacing", note: "Pacing controls — coming in a later slice." },
+/** The still-placeholder tools (Pacing is now real, handled separately). */
+const PLACEHOLDER_TOOLS: { key: string; label: string; note: string }[] = [
   { key: "tts", label: "🔊 TTS", note: "Text-to-speech — coming in a later slice." },
   { key: "memory", label: "🧠 Memory", note: "AI memory panel — coming in a later slice." },
   { key: "inventory", label: "📋 Inventory", note: "Party inventory drawer — coming in a later slice." },
 ];
+
+export type PacingBundle = {
+  prefs: PacingPrefs;
+  onUpdate: (patch: Partial<PacingPrefs>) => void;
+  holding: boolean;
+  onToggleHold: () => void;
+  onContinue: () => void;
+  onSkip: (duration: string) => void;
+  /** Seconds elapsed on the current combat turn, when in combat. */
+  turnElapsedSec?: number;
+  /** Disable Continue/Skip (e.g. while a command is in flight or paused). */
+  disabled: boolean;
+};
 
 export function LivePlayTopBar({
   title,
@@ -69,6 +86,7 @@ export function LivePlayTopBar({
   onEndTurn,
   onReset,
   rejected,
+  pacing,
 }: {
   title: string;
   sceneName?: string;
@@ -85,9 +103,19 @@ export function LivePlayTopBar({
   onEndTurn: () => void;
   onReset: () => void;
   rejected: boolean;
+  pacing?: PacingBundle;
 }) {
   const elapsed = useSessionClock(paused);
   const live = peers >= 2;
+  const [pacingOpen, setPacingOpen] = useState(false);
+
+  const showTurnTimer =
+    pacing !== undefined &&
+    pacing.prefs.turnLimitSec > 0 &&
+    pacing.turnElapsedSec !== undefined;
+  const turnTone = showTurnTimer
+    ? turnTimerTone(pacing.turnElapsedSec ?? 0, pacing.prefs.turnLimitSec)
+    : "ok";
 
   return (
     <header className="mb-4 rounded-lg border border-lore-border bg-lore-surface">
@@ -130,6 +158,21 @@ export function LivePlayTopBar({
           {movementLeft !== undefined && movementTotal !== undefined && (
             <span>
               {movementLeft}/{movementTotal} ft
+            </span>
+          )}
+          {showTurnTimer && pacing && (
+            <span
+              className={`rounded px-2 py-0.5 text-xs tabular-nums ${
+                turnTone === "over"
+                  ? "bg-lore-accent-dim text-lore-accent"
+                  : turnTone === "warn"
+                    ? "text-lore-accent"
+                    : "text-lore-muted"
+              }`}
+              title="Soft round timer (this turn)"
+            >
+              ⏳ {formatDuration(pacing.turnElapsedSec ?? 0)} /{" "}
+              {formatDuration(pacing.prefs.turnLimitSec)}
             </span>
           )}
         </div>
@@ -178,12 +221,47 @@ export function LivePlayTopBar({
         </div>
       </div>
 
-      {/* Row 3: tools (placeholders until their own slices land) */}
+      {/* Row 3: tools — Pacing is live; the rest are placeholders. */}
       <div className="flex flex-wrap items-center gap-1.5 border-t border-lore-border px-3 py-2">
         <span className="mr-1 text-[10px] uppercase tracking-widest text-lore-muted">
           Tools
         </span>
-        {TOOLS.map((tool) => (
+        {pacing ? (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setPacingOpen((o) => !o)}
+              className={`rounded border px-2 py-1 text-xs transition-colors ${
+                pacingOpen || pacing.holding
+                  ? "border-lore-accent bg-lore-accent-dim text-lore-text"
+                  : "border-lore-border text-lore-muted hover:text-lore-text"
+              }`}
+            >
+              🎚 Pacing{pacing.holding ? " · Hold" : ""}
+            </button>
+            {pacingOpen && (
+              <PacingControls
+                prefs={pacing.prefs}
+                onUpdate={pacing.onUpdate}
+                holding={pacing.holding}
+                onToggleHold={pacing.onToggleHold}
+                onContinue={pacing.onContinue}
+                onSkip={pacing.onSkip}
+                disabled={pacing.disabled}
+              />
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled
+            title="Pacing controls — coming in a later slice."
+            className="cursor-not-allowed rounded border border-lore-border px-2 py-1 text-xs text-lore-muted opacity-60"
+          >
+            🎚 Pacing
+          </button>
+        )}
+        {PLACEHOLDER_TOOLS.map((tool) => (
           <button
             key={tool.key}
             type="button"

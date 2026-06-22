@@ -23,6 +23,7 @@ import {
 import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { joinedSincePrompt } from "@/lib/live-presence";
+import { usePacingPrefs, useTurnTimer } from "@/lib/live-pacing";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import {
   aoeAffectedCells,
@@ -154,6 +155,7 @@ function LiveBattle({
   context,
   backHref,
   loadouts,
+  campaignId,
 }: {
   session: LiveSession;
   title: string;
@@ -162,6 +164,8 @@ function LiveBattle({
   backHref?: string;
   /** Per-entity sheet loadouts (#98); absent for the sandbox fixture. */
   loadouts?: Record<string, SheetData>;
+  /** Owning campaign id; scopes persisted pacing prefs (#104). */
+  campaignId?: string;
 }) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
@@ -197,6 +201,15 @@ function LiveBattle({
     prevPeers.current = session.peers;
     if (msg) setJoinPrompt(msg);
   }, [session.peers]);
+
+  // Pacing controls (#104): persisted style + soft round timer + Continue/Hold/
+  // Skip quick controls. Continue/Skip nudge the AI through chat; Hold is local.
+  const { prefs: pacingPrefs, update: updatePacing } = usePacingPrefs(campaignId);
+  const [holding, setHolding] = useState(false);
+  const inCombat = session.state?.encounter !== undefined;
+  const turnKey =
+    inCombat && vm ? `${vm.round}:${vm.activeName ?? ""}` : undefined;
+  const turnElapsed = useTurnTimer(turnKey, paused || holding);
 
   // A fresh arm clears any stale aim from a prior AoE cast.
   useEffect(() => {
@@ -383,6 +396,16 @@ function LiveBattle({
         onEndTurn={session.endTurn}
         onReset={session.reset}
         rejected={session.rejected}
+        pacing={{
+          prefs: pacingPrefs,
+          onUpdate: updatePacing,
+          holding,
+          onToggleHold: () => setHolding((h) => !h),
+          onContinue: () => session.sendChat("(Continue the scene.)", "continue"),
+          onSkip: (duration) => session.sendChat(`/skip ${duration}`, "skip"),
+          turnElapsedSec: inCombat ? turnElapsed : undefined,
+          disabled: session.isBusy || paused,
+        }}
       />
 
       {joinPrompt && (
@@ -555,6 +578,7 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
       context="Live campaign"
       backHref={`/campaigns/${campaignId}`}
       loadouts={loadouts}
+      campaignId={campaignId}
     />
   );
 }

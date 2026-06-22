@@ -61,7 +61,7 @@ Real M5 Live-Play gaps, lower leverage than A. Good once the spine is in.
 
 | Order | Slice | Deferral | Issue |
 |---|---|---|---|
-| B1 | Party rail (collapsed chips, hover mini-HUD) | PLAY-4 | #100 |
+| ~~B1~~ ✅ | Party rail (collapsed chips, hover mini-HUD) | PLAY-4 | #100 — **Shipped (#125).** Bottom rail of party-side chips (HP + action economy + active-turn pulse) with a hover mini-HUD, on pure `lib/live-party` helpers. Assist pulses + click-to-sheet deferred. |
 | B2 | Full top bar (scene breadcrumb, clocks, Pause, tools row) | PLAY-5 | #101 |
 | B3 | Scene transitions (cross-fade, location banner, travel auto-forge stubs) | PLAY-8 | #103 |
 | B4 | Map upgrades (zoom L0–L4, layer toggles, fog of war, text-move) | PLAY-7 | #102 |

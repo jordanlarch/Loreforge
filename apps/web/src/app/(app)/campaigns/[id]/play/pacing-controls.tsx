@@ -15,7 +15,7 @@ import {
   TURN_LIMIT_OPTIONS,
   type PacingPrefs,
   type PacingStyle,
-} from "../../../../../lib/live-pacing";
+} from "@/lib/live-pacing";
 
 const STYLE_LABELS: Record<PacingStyle, string> = {
   cinematic: "Cinematic",

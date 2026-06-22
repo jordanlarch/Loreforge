@@ -15,7 +15,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { turnTimerTone, type PacingPrefs } from "../../../../../lib/live-pacing";
+import { turnTimerTone, type PacingPrefs } from "@/lib/live-pacing";
 
 import { PacingControls } from "./pacing-controls";
 

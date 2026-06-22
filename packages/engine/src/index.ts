@@ -261,16 +261,20 @@ export {
 } from "./fixtures/party";
 export {
   buildFixtureBattle,
+  buildPartyBattleCommands,
   FIXTURE_BATTLE_CAMPAIGN_ID,
   FIXTURE_BATTLE_COMMANDS,
   FIXTURE_BATTLE_FOES_SIDE,
   FIXTURE_BATTLE_PARTY_SIDE,
   FIXTURE_BATTLE_SCENE_ID,
+  FIXTURE_PARTY,
+  MAX_BATTLE_PARTY,
   attackAction,
   castAction,
   moveAction,
   opportunityAttackAction,
   type BattleAction,
+  type PartyMember,
 } from "./fixtures/battle";
 export type {
   CharacterSheet,

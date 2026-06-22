@@ -31,7 +31,7 @@ import {
   isChatInput,
   type ChatDeps,
 } from "./chat.js";
-import { getEventStore, isCampaignOwner } from "./db.js";
+import { getCampaignParty, getEventStore, isCampaignOwner } from "./db.js";
 import { writeProjection } from "./projection.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
@@ -92,7 +92,7 @@ function roomFor(documentName: string): LiveRoom {
     const parsed = parseRoom(documentName);
     room =
       parsed?.kind === "campaign"
-        ? new CampaignRoom(parsed.campaignId, getEventStore())
+        ? new CampaignRoom(parsed.campaignId, getEventStore(), getCampaignParty)
         : new BattleRoom();
     rooms.set(documentName, room);
   }

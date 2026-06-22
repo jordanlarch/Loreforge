@@ -9,7 +9,7 @@ import {
   type WorldState,
 } from "@app/engine";
 
-import { deriveStrike } from "@/lib/live-combat";
+import { genericStrike, type WeaponAttack } from "@/lib/sheet-loadout";
 
 /** The slice of the live session the HUD drives (decoupled from the hook). */
 type HudSession = {
@@ -62,13 +62,24 @@ function readActive(state: WorldState | undefined): {
 }
 
 /**
- * Live-play character HUD (#63): the right-rail Live Stats panel for the active
- * combatant, driven entirely by the synced `WorldState` so it reflects engine
- * events live (HP, conditions, action economy, slots, death saves). Quick-attack
- * routes through the deterministic engine; the item quick-use is a narrative stub
- * until inventory rides the live entity (#58).
+ * Live-play character HUD (#63, #98): the right-rail Live Stats panel for the
+ * active combatant, driven entirely by the synced `WorldState` so it reflects
+ * engine events live (HP, conditions, action economy, slots, death saves).
+ * Quick-attack routes through the deterministic engine. When the campaign roster
+ * is bridged in (#98) the attack + quick-use are driven by the character's real
+ * weapon + consumables; otherwise they fall back to a generic Strike.
  */
-export function CharacterHud({ session }: { session: HudSession }) {
+export function CharacterHud({
+  session,
+  weapons,
+  items,
+}: {
+  session: HudSession;
+  /** Sheet-derived weapons for the active entity (#98); generic Strike if absent. */
+  weapons?: WeaponAttack[];
+  /** Sheet-derived quick-use consumables (#98). */
+  items?: { name: string; quantity: number }[];
+}) {
   const [compact, setCompact] = useState(false);
   const [targetId, setTargetId] = useState("");
 
@@ -85,9 +96,9 @@ export function CharacterHud({ session }: { session: HudSession }) {
     Math.min(100, Math.round((entity.hp.current / Math.max(1, entity.hp.max)) * 100)),
   );
 
-  // Generic weapon "Strike" derived from the live entity (shared with the map
-  // action bar); real weapon lists ride the sheet later.
-  const strike = deriveStrike(entity);
+  // Primary weapon: the first sheet-derived weapon (#98), or a generic Strike
+  // when no roster is bridged in. The map action bar offers the full list.
+  const strike = weapons?.[0] ?? genericStrike(entity);
 
   const chosenTarget = targetId || targets[0]?.id || "";
 
@@ -274,16 +285,28 @@ export function CharacterHud({ session }: { session: HudSession }) {
         </div>
       </Section>
 
-      {/* Inventory quick-use (narrative stub until inventory rides the entity) */}
-      <Section title="Quick Use">
-        <button
-          type="button"
-          onClick={() => session.sendChat("uses a Healing Potion", "use_item")}
-          className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
-        >
-          🧪 Healing Potion
-        </button>
-      </Section>
+      {/* Inventory quick-use — real consumables from the sheet (#98); using an
+          item is still a narrative action (sendChat) until item effects route
+          through the engine (SMITH-7). */}
+      {items && items.length > 0 && (
+        <Section title="Quick Use">
+          <div className="flex flex-wrap gap-1.5">
+            {items.map((item) => (
+              <button
+                key={item.name}
+                type="button"
+                onClick={() =>
+                  session.sendChat(`uses ${item.name}`, "use_item")
+                }
+                className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+              >
+                🧪 {item.name}
+                {item.quantity > 1 ? ` ×${item.quantity}` : ""}
+              </button>
+            ))}
+          </div>
+        </Section>
+      )}
 
       {yourTurn && (
         <button

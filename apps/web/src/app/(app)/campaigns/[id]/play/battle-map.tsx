@@ -16,6 +16,7 @@ import { useEffect, useRef } from "react";
 import { Application, Container, Graphics, Text } from "pixi.js";
 
 import {
+  CELL_SIZE,
   cellCenter,
   cellToPixel,
   clampCell,
@@ -77,9 +78,9 @@ export type BattleMapProps = {
   /** When present, the map is in AoE aim mode (#99): tap a cell to place. */
   aiming?: AimOverlay;
   onAimCell?: (cell: Cell) => void;
+  /** Grid-line layer toggle (PLAY-7); defaults on. */
+  showGrid?: boolean;
 };
-
-const CELL_SIZE = 44;
 
 type DragState = {
   id: string;
@@ -171,6 +172,7 @@ export default function BattleMap(props: BattleMapProps) {
     props.reachable,
     props.targeting,
     props.aiming,
+    props.showGrid,
   ]);
 
   function onPointerMove(event: { global: { x: number; y: number } }) {
@@ -215,19 +217,21 @@ export default function BattleMap(props: BattleMapProps) {
     if (!world) return;
     world.removeChildren().forEach((child) => child.destroy());
 
-    const { cols, rows, walls, tokens, reachable, targeting, aiming } =
+    const { cols, rows, walls, tokens, reachable, targeting, aiming, showGrid } =
       propsRef.current;
 
-    // Grid lines.
-    const grid = new Graphics();
-    for (let x = 0; x <= cols; x += 1) {
-      grid.moveTo(x * CELL_SIZE, 0).lineTo(x * CELL_SIZE, rows * CELL_SIZE);
+    // Grid lines (toggleable layer, PLAY-7).
+    if (showGrid !== false) {
+      const grid = new Graphics();
+      for (let x = 0; x <= cols; x += 1) {
+        grid.moveTo(x * CELL_SIZE, 0).lineTo(x * CELL_SIZE, rows * CELL_SIZE);
+      }
+      for (let y = 0; y <= rows; y += 1) {
+        grid.moveTo(0, y * CELL_SIZE).lineTo(cols * CELL_SIZE, y * CELL_SIZE);
+      }
+      grid.stroke({ width: 1, color: TOKEN_COLORS.grid, alpha: 1 });
+      world.addChild(grid);
     }
-    for (let y = 0; y <= rows; y += 1) {
-      grid.moveTo(0, y * CELL_SIZE).lineTo(cols * CELL_SIZE, y * CELL_SIZE);
-    }
-    grid.stroke({ width: 1, color: TOKEN_COLORS.grid, alpha: 1 });
-    world.addChild(grid);
 
     // Movement radius.
     if (reachable.length > 0) {

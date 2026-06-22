@@ -9,6 +9,13 @@
  */
 export type Cell = { x: number; y: number };
 
+/**
+ * Tactical-grid cell size in CSS pixels. Lives here (pixi-free) so both the
+ * PixiJS renderer and the React map viewport can size themselves against one
+ * source of truth without importing the renderer.
+ */
+export const CELL_SIZE = 44;
+
 /** Top-left pixel of a cell. */
 export function cellToPixel(cell: Cell, cellSize: number): { x: number; y: number } {
   return { x: cell.x * cellSize, y: cell.y * cellSize };

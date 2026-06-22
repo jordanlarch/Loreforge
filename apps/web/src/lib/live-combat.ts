@@ -128,6 +128,28 @@ export function targetsInRange(
 }
 
 /**
+ * Every alive, placed hostile to `actor` in its scene, regardless of range — the
+ * candidate set for a *readied* strike (#104), which targets a foe that hasn't
+ * closed yet and fires once it enters range.
+ */
+export function hostilesInScene(
+  state: WorldState,
+  actor: EntityState,
+): EntityState[] {
+  const encounter = state.encounter;
+  if (!encounter) return [];
+  const mySide = encounter.sides[actor.id];
+  return Object.values(state.entities).filter(
+    (e) =>
+      e.id !== actor.id &&
+      e.alive &&
+      e.position !== undefined &&
+      e.sceneId === actor.sceneId &&
+      areHostile(mySide, encounter.sides[e.id]),
+  );
+}
+
+/**
  * Reactors in an open opportunity-attack window that the local player controls
  * (on `controlledSide`), so we only prompt for reactions the user can take.
  */

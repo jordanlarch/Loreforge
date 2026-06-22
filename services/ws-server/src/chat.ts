@@ -261,6 +261,10 @@ function eventText(action: BattleAction): string {
       return "An attack was resolved by the engine.";
     case "opportunity_attack":
       return "An opportunity attack was resolved by the engine.";
+    case "ready_action":
+      return "A combatant readied an action.";
+    case "trigger_readied":
+      return "A readied action was triggered.";
     case "ability_check":
       return "A check was resolved by the engine.";
     case "cast_spell":
@@ -300,13 +304,28 @@ function resolutionText(
 ): string | undefined {
   if (!summary) return undefined;
 
-  if (action.type === "attack" || action.type === "opportunity_attack") {
+  if (action.type === "ready_action") {
+    const entity = nameOf(action.entity);
+    const target = nameOf(action.action.target);
+    return `${entity} readies an attack against ${target}.`;
+  }
+
+  if (
+    action.type === "attack" ||
+    action.type === "opportunity_attack" ||
+    action.type === "trigger_readied"
+  ) {
     const attacker = nameOf(String(summary.attacker ?? ""));
     const target = nameOf(String(summary.target ?? ""));
     const total = num(summary.attackTotal);
     const ac = num(summary.targetAc);
     if (total === undefined || ac === undefined) return undefined;
-    const prefix = action.type === "opportunity_attack" ? "Opportunity — " : "";
+    const prefix =
+      action.type === "opportunity_attack"
+        ? "Opportunity — "
+        : action.type === "trigger_readied"
+          ? "Readied — "
+          : "";
     const vs = `${total} vs AC ${ac}`;
     if (summary.hit !== true) {
       return `${prefix}${attacker} misses ${target} (${vs}).`;

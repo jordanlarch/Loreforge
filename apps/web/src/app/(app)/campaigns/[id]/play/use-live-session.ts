@@ -248,6 +248,22 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
         t: "cmd",
         action: { type: "opportunity_attack", reactor, target, attackBonus, damage },
       }),
+    readyAction: (
+      entity: string,
+      trigger: string,
+      target: string,
+      attackBonus: number,
+      damage: { notation: string; type: string },
+    ) =>
+      send({
+        t: "cmd",
+        action: {
+          type: "ready_action",
+          entity,
+          trigger,
+          action: { kind: "attack", target, attackBonus, damage },
+        },
+      }),
     reset: () => send({ t: "reset" }),
   };
 }

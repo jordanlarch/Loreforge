@@ -27,6 +27,7 @@ import {
 import {
   checkAction,
   opportunityAttackAction,
+  triggerReadiedAction,
   type WorldState,
 } from "@app/engine";
 import type { LlmClient } from "@app/llm";
@@ -65,6 +66,7 @@ import {
   enemyTargets,
   monsterAttackProfile,
   planMonsterTurn,
+  readiedTriggersToFire,
 } from "./enemy-ai.js";
 import { writeProjection } from "./projection.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
@@ -386,6 +388,65 @@ async function runEnemyReactions(
 }
 
 /**
+ * Fire any readied actions whose trigger condition is now met (combat loop):
+ * when a foe advances into the range a player readied a strike for, resolve that
+ * held attack via the engine `trigger_readied` before the foe acts further. Each
+ * fire consumes the reactor's reaction + clears its readied slot, so the loop
+ * terminates; bounded by a guard. No-ops when nothing is triggered.
+ */
+async function runReadiedTriggers(
+  room: LiveRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  client: LlmClient | undefined,
+): Promise<void> {
+  let state = await room.getState();
+  if (readiedTriggersToFire(state).length === 0) return;
+
+  if (client) setThinking(document, true);
+  try {
+    let guard = 0;
+    while (guard < MAX_ENEMY_TURNS) {
+      guard += 1;
+      const fired = readiedTriggersToFire(state);
+      if (fired.length === 0) break;
+      const { reactor, target } = fired[0]!;
+      const action = triggerReadiedAction(reactor.id);
+      const { accepted, summary } = await room.apply(action);
+      if (!accepted) break; // shouldn't happen; guards against a stuck loop
+      state = await room.getState();
+      writeProjection(document, state);
+      const detail = summary as Record<string, unknown> | undefined;
+      await appendAndPersist(document, documentName, [
+        resolutionEntry(action, detail, nameResolver(state), chatDeps),
+      ]);
+
+      if (client) {
+        try {
+          const narration = await narrateEnemyTurn({
+            client,
+            state,
+            recentChat: chatArray(document).toArray(),
+            actorName: reactor.name,
+            outcome: opportunityOutcome(reactor.name, target.name, detail),
+            situation: `${reactor.name}'s readied strike triggers as ${target.name} advances into range.`,
+          });
+          await appendAndPersist(document, documentName, [
+            gmEntry(narration.text, chatDeps, { mentions: narration.mentions }),
+          ]);
+        } catch {
+          // Narration is optional; the engine row already told the story.
+        }
+      }
+    }
+  } finally {
+    if (client) setThinking(document, false);
+  }
+}
+
+/**
  * Run every queued non-player turn after a state change (combat loop). The
  * deterministic planner (`planMonsterTurn`) is authoritative; the engine
  * validates each action. When a narration client is present it (a) lets the LLM
@@ -446,6 +507,10 @@ async function runEnemyTurns(
             resolutionEntry(action, attackSummary, nameResolver(state), chatDeps),
           ]);
         }
+        // A foe advancing may step into the range a player readied a strike for;
+        // resolve held actions now (it can interrupt the foe's own attack).
+        await runReadiedTriggers(room, document, documentName, client);
+        state = await room.getState();
       }
 
       if (client) {

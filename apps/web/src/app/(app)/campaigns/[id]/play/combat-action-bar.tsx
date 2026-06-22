@@ -13,6 +13,7 @@ import type { WeaponAttack } from "@/lib/sheet-loadout";
 
 export type ArmedAction =
   | { kind: "attack"; attack: WeaponAttack }
+  | { kind: "ready"; attack: WeaponAttack }
   | { kind: "cast"; spell: CastableSpell }
   | null;
 
@@ -22,8 +23,10 @@ export function CombatActionBar({
   armed,
   disabled,
   aimReady,
+  readiedNote,
   onAttack,
   onCast,
+  onReady,
   onConfirm,
   onCancel,
 }: {
@@ -33,14 +36,19 @@ export function CombatActionBar({
   disabled: boolean;
   /** AoE aim mode only: whether an aim cell is placed and the cast can fire. */
   aimReady: boolean;
+  /** A held-action confirmation line shown when an action is readied (#104). */
+  readiedNote?: string;
   onAttack: (weapon: WeaponAttack) => void;
   onCast: (spell: CastableSpell) => void;
+  /** Arm the picker to ready a strike against a chosen foe (#104). */
+  onReady: (weapon: WeaponAttack) => void;
   /** Fire the armed AoE cast at the placed aim cell (#99). */
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const [castOpen, setCastOpen] = useState(false);
   const [attackOpen, setAttackOpen] = useState(false);
+  const [readyOpen, setReadyOpen] = useState(false);
 
   if (armed) {
     // AoE cast: place an aim cell on the map, then confirm (#99).
@@ -79,10 +87,14 @@ export function CombatActionBar({
     const label =
       armed.kind === "attack"
         ? `Pick a target for ${armed.attack.label}`
-        : `Pick a target for ${armed.spell.name}`;
+        : armed.kind === "ready"
+          ? `Pick a foe to ready ${armed.attack.label} against — it fires when they enter range`
+          : `Pick a target for ${armed.spell.name}`;
     return (
       <div className="mb-3 flex items-center justify-between rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm">
-        <span className="text-lore-text">🎯 {label}</span>
+        <span className="text-lore-text">
+          {armed.kind === "ready" ? "⏳" : "🎯"} {label}
+        </span>
         <button
           type="button"
           onClick={onCancel}
@@ -95,7 +107,8 @@ export function CombatActionBar({
   }
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2">
+    <div className="mb-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2">
       <span className="text-xs uppercase tracking-widest text-lore-muted">
         Actions
       </span>
@@ -127,6 +140,40 @@ export function CombatActionBar({
                     onClick={() => {
                       setAttackOpen(false);
                       onAttack(weapon);
+                    }}
+                    className="block w-full px-3 py-1.5 text-left text-sm text-lore-text transition-colors hover:bg-lore-accent-dim"
+                  >
+                    {weapon.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {weapons.length > 0 && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              if (weapons.length === 1) onReady(weapons[0]!);
+              else setReadyOpen((o) => !o);
+            }}
+            disabled={disabled}
+            className="rounded border border-lore-border px-3 py-1 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+          >
+            {weapons.length === 1 ? "Ready" : "Ready ▾"}
+          </button>
+          {readyOpen && weapons.length > 1 && (
+            <ul className="absolute z-10 mt-1 w-56 rounded border border-lore-border bg-lore-surface py-1 shadow-lg">
+              {weapons.map((weapon) => (
+                <li key={weapon.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReadyOpen(false);
+                      onReady(weapon);
                     }}
                     className="block w-full px-3 py-1.5 text-left text-sm text-lore-text transition-colors hover:bg-lore-accent-dim"
                   >
@@ -171,6 +218,12 @@ export function CombatActionBar({
             </ul>
           )}
         </div>
+      )}
+      </div>
+      {readiedNote && (
+        <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200">
+          ⏳ {readiedNote}
+        </p>
       )}
     </div>
   );

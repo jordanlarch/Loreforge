@@ -9,7 +9,6 @@
  * projection and sends commands — the engine runs on the server. Two tabs on
  * the same account share one live battle. The renderer below is unchanged.
  */
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -48,20 +47,11 @@ import { ChatZone } from "./chat-zone";
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { LivePlayTopBar } from "./live-top-bar";
+import { MapViewport } from "./map-viewport";
 import { PartyRail } from "./party-rail";
 import { ReactionPrompt } from "./reaction-prompt";
-import { SceneBanner } from "./scene-banner";
 import { useSceneTransition } from "./use-scene-transition";
 import { useLiveSession } from "./use-live-session";
-
-const BattleMap = dynamic(() => import("./battle-map"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-[440px] w-[528px] items-center justify-center rounded-lg border border-lore-border bg-lore-bg text-sm text-lore-muted">
-      Loading map…
-    </div>
-  ),
-});
 
 type ViewModel = {
   cols: number;
@@ -415,27 +405,20 @@ function LiveBattle({
             </div>
           )}
 
-          <div className="relative inline-block overflow-hidden rounded-lg border border-lore-border bg-lore-bg">
-            <SceneBanner banner={sceneBanner} />
-            <div
-              className={`transition-opacity duration-700 ${
-                transitioning ? "opacity-40" : "opacity-100"
-              }`}
-            >
-              <BattleMap
-                cols={vm.cols}
-                rows={vm.rows}
-                walls={vm.walls}
-                tokens={vm.tokens}
-                reachable={paused || armed ? [] : vm.reachable}
-                onMoveToken={paused ? () => {} : session.moveToken}
-                targeting={paused ? undefined : targeting}
-                onPickTarget={paused ? () => {} : onPickTarget}
-                aiming={paused ? undefined : aiming}
-                onAimCell={paused ? () => {} : setAimCell}
-              />
-            </div>
-          </div>
+          <MapViewport
+            sceneBanner={sceneBanner}
+            transitioning={transitioning}
+            cols={vm.cols}
+            rows={vm.rows}
+            walls={vm.walls}
+            tokens={vm.tokens}
+            reachable={paused || armed ? [] : vm.reachable}
+            onMoveToken={paused ? () => {} : session.moveToken}
+            targeting={paused ? undefined : targeting}
+            onPickTarget={paused ? () => {} : onPickTarget}
+            aiming={paused ? undefined : aiming}
+            onAimCell={paused ? () => {} : setAimCell}
+          />
           <p className="mt-2 text-xs text-lore-muted">
             {isAreaCast
               ? "Tap a cell to place the blast — the highlighted area shows who's caught — then Confirm. The engine resolves saves + damage."

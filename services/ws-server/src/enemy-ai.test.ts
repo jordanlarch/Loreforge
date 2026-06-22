@@ -9,6 +9,7 @@ import type {
 
 import {
   activeEnemy,
+  aiOpportunityAttacks,
   enemyTargets,
   isPlayerControlled,
   monsterAttackProfile,
@@ -28,6 +29,7 @@ function ent(
     classes: [],
     proficiencyBonus: 2,
     alive: true,
+    reaction: "available",
     conditions: [],
     dead: false,
     sceneId: "s1",
@@ -50,6 +52,7 @@ function battle(
   entities: EntityState[],
   sides: Record<string, string>,
   activeIndex = 0,
+  reactionWindow?: { mover: string; eligible: string[] },
 ): WorldState {
   return {
     campaignId: "c1",
@@ -70,6 +73,7 @@ function battle(
       initiativeRolled: true,
       round: 1,
       activeIndex,
+      ...(reactionWindow ? { reactionWindow } : {}),
     },
     lastSequence: 1,
   } as unknown as WorldState;
@@ -97,6 +101,48 @@ describe("isPlayerControlled / activeEnemy", () => {
     ];
     expect(activeEnemy(battle(entities, SIDES, 0))?.id).toBe("goblin");
     expect(activeEnemy(battle(entities, SIDES, 1))).toBeUndefined();
+  });
+});
+
+describe("aiOpportunityAttacks", () => {
+  const fleeing = () => [
+    ent({ id: "goblin", position: { x: 9, y: 3 } }),
+    ent({ id: "hero", kind: "character", position: { x: 2, y: 3 } }),
+  ];
+
+  it("returns the AI reactor + mover when a window is open for it", () => {
+    const state = battle(fleeing(), SIDES, 1, {
+      mover: "hero",
+      eligible: ["goblin"],
+    });
+    const oas = aiOpportunityAttacks(state);
+    expect(oas).toHaveLength(1);
+    expect(oas[0]!.reactor.id).toBe("goblin");
+    expect(oas[0]!.mover.id).toBe("hero");
+  });
+
+  it("ignores a player-controlled eligible reactor (those are prompted)", () => {
+    const state = battle(fleeing(), SIDES, 0, {
+      mover: "goblin",
+      eligible: ["hero"],
+    });
+    expect(aiOpportunityAttacks(state)).toEqual([]);
+  });
+
+  it("skips a reactor that has already used its reaction", () => {
+    const entities = [
+      ent({ id: "goblin", position: { x: 9, y: 3 }, reaction: "used" }),
+      ent({ id: "hero", kind: "character", position: { x: 2, y: 3 } }),
+    ];
+    const state = battle(entities, SIDES, 1, {
+      mover: "hero",
+      eligible: ["goblin"],
+    });
+    expect(aiOpportunityAttacks(state)).toEqual([]);
+  });
+
+  it("returns nothing without an open window", () => {
+    expect(aiOpportunityAttacks(battle(fleeing(), SIDES))).toEqual([]);
   });
 });
 

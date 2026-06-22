@@ -24,7 +24,11 @@ import {
   parseRoom,
   verifySupabaseToken,
 } from "./auth.js";
-import { checkAction, type WorldState } from "@app/engine";
+import {
+  checkAction,
+  opportunityAttackAction,
+  type WorldState,
+} from "@app/engine";
 import type { LlmClient } from "@app/llm";
 
 import {
@@ -55,7 +59,13 @@ import {
   narrate,
   narrateEnemyTurn,
 } from "./narration.js";
-import { activeEnemy, enemyTargets, planMonsterTurn } from "./enemy-ai.js";
+import {
+  activeEnemy,
+  aiOpportunityAttacks,
+  enemyTargets,
+  monsterAttackProfile,
+  planMonsterTurn,
+} from "./enemy-ai.js";
 import { writeProjection } from "./projection.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
@@ -294,6 +304,87 @@ function enemyTurnOutcome(
   return undefined;
 }
 
+/** The factual one-line result of an AI opportunity attack, for narration. */
+function opportunityOutcome(
+  reactorName: string,
+  moverName: string,
+  summary: Record<string, unknown> | undefined,
+): string {
+  if (summary?.hit === true) {
+    const dmg = typeof summary.damage === "number" ? summary.damage : 0;
+    const downed = summary.downed === true ? `, dropping ${moverName}` : "";
+    return `${reactorName} catches ${moverName} with an opportunity attack for ${dmg} damage${downed}.`;
+  }
+  return `${reactorName}'s opportunity attack misses ${moverName}.`;
+}
+
+/**
+ * Resolve any opportunity attacks an AI reactor is entitled to from the current
+ * reaction window (combat loop). Players are *prompted* to take an OA (#58);
+ * AI-controlled reactors take theirs automatically here — the tracer policy is
+ * "always strike a fleeing foe". Each `opportunity_attack` is engine-validated
+ * (reaction availability, the provoke window) and removes the reactor from the
+ * window, so the loop terminates; bounded by a guard regardless. No-ops when no
+ * window is open or only players are eligible.
+ */
+async function runEnemyReactions(
+  room: LiveRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  client: LlmClient | undefined,
+): Promise<void> {
+  let state = await room.getState();
+  if (aiOpportunityAttacks(state).length === 0) return;
+
+  if (client) setThinking(document, true);
+  try {
+    let guard = 0;
+    while (guard < MAX_ENEMY_TURNS) {
+      guard += 1;
+      const oas = aiOpportunityAttacks(state);
+      if (oas.length === 0) break;
+      const { reactor, mover } = oas[0]!;
+      const profile = monsterAttackProfile(reactor);
+      const action = opportunityAttackAction(
+        reactor.id,
+        mover.id,
+        profile.attackBonus,
+        profile.damage,
+      );
+      const { accepted, summary } = await room.apply(action);
+      if (!accepted) break; // shouldn't happen; guards against a stuck loop
+      state = await room.getState();
+      writeProjection(document, state);
+      const detail = summary as Record<string, unknown> | undefined;
+      await appendAndPersist(document, documentName, [
+        resolutionEntry(action, detail, nameResolver(state), chatDeps),
+      ]);
+
+      if (client) {
+        try {
+          const narration = await narrateEnemyTurn({
+            client,
+            state,
+            recentChat: chatArray(document).toArray(),
+            actorName: reactor.name,
+            outcome: opportunityOutcome(reactor.name, mover.name, detail),
+            situation: `${reactor.name} takes an opportunity attack as ${mover.name} leaves its reach.`,
+          });
+          await appendAndPersist(document, documentName, [
+            gmEntry(narration.text, chatDeps, { mentions: narration.mentions }),
+          ]);
+        } catch {
+          // Narration is optional; the engine row already told the story.
+        }
+      }
+    }
+  } finally {
+    if (client) setThinking(document, false);
+  }
+}
+
 /**
  * Run every queued non-player turn after a state change (combat loop). The
  * deterministic planner (`planMonsterTurn`) is authoritative; the engine
@@ -461,8 +552,9 @@ const server = new Hocuspocus({
             chatDeps,
           ),
         ]);
-        // The player's action may have ended their turn; let the engine-driven
-        // foes take theirs before control returns to the party (combat loop).
+        // A move may have fled an AI reactor's reach — let foes take their
+        // opportunity attacks first, then (if the turn ended) their full turns.
+        await runEnemyReactions(room, document, documentName, getNarrationClient());
         await runEnemyTurns(room, document, documentName, getNarrationClient());
       } else {
         connection.sendStateless(REJECTED);

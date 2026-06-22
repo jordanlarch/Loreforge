@@ -51,6 +51,18 @@ export type TargetingOverlay = {
   targetableIds: string[];
 };
 
+/** Active AoE aim overlay (#99): a placement range + the current area preview. */
+export type AimOverlay = {
+  /** Caster cell — the cone apex and the sphere's placement-range center. */
+  origin: Cell;
+  /** Sphere placement range in cells (Chebyshev square); 0 hides the box. */
+  rangeCells: number;
+  /** Cells the area currently covers (empty until the player aims). */
+  areaCells: Cell[];
+  /** Ids of tokens caught in the current area (friend and foe). */
+  caughtIds: string[];
+};
+
 export type BattleMapProps = {
   cols: number;
   rows: number;
@@ -62,6 +74,9 @@ export type BattleMapProps = {
   /** When present, the map is in target-picking mode (#58). */
   targeting?: TargetingOverlay;
   onPickTarget?: (id: string) => void;
+  /** When present, the map is in AoE aim mode (#99): tap a cell to place. */
+  aiming?: AimOverlay;
+  onAimCell?: (cell: Cell) => void;
 };
 
 const CELL_SIZE = 44;
@@ -119,6 +134,7 @@ export default function BattleMap(props: BattleMapProps) {
         app.stage.on("pointermove", onPointerMove);
         app.stage.on("pointerup", onPointerUp);
         app.stage.on("pointerupoutside", onPointerUp);
+        app.stage.on("pointertap", onStageTap);
 
         readyRef.current = true;
         redraw();
@@ -154,6 +170,7 @@ export default function BattleMap(props: BattleMapProps) {
     props.tokens,
     props.reachable,
     props.targeting,
+    props.aiming,
   ]);
 
   function onPointerMove(event: { global: { x: number; y: number } }) {
@@ -180,12 +197,25 @@ export default function BattleMap(props: BattleMapProps) {
     }
   }
 
+  // In AoE aim mode (#99) any tap on the grid places the aim cell. Tokens are
+  // non-interactive then, so the stage receives every tap.
+  function onStageTap(event: { global: { x: number; y: number } }) {
+    const { aiming, onAimCell, cols, rows } = propsRef.current;
+    if (!aiming || !onAimCell) return;
+    const cell = clampCell(
+      pixelToCell(event.global.x, event.global.y, CELL_SIZE),
+      cols,
+      rows,
+    );
+    onAimCell(cell);
+  }
+
   function redraw() {
     const world = worldRef.current;
     if (!world) return;
     world.removeChildren().forEach((child) => child.destroy());
 
-    const { cols, rows, walls, tokens, reachable, targeting } =
+    const { cols, rows, walls, tokens, reachable, targeting, aiming } =
       propsRef.current;
 
     // Grid lines.
@@ -239,14 +269,52 @@ export default function BattleMap(props: BattleMapProps) {
       world.addChild(ring);
     }
 
-    // Tokens.
+    // AoE aim overlay (#99): a placement-range box (sphere) + the area preview.
+    if (aiming) {
+      if (aiming.rangeCells > 0) {
+        const { origin, rangeCells } = aiming;
+        const x0 = Math.max(0, origin.x - rangeCells);
+        const y0 = Math.max(0, origin.y - rangeCells);
+        const x1 = Math.min(cols - 1, origin.x + rangeCells);
+        const y1 = Math.min(rows - 1, origin.y + rangeCells);
+        const px = cellToPixel({ x: x0, y: y0 }, CELL_SIZE);
+        const w = (x1 - x0 + 1) * CELL_SIZE;
+        const h = (y1 - y0 + 1) * CELL_SIZE;
+        const box = new Graphics();
+        box
+          .rect(px.x, px.y, w, h)
+          .stroke({ width: 1, color: TOKEN_COLORS.accent, alpha: 0.5 });
+        world.addChild(box);
+      }
+      if (aiming.areaCells.length > 0) {
+        const blast = new Graphics();
+        for (const cell of aiming.areaCells) {
+          const px = cellToPixel(cell, CELL_SIZE);
+          blast.rect(px.x, px.y, CELL_SIZE, CELL_SIZE);
+        }
+        blast.fill({ color: TOKEN_COLORS.hostile, alpha: 0.28 });
+        world.addChild(blast);
+      }
+    }
+
+    // Tokens. Targeting → pickable reticle; aiming → caught highlight (no pick).
     const targetable = new Set(targeting?.targetableIds ?? []);
+    const caught = new Set(aiming?.caughtIds ?? []);
     for (const token of tokens) {
-      world.addChild(buildToken(token, targetable.has(token.id)));
+      world.addChild(
+        buildToken(token, {
+          pickable: targetable.has(token.id),
+          highlight: targetable.has(token.id) || caught.has(token.id),
+          aiming: aiming !== undefined,
+        }),
+      );
     }
   }
 
-  function buildToken(token: BattleToken, targetable: boolean): Container {
+  function buildToken(
+    token: BattleToken,
+    state: { pickable: boolean; highlight: boolean; aiming: boolean },
+  ): Container {
     const sprite = new Container();
     const center = cellCenter(token.position, CELL_SIZE);
     sprite.position.set(center.x, center.y);
@@ -267,7 +335,7 @@ export default function BattleMap(props: BattleMapProps) {
       sprite.addChild(ring);
     }
 
-    if (targetable) {
+    if (state.highlight) {
       const reticle = new Graphics();
       reticle.circle(0, 0, radius + 6).stroke({
         width: 3,
@@ -310,7 +378,9 @@ export default function BattleMap(props: BattleMapProps) {
     }
     sprite.addChild(bar);
 
-    if (targetable) {
+    if (state.aiming) {
+      // Aim mode: tokens are visual only so every grid tap places the aim cell.
+    } else if (state.pickable) {
       // Targeting takes precedence over dragging: tap an enemy to pick it.
       sprite.eventMode = "static";
       sprite.cursor = "crosshair";

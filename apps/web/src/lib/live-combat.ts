@@ -12,6 +12,8 @@ import {
   abilityModifier,
   areHostile,
   FEET_PER_CELL,
+  withinBurst,
+  withinCone,
   type EntityState,
   type WorldState,
 } from "@app/engine";
@@ -23,23 +25,44 @@ export type Damage = { notation: string; type: string };
 /** A reach-5 melee strike; ranged weapons + sheet weapon lists land later. */
 export const MELEE_REACH_FT = FEET_PER_CELL;
 
+/** Area shape for an AoE spell — mirrors the engine spell registry (#99). */
+export type SpellArea = { shape: "sphere" | "cone"; sizeFt: number };
+
 /**
- * Curated single-target offensive spells the cast menu can fire. A subset of the
- * engine registry (`packages/engine/src/content/spell-registry.ts`) restricted
- * to single-target spells — area spells need the AoE aim picker (deferred).
+ * Offensive spells the cast menu can fire — a subset of the engine registry
+ * (`packages/engine/src/content/spell-registry.ts`). Single-target spells arm
+ * the map's target picker; spells with `area` arm the AoE **aim picker** (#99):
+ * the player places an origin/aim cell and the engine resolves caught creatures.
  */
 export type CastableSpell = {
   id: string;
   name: string;
   /** Spell level; 0 = cantrip (consumes no slot). */
   level: number;
+  /** Range to the target (single) or to the aim point (sphere); 0 for self. */
   rangeFt: number;
+  /** Present → AoE spell needing the aim picker rather than a target pick. */
+  area?: SpellArea;
 };
 
 export const CASTABLE_SPELLS: readonly CastableSpell[] = [
   { id: "fire-bolt", name: "Fire Bolt", level: 0, rangeFt: 120 },
   { id: "sacred-flame", name: "Sacred Flame", level: 0, rangeFt: 60 },
   { id: "guiding-bolt", name: "Guiding Bolt", level: 1, rangeFt: 120 },
+  {
+    id: "burning-hands",
+    name: "Burning Hands",
+    level: 1,
+    rangeFt: 0,
+    area: { shape: "cone", sizeFt: 15 },
+  },
+  {
+    id: "fireball",
+    name: "Fireball",
+    level: 3,
+    rangeFt: 150,
+    area: { shape: "sphere", sizeFt: 20 },
+  },
 ];
 
 function fmtMod(mod: number): string {
@@ -129,4 +152,69 @@ export function reactionWindowKey(state: WorldState): string | null {
   const window = state.encounter?.reactionWindow;
   if (!window) return null;
   return `${window.mover}:${[...window.eligible].sort().join(",")}`;
+}
+
+/**
+ * Whether `cell` falls inside `spell`'s area aimed at `aim` from `casterId`,
+ * reusing the engine's own `withinBurst`/`withinCone` so the preview matches
+ * resolution exactly (a sphere bursts from the aim point; a cone emanates from
+ * the caster toward the aim cell). Line of sight is left to the engine.
+ */
+function cellInArea(
+  state: WorldState,
+  casterId: string,
+  area: SpellArea,
+  aim: Cell,
+  cell: Cell,
+): boolean {
+  if (area.shape === "cone") {
+    const caster = state.entities[casterId];
+    if (!caster?.position) return false;
+    return withinCone(caster.position, aim, cell, area.sizeFt);
+  }
+  return withinBurst(aim, cell, area.sizeFt);
+}
+
+/** The grid cells `spell`'s area covers for the current aim (AoE preview, #99). */
+export function aoeAffectedCells(
+  state: WorldState,
+  casterId: string,
+  area: SpellArea,
+  aim: Cell,
+): Cell[] {
+  const caster = state.entities[casterId];
+  const scene = caster?.sceneId ? state.scenes[caster.sceneId] : undefined;
+  const map = scene?.map;
+  if (!map) return [];
+  const cells: Cell[] = [];
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      if (cellInArea(state, casterId, area, aim, { x, y })) cells.push({ x, y });
+    }
+  }
+  return cells;
+}
+
+/**
+ * Ids of placed, alive creatures caught in `spell`'s area for the current aim —
+ * friend *and* foe (an AoE doesn't discriminate). Drives the caught-target
+ * highlight; the engine re-resolves authoritatively (incl. line of sight).
+ */
+export function aoeCaughtIds(
+  state: WorldState,
+  casterId: string,
+  area: SpellArea,
+  aim: Cell,
+): string[] {
+  const caster = state.entities[casterId];
+  if (!caster) return [];
+  return Object.values(state.entities)
+    .filter(
+      (e) =>
+        e.alive &&
+        e.position !== undefined &&
+        e.sceneId === caster.sceneId &&
+        cellInArea(state, casterId, area, aim, e.position),
+    )
+    .map((e) => e.id);
 }

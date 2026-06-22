@@ -47,6 +47,7 @@ import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
+import { PartyRail } from "./party-rail";
 import { ReactionPrompt } from "./reaction-prompt";
 import { useLiveSession } from "./use-live-session";
 
@@ -479,6 +480,8 @@ function LiveBattle({
           />
         </aside>
       </div>
+
+      <PartyRail state={session.state} />
     </div>
   );
 }

@@ -47,7 +47,7 @@ Highest leverage; each closes a DoD pillar.
 | ~~**A1**~~ ✅ | **Combat tab + authored-encounter → Live seam** | CAMP-8 | #115 | **Shipped (#121).** `encounters` table + `campaigns.activeEncounterId`; Combat tab (catalog foe-roster builder) with **Run Now**; the WS server seeds `CampaignRoom` from the armed authored encounter instead of `FIXTURE_BATTLE_COMMANDS`. Removed the goblin-only wall; connects generators→play. |
 | ~~**A2**~~ ✅ | **Rich Region generator** | GENR-6 | #116 | **Shipped.** Rich sectioned Region descriptor (Overview / Geography & Climate / Settlements & Sites group / Powers & Conflicts / Lore & Hooks); deepest cascade. All 7 descriptive types now richly sectioned. |
 | ~~**A3**~~ ✅ | **Settings tab** | CAMP-10 | #117 | **Shipped.** GM persona + play-mode + art-style-lock persisted on the campaign (migration 0013); danger-zone delete (clears campaign-scoped dependents). |
-| **A4** | **Notes tab** | CAMP-9 | (new) | DM-only/shared notes editor on a `campaign_notes` table; `@Entity` links + convert-to-hook can follow. Small. |
+| ~~**A4**~~ ✅ | **Notes tab** | CAMP-9 | #118 | **Shipped (#124).** `campaign_notes` table (title/body/`shared` flag; migration 0014); `notes` router (list/create/update/remove); Notes tab list + editor with DM-only/shared toggle; `campaigns.delete` clears notes. `@Entity` links + convert-to-hook + pin-to-memory deferred. **Workstream A spine complete.** |
 
 **Deliberately deferred within A:** Sessions tab (CAMP-6) depends on the P5 memory tier
 (recaps); World Map tab (CAMP-7) is a heavy pannable-canvas surface. Both are filed (see

@@ -11,7 +11,7 @@
  */
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   areHostile,
@@ -25,6 +25,8 @@ import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import {
+  aoeAffectedCells,
+  aoeCaughtIds,
   castableSpellsFor,
   controllableReactors,
   reactionWindowKey,
@@ -39,7 +41,7 @@ import {
   sheetCastableSpells,
   type WeaponAttack,
 } from "@/lib/sheet-loadout";
-import type { BattleToken, TargetingOverlay } from "./battle-map";
+import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
 import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
@@ -170,12 +172,21 @@ function LiveBattle({
     [session.state],
   );
 
-  // Combat-loop UI state: the armed action (driving the map target picker) and
-  // the last reaction window the player already dismissed.
+  // Combat-loop UI state: the armed action (driving the map target picker), the
+  // AoE aim cell (#99), and the last reaction window the player already dismissed.
   const [armed, setArmed] = useState<ArmedAction>(null);
+  const [aimCell, setAimCell] = useState<Cell | null>(null);
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
 
+  // A fresh arm clears any stale aim from a prior AoE cast.
+  useEffect(() => {
+    setAimCell(null);
+  }, [armed]);
+
   const state = session.state;
+
+  // Whether the armed action is an AoE spell that uses the aim picker (#99).
+  const isAreaCast = armed?.kind === "cast" && armed.spell.area !== undefined;
 
   // The active combatant, and whether the local player controls this turn.
   const activeEntity: EntityState | undefined = useMemo(() => {
@@ -205,9 +216,12 @@ function LiveBattle({
       : castableSpellsFor(activeEntity)
     : [];
 
-  // While an action is armed, resolve the range + valid targets for the picker.
+  // While a single-target action is armed, resolve the range + valid targets for
+  // the picker. AoE casts use the aim overlay below instead.
   const targeting: TargetingOverlay | undefined = useMemo(() => {
-    if (!state || !armed || !activeEntity?.position) return undefined;
+    if (!state || !armed || isAreaCast || !activeEntity?.position) {
+      return undefined;
+    }
     const rangeFt =
       armed.kind === "attack" ? armed.attack.rangeFt : armed.spell.rangeFt;
     const targetableIds = targetsInRange(state, activeEntity.id, rangeFt).map(
@@ -218,7 +232,31 @@ function LiveBattle({
       rangeCells: Math.floor(rangeFt / FEET_PER_CELL),
       targetableIds,
     };
-  }, [state, armed, activeEntity]);
+  }, [state, armed, isAreaCast, activeEntity]);
+
+  // AoE aim overlay (#99): placement range + the area/caught preview for the
+  // current aim cell, using the engine's own shape math (so it matches exactly).
+  const aiming: AimOverlay | undefined = useMemo(() => {
+    if (
+      !state ||
+      armed?.kind !== "cast" ||
+      !armed.spell.area ||
+      !activeEntity?.position
+    ) {
+      return undefined;
+    }
+    const area = armed.spell.area;
+    return {
+      origin: activeEntity.position,
+      rangeCells: Math.floor(armed.spell.rangeFt / FEET_PER_CELL),
+      areaCells: aimCell
+        ? aoeAffectedCells(state, activeEntity.id, area, aimCell)
+        : [],
+      caughtIds: aimCell
+        ? aoeCaughtIds(state, activeEntity.id, area, aimCell)
+        : [],
+    };
+  }, [state, armed, activeEntity, aimCell]);
 
   function onPickTarget(targetId: string) {
     if (!armed || !activeEntity) return;
@@ -230,14 +268,27 @@ function LiveBattle({
         armed.attack.damage,
       );
     } else {
-      session.castSpell(
-        activeEntity.id,
-        armed.spell.id,
-        armed.spell.level,
-        [targetId],
-      );
+      // Single-target spell (AoE casts confirm via the aim picker, not here).
+      session.castSpell(activeEntity.id, armed.spell.id, armed.spell.level, [
+        targetId,
+      ]);
     }
     setArmed(null);
+  }
+
+  function onConfirmAim() {
+    if (!isAreaCast || armed?.kind !== "cast" || !activeEntity || !aimCell) {
+      return;
+    }
+    session.castSpell(
+      activeEntity.id,
+      armed.spell.id,
+      armed.spell.level,
+      undefined,
+      aimCell,
+    );
+    setArmed(null);
+    setAimCell(null);
   }
 
   // A pending opportunity-attack the local player can take (one at a time).
@@ -334,8 +385,10 @@ function LiveBattle({
               spells={castableSpells}
               armed={armed}
               disabled={session.isBusy}
+              aimReady={aimCell !== null}
               onAttack={(attack) => setArmed({ kind: "attack", attack })}
               onCast={(spell) => setArmed({ kind: "cast", spell })}
+              onConfirm={onConfirmAim}
               onCancel={() => setArmed(null)}
             />
           )}
@@ -350,12 +403,16 @@ function LiveBattle({
               onMoveToken={session.moveToken}
               targeting={targeting}
               onPickTarget={onPickTarget}
+              aiming={aiming}
+              onAimCell={setAimCell}
             />
           </div>
           <p className="mt-2 text-xs text-lore-muted">
-            {armed
-              ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
-              : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast above. The engine validates everything."}
+            {isAreaCast
+              ? "Tap a cell to place the blast — the highlighted area shows who's caught — then Confirm. The engine resolves saves + damage."
+              : armed
+                ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
+                : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast above. The engine validates everything."}
           </p>
         </section>
 

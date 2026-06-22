@@ -21,22 +21,61 @@ export function CombatActionBar({
   spells,
   armed,
   disabled,
+  aimReady,
   onAttack,
   onCast,
+  onConfirm,
   onCancel,
 }: {
   weapons: WeaponAttack[];
   spells: CastableSpell[];
   armed: ArmedAction;
   disabled: boolean;
+  /** AoE aim mode only: whether an aim cell is placed and the cast can fire. */
+  aimReady: boolean;
   onAttack: (weapon: WeaponAttack) => void;
   onCast: (spell: CastableSpell) => void;
+  /** Fire the armed AoE cast at the placed aim cell (#99). */
+  onConfirm: () => void;
   onCancel: () => void;
 }) {
   const [castOpen, setCastOpen] = useState(false);
   const [attackOpen, setAttackOpen] = useState(false);
 
   if (armed) {
+    // AoE cast: place an aim cell on the map, then confirm (#99).
+    if (armed.kind === "cast" && armed.spell.area) {
+      const shape =
+        armed.spell.area.shape === "cone"
+          ? `${armed.spell.area.sizeFt}-ft cone`
+          : `${armed.spell.area.sizeFt}-ft radius`;
+      return (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm">
+          <span className="text-lore-text">
+            💥 Aim {armed.spell.name} ({shape}) —{" "}
+            {aimReady ? "confirm to unleash" : "tap a cell to place it"}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={disabled || !aimReady}
+              className="rounded border border-lore-accent bg-lore-accent px-2 py-1 text-xs font-semibold text-lore-bg transition-colors disabled:opacity-40"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     const label =
       armed.kind === "attack"
         ? `Pick a target for ${armed.attack.label}`

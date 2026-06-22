@@ -32,10 +32,10 @@ import {
   chatArray,
   checkEntry,
   composePlayerInput,
-  eventEntry,
   gmEcho,
   gmEntry,
   isChatInput,
+  resolutionEntry,
   type ChatDeps,
   type ChatEntry,
 } from "./chat.js";
@@ -312,12 +312,21 @@ const server = new Hocuspocus({
         connection.sendStateless(REJECTED);
         return;
       }
-      const { accepted } = await room.apply(message.action);
+      const { accepted, summary } = await room.apply(message.action);
       if (accepted) {
-        writeProjection(document, await room.getState());
-        // Surface the accepted engine action as a chat event row (#57, #96).
+        const state = await room.getState();
+        writeProjection(document, state);
+        // Surface the accepted engine action as a chat event row enriched with
+        // the resolution detail from the command summary (#57, #96, #99).
+        const nameOf = (id: string): string =>
+          state.entities[id]?.name ?? id;
         await appendAndPersist(document, documentName, [
-          eventEntry(message.action, chatDeps),
+          resolutionEntry(
+            message.action,
+            summary as Record<string, unknown> | undefined,
+            nameOf,
+            chatDeps,
+          ),
         ]);
       } else {
         connection.sendStateless(REJECTED);

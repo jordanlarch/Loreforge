@@ -224,11 +224,19 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
       caster: string,
       spellId: string,
       slotLevel: number,
-      targets: string[],
+      targets?: string[],
+      origin?: { x: number; y: number },
     ) =>
       send({
         t: "cmd",
-        action: { type: "cast_spell", caster, spellId, slotLevel, targets },
+        action: {
+          type: "cast_spell",
+          caster,
+          spellId,
+          slotLevel,
+          targets: targets ?? [],
+          ...(origin ? { origin } : {}),
+        },
       }),
     opportunityAttack: (
       reactor: string,

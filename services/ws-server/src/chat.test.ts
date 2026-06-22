@@ -9,6 +9,7 @@ import {
   gmEntry,
   isChatInput,
   isOoc,
+  resolutionEntry,
   rollDice,
   stripOoc,
 } from "./chat.js";
@@ -156,6 +157,125 @@ describe("eventEntry", () => {
         deps(),
       ).text,
     ).toMatch(/fire-bolt/);
+  });
+});
+
+describe("resolutionEntry (#99)", () => {
+  const names: Record<string, string> = {
+    thorin: "Thorin",
+    goblin: "Goblin",
+    elara: "Elara",
+  };
+  const nameOf = (id: string) => names[id] ?? id;
+
+  it("renders a hit with the roll, AC and damage", () => {
+    const entry = resolutionEntry(
+      {
+        type: "attack",
+        attacker: "thorin",
+        target: "goblin",
+        attackBonus: 5,
+        damage: { notation: "1d8+3", type: "slashing" },
+      },
+      {
+        attacker: "thorin",
+        target: "goblin",
+        attackTotal: 18,
+        targetAc: 13,
+        hit: true,
+        critical: false,
+        damageType: "slashing",
+        damage: 7,
+        downed: false,
+      },
+      nameOf,
+      deps(),
+    );
+    expect(entry.text).toContain("Thorin hits Goblin");
+    expect(entry.text).toContain("18 vs AC 13");
+    expect(entry.text).toContain("7 slashing");
+  });
+
+  it("renders a miss", () => {
+    const entry = resolutionEntry(
+      {
+        type: "attack",
+        attacker: "thorin",
+        target: "goblin",
+        attackBonus: 5,
+        damage: { notation: "1d8", type: "slashing" },
+      },
+      { attacker: "thorin", target: "goblin", attackTotal: 8, targetAc: 13, hit: false },
+      nameOf,
+      deps(),
+    );
+    expect(entry.text).toMatch(/misses Goblin/);
+    expect(entry.text).toContain("8 vs AC 13");
+  });
+
+  it("renders an AoE save spell with the failure count and total damage", () => {
+    const entry = resolutionEntry(
+      {
+        type: "cast_spell",
+        caster: "elara",
+        spellId: "fireball",
+        slotLevel: 3,
+        targets: [],
+        origin: { x: 5, y: 5 },
+      },
+      {
+        caster: "elara",
+        spellName: "Fireball",
+        slotLevel: 3,
+        targets: 3,
+        failures: 2,
+        rolledDamage: 24,
+        damage: 60,
+        save: "dex",
+        dc: 15,
+      },
+      nameOf,
+      deps(),
+    );
+    expect(entry.text).toContain("Elara casts Fireball");
+    expect(entry.text).toContain("2/3 failed the DEX save DC 15");
+    expect(entry.text).toContain("60 total damage");
+  });
+
+  it("renders a single-target spell attack outcome", () => {
+    const entry = resolutionEntry(
+      {
+        type: "cast_spell",
+        caster: "elara",
+        spellId: "guiding-bolt",
+        slotLevel: 1,
+        targets: ["goblin"],
+      },
+      {
+        caster: "elara",
+        spellName: "Guiding Bolt",
+        slotLevel: 1,
+        target: "goblin",
+        hit: true,
+        critical: false,
+        damage: 14,
+      },
+      nameOf,
+      deps(),
+    );
+    expect(entry.text).toContain("Elara casts Guiding Bolt");
+    expect(entry.text).toContain("hits Goblin");
+    expect(entry.text).toContain("14 damage");
+  });
+
+  it("falls back to the terse description when the summary lacks detail", () => {
+    const entry = resolutionEntry(
+      { type: "end_turn" },
+      undefined,
+      nameOf,
+      deps(),
+    );
+    expect(entry.text).toMatch(/ended/i);
   });
 });
 

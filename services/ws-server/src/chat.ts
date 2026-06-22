@@ -250,28 +250,123 @@ export function gmEntry(
 }
 
 /** A terse engine-event chat row for an accepted battle command. */
-export function eventEntry(action: BattleAction, deps: ChatDeps): ChatEntry {
-  let text: string;
+/** The terse, command-level description (no resolution detail). */
+function eventText(action: BattleAction): string {
   switch (action.type) {
     case "end_turn":
-      text = "A combatant ended their turn.";
-      break;
+      return "A combatant ended their turn.";
     case "move_entity":
-      text = `A token moved to (${action.to.x}, ${action.to.y}).`;
-      break;
+      return `A token moved to (${action.to.x}, ${action.to.y}).`;
     case "attack":
-      text = "An attack was resolved by the engine.";
-      break;
+      return "An attack was resolved by the engine.";
     case "opportunity_attack":
-      text = "An opportunity attack was resolved by the engine.";
-      break;
+      return "An opportunity attack was resolved by the engine.";
+    case "ability_check":
+      return "A check was resolved by the engine.";
     case "cast_spell":
-      text = `A spell (${action.spellId}) was cast.`;
-      break;
+      return `A spell (${action.spellId}) was cast.`;
     default:
-      text = "The engine resolved an action.";
+      return "The engine resolved an action.";
   }
-  return { id: deps.uuid(), ts: deps.now(), kind: "event", author: "Engine", text };
+}
+
+export function eventEntry(action: BattleAction, deps: ChatDeps): ChatEntry {
+  return {
+    id: deps.uuid(),
+    ts: deps.now(),
+    kind: "event",
+    author: "Engine",
+    text: eventText(action),
+  };
+}
+
+/** The shape of an engine `CommandSummary` we read for resolution detail (#99). */
+export type ResolutionSummary = Record<string, unknown> | undefined;
+
+function num(v: unknown): number | undefined {
+  return typeof v === "number" ? v : undefined;
+}
+
+/**
+ * Build a *resolution-detail* line from the engine's command summary (#99): the
+ * attack/save roll outcome + damage, rather than the terse "an attack was
+ * resolved" row. Returns undefined when the summary lacks resolution fields, so
+ * the caller can fall back to {@link eventText}.
+ */
+function resolutionText(
+  action: BattleAction,
+  summary: ResolutionSummary,
+  nameOf: (id: string) => string,
+): string | undefined {
+  if (!summary) return undefined;
+
+  if (action.type === "attack" || action.type === "opportunity_attack") {
+    const attacker = nameOf(String(summary.attacker ?? ""));
+    const target = nameOf(String(summary.target ?? ""));
+    const total = num(summary.attackTotal);
+    const ac = num(summary.targetAc);
+    if (total === undefined || ac === undefined) return undefined;
+    const prefix = action.type === "opportunity_attack" ? "Opportunity — " : "";
+    const vs = `${total} vs AC ${ac}`;
+    if (summary.hit !== true) {
+      return `${prefix}${attacker} misses ${target} (${vs}).`;
+    }
+    const crit = summary.critical === true ? " critical!" : "";
+    const dmg = num(summary.damage) ?? 0;
+    const type = String(summary.damageType ?? "damage");
+    const downed = summary.downed === true ? `, dropping ${target}` : "";
+    return `${prefix}${attacker} hits ${target} (${vs})${crit} — ${dmg} ${type}${downed}.`;
+  }
+
+  if (action.type === "cast_spell") {
+    const caster = nameOf(String(summary.caster ?? ""));
+    const spell = String(summary.spellName ?? "a spell");
+    // Save-based spell (Fireball, Burning Hands, Sacred Flame).
+    if ("save" in summary && summary.save !== undefined) {
+      const targets = num(summary.targets) ?? 0;
+      if (targets === 0) {
+        return `${caster} casts ${spell} — no creatures caught.`;
+      }
+      const failures = num(summary.failures) ?? 0;
+      const dc = num(summary.dc);
+      const ability = String(summary.save).toUpperCase();
+      const dmg = num(summary.damage) ?? 0;
+      const save = dc !== undefined ? `${ability} save DC ${dc}` : `${ability} save`;
+      return `${caster} casts ${spell} — ${failures}/${targets} failed the ${save}; ${dmg} total damage.`;
+    }
+    // Single-target spell attack (Guiding Bolt).
+    if ("hit" in summary) {
+      const target = nameOf(String(summary.target ?? ""));
+      if (summary.hit !== true) {
+        return `${caster} casts ${spell} — misses ${target}.`;
+      }
+      const crit = summary.critical === true ? " critical!" : "";
+      const dmg = num(summary.damage) ?? 0;
+      return `${caster} casts ${spell} — hits ${target}${crit} for ${dmg} damage.`;
+    }
+    return `${caster} casts ${spell}.`;
+  }
+
+  return undefined;
+}
+
+/**
+ * An engine event row enriched with resolution detail when the summary carries
+ * it (#99), falling back to the terse command description otherwise.
+ */
+export function resolutionEntry(
+  action: BattleAction,
+  summary: ResolutionSummary,
+  nameOf: (id: string) => string,
+  deps: ChatDeps,
+): ChatEntry {
+  return {
+    id: deps.uuid(),
+    ts: deps.now(),
+    kind: "event",
+    author: "Engine",
+    text: resolutionText(action, summary, nameOf) ?? eventText(action),
+  };
 }
 
 /** Validate an untrusted chat payload shape. */

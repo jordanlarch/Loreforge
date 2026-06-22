@@ -96,4 +96,12 @@ describe("isBattleAction", () => {
     expect(isBattleAction({ type: "move_entity", entity: 5, to: { x: 1, y: 2 } })).toBe(false);
     expect(isBattleAction({ type: "move_entity", entity: "pc:1", to: { x: 1 } })).toBe(false);
   });
+
+  it("accepts an AoE cast carrying an origin cell, rejecting a malformed one (#99)", () => {
+    const base = { type: "cast_spell", caster: "pc:1", spellId: "fireball", slotLevel: 3 };
+    expect(isBattleAction(base)).toBe(true);
+    expect(isBattleAction({ ...base, origin: { x: 5, y: 5 } })).toBe(true);
+    expect(isBattleAction({ ...base, origin: { x: 5 } })).toBe(false);
+    expect(isBattleAction({ ...base, origin: "nope" })).toBe(false);
+  });
 });

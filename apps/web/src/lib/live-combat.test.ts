@@ -3,12 +3,15 @@ import { describe, expect, it } from "vitest";
 import type { EntityState, WorldState } from "@app/engine";
 
 import {
+  aoeAffectedCells,
+  aoeCaughtIds,
   castableSpellsFor,
   controllableReactors,
   deriveStrike,
   gridDistanceFeet,
   reactionWindowKey,
   targetsInRange,
+  type SpellArea,
 } from "./live-combat";
 
 function entity(over: Partial<EntityState> & { id: string }): EntityState {
@@ -117,6 +120,67 @@ describe("targetsInRange", () => {
     expect(ranged).toContain("goblin-near");
     expect(ranged).toContain("goblin-far");
     expect(ranged).not.toContain("ally");
+  });
+});
+
+describe("AoE aim helpers (#99)", () => {
+  // A 10×10 scene so the burst/cone have room.
+  function aoeWorld(entities: EntityState[]): WorldState {
+    const base = world(
+      entities,
+      Object.fromEntries(entities.map((e) => [e.id, "party"])),
+    );
+    return {
+      ...base,
+      currentSceneId: "s1",
+      scenes: {
+        s1: {
+          id: "s1",
+          name: "Arena",
+          map: { width: 10, height: 10, blockedCells: [] },
+        },
+      },
+    } as WorldState;
+  }
+
+  const sphere: SpellArea = { shape: "sphere", sizeFt: 20 };
+  const cone: SpellArea = { shape: "cone", sizeFt: 15 };
+
+  it("a sphere covers a Chebyshev radius of size/5 around the aim cell", () => {
+    const caster = entity({ id: "mage", position: { x: 0, y: 0 } });
+    const w = aoeWorld([caster]);
+    const cells = aoeAffectedCells(w, "mage", sphere, { x: 5, y: 5 });
+    // 20 ft = 4 cells radius → 9×9 square clipped to the 10×10 map.
+    expect(cells).toContainEqual({ x: 5, y: 5 });
+    expect(cells).toContainEqual({ x: 9, y: 9 });
+    expect(cells).not.toContainEqual({ x: 0, y: 0 }); // 5 cells away > 4
+  });
+
+  it("a sphere catches every creature within the burst, friend or foe", () => {
+    const caster = entity({ id: "mage", position: { x: 0, y: 0 } });
+    const inside = entity({ id: "goblin", position: { x: 5, y: 6 } });
+    const outside = entity({ id: "ally", position: { x: 0, y: 0 } });
+    const w = aoeWorld([caster, inside, outside]);
+    const caught = aoeCaughtIds(w, "mage", sphere, { x: 5, y: 5 });
+    expect(caught).toContain("goblin");
+    expect(caught).not.toContain("ally");
+  });
+
+  it("a cone emanates from the caster toward the aim cell", () => {
+    const caster = entity({ id: "mage", position: { x: 0, y: 5 } });
+    const ahead = entity({ id: "front", position: { x: 2, y: 5 } });
+    const behind = entity({ id: "back", position: { x: 0, y: 0 } });
+    const w = aoeWorld([caster, ahead, behind]);
+    const caught = aoeCaughtIds(w, "mage", cone, { x: 9, y: 5 });
+    expect(caught).toContain("front");
+    expect(caught).not.toContain("back");
+    expect(caught).not.toContain("mage"); // the apex is never caught
+  });
+
+  it("returns nothing when the scene has no map", () => {
+    const caster = entity({ id: "mage", position: { x: 0, y: 0 } });
+    const w = world([caster], { mage: "party" });
+    expect(aoeAffectedCells(w, "mage", sphere, { x: 1, y: 1 })).toEqual([]);
   });
 });
 

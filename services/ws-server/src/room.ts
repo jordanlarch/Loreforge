@@ -192,6 +192,7 @@ export function isBattleAction(value: unknown): value is BattleAction {
     spellId?: unknown;
     slotLevel?: unknown;
     targets?: unknown;
+    origin?: unknown;
   };
   if (action.type === "end_turn") return true;
   if (action.type === "move_entity") {
@@ -220,7 +221,9 @@ export function isBattleAction(value: unknown): value is BattleAction {
       typeof action.slotLevel === "number" &&
       (action.targets === undefined ||
         (Array.isArray(action.targets) &&
-          action.targets.every((t) => typeof t === "string")))
+          action.targets.every((t) => typeof t === "string"))) &&
+      // Area spells (#99) carry an aim/origin cell the engine resolves from.
+      (action.origin === undefined || isGridPosition(action.origin))
     );
   }
   return false;

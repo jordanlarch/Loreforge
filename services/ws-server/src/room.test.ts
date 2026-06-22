@@ -52,6 +52,25 @@ describe("BattleRoom", () => {
     expect((await room.getState()).encounter!.activeIndex).not.toBe(before);
   });
 
+  it("returns the engine command summary so callers can read check results (#97)", async () => {
+    const room = new BattleRoom();
+    const { active } = await activeEntity(room);
+
+    const result = await room.apply({
+      type: "ability_check",
+      entity: active,
+      ability: "dex",
+      skill: "Acrobatics",
+      dc: 10,
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(typeof result.summary?.total).toBe("number");
+    expect(result.summary?.success).toBe(
+      (result.summary!.total as number) >= 10,
+    );
+  });
+
   it("reset rebuilds the original fixture state", async () => {
     const room = new BattleRoom();
     const { active, from } = await activeEntity(room);

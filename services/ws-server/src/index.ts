@@ -24,9 +24,13 @@ import {
   parseRoom,
   verifySupabaseToken,
 } from "./auth.js";
+import { checkAction } from "@app/engine";
+import type { LlmClient } from "@app/llm";
+
 import {
   appendChat,
   chatArray,
+  checkEntry,
   composePlayerInput,
   eventEntry,
   gmEcho,
@@ -42,7 +46,13 @@ import {
   loadChatMessages,
   persistChatMessages,
 } from "./db.js";
-import { getNarrationClient, narrate } from "./narration.js";
+import {
+  abilityLabel,
+  activePlayerEntity,
+  decideCheck,
+  getNarrationClient,
+  narrate,
+} from "./narration.js";
 import { writeProjection } from "./projection.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
@@ -130,33 +140,123 @@ async function appendAndPersist(
   }
 }
 
+/** Broadcast the transient "GM is thinking" signal to every tab in the room. */
+function setThinking(
+  document: { broadcastStateless(payload: string): void },
+  on: boolean,
+): void {
+  try {
+    document.broadcastStateless(JSON.stringify({ t: "thinking", on }));
+  } catch {
+    // A best-effort UX hint; never let it break the turn.
+  }
+}
+
 /**
- * Produce the GM's reply to a player line (#96): real AI-GM narration when
- * configured (with the live scene + recent chat as context), falling back to the
- * stubbed echo on missing config or any narration failure. The deterministic
- * engine still owns all mechanics — this is fiction only.
+ * Produce the GM's narration for a player line (#96) with a known-configured
+ * client, falling back to the stubbed echo on any narration failure. The
+ * deterministic engine still owns all mechanics — this is fiction only.
  */
 async function composeGmReply(
   room: LiveRoom,
   priorChat: ChatEntry[],
   message: { mode?: string; text: string },
+  client: LlmClient,
 ): Promise<ChatEntry> {
-  const client = getNarrationClient();
-  if (client) {
-    try {
-      const result = await narrate({
-        client,
-        state: await room.getState(),
-        recentChat: priorChat,
-        playerLine: message.text,
-        mode: message.mode,
-      });
-      return gmEntry(result.text, chatDeps, { mentions: result.mentions });
-    } catch {
-      // Fall through to the stub on any narration failure (transport/empty).
-    }
+  try {
+    const result = await narrate({
+      client,
+      state: await room.getState(),
+      recentChat: priorChat,
+      playerLine: message.text,
+      mode: message.mode,
+    });
+    return gmEntry(result.text, chatDeps, { mentions: result.mentions });
+  } catch {
+    return gmEntry(gmEcho(message.mode, message.text), chatDeps);
   }
-  return gmEntry(gmEcho(message.mode, message.text), chatDeps);
+}
+
+/**
+ * Route a free-text "Check" through the engine (#97): the orchestrator picks the
+ * ability/skill + DC, the engine rolls it deterministically, the result is shown
+ * as an engine-event row, and the GM narrates the outcome (honouring the dice).
+ * Falls back to plain narration if there is no PC or the orchestrator fails.
+ */
+async function runCheck(
+  room: LiveRoom,
+  document: Parameters<typeof appendChat>[0],
+  documentName: string,
+  priorChat: ChatEntry[],
+  message: { mode?: string; text: string },
+  client: LlmClient,
+): Promise<void> {
+  const state = await room.getState();
+  const actor = activePlayerEntity(state);
+  if (!actor) {
+    const gm = await composeGmReply(room, priorChat, message, client);
+    await appendAndPersist(document, documentName, [gm]);
+    return;
+  }
+
+  let decision;
+  try {
+    decision = await decideCheck({ client, state, playerLine: message.text });
+  } catch {
+    const gm = await composeGmReply(room, priorChat, message, client);
+    await appendAndPersist(document, documentName, [gm]);
+    return;
+  }
+
+  const applied = await room.apply(
+    checkAction(actor.id, decision.ability, {
+      skill: decision.skill,
+      dc: decision.dc,
+      proficient: decision.proficient,
+    }),
+  );
+  const summary = applied.summary as
+    | { total?: number; success?: boolean }
+    | undefined;
+  if (!applied.accepted || !summary || typeof summary.total !== "number") {
+    const gm = await composeGmReply(room, priorChat, message, client);
+    await appendAndPersist(document, documentName, [gm]);
+    return;
+  }
+
+  const success = summary.success ?? false;
+  await appendAndPersist(document, documentName, [
+    checkEntry(
+      {
+        actorName: actor.name,
+        abilityLabel: abilityLabel(decision.ability),
+        skill: decision.skill,
+        total: summary.total,
+        dc: decision.dc,
+        success,
+      },
+      chatDeps,
+    ),
+  ]);
+
+  const outcome = `${actor.name}'s ${abilityLabel(decision.ability)}${
+    decision.skill ? ` (${decision.skill})` : ""
+  } check ${success ? "succeeds" : "fails"} (rolled ${summary.total} vs DC ${decision.dc}).`;
+  let gm: ChatEntry;
+  try {
+    const narration = await narrate({
+      client,
+      state,
+      recentChat: priorChat,
+      playerLine: message.text,
+      mode: "check",
+      outcome,
+    });
+    gm = gmEntry(narration.text, chatDeps, { mentions: narration.mentions });
+  } catch {
+    gm = gmEntry(success ? "Your effort pays off." : "It doesn't work.", chatDeps);
+  }
+  await appendAndPersist(document, documentName, [gm]);
 }
 
 const server = new Hocuspocus({
@@ -235,9 +335,28 @@ const server = new Hocuspocus({
       const priorChat = chatArray(document).toArray();
       await appendAndPersist(document, documentName, entries);
 
-      if (respond) {
-        const gm = await composeGmReply(room, priorChat, message);
-        await appendAndPersist(document, documentName, [gm]);
+      if (!respond) return;
+
+      const client = getNarrationClient();
+      if (!client) {
+        // Unconfigured: the instant stub, no "thinking" indicator needed.
+        await appendAndPersist(document, documentName, [
+          gmEntry(gmEcho(message.mode, message.text), chatDeps),
+        ]);
+        return;
+      }
+
+      // Real LLM work follows: signal "GM is thinking" until it resolves (#97).
+      setThinking(document, true);
+      try {
+        if (message.mode === "check") {
+          await runCheck(room, document, documentName, priorChat, message, client);
+        } else {
+          const gm = await composeGmReply(room, priorChat, message, client);
+          await appendAndPersist(document, documentName, [gm]);
+        }
+      } finally {
+        setThinking(document, false);
       }
       return;
     }

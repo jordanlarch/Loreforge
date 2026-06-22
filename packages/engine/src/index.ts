@@ -229,6 +229,7 @@ export type { CommandExecutor } from "./commands/queue";
 export type { ExecutionContext, RollFn, RollOutcome } from "./commands/context";
 export {
   reject,
+  type AbilityCheckCommand,
   type ApplyConditionCommand,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
@@ -271,6 +272,7 @@ export {
   MAX_BATTLE_PARTY,
   attackAction,
   castAction,
+  checkAction,
   moveAction,
   opportunityAttackAction,
   type BattleAction,

@@ -137,6 +137,22 @@ export type SavingThrowCommand = {
   mode?: RollMode;
 };
 
+/**
+ * Resolve an ability/skill check: d20 + ability modifier, plus the entity's
+ * proficiency bonus when `proficient`. With a `dc` it yields pass/fail; without,
+ * it is an uncontested roll the GM interprets. `skill` is display-only (the SRD
+ * skill→ability mapping is the caller's; here the ability is authoritative).
+ */
+export type AbilityCheckCommand = {
+  type: "ability_check";
+  entity: EntityRef;
+  ability: Ability;
+  skill?: string;
+  dc?: number;
+  proficient?: boolean;
+  mode?: RollMode;
+};
+
 /** Roll a death saving throw for a creature dying at 0 HP. */
 export type DeathSaveCommand = {
   type: "death_save";
@@ -235,6 +251,7 @@ export type Command =
   | ApplyConditionCommand
   | RemoveConditionCommand
   | SavingThrowCommand
+  | AbilityCheckCommand
   | DeathSaveCommand
   | ShortRestCommand
   | LongRestCommand

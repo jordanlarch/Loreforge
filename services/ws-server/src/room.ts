@@ -21,6 +21,7 @@ import {
   buildPartyBattleCommands,
   type BattleAction,
   type Command,
+  type CommandSummary,
   type EventStore,
   type PartyMember,
   type WorldState,
@@ -29,10 +30,15 @@ import {
 /** Deterministic clock so a re-seeded room reproduces the same fixture state. */
 const FIXED_CLOCK = () => 0;
 
+/** The outcome of applying one action: the legality verdict + (if accepted) the
+ * command's summary, so callers can read mechanical results (e.g. an ability
+ * check's total/success) without re-reading the event log (#97). */
+export type ApplyResult = { accepted: boolean; summary?: CommandSummary };
+
 /** The shared surface the WS server drives, regardless of where state lives. */
 export interface LiveRoom {
   ensureSeeded(): Promise<void>;
-  apply(action: BattleAction): Promise<{ accepted: boolean }>;
+  apply(action: BattleAction): Promise<ApplyResult>;
   reset(): Promise<void>;
   getState(): Promise<WorldState>;
 }
@@ -51,10 +57,12 @@ export class BattleRoom implements LiveRoom {
   }
 
   /** Run a player action through the engine; `accepted` is the legality verdict. */
-  async apply(action: BattleAction): Promise<{ accepted: boolean }> {
+  async apply(action: BattleAction): Promise<ApplyResult> {
     await this.ensureSeeded();
     const result = await this.engine.execute(FIXTURE_BATTLE_CAMPAIGN_ID, action);
-    return { accepted: result.accepted };
+    return result.accepted
+      ? { accepted: true, summary: result.summary }
+      : { accepted: false };
   }
 
   /** Discard all state and rebuild from the fixture (backs the "Reset" control). */
@@ -129,10 +137,12 @@ export class CampaignRoom implements LiveRoom {
     this.seeded = true;
   }
 
-  async apply(action: BattleAction): Promise<{ accepted: boolean }> {
+  async apply(action: BattleAction): Promise<ApplyResult> {
     await this.ensureSeeded();
     const result = await this.engine.execute(this.campaignId, action);
-    return { accepted: result.accepted };
+    return result.accepted
+      ? { accepted: true, summary: result.summary }
+      : { accepted: false };
   }
 
   /** Truncate the log back to the seeded baseline so the fight replays. */

@@ -389,7 +389,11 @@ function LiveBattle({
 
           <CharacterHud session={session} weapons={weapons} items={quickItems} />
 
-          <ChatZone entries={session.chat} onSend={session.sendChat} />
+          <ChatZone
+            entries={session.chat}
+            onSend={session.sendChat}
+            thinking={session.gmThinking}
+          />
         </aside>
       </div>
     </div>

@@ -13,7 +13,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { CELL_SIZE } from "../../../../../lib/battle-map/geometry";
+import { CELL_SIZE } from "@/lib/battle-map/geometry";
 
 import type { BattleMapProps } from "./battle-map";
 import { SceneBanner } from "./scene-banner";

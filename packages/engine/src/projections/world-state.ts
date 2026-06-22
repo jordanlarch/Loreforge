@@ -444,6 +444,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":
+    case "CheckRolled":
     case "DiceRolled":
       // Pure record; state changes ride on paired Healing/Condition/Slot events.
       break;

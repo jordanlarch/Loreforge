@@ -90,6 +90,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
   const [busy, setBusy] = useState(false);
   const [peers, setPeers] = useState(1);
   const [chat, setChat] = useState<ChatEntry[]>([]);
+  const [gmThinking, setGmThinking] = useState(false);
   const providerRef = useRef<HocuspocusProvider | null>(null);
 
   useEffect(() => {
@@ -126,10 +127,13 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
         },
         onStateless: ({ payload }) => {
           try {
-            const message = JSON.parse(payload) as { t?: string };
+            const message = JSON.parse(payload) as { t?: string; on?: boolean };
             if (message?.t === "rejected") {
               setBusy(false);
               setRejected(true);
+            } else if (message?.t === "thinking") {
+              // Server signal that the AI-GM is composing a reply (#97).
+              setGmThinking(Boolean(message.on));
             }
           } catch {
             // ignore malformed server messages
@@ -151,7 +155,12 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
       });
 
       const chatArr = doc.getArray<ChatEntry>(CHAT_ROOT);
-      chatArr.observe(() => setChat(chatArr.toArray()));
+      chatArr.observe(() => {
+        setChat(chatArr.toArray());
+        // A new entry means the GM has produced output; clear any stale
+        // "thinking" indicator even if the off-signal was missed.
+        setGmThinking(false);
+      });
 
       provider.setAwarenessField("user", {
         id: session.user.id,
@@ -196,6 +205,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     rejected,
     peers,
     chat,
+    gmThinking,
     sendChat,
     moveToken: (id: string, to: Cell) =>
       send({ t: "cmd", action: { type: "move_entity", entity: id, to } }),

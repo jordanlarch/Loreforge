@@ -132,6 +132,24 @@ export type SaveRolledPayload = {
   autoFail: boolean;
 };
 
+export type CheckRolledPayload = {
+  entity: EntityRef;
+  ability: Ability;
+  /** Skill/tool name for display (e.g. "Perception"); omitted for a raw check. */
+  skill?: string;
+  /** Difficulty class, when contested; omitted for an uncontested roll. */
+  dc?: number;
+  mode: RollMode;
+  /** Natural d20 face. */
+  natural: number;
+  /** d20 + ability modifier (+ proficiency when applicable). */
+  total: number;
+  /** Whether the entity's proficiency bonus was added. */
+  proficient: boolean;
+  /** Pass/fail; present only when a `dc` was supplied. */
+  success?: boolean;
+};
+
 export type DeathSaveRolledPayload = {
   entity: EntityRef;
   natural: number;
@@ -222,6 +240,7 @@ export type EngineEvent =
   | (EventMeta & { type: "ConditionApplied"; payload: ConditionAppliedPayload })
   | (EventMeta & { type: "ConditionRemoved"; payload: ConditionRemovedPayload })
   | (EventMeta & { type: "SaveRolled"; payload: SaveRolledPayload })
+  | (EventMeta & { type: "CheckRolled"; payload: CheckRolledPayload })
   | (EventMeta & { type: "DeathSaveRolled"; payload: DeathSaveRolledPayload })
   | (EventMeta & { type: "Rested"; payload: RestedPayload })
   | (EventMeta & {

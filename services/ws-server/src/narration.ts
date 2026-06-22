@@ -13,8 +13,10 @@ import {
   type EmitToolDefinition,
   type LlmClient,
 } from "@app/llm";
-import type { WorldState } from "@app/engine";
+import type { Ability, EntityState, WorldState } from "@app/engine";
 import type { ChatEntry } from "./chat.js";
+
+const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
 export type NarrationResult = { text: string; mentions: string[] };
 
@@ -105,6 +107,44 @@ const MODE_VERB: Record<string, string> = {
   use_item: "uses an item",
 };
 
+const ABILITY_LABEL: Record<Ability, string> = {
+  str: "Strength",
+  dex: "Dexterity",
+  con: "Constitution",
+  int: "Intelligence",
+  wis: "Wisdom",
+  cha: "Charisma",
+};
+
+/** Human label for an ability ("Wisdom"). */
+export function abilityLabel(ability: Ability): string {
+  return ABILITY_LABEL[ability];
+}
+
+/**
+ * The party member a free-text check should be resolved against (#97): the
+ * active combatant when it's a PC, otherwise the first character in the current
+ * scene. Returns undefined when no PC is present (caller narrates instead).
+ */
+export function activePlayerEntity(
+  state: WorldState | undefined,
+): EntityState | undefined {
+  if (!state) return undefined;
+  const enc = state.encounter;
+  if (enc?.initiativeRolled && enc.order.length > 0) {
+    const activeRef = enc.order[enc.activeIndex]?.entity;
+    const active = activeRef ? state.entities[activeRef] : undefined;
+    if (active?.kind === "character") return active;
+  }
+  const sceneId = state.currentSceneId;
+  return Object.values(state.entities).find(
+    (e) =>
+      e.kind === "character" &&
+      e.alive &&
+      (!sceneId || !e.sceneId || e.sceneId === sceneId),
+  );
+}
+
 /**
  * Produce a GM narration for one player input. Throws on transport/empty-output
  * failures so the caller can fall back to the stub. Returned `mentions` are
@@ -117,6 +157,9 @@ export async function narrate(args: {
   recentChat: readonly ChatEntry[];
   playerLine: string;
   mode?: string;
+  /** Mechanical result the engine already resolved (e.g. an ability check) that
+   * the narration must honour rather than re-decide (#97). */
+  outcome?: string;
 }): Promise<NarrationResult> {
   const names = sceneEntityNames(args.state);
   const scene = sceneSummary(args.state);
@@ -129,7 +172,9 @@ export async function narrate(args: {
     history.length > 0 ? `Recent exchange:\n${history.join("\n")}` : "",
     "",
     `The player ${verb}: "${args.playerLine.trim()}"`,
-    "Narrate the GM's response.",
+    args.outcome
+      ? `The dice have already decided the outcome: ${args.outcome} Narrate what happens, honouring this result exactly — do not contradict it or roll again.`
+      : "Narrate the GM's response.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -157,4 +202,100 @@ export async function narrate(args: {
     : [];
 
   return { text, mentions };
+}
+
+/* -------------------------------------------------------------------------- *
+ *  Orchestrator — turn a free-text "Check" into a structured engine command
+ * -------------------------------------------------------------------------- */
+
+export type CheckDecision = {
+  ability: Ability;
+  skill?: string;
+  dc: number;
+  proficient: boolean;
+};
+
+const CALL_FOR_CHECK_TOOL: EmitToolDefinition = {
+  name: "call_for_check",
+  description: "Decide which ability check the player's attempt requires.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      ability: {
+        type: "string",
+        enum: [...ABILITIES],
+        description: "The governing ability for this check.",
+      },
+      skill: {
+        type: "string",
+        description:
+          "SRD skill or tool the check uses (e.g. Perception, Athletics, Persuasion, Arcana). Omit for a raw ability check.",
+      },
+      dc: {
+        type: "integer",
+        minimum: 1,
+        maximum: 30,
+        description:
+          "Difficulty class: 5 trivial, 10 easy, 15 moderate, 20 hard, 25 very hard, 30 nearly impossible.",
+      },
+      proficient: {
+        type: "boolean",
+        description:
+          "Whether a typical adventurer attempting this would add their proficiency bonus.",
+      },
+    },
+    required: ["ability", "dc"],
+  },
+};
+
+const DECIDE_SYSTEM = [
+  "You are the Game Master adjudicating a Dungeons & Dragons 5E (SRD 5.2) ability check.",
+  "Given the player's attempted action, choose the single most appropriate ability, an optional skill, and a difficulty class proportional to how hard the task is.",
+  "You decide the difficulty only — the deterministic engine rolls the dice and the bonuses. You MUST respond by calling the call_for_check tool.",
+].join("\n");
+
+/**
+ * The orchestrator step (#97): ask the model which ability/skill + DC a free-text
+ * "Check" attempt calls for. The engine then rolls it deterministically — the
+ * model never sees or invents the result. Output is clamped to a valid ability
+ * and a 1-30 DC so a malformed payload can't reach the engine.
+ */
+export async function decideCheck(args: {
+  client: LlmClient;
+  state: WorldState | undefined;
+  playerLine: string;
+}): Promise<CheckDecision> {
+  const scene = sceneSummary(args.state);
+  const prompt = [
+    scene ? `Scene: ${scene}` : "",
+    `The player attempts: "${args.playerLine.trim()}"`,
+    "What ability check does this call for?",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const res = await args.client.callTool({
+    system: DECIDE_SYSTEM,
+    messages: [{ role: "user", content: prompt }],
+    tool: CALL_FOR_CHECK_TOOL,
+  });
+
+  const input = res.input as {
+    ability?: unknown;
+    skill?: unknown;
+    dc?: unknown;
+    proficient?: unknown;
+  };
+  const ability = ABILITIES.includes(input.ability as Ability)
+    ? (input.ability as Ability)
+    : "wis";
+  const dcRaw = typeof input.dc === "number" ? Math.round(input.dc) : 12;
+  const dc = Math.max(1, Math.min(30, dcRaw));
+  const skill =
+    typeof input.skill === "string" && input.skill.trim()
+      ? input.skill.trim()
+      : undefined;
+  const proficient = input.proficient === true;
+
+  return { ability, skill, dc, proficient };
 }

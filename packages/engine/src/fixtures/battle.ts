@@ -13,6 +13,7 @@
  */
 import { Engine } from "../engine";
 import type {
+  AbilityCheckCommand,
   AttackCommand,
   CastSpellCommand,
   Command,
@@ -21,6 +22,7 @@ import type {
   OpportunityAttackCommand,
 } from "../commands/types";
 import type {
+  Ability,
   AbilityScores,
   ClassLevel,
   EntityRef,
@@ -201,7 +203,8 @@ export type BattleAction =
   | EndTurnCommand
   | AttackCommand
   | CastSpellCommand
-  | OpportunityAttackCommand;
+  | OpportunityAttackCommand
+  | AbilityCheckCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {
@@ -226,6 +229,22 @@ export function castAction(
   targets: EntityRef[],
 ): CastSpellCommand {
   return { type: "cast_spell", caster, spellId, slotLevel, targets };
+}
+
+/** Convenience constructor for an engine-resolved ability/skill check (#97). */
+export function checkAction(
+  entity: EntityRef,
+  ability: Ability,
+  opts?: { skill?: string; dc?: number; proficient?: boolean },
+): AbilityCheckCommand {
+  return {
+    type: "ability_check",
+    entity,
+    ability,
+    ...(opts?.skill ? { skill: opts.skill } : {}),
+    ...(opts?.dc !== undefined ? { dc: opts.dc } : {}),
+    ...(opts?.proficient ? { proficient: opts.proficient } : {}),
+  };
 }
 
 /** Convenience constructor for an opportunity-attack reaction (#58). */

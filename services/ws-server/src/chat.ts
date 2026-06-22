@@ -208,6 +208,29 @@ export function composePlayerInput(
   };
 }
 
+/** An engine-event row summarizing a resolved ability check (#97). */
+export function checkEntry(
+  args: {
+    actorName: string;
+    abilityLabel: string;
+    skill?: string;
+    total: number;
+    dc: number;
+    success: boolean;
+  },
+  deps: ChatDeps,
+): ChatEntry {
+  const skillPart = args.skill ? ` (${args.skill})` : "";
+  const verdict = args.success ? "Success" : "Failure";
+  return {
+    id: deps.uuid(),
+    ts: deps.now(),
+    kind: "event",
+    author: "Engine",
+    text: `${args.actorName} — ${args.abilityLabel}${skillPart} check: ${args.total} vs DC ${args.dc} → ${verdict}`,
+  };
+}
+
 /** A GM chat entry (real narration or the {@link gmEcho} stub), with mentions. */
 export function gmEntry(
   text: string,

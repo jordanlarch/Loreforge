@@ -49,6 +49,7 @@ import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import {
   reject,
+  type AbilityCheckCommand,
   type ApplyConditionCommand,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
@@ -870,6 +871,55 @@ function handleSavingThrow(
       },
     ],
     summary: { entity: cmd.entity, ability: cmd.ability, total, dc: cmd.dc, success, autoFail: false },
+  };
+}
+
+function handleAbilityCheck(
+  cmd: AbilityCheckCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+
+  const mode = (cmd.mode ?? "normal") as RollMode;
+  const roll = ctx.roll("1d20", `check:${cmd.entity}:${cmd.ability}`, mode);
+  const natural = roll.total;
+  const profBonus = cmd.proficient ? entity.proficiencyBonus : 0;
+  const total =
+    natural + abilityModifier(entity.abilityScores[cmd.ability]) + profBonus;
+  const success = cmd.dc === undefined ? undefined : total >= cmd.dc;
+
+  return {
+    accepted: true,
+    events: [
+      rollDiceEvent(ctx, roll),
+      {
+        type: "CheckRolled",
+        ...meta(ctx, cmd.entity),
+        payload: {
+          entity: cmd.entity,
+          ability: cmd.ability,
+          ...(cmd.skill ? { skill: cmd.skill } : {}),
+          ...(cmd.dc !== undefined ? { dc: cmd.dc } : {}),
+          mode,
+          natural,
+          total,
+          proficient: cmd.proficient ?? false,
+          ...(success !== undefined ? { success } : {}),
+        },
+      },
+    ],
+    summary: {
+      entity: cmd.entity,
+      ability: cmd.ability,
+      ...(cmd.skill ? { skill: cmd.skill } : {}),
+      total,
+      ...(cmd.dc !== undefined ? { dc: cmd.dc } : {}),
+      ...(success !== undefined ? { success } : {}),
+      proficient: cmd.proficient ?? false,
+    },
   };
 }
 
@@ -1873,6 +1923,8 @@ export function handleCommand(
       return handleRemoveCondition(command, ctx);
     case "saving_throw":
       return handleSavingThrow(command, ctx);
+    case "ability_check":
+      return handleAbilityCheck(command, ctx);
     case "death_save":
       return handleDeathSave(command, ctx);
     case "short_rest":

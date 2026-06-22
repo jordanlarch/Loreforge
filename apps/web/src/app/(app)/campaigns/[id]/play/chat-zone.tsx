@@ -20,9 +20,12 @@ import {
 export function ChatZone({
   entries,
   onSend,
+  thinking = false,
 }: {
   entries: ChatEntry[];
   onSend: (text: string, mode?: string) => void;
+  /** Server signal that the AI-GM is composing a reply (#97). */
+  thinking?: boolean;
 }) {
   const [mode, setMode] = useState<InputModeId>(DEFAULT_INPUT_MODE);
   const [text, setText] = useState("");
@@ -31,7 +34,7 @@ export function ChatZone({
   useEffect(() => {
     const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [entries.length]);
+  }, [entries.length, thinking]);
 
   const intent = classifyComposerInput(text);
 
@@ -61,6 +64,7 @@ export function ChatZone({
         ) : (
           entries.map((entry) => <ChatRow key={entry.id} entry={entry} />)
         )}
+        {thinking ? <ThinkingRow /> : null}
       </div>
 
       <Composer
@@ -134,6 +138,24 @@ function ChatRow({ entry }: { entry: ChatEntry }) {
           ))}
         </span>
       ) : null}
+    </div>
+  );
+}
+
+/** Animated "GM is weaving the tale…" indicator shown while the AI-GM composes (#97). */
+function ThinkingRow() {
+  return (
+    <div
+      className="flex items-center gap-2 text-sm text-lore-accent"
+      aria-live="polite"
+    >
+      <span className="font-semibold">GM</span>
+      <span className="text-lore-muted">is weaving the tale</span>
+      <span className="inline-flex gap-0.5" aria-hidden>
+        <span className="size-1 animate-bounce rounded-full bg-lore-accent [animation-delay:-0.3s]" />
+        <span className="size-1 animate-bounce rounded-full bg-lore-accent [animation-delay:-0.15s]" />
+        <span className="size-1 animate-bounce rounded-full bg-lore-accent" />
+      </span>
     </div>
   );
 }

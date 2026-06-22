@@ -50,6 +50,8 @@ import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { LivePlayTopBar } from "./live-top-bar";
 import { PartyRail } from "./party-rail";
 import { ReactionPrompt } from "./reaction-prompt";
+import { SceneBanner } from "./scene-banner";
+import { useSceneTransition } from "./use-scene-transition";
 import { useLiveSession } from "./use-live-session";
 
 const BattleMap = dynamic(() => import("./battle-map"), {
@@ -183,6 +185,17 @@ function LiveBattle({
   // Client-side session pause (#101): freezes the local turn UI + clock. The
   // server-authoritative engine freeze is a deferred follow-up.
   const [paused, setPaused] = useState(false);
+
+  // Scene transition (#103): watch the synced scene id and cross-fade + drop a
+  // location banner when the engine advances to a new scene.
+  const transitionSceneId = session.state?.currentSceneId;
+  const transitionSceneName = transitionSceneId
+    ? session.state?.scenes[transitionSceneId]?.name
+    : undefined;
+  const { banner: sceneBanner, transitioning } = useSceneTransition(
+    transitionSceneId,
+    transitionSceneName,
+  );
 
   // A fresh arm clears any stale aim from a prior AoE cast.
   useEffect(() => {
@@ -402,19 +415,26 @@ function LiveBattle({
             </div>
           )}
 
-          <div className="inline-block overflow-hidden rounded-lg border border-lore-border bg-lore-bg">
-            <BattleMap
-              cols={vm.cols}
-              rows={vm.rows}
-              walls={vm.walls}
-              tokens={vm.tokens}
-              reachable={paused || armed ? [] : vm.reachable}
-              onMoveToken={paused ? () => {} : session.moveToken}
-              targeting={paused ? undefined : targeting}
-              onPickTarget={paused ? () => {} : onPickTarget}
-              aiming={paused ? undefined : aiming}
-              onAimCell={paused ? () => {} : setAimCell}
-            />
+          <div className="relative inline-block overflow-hidden rounded-lg border border-lore-border bg-lore-bg">
+            <SceneBanner banner={sceneBanner} />
+            <div
+              className={`transition-opacity duration-700 ${
+                transitioning ? "opacity-40" : "opacity-100"
+              }`}
+            >
+              <BattleMap
+                cols={vm.cols}
+                rows={vm.rows}
+                walls={vm.walls}
+                tokens={vm.tokens}
+                reachable={paused || armed ? [] : vm.reachable}
+                onMoveToken={paused ? () => {} : session.moveToken}
+                targeting={paused ? undefined : targeting}
+                onPickTarget={paused ? () => {} : onPickTarget}
+                aiming={paused ? undefined : aiming}
+                onAimCell={paused ? () => {} : setAimCell}
+              />
+            </div>
           </div>
           <p className="mt-2 text-xs text-lore-muted">
             {isAreaCast

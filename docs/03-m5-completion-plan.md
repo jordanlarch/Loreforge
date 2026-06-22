@@ -44,8 +44,8 @@ Highest leverage; each closes a DoD pillar.
 
 | Order | Slice | Deferral | Issue | Tracer scope |
 |---|---|---|---|---|
-| **A1** | **Combat tab + authored-encounter → Live seam** | CAMP-8 | (new) | `encounters` table + `campaigns.*Encounter` CRUD; a minimal Combat tab (name + foe roster from a small monster catalog) with **Run Now**; the WS server seeds `CampaignRoom` from the active authored encounter instead of `FIXTURE_BATTLE_COMMANDS`. Removes the goblin-only wall and connects generators→play. |
-| **A2** | **Rich Region generator** | GENR-6 | (new) | Author a rich sectioned Region descriptor on the #54 pattern (Overview / Geography / Settlements & Sites group / Powers & Conflicts / Lore & Hooks); deepest cascade. Closes "all 7 generators." |
+| ~~**A1**~~ ✅ | **Combat tab + authored-encounter → Live seam** | CAMP-8 | #115 | **Shipped (#121).** `encounters` table + `campaigns.activeEncounterId`; Combat tab (catalog foe-roster builder) with **Run Now**; the WS server seeds `CampaignRoom` from the armed authored encounter instead of `FIXTURE_BATTLE_COMMANDS`. Removed the goblin-only wall; connects generators→play. |
+| ~~**A2**~~ ✅ | **Rich Region generator** | GENR-6 | #116 | **Shipped.** Rich sectioned Region descriptor (Overview / Geography & Climate / Settlements & Sites group / Powers & Conflicts / Lore & Hooks); deepest cascade. All 7 descriptive types now richly sectioned. |
 | **A3** | **Settings tab** | CAMP-10 | (new) | GM persona + play-mode + art-style-lock fields persisted on the campaign; danger-zone (delete). Small; unblocks GM-voice/art locks Live Play already implies (Q16). |
 | **A4** | **Notes tab** | CAMP-9 | (new) | DM-only/shared notes editor on a `campaign_notes` table; `@Entity` links + convert-to-hook can follow. Small. |
 

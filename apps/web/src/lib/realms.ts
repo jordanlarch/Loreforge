@@ -236,10 +236,73 @@ export const REALM_FIELDS: Record<
   Exclude<RealmEntityType, "npc">,
   readonly RealmFieldDescriptor[]
 > = {
+  // Region is a rich generator type (#116) and the deepest cascade: it parents
+  // settlements, sites, factions, and NPCs. Sectioned into tabs with `list` and
+  // `group` fields. Keeps the original thin keys (terrain/climate/features) so
+  // existing regions stay valid.
   region: [
-    { key: "terrain", label: "Terrain", kind: "text", placeholder: "Forests, mountains…" },
-    { key: "climate", label: "Climate", kind: "text", placeholder: "Temperate, arctic…" },
-    { key: "features", label: "Notable Features", kind: "textarea", placeholder: "Landmarks, dangers, resources…" },
+    // —— Overview ——
+    { key: "regionType", label: "Type", kind: "select", section: "Overview", options: ["Kingdom", "Province", "Duchy", "Heartland", "Frontier", "Borderland", "Wilderness", "Wasteland", "Archipelago", "Untamed Expanse"] },
+    { key: "tagline", label: "Tagline", kind: "text", section: "Overview", placeholder: "A vivid one-line hook" },
+    { key: "government", label: "Ruling Power", kind: "text", section: "Overview", placeholder: "Crown, council, warlords, none…" },
+    { key: "population", label: "Population", kind: "text", section: "Overview", placeholder: "~50,000, mostly farmfolk" },
+    { key: "notes", label: "Description", kind: "textarea", section: "Overview", placeholder: "A paragraph capturing the feel of the region…" },
+    // —— Geography & Climate ——
+    { key: "terrain", label: "Terrain", kind: "text", section: "Geography & Climate", placeholder: "Forests, mountains…" },
+    { key: "climate", label: "Climate", kind: "text", section: "Geography & Climate", placeholder: "Temperate, arctic…" },
+    { key: "geography", label: "Geography", kind: "textarea", section: "Geography & Climate", placeholder: "The lay of the land — rivers, ranges, borders…" },
+    { key: "features", label: "Notable Features", kind: "textarea", section: "Geography & Climate", placeholder: "Landmarks, dangers, resources…" },
+    { key: "wildlife", label: "Flora & Fauna", kind: "textarea", section: "Geography & Climate", placeholder: "Characteristic plants and creatures" },
+    { key: "naturalResources", label: "Natural Resources", kind: "list", section: "Geography & Climate", itemLabel: "Resource", placeholder: "Iron ore, timber, fertile soil…" },
+    { key: "landmarks", label: "Landmarks", kind: "list", section: "Geography & Climate", itemLabel: "Landmark", placeholder: "A standing stone, a great waterfall…" },
+    // —— Settlements & Sites —— (the Region's signature tab: structured children)
+    {
+      key: "settlements",
+      label: "Settlements",
+      kind: "group",
+      section: "Settlements & Sites",
+      itemLabel: "Settlement",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "Briar Hollow" },
+        { key: "kind", label: "Kind", kind: "select", options: ["Hamlet", "Village", "Town", "City", "Metropolis", "Capital"] },
+        { key: "description", label: "Description", kind: "textarea" },
+      ],
+    },
+    {
+      key: "sites",
+      label: "Notable Sites",
+      kind: "group",
+      section: "Settlements & Sites",
+      itemLabel: "Site",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "The Sunken Abbey" },
+        { key: "kind", label: "Kind", kind: "text", placeholder: "Dungeon, ruin, temple, stronghold…" },
+        { key: "description", label: "Description", kind: "textarea" },
+      ],
+    },
+    // —— Powers & Conflicts ——
+    {
+      key: "factions",
+      label: "Powers & Factions",
+      kind: "group",
+      section: "Powers & Conflicts",
+      itemLabel: "Power",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "The Ashen Hand" },
+        { key: "influence", label: "Influence", kind: "text", placeholder: "Dominant, rising, waning…" },
+        { key: "description", label: "Description", kind: "textarea" },
+      ],
+    },
+    { key: "politics", label: "Politics", kind: "textarea", section: "Powers & Conflicts", placeholder: "Who holds power, and how it is contested" },
+    { key: "conflicts", label: "Conflicts & Tensions", kind: "textarea", section: "Powers & Conflicts", placeholder: "Wars, feuds, simmering grievances…" },
+    { key: "threats", label: "Threats", kind: "list", section: "Powers & Conflicts", itemLabel: "Threat", placeholder: "A monster, raider band, or looming danger" },
+    // —— Lore & Hooks ——
+    { key: "history", label: "History", kind: "textarea", section: "Lore & Hooks", placeholder: "How the region came to be what it is" },
+    { key: "culture", label: "Culture & Peoples", kind: "textarea", section: "Lore & Hooks", placeholder: "Customs, faiths, languages, festivals…" },
+    { key: "legends", label: "Legends", kind: "list", section: "Lore & Hooks", itemLabel: "Legend", placeholder: "A myth or tale told here" },
+    { key: "rumors", label: "Rumors", kind: "list", section: "Lore & Hooks", itemLabel: "Rumor", placeholder: "A whisper carried on the roads" },
+    { key: "hooks", label: "Plot Hooks", kind: "list", section: "Lore & Hooks", itemLabel: "Hook", placeholder: "Why might adventurers come here?" },
+    { key: "secrets", label: "Secrets", kind: "textarea", section: "Lore & Hooks", placeholder: "Hidden truths (DM-only in campaigns)" },
   ],
   // Settlement is the rich pilot type (GEN-1): sectioned into tabs, with `list`
   // and `group` fields. Keeps the original thin keys (size/population/

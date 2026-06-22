@@ -345,11 +345,40 @@ describe("rich Dungeon schema", () => {
   });
 });
 
-describe("single-section descriptive types", () => {
-  it("keeps non-sectioned types in a single default section", () => {
-    for (const type of ["region"] as const) {
+describe("rich Region schema", () => {
+  it("groups region fields into ordered sections (tabs)", () => {
+    const sections = realmSections("region");
+    expect(sections.length).toBeGreaterThan(1);
+    expect(sections[0]!.name).toBe("Overview");
+    expect(sections.map((s) => s.name)).toContain("Settlements & Sites");
+    const total = sections.reduce((n, s) => n + s.fields.length, 0);
+    expect(total).toBe(REALM_FIELDS.region.length);
+  });
+
+  it("preserves the original thin keys so legacy regions stay valid", () => {
+    const keys = REALM_FIELDS.region.map((f) => f.key);
+    for (const legacy of ["terrain", "climate", "features"]) {
+      expect(keys).toContain(legacy);
+    }
+  });
+
+  it("declares structured settlement and site groups (the deepest cascade)", () => {
+    const byKey = new Map(REALM_FIELDS.region.map((f) => [f.key, f]));
+    const settlements = byKey.get("settlements");
+    expect(settlements?.kind).toBe("group");
+    const kind = (settlements?.fields ?? []).find((s) => s.key === "kind");
+    expect(kind?.kind).toBe("select");
+    expect(kind?.options).toContain("Capital");
+    expect(byKey.get("sites")?.kind).toBe("group");
+  });
+});
+
+describe("all descriptive types are now richly sectioned", () => {
+  it("gives every non-NPC type more than one section", () => {
+    for (const type of REALM_ENTITY_TYPES) {
+      if (type === "npc") continue;
       const sections = realmSections(type);
-      expect(sections).toHaveLength(1);
+      expect(sections.length).toBeGreaterThan(1);
     }
   });
 });

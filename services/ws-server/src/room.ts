@@ -18,8 +18,11 @@ import {
   Engine,
   FIXTURE_BATTLE_CAMPAIGN_ID,
   FIXTURE_BATTLE_COMMANDS,
+  buildPartyBattleCommands,
   type BattleAction,
+  type Command,
   type EventStore,
+  type PartyMember,
   type WorldState,
 } from "@app/engine";
 
@@ -68,26 +71,24 @@ export class BattleRoom implements LiveRoom {
 }
 
 /**
- * The number of events the goblin-ambush fixture produces. Computed once by
- * replaying the fixture through a throwaway in-memory engine. This is the
- * "pristine encounter" sequence number: {@link CampaignRoom.reset} truncates a
- * campaign's log back to it so the fight replays from a clean slate, regardless
- * of how many moves were played before.
+ * The number of events a seed command list produces, by replaying it through a
+ * throwaway in-memory engine. This is the "pristine encounter" sequence number:
+ * {@link CampaignRoom.reset} truncates a campaign's log back to it so the fight
+ * replays from a clean slate, regardless of how many moves were played before.
+ * Recomputed from the (deterministic) seed so it stays correct whether the room
+ * was seeded with the fixture or a real campaign roster.
  */
-let fixtureBaseline: Promise<number> | undefined;
-function fixtureBaselineSequence(): Promise<number> {
-  if (!fixtureBaseline) {
-    fixtureBaseline = (async () => {
-      const probe = new Engine({ now: FIXED_CLOCK });
-      const probeId = "probe:fixture-baseline";
-      for (const command of FIXTURE_BATTLE_COMMANDS) {
-        await probe.execute(probeId, command);
-      }
-      return (await probe.getEvents(probeId)).length;
-    })();
+async function baselineSequence(commands: readonly Command[]): Promise<number> {
+  const probe = new Engine({ now: FIXED_CLOCK });
+  const probeId = "probe:seed-baseline";
+  for (const command of commands) {
+    await probe.execute(probeId, command);
   }
-  return fixtureBaseline;
+  return (await probe.getEvents(probeId)).length;
 }
+
+/** Loads a campaign's active roster as engine-ready party members (#98). */
+export type PartyLoader = (campaignId: string) => Promise<PartyMember[]>;
 
 export class CampaignRoom implements LiveRoom {
   private engine: Engine;
@@ -96,19 +97,32 @@ export class CampaignRoom implements LiveRoom {
   constructor(
     private readonly campaignId: string,
     private readonly store: EventStore,
+    /** Optional roster loader; absent → always seed the fixture (tests, demos). */
+    private readonly loadParty?: PartyLoader,
   ) {
     this.engine = new Engine({ store });
   }
 
   /**
+   * The seed command list for this campaign (#98): the goblin ambush populated
+   * with the campaign's real roster when one exists, else the fixture party. The
+   * roster lookup is deterministic enough to also recompute the reset baseline.
+   */
+  private async seedCommands(): Promise<Command[]> {
+    const party = this.loadParty ? await this.loadParty(this.campaignId) : [];
+    return party.length > 0 ? buildPartyBattleCommands(party) : FIXTURE_BATTLE_COMMANDS;
+  }
+
+  /**
    * Load the campaign. If its log is empty (a brand-new campaign), seed the
-   * goblin-ambush fixture so there is something to play; otherwise the engine
-   * rebuilds the persisted state lazily on first access. Idempotent.
+   * goblin-ambush encounter populated with the real party so there is something
+   * to play; otherwise the engine rebuilds the persisted state lazily on first
+   * access. Idempotent.
    */
   async ensureSeeded(): Promise<void> {
     if (this.seeded) return;
     if ((await this.store.lastSequence(this.campaignId)) === 0) {
-      for (const command of FIXTURE_BATTLE_COMMANDS) {
+      for (const command of await this.seedCommands()) {
         await this.engine.execute(this.campaignId, command);
       }
     }
@@ -124,7 +138,8 @@ export class CampaignRoom implements LiveRoom {
   /** Truncate the log back to the seeded baseline so the fight replays. */
   async reset(): Promise<void> {
     await this.ensureSeeded();
-    await this.store.truncate(this.campaignId, await fixtureBaselineSequence());
+    const baseline = await baselineSequence(await this.seedCommands());
+    await this.store.truncate(this.campaignId, baseline);
     // Drop the cached in-memory runtime: a fresh engine re-hydrates from the
     // (now truncated) persisted log.
     this.engine = new Engine({ store: this.store });

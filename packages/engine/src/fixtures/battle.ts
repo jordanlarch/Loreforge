@@ -20,7 +20,13 @@ import type {
   MoveEntityCommand,
   OpportunityAttackCommand,
 } from "../commands/types";
-import type { EntityRef, GridPosition } from "../entities/types";
+import type {
+  AbilityScores,
+  ClassLevel,
+  EntityRef,
+  GridPosition,
+  SpellcastingInit,
+} from "../entities/types";
 import type { WorldState } from "../projections/world-state";
 import { FIXTURE_CHARACTERS } from "./party";
 
@@ -29,11 +35,27 @@ export const FIXTURE_BATTLE_CAMPAIGN_ID = "fixture:goblin-ambush";
 
 export const FIXTURE_BATTLE_SCENE_ID = "scene:ambush";
 
-const THORIN = FIXTURE_CHARACTERS[0]!;
-const ELARA = FIXTURE_CHARACTERS[1]!;
-
 export const FIXTURE_BATTLE_PARTY_SIDE = "party";
 export const FIXTURE_BATTLE_FOES_SIDE = "foes";
+
+/**
+ * A party member to seed into the live encounter (#98). A trimmed projection of
+ * a persisted character row (or a fixture character) — exactly the fields the
+ * engine's `create_entity` needs to place a PC on the map. The `id` is the
+ * stable entity ref (a character row uuid for persisted PCs), so the client can
+ * map the live combatant back to its sheet for weapon/spell loadouts.
+ */
+export type PartyMember = {
+  id: EntityRef;
+  name: string;
+  abilityScores: AbilityScores;
+  maxHp: number;
+  baseAc: number;
+  speed: number;
+  classes: ClassLevel[];
+  /** Present for casters so the live cast loop is exercisable. */
+  spellcasting?: SpellcastingInit;
+};
 
 /** A short pillar wall down the middle with a gap, to make movement interesting. */
 const WALLS: GridPosition[] = [
@@ -43,94 +65,130 @@ const WALLS: GridPosition[] = [
   { x: 6, y: 8 },
 ];
 
-/**
- * The ordered command list that builds the encounter. Exported so callers can
- * append `move_entity` commands and replay the whole batch deterministically.
- */
-export const FIXTURE_BATTLE_COMMANDS: Command[] = [
-  {
-    type: "create_scene",
-    scene: {
-      id: FIXTURE_BATTLE_SCENE_ID,
-      name: "Salt Way Ambush",
-      description: "A muddy stretch of road, goblins lurking behind cairns.",
-      map: { width: 12, height: 10, blockedCells: WALLS },
-    },
-  },
-  { type: "change_scene", sceneId: FIXTURE_BATTLE_SCENE_ID },
-  {
-    type: "create_entity",
-    entity: {
-      id: THORIN.id,
-      kind: "character",
-      name: THORIN.name,
-      abilityScores: THORIN.abilityScores,
-      maxHp: THORIN.maxHp,
-      baseAc: THORIN.baseAc,
-      speed: THORIN.speed,
-      classes: THORIN.classes,
-      sceneId: FIXTURE_BATTLE_SCENE_ID,
-      position: { x: 2, y: 4 },
-    },
-  },
-  {
-    type: "create_entity",
-    entity: {
-      id: ELARA.id,
-      kind: "character",
-      name: ELARA.name,
-      abilityScores: ELARA.abilityScores,
-      maxHp: ELARA.maxHp,
-      baseAc: ELARA.baseAc,
-      speed: ELARA.speed,
-      classes: ELARA.classes,
-      sceneId: FIXTURE_BATTLE_SCENE_ID,
-      position: { x: 2, y: 6 },
-      // Make the Bard a caster so the live cast loop (#58) is exercisable.
-      spellcasting: { ability: "cha" },
-    },
-  },
-  {
-    type: "create_entity",
-    entity: {
-      id: "npc:goblin-a",
-      kind: "monster",
-      name: "Goblin Cutter",
-      abilityScores: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
-      maxHp: 7,
-      baseAc: 15,
-      speed: 30,
-      sceneId: FIXTURE_BATTLE_SCENE_ID,
-      position: { x: 9, y: 3 },
-    },
-  },
-  {
-    type: "create_entity",
-    entity: {
-      id: "npc:goblin-b",
-      kind: "monster",
-      name: "Goblin Sneak",
-      abilityScores: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
-      maxHp: 7,
-      baseAc: 15,
-      speed: 30,
-      sceneId: FIXTURE_BATTLE_SCENE_ID,
-      position: { x: 9, y: 6 },
-    },
-  },
-  {
-    type: "start_encounter",
-    sceneId: FIXTURE_BATTLE_SCENE_ID,
-    combatants: [THORIN.id, ELARA.id, "npc:goblin-a", "npc:goblin-b"],
-    sides: {
-      [THORIN.id]: FIXTURE_BATTLE_PARTY_SIDE,
-      [ELARA.id]: FIXTURE_BATTLE_PARTY_SIDE,
-      "npc:goblin-a": FIXTURE_BATTLE_FOES_SIDE,
-      "npc:goblin-b": FIXTURE_BATTLE_FOES_SIDE,
-    },
-  },
-  { type: "roll_initiative" },
+/** Left-column starting cells for the party; caps the seed at four PCs. */
+const PARTY_POSITIONS: readonly GridPosition[] = [
+  { x: 2, y: 2 },
+  { x: 2, y: 4 },
+  { x: 2, y: 6 },
+  { x: 2, y: 8 },
 ];
+
+/** Max party seeded onto the fixture map (one per {@link PARTY_POSITIONS} cell). */
+export const MAX_BATTLE_PARTY = PARTY_POSITIONS.length;
+
+/** The two goblin foes the ambush always fields (right column). */
+const GOBLINS = [
+  {
+    id: "npc:goblin-a",
+    name: "Goblin Cutter",
+    position: { x: 9, y: 3 } as GridPosition,
+  },
+  {
+    id: "npc:goblin-b",
+    name: "Goblin Sneak",
+    position: { x: 9, y: 6 } as GridPosition,
+  },
+] as const;
+
+/** The fixture party (Thorin + Elara), used by the sandbox + empty campaigns. */
+export const FIXTURE_PARTY: PartyMember[] = [
+  {
+    id: FIXTURE_CHARACTERS[0]!.id,
+    name: FIXTURE_CHARACTERS[0]!.name,
+    abilityScores: FIXTURE_CHARACTERS[0]!.abilityScores,
+    maxHp: FIXTURE_CHARACTERS[0]!.maxHp,
+    baseAc: FIXTURE_CHARACTERS[0]!.baseAc,
+    speed: FIXTURE_CHARACTERS[0]!.speed,
+    classes: FIXTURE_CHARACTERS[0]!.classes,
+  },
+  {
+    id: FIXTURE_CHARACTERS[1]!.id,
+    name: FIXTURE_CHARACTERS[1]!.name,
+    abilityScores: FIXTURE_CHARACTERS[1]!.abilityScores,
+    maxHp: FIXTURE_CHARACTERS[1]!.maxHp,
+    baseAc: FIXTURE_CHARACTERS[1]!.baseAc,
+    speed: FIXTURE_CHARACTERS[1]!.speed,
+    classes: FIXTURE_CHARACTERS[1]!.classes,
+    // The Bard is a caster so the live cast loop (#58) is exercisable.
+    spellcasting: { ability: "cha" },
+  },
+];
+
+/**
+ * Build the ordered command list for the goblin-ambush encounter seeded with a
+ * given party (#98). Generalizes the old hard-coded fixture: the scene + map +
+ * foes are constant; the party is whatever is passed (the persisted campaign
+ * roster, or the fixture party). Up to {@link MAX_BATTLE_PARTY} members are
+ * placed down the left column; extras are dropped (the map only has so many
+ * start cells). Exported so callers can append actions and replay deterministically.
+ */
+export function buildPartyBattleCommands(
+  party: readonly PartyMember[],
+): Command[] {
+  const members = party.slice(0, MAX_BATTLE_PARTY);
+  const sides: Record<EntityRef, string> = {};
+  for (const m of members) sides[m.id] = FIXTURE_BATTLE_PARTY_SIDE;
+  for (const g of GOBLINS) sides[g.id] = FIXTURE_BATTLE_FOES_SIDE;
+
+  return [
+    {
+      type: "create_scene",
+      scene: {
+        id: FIXTURE_BATTLE_SCENE_ID,
+        name: "Salt Way Ambush",
+        description: "A muddy stretch of road, goblins lurking behind cairns.",
+        map: { width: 12, height: 10, blockedCells: WALLS },
+      },
+    },
+    { type: "change_scene", sceneId: FIXTURE_BATTLE_SCENE_ID },
+    ...members.map((m, i): Command => ({
+      type: "create_entity",
+      entity: {
+        id: m.id,
+        kind: "character",
+        name: m.name,
+        abilityScores: m.abilityScores,
+        maxHp: m.maxHp,
+        baseAc: m.baseAc,
+        speed: m.speed,
+        classes: m.classes,
+        sceneId: FIXTURE_BATTLE_SCENE_ID,
+        position: PARTY_POSITIONS[i]!,
+        ...(m.spellcasting ? { spellcasting: m.spellcasting } : {}),
+      },
+    })),
+    ...GOBLINS.map((g): Command => ({
+      type: "create_entity",
+      entity: {
+        id: g.id,
+        kind: "monster",
+        name: g.name,
+        abilityScores: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+        maxHp: 7,
+        baseAc: 15,
+        speed: 30,
+        sceneId: FIXTURE_BATTLE_SCENE_ID,
+        position: g.position,
+      },
+    })),
+    {
+      type: "start_encounter",
+      sceneId: FIXTURE_BATTLE_SCENE_ID,
+      combatants: [...members.map((m) => m.id), ...GOBLINS.map((g) => g.id)],
+      sides,
+    },
+    { type: "roll_initiative" },
+  ];
+}
+
+/**
+ * The ordered command list that builds the *fixture* encounter (Thorin + Elara
+ * vs two goblins). Exported so callers can append `move_entity` commands and
+ * replay the whole batch deterministically. Persisted campaigns seed from their
+ * real roster instead via {@link buildPartyBattleCommands}.
+ */
+export const FIXTURE_BATTLE_COMMANDS: Command[] =
+  buildPartyBattleCommands(FIXTURE_PARTY);
 
 /**
  * A player-issued action the live channel replays on top of the base encounter:

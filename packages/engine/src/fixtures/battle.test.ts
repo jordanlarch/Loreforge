@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { Engine } from "../engine";
+import type { AbilityScores } from "../entities/types";
 import {
   buildFixtureBattle,
+  buildPartyBattleCommands,
+  FIXTURE_BATTLE_FOES_SIDE,
   FIXTURE_BATTLE_PARTY_SIDE,
   FIXTURE_BATTLE_SCENE_ID,
+  MAX_BATTLE_PARTY,
   moveAction,
+  type PartyMember,
 } from "./battle";
 
 describe("buildFixtureBattle", () => {
@@ -68,5 +74,64 @@ describe("buildFixtureBattle", () => {
     for (const pc of characters) {
       expect(state.encounter?.sides[pc.id]).toBe(FIXTURE_BATTLE_PARTY_SIDE);
     }
+  });
+});
+
+describe("buildPartyBattleCommands", () => {
+  const scores: AbilityScores = {
+    str: 14,
+    dex: 12,
+    con: 13,
+    int: 10,
+    wis: 11,
+    cha: 16,
+  };
+  function member(id: string, over: Partial<PartyMember> = {}): PartyMember {
+    return {
+      id,
+      name: id,
+      abilityScores: scores,
+      maxHp: 20,
+      baseAc: 14,
+      speed: 30,
+      classes: [{ class: "Fighter", level: 3 }],
+      ...over,
+    };
+  }
+
+  async function run(party: PartyMember[]) {
+    const engine = new Engine({ now: () => 0 });
+    for (const command of buildPartyBattleCommands(party)) {
+      await engine.execute("c:party", command);
+    }
+    return engine.getState("c:party");
+  }
+
+  it("seeds the real party as combatants alongside the two goblins", async () => {
+    const state = await run([member("char:a"), member("char:b")]);
+    expect(state.entities["char:a"]?.kind).toBe("character");
+    expect(state.encounter?.sides["char:a"]).toBe(FIXTURE_BATTLE_PARTY_SIDE);
+    expect(state.encounter?.sides["npc:goblin-a"]).toBe(FIXTURE_BATTLE_FOES_SIDE);
+    expect(state.encounter?.combatants).toHaveLength(4); // 2 PCs + 2 goblins
+  });
+
+  it("makes a member with spellcasting a caster (slots seeded)", async () => {
+    const state = await run([
+      member("char:caster", { spellcasting: { ability: "cha", casterLevel: 5 } }),
+    ]);
+    const caster = state.entities["char:caster"];
+    expect(caster?.spellcasting?.ability).toBe("cha");
+    expect(caster?.spellcasting?.slots[3]?.max).toBe(2); // L5 full caster
+  });
+
+  it("caps the seeded party at the available start cells", async () => {
+    const party = Array.from({ length: MAX_BATTLE_PARTY + 2 }, (_, i) =>
+      member(`char:${i}`),
+    );
+    const state = await run(party);
+    const pcs = Object.values(state.entities).filter(
+      (e) => e.kind === "character",
+    );
+    expect(pcs).toHaveLength(MAX_BATTLE_PARTY);
   });
 });

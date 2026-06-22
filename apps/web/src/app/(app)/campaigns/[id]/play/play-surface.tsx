@@ -22,16 +22,23 @@ import {
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
+import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import {
   castableSpellsFor,
   controllableReactors,
-  deriveStrike,
-  MELEE_REACH_FT,
   reactionWindowKey,
   targetsInRange,
   type CastableSpell,
 } from "@/lib/live-combat";
+import {
+  deriveWeaponAttacks,
+  genericStrike,
+  preparedSpellNames,
+  quickUseItems,
+  sheetCastableSpells,
+  type WeaponAttack,
+} from "@/lib/sheet-loadout";
 import type { BattleToken, TargetingOverlay } from "./battle-map";
 import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
@@ -135,21 +142,28 @@ function buildViewModel(state: WorldState): ViewModel | null {
 
 type LiveSession = ReturnType<typeof useLiveSession>;
 
+/** A live combatant's sheet bits (#98), keyed by entity id, for HUD/action bar. */
+export type SheetData = { equipment: EquipmentItem[]; spells: SpellLoadout };
+
 /**
  * Shared live battle surface. Driven by a session source (`useLiveSession`) and
- * a heading; identical for the sandbox fixture and a persisted campaign.
+ * a heading; identical for the sandbox fixture and a persisted campaign. With a
+ * `loadouts` map (#98) the HUD + action bar are driven by real weapons + spells.
  */
 function LiveBattle({
   session,
   title,
   context,
   backHref,
+  loadouts,
 }: {
   session: LiveSession;
   title: string;
   context: string;
   /** Optional "back to workspace" target (absent for the sandbox). */
   backHref?: string;
+  /** Per-entity sheet loadouts (#98); absent for the sandbox fixture. */
+  loadouts?: Record<string, SheetData>;
 }) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
@@ -176,15 +190,26 @@ function LiveBattle({
     activeEntity.actionEconomy !== undefined &&
     state?.encounter?.sides[activeEntity.id] === FIXTURE_BATTLE_PARTY_SIDE;
 
+  // Sheet-driven loadout for the active combatant (#98): real weapons + spells
+  // + consumables when the roster is bridged in; generic fallback otherwise.
+  const activeSheet = activeEntity ? loadouts?.[activeEntity.id] : undefined;
+  const weapons: WeaponAttack[] = activeEntity
+    ? activeSheet
+      ? deriveWeaponAttacks(activeEntity, activeSheet.equipment)
+      : [genericStrike(activeEntity)]
+    : [];
+  const quickItems = activeSheet ? quickUseItems(activeSheet.equipment) : [];
   const castableSpells: CastableSpell[] = activeEntity
-    ? castableSpellsFor(activeEntity)
+    ? activeSheet
+      ? sheetCastableSpells(activeEntity, preparedSpellNames(activeSheet.spells))
+      : castableSpellsFor(activeEntity)
     : [];
 
   // While an action is armed, resolve the range + valid targets for the picker.
   const targeting: TargetingOverlay | undefined = useMemo(() => {
     if (!state || !armed || !activeEntity?.position) return undefined;
     const rangeFt =
-      armed.kind === "attack" ? MELEE_REACH_FT : armed.spell.rangeFt;
+      armed.kind === "attack" ? armed.attack.rangeFt : armed.spell.rangeFt;
     const targetableIds = targetsInRange(state, activeEntity.id, rangeFt).map(
       (e) => e.id,
     );
@@ -198,8 +223,12 @@ function LiveBattle({
   function onPickTarget(targetId: string) {
     if (!armed || !activeEntity) return;
     if (armed.kind === "attack") {
-      const strike = deriveStrike(activeEntity);
-      session.attack(activeEntity.id, targetId, strike.attackBonus, strike.damage);
+      session.attack(
+        activeEntity.id,
+        targetId,
+        armed.attack.attackBonus,
+        armed.attack.damage,
+      );
     } else {
       session.castSpell(
         activeEntity.id,
@@ -301,10 +330,11 @@ function LiveBattle({
 
           {controllableTurn && (
             <CombatActionBar
+              weapons={weapons}
               spells={castableSpells}
               armed={armed}
               disabled={session.isBusy}
-              onAttack={() => setArmed({ kind: "attack" })}
+              onAttack={(attack) => setArmed({ kind: "attack", attack })}
               onCast={(spell) => setArmed({ kind: "cast", spell })}
               onCancel={() => setArmed(null)}
             />
@@ -336,7 +366,13 @@ function LiveBattle({
               reactorName={reaction.reactor.name}
               moverName={reaction.mover.name}
               onTake={() => {
-                const strike = deriveStrike(reaction.reactor);
+                const reactorSheet = loadouts?.[reaction.reactor.id];
+                const strike = reactorSheet
+                  ? (deriveWeaponAttacks(
+                      reaction.reactor,
+                      reactorSheet.equipment,
+                    )[0] ?? genericStrike(reaction.reactor))
+                  : genericStrike(reaction.reactor);
                 session.opportunityAttack(
                   reaction.reactor.id,
                   reaction.mover.id,
@@ -351,7 +387,7 @@ function LiveBattle({
             />
           )}
 
-          <CharacterHud session={session} />
+          <CharacterHud session={session} weapons={weapons} items={quickItems} />
 
           <ChatZone entries={session.chat} onSend={session.sendChat} />
         </aside>
@@ -377,6 +413,18 @@ export function SandboxPlaySurface() {
 export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
   const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
   const session = useLiveSession({ campaignId });
+
+  // Sheet bridge (#98): map each roster character's equipment + spells by id (=
+  // the live entity id the WS server seeds), so the HUD + action bar are driven
+  // by real loadouts. Absent rows simply fall back to the generic behavior.
+  const loadoutQuery = trpc.campaigns.partyLoadout.useQuery({ campaignId });
+  const loadouts = useMemo(() => {
+    const map: Record<string, SheetData> = {};
+    for (const row of loadoutQuery.data ?? []) {
+      map[row.id] = { equipment: row.equipment, spells: row.spells };
+    }
+    return map;
+  }, [loadoutQuery.data]);
 
   if (campaign.isLoading) {
     return (
@@ -405,6 +453,7 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
       title={campaign.data.name}
       context="Live campaign"
       backHref={`/campaigns/${campaignId}`}
+      loadouts={loadouts}
     />
   );
 }

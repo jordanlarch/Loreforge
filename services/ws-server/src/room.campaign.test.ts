@@ -4,6 +4,7 @@ import {
   FIXTURE_BATTLE_SCENE_ID,
   InMemoryEventStore,
   type EventStore,
+  type PartyMember,
 } from "@app/engine";
 
 import { CampaignRoom } from "./room.js";
@@ -71,6 +72,66 @@ describe("CampaignRoom", () => {
 
     expect(await store.lastSequence(CAMPAIGN)).toBe(baseline);
     expect((await room.getState()).entities[active]?.position).toEqual(from);
+  });
+
+  it("seeds the real campaign roster when a party loader returns members (#98)", async () => {
+    const store = new InMemoryEventStore();
+    const party: PartyMember[] = [
+      {
+        id: "char:hero",
+        name: "Bridged Hero",
+        abilityScores: { str: 16, dex: 12, con: 14, int: 10, wis: 10, cha: 8 },
+        maxHp: 30,
+        baseAc: 16,
+        speed: 30,
+        classes: [{ class: "Fighter", level: 3 }],
+      },
+    ];
+    const room = new CampaignRoom(CAMPAIGN, store, async () => party);
+
+    const state = await room.getState();
+
+    expect(state.entities["char:hero"]?.name).toBe("Bridged Hero");
+    // Roster PC + the two goblin foes.
+    expect(state.encounter?.combatants).toContain("char:hero");
+    expect(state.encounter?.combatants).toHaveLength(3);
+  });
+
+  it("falls back to the fixture when the roster is empty", async () => {
+    const store = new InMemoryEventStore();
+    const room = new CampaignRoom(CAMPAIGN, store, async () => []);
+
+    const state = await room.getState();
+
+    expect(state.encounter?.order).toHaveLength(4); // fixture: 2 PCs + 2 goblins
+  });
+
+  it("reset replays the roster-seeded baseline (not the fixture's)", async () => {
+    const store = new InMemoryEventStore();
+    const party: PartyMember[] = [
+      {
+        id: "char:solo",
+        name: "Solo",
+        abilityScores: { str: 14, dex: 14, con: 14, int: 10, wis: 10, cha: 10 },
+        maxHp: 24,
+        baseAc: 15,
+        speed: 30,
+        classes: [{ class: "Rogue", level: 2 }],
+      },
+    ];
+    const room = new CampaignRoom(CAMPAIGN, store, async () => party);
+    await room.getState();
+    const baseline = await store.lastSequence(CAMPAIGN);
+
+    const { active, from } = await activeEntity(room);
+    await room.apply({ type: "move_entity", entity: active, to: { x: from.x, y: from.y + 1 } });
+    expect(await store.lastSequence(CAMPAIGN)).toBeGreaterThan(baseline);
+
+    await room.reset();
+
+    expect(await store.lastSequence(CAMPAIGN)).toBe(baseline);
+    // The roster member is still present after a reset (3 combatants, not 4).
+    expect((await room.getState()).encounter?.combatants).toHaveLength(3);
   });
 
   it("rejects an illegal move (into a wall) and leaves state unchanged", async () => {

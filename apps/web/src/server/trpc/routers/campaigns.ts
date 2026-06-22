@@ -320,6 +320,37 @@ export const campaignsRouter = createTRPCRouter({
         .orderBy(asc(campaignCharacters.joinedAt));
     }),
 
+  /**
+   * Per-character combat loadouts for the live encounter (#98). Returns the
+   * `equipment` + `spells` of the campaign's active PCs/companions keyed by
+   * character id — the same ids the WS server seeds as live combatants — so the
+   * play surface can drive the HUD + action bar from real weapons and spells
+   * instead of a generic Strike + curated cast list. Owner-scoped.
+   */
+  partyLoadout: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      return db
+        .select({
+          id: characters.id,
+          equipment: characters.equipment,
+          spells: characters.spells,
+        })
+        .from(campaignCharacters)
+        .innerJoin(
+          characters,
+          eq(characters.id, campaignCharacters.characterId),
+        )
+        .where(
+          and(
+            eq(campaignCharacters.campaignId, input.campaignId),
+            eq(campaignCharacters.ownerId, ctx.user.id),
+          ),
+        );
+    }),
+
   /* ----------------------------------------------------------------------- *
    *  World tab — campaign-scoped Realms entities + discovery (#60, Q11)
    * ----------------------------------------------------------------------- */

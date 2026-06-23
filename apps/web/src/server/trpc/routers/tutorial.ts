@@ -11,6 +11,7 @@
  */
 import { TUTORIAL_FIRST_SCENE_ID } from "@app/engine";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 
 import {
   campaignCharacters,
@@ -18,6 +19,7 @@ import {
   characters,
   getDb,
   tutorialProgress,
+  tutorialSeenFeatures,
 } from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
@@ -139,4 +141,33 @@ export const tutorialRouter = createTRPCRouter({
       .where(eq(tutorialProgress.ownerId, ctx.user.id));
     return { ok: true };
   }),
+
+  /* --------------------------------------------------------------------- *
+   *  Fire-once coachmarks / first-time tooltips (TUT-1, D5)
+   * --------------------------------------------------------------------- */
+
+  /** Ids of every coachmark the current user has already dismissed. */
+  seenFeatures: protectedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db
+      .select({ featureId: tutorialSeenFeatures.featureId })
+      .from(tutorialSeenFeatures)
+      .where(eq(tutorialSeenFeatures.ownerId, ctx.user.id));
+    return rows.map((r) => r.featureId);
+  }),
+
+  /**
+   * Mark a coachmark seen for the current user (idempotent). Each tooltip fires
+   * once ever; the unique `(owner, feature)` index makes a repeat a no-op.
+   */
+  markSeen: protectedProcedure
+    .input(z.object({ featureId: z.string().trim().min(1).max(120) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db
+        .insert(tutorialSeenFeatures)
+        .values({ ownerId: ctx.user.id, featureId: input.featureId })
+        .onConflictDoNothing();
+      return { ok: true };
+    }),
 });

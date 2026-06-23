@@ -10,14 +10,23 @@
  * without one it reports `configured: false` and returns no results rather than
  * embedding queries against an empty table.
  */
+import { TRPCError } from "@trpc/server";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { getDb } from "@app/db";
+import {
+  campaigns,
+  getDb,
+  pinnedMemories,
+  rollingSummaries,
+  sessions,
+} from "@app/db";
 import { resolveEmbeddingClient, retrieveSimilar } from "@app/memory";
 
 import { isEmbeddingConfigured } from "@/server/memory/embed";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
+import { assertCampaignOwner } from "./campaigns";
 
 export const memoryRouter = createTRPCRouter({
   /** Whether semantic search is configured (drives UI affordances). */
@@ -47,5 +56,88 @@ export const memoryRouter = createTRPCRouter({
         k: input.k ?? 8,
       });
       return { configured: true as const, results };
+    }),
+
+  /**
+   * Export everything the memory tier holds for an owned campaign — the working
+   * rolling summary (MEM-3), the finalized session recaps (MEM-4), and the
+   * pinned memories (MEM-8) — as a portable, JSON-serializable document
+   * (CAMP-10 memory export). Read-only; stored text only (not embeddings), so it
+   * works regardless of `OPENAI_API_KEY`.
+   */
+  exportCampaign: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+
+      const [campaign] = await db
+        .select({
+          id: campaigns.id,
+          name: campaigns.name,
+          description: campaigns.description,
+        })
+        .from(campaigns)
+        .where(eq(campaigns.id, input.campaignId));
+      if (!campaign) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Campaign not found." });
+      }
+
+      const [summary] = await db
+        .select({
+          summary: rollingSummaries.summary,
+          coveredSeq: rollingSummaries.coveredSeq,
+          updatedAt: rollingSummaries.updatedAt,
+        })
+        .from(rollingSummaries)
+        .where(eq(rollingSummaries.campaignId, input.campaignId));
+
+      const sessionRows = await db
+        .select({
+          id: sessions.id,
+          startSeq: sessions.startSeq,
+          endSeq: sessions.endSeq,
+          recap: sessions.recap,
+          model: sessions.model,
+          startedAt: sessions.startedAt,
+          endedAt: sessions.endedAt,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.campaignId, input.campaignId),
+            eq(sessions.ownerId, ctx.user.id),
+          ),
+        )
+        .orderBy(asc(sessions.endedAt));
+
+      const pins = await db
+        .select({
+          id: pinnedMemories.id,
+          content: pinnedMemories.content,
+          createdAt: pinnedMemories.createdAt,
+        })
+        .from(pinnedMemories)
+        .where(
+          and(
+            eq(pinnedMemories.campaignId, input.campaignId),
+            eq(pinnedMemories.ownerId, ctx.user.id),
+          ),
+        )
+        .orderBy(desc(pinnedMemories.createdAt));
+
+      return {
+        exportedAt: new Date().toISOString(),
+        campaign,
+        rollingSummary: summary
+          ? {
+              summary: summary.summary,
+              coveredSeq: summary.coveredSeq,
+              updatedAt: summary.updatedAt,
+            }
+          : null,
+        sessions: sessionRows,
+        pinnedMemories: pins,
+      };
     }),
 });

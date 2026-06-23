@@ -14,6 +14,11 @@ const serverSchema = z.object({
   // without it, but generation endpoints return a clean "not configured" error.
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().optional(),
+  // Embeddings / memory tier (@app/memory, P5). Optional/env-gated: without a
+  // key the memory tier falls back to a deterministic local embedding so dev and
+  // tests run offline (`docs/data-sources.md` §6).
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_EMBEDDING_MODEL: z.string().optional(),
 });
 
 const clientSchema = z.object({

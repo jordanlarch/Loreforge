@@ -42,7 +42,7 @@ all 7 descriptive Realms types are now rich/sectioned except Region (GENR-6);
 - **Phase tags** point at `docs/02-implementation-roadmap.md` §6 (P0–P7) and the
   milestones M1–M10. They are **best-effort** placement, not commitments.
 - **Don't restate locked cuts** — v1.5+/v2 product cuts live in
-  `docs/product-spec.md` §6 and `docs/00-consolidated-plan.md`; §6 below links to them
+  `docs/product-spec.md` §6 and `docs/00-consolidated-plan.md`; §7 below links to them
   rather than copying.
 - This file supersedes scattered "What Is Open" / deferral prose. `AGENTS.md` and
   `CONTEXT.md` should point here for the live backlog.
@@ -66,7 +66,7 @@ deferred from that design.
 | GEN-1 | Rich per-type schemas (replace thin `REALM_FIELDS` with rich per-tab schemas) | D1 | P4 / M5 | #54 | Partial | **Settlement done (#54)**: descriptor model extended with `section` + `list`/`group` kinds; one source of truth drives form/tabbed-detail/zod/generator. Remaining six descriptive types still thin — author rich descriptors per type (GENR-*). |
 | GEN-2 | Name-match dedup on cascade child-stub insertion | D6 | P4 / M5 | doc-only | Deferred | Cascade currently inserts every `children[]` entry as a new stub; no dedup against existing entities. |
 | GEN-3 | OpenAI fallback provider (resilience) | D9 | post-M5 | doc-only | Deferred | Anthropic-only for v1; provider seam exists in `@app/llm` for later wiring. |
-| GEN-4 | Full pgvector RAG grounding for generation | D11 | P5 | doc-only | Deferred | Today: schema-driven enums + curated SRD species/class lists + parent context. Full RAG lands with the memory tier (P5). |
+| GEN-4 | Full pgvector RAG grounding for generation | D11 | P5 | doc-only | Deferred | Today: schema-driven enums + curated SRD species/class lists + parent context. Full RAG lands with the memory tier (P5) — consumes the `retrieveSimilar` seam from MEM-1/MEM-2 (see §6 MEM-6). |
 | GEN-5 | Auto-link / conflict detection on generated entities | D6 / roadmap P4 | P4 / M5 | doc-only | Deferred | No conflict modal or auto-relationship inference beyond deterministic cascade edges. |
 
 ---
@@ -273,7 +273,27 @@ server-authoritative engine. Narrative chat, HUD, and most of the 5-zone shell a
 
 ---
 
-## 6. v1.5+ / out-of-scope (linked, not restated)
+## 6. Memory tier (P5 — RAG / embeddings)
+
+The multi-tier memory architecture (`docs/data-sources.md` §6): pgvector embeddings,
+retrieval, rolling session summary, and auto-recaps. Design settled in the 2026-06-22
+grill; building as **tracer-bullet vertical slices**. The tracer spine (MEM-1/MEM-2)
+proves embed → store → retrieve on Realms entities; the rows below it are the deferred
+follow-ups that plug into the same seam.
+
+| ID | Item | Source | Deferred-to | Tracking | Status | Notes |
+|---|---|---|---|---|---|---|
+| MEM-1 | `@app/memory` package + pgvector store + `retrieveSimilar` primitive | data-sources §6 | P5 / M6 | #135 | Deferred | Tracer spine slice 1: polymorphic `embeddings` table (HNSW cosine) + `EmbeddingClient` seam (OpenAI `text-embedding-3-small` + deterministic fake) + card-chunk composition (contentHash, skip stubs) + `upsertEmbeddings`/`retrieveSimilar`; PGlite+`vector` harness. No app consumer yet. Refines §6's per-column sketch to a single polymorphic table. |
+| MEM-2 | Embed Realms entities on write + reachable `memory.search` | data-sources §6 | P5 / M6 | #136 | Deferred | Tracer spine slice 2 (blocked by #135): synchronous best-effort embed in realms create/update/generate/expand + backfill script + thin owner-scoped `memory.search` tRPC query + structured cost logs. No `tr_prod_` dependency. |
+| MEM-3 | Rolling session summary (periodic condense of current session) | data-sources §6 | P5 | doc-only | Deferred | Storage + regeneration cadence + who-runs-it (ws-server inline vs job) TBD when the live AI-GM turn consumer is built. |
+| MEM-4 | Sessions concept + auto-recap jobs (recap embedded as a source) | data-sources §6 / CAMP-6 / PLAY-12 | P5 | #119 | Deferred | Needs a sessions table + end-session trigger; recap generation likely a Trigger.dev runtime job (needs `tr_prod_`, INFRA-1). Feeds CAMP-6 Sessions tab + PLAY-12 end-session flow. |
+| MEM-5 | Live-turn RAG injection into the AI-GM prompt (5-part context assembler + rerank) | data-sources §6 | P5 | doc-only | Deferred | The real consumer: assemble engine-state + hot-chat + rolling summary + RAG retrieval; multi-category rerank (recency/pinning/cross-link) layers onto the `retrieveSimilar` seam. |
+| MEM-6 | Generator RAG grounding (GEN-4) via `retrieveSimilar` | D11 / GEN-4 | P5 | doc-only | Deferred | First non-debug consumer of the retrieval seam; see GEN-4. |
+| MEM-7 | Nightly drift re-embed + async embed dispatch (Trigger.dev) | data-sources §6 | P5+ | doc-only | Deferred | Replaces MEM-2's synchronous write-path embed with job dispatch + a nightly re-embed pass for edited entities. Needs `tr_prod_` (INFRA-1). |
+
+---
+
+## 7. v1.5+ / out-of-scope (linked, not restated)
 
 These are **locked product cuts**, not backlog. Do not re-pitch without an explicit
 decision update. Full lists:
@@ -296,7 +316,7 @@ Quick index of the v1.5+ deferrals referenced by rows above:
 
 ---
 
-## 7. Maintenance
+## 8. Maintenance
 
 - When you ship an item, set its **Status** to `Done` (and add the merge commit/PR in
   Notes) rather than deleting the row.

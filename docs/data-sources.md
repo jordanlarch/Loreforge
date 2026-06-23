@@ -211,7 +211,9 @@ Retrieval-Augmented Generation (RAG) is how the AI-GM stays grounded in everythi
 
 ### Storage
 
-`pgvector` columns on Postgres tables. Each embeddable entity (Realms NPC, Realms location, session message, session recap, pinned memory, journal entry, plot hook) has an `embedding vector(1536)` column with an HNSW index. Queries use cosine similarity.
+`pgvector` columns on Postgres tables. Each embeddable entity (Realms NPC, Realms location, session message, session recap, pinned memory, journal entry, plot hook) is embedded as a `vector(1536)` with an HNSW index. Queries use cosine similarity.
+
+> **Implementation refinement (2026-06-22, MEM-1 / `docs/deferrals.md` §6):** rather than a per-table `embedding` column on each table, embeddings live in a **single polymorphic `embeddings` table** — `(ownerId, campaignId?, sourceType, sourceId, chunkIndex, chunkText, embedding vector(1536), model, contentHash)` with one HNSW cosine index plus a `(sourceType, sourceId)` index for re-embed/delete. This supports multi-chunk-per-source, a uniform retrieval query across heterogeneous source types, and new embeddable types without a schema migration per table. The per-column phrasing above is the conceptual sketch; the polymorphic table is what's built.
 
 We chose pgvector over a dedicated vector DB (Pinecone, Weaviate, Qdrant) because: (a) the data already lives in Postgres, (b) we can JOIN vector retrieval against relational filters ("most-similar pinned memories from this campaign that mention this NPC"), (c) one less ops surface. Per [`./01-tech-stack.md`](./01-tech-stack.md) §6, if scale ever forces a split, the abstraction layer makes the swap manageable.
 

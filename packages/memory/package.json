@@ -1,0 +1,25 @@
+{
+  "name": "@app/memory",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@app/config": "*",
+    "@app/db": "*",
+    "drizzle-orm": "^0.43.1",
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.6"
+  }
+}

@@ -49,6 +49,7 @@ import {
   getCampaignEncounter,
   getCampaignParty,
   getEventStore,
+  grantTutorialLoot,
   isCampaignOwner,
   isTutorialCampaign,
   loadChatMessages,
@@ -106,7 +107,7 @@ type ClientMessage =
   | { t: "cmd"; action: unknown }
   | { t: "reset" }
   | { t: "chat"; mode?: string; text: string }
-  | { t: "tutorial"; action: TutorialAction; topic?: string };
+  | { t: "tutorial"; action: TutorialAction; topic?: string; help?: boolean };
 
 function parseMessage(payload: string): ClientMessage | null {
   let value: unknown;
@@ -126,7 +127,11 @@ function parseMessage(payload: string): ClientMessage | null {
     return { t: "chat", mode: mode as string | undefined, text: text as string };
   }
   if (message.t === "tutorial") {
-    const { action, topic } = message as { action?: unknown; topic?: unknown };
+    const { action, topic, help } = message as {
+      action?: unknown;
+      topic?: unknown;
+      help?: unknown;
+    };
     if (
       action === "advance" ||
       action === "check" ||
@@ -137,6 +142,7 @@ function parseMessage(payload: string): ClientMessage | null {
         t: "tutorial",
         action,
         topic: typeof topic === "string" ? topic : undefined,
+        help: help === true,
       };
     }
   }
@@ -665,6 +671,7 @@ async function handleTutorial(
   documentName: string,
   action: TutorialAction,
   topic: string | undefined,
+  help: boolean | undefined,
 ): Promise<void> {
   if (action === "advance") {
     const result = await room.advance();
@@ -707,8 +714,10 @@ async function handleTutorial(
     return;
   }
 
-  // action === "check"
-  const result = await room.runScriptedCheck();
+  // action === "check" — `help` grants advantage (the companion's Help action).
+  const result = await room.runScriptedCheck(
+    help ? { mode: "advantage" } : undefined,
+  );
   writeProjection(document, await room.getState());
   if (!result) return;
   const summary = result.summary as
@@ -731,6 +740,27 @@ async function handleTutorial(
     ),
     gmEntry(success ? result.check.successText : result.check.failureText, chatDeps),
   ]);
+
+  // Scripted loot (D4): a successful check with loot claims it into the hero's
+  // real inventory, then signals connected tabs to refresh the drawer.
+  if (success && result.check.loot && result.check.loot.length > 0) {
+    const parsed = parseRoom(documentName);
+    if (parsed?.kind === "campaign") {
+      const granted = await grantTutorialLoot(parsed.campaignId, result.check.loot);
+      if (granted.length > 0) {
+        await appendAndPersist(document, documentName, [
+          gmEntry(`Claimed: ${granted.join(", ")}.`, chatDeps),
+        ]);
+        try {
+          document.broadcastStateless(
+            JSON.stringify({ t: "tutorial", event: "loot" }),
+          );
+        } catch {
+          // The drawer refresh is best-effort; the items are already persisted.
+        }
+      }
+    }
+  }
 }
 
 const server = new Hocuspocus({
@@ -803,6 +833,7 @@ const server = new Hocuspocus({
           documentName,
           message.action,
           message.topic,
+          message.help,
         );
       }
       return;

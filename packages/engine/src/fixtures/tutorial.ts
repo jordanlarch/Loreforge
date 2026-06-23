@@ -17,7 +17,8 @@
  */
 import type { Command } from "../commands/types";
 import type { Ability, GridPosition } from "../entities/types";
-import type { PartyMember } from "./battle";
+import type { FoeSpec, PartyMember } from "./battle";
+import { FIXTURE_BATTLE_FOES_SIDE, FIXTURE_BATTLE_PARTY_SIDE } from "./battle";
 
 /**
  * The party shape the tutorial script needs to place a PC — exactly
@@ -30,6 +31,17 @@ export type PartyMemberLike = PartyMember;
 export const TUTORIAL_SCENE_HOLLOWS_EDGE = "scene:tut-hollows-edge";
 export const TUTORIAL_SCENE_HEARTH = "scene:tut-hearth";
 export const TUTORIAL_SCENE_CROOKED_LANE = "scene:tut-crooked-lane";
+export const TUTORIAL_SCENE_SPIRE_LOWER = "scene:tut-spire-lower";
+export const TUTORIAL_SCENE_SPIRE_STAIR = "scene:tut-spire-stair";
+
+/** A scripted loot item granted on a successful check (D4). Plain data so both
+ * the engine fixture and the DB grant (ws-server) share one definition; the
+ * grant maps it onto a character `equipment` row. */
+export type TutorialLootItem = {
+  name: string;
+  quantity: number;
+  description?: string;
+};
 
 /** A scripted ability check offered within a scene (the engine rolls it). */
 export type TutorialCheck = {
@@ -44,6 +56,10 @@ export type TutorialCheck = {
   failureText: string;
   /** Button label the client shows to invoke the check. */
   prompt: string;
+  /** When set, the companion can grant advantage on this check (the Help action). */
+  helpPrompt?: string;
+  /** Items claimed into the PC's inventory on success (scripted grant, D4). */
+  loot?: readonly TutorialLootItem[];
 };
 
 /** One scene in the scripted tutorial flow. */
@@ -63,6 +79,17 @@ export type TutorialSceneScript = {
   mentions?: readonly string[];
   /** Optional scripted check available while in this scene. */
   check?: TutorialCheck;
+  /**
+   * When set, this scene is a combat handoff: after its `enter` commands run,
+   * the driver arms an encounter from the party-side characters present plus
+   * these foes (the engine rolls initiative). Drives the async→Live combat
+   * transition (D2) at the end of exploration.
+   */
+  combat?: {
+    foes: readonly FoeSpec[];
+    /** One cell per foe, parallel to `foes`. */
+    foePositions: readonly GridPosition[];
+  };
 };
 
 /**
@@ -144,6 +171,58 @@ function relocateCompanion(sceneId: string, position: GridPosition): Command[] {
     { type: "relocate_entity", entity: TUTORIAL_COMPANION.id, sceneId, position },
   ];
 }
+
+/** Where the Scene 5 shadows stand on the stair (parallel to the foe list). */
+const SPIRE_STAIR_FOE_CELLS: readonly GridPosition[] = [
+  { x: 8, y: 2 },
+  { x: 9, y: 4 },
+];
+
+/**
+ * The shadow creatures that ambush the party on the stair (Scene 5). A pair of
+ * low-HP foes — a winnable first fight that demonstrates the combat loop with
+ * the companion. Full Scene 5 polish (narration, AI tuning) is a later slice.
+ */
+const TUTORIAL_STAIR_FOES: readonly FoeSpec[] = [
+  {
+    id: "npc:tut-shadow-a",
+    name: "Gloom Shade",
+    abilityScores: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
+    maxHp: 9,
+    baseAc: 12,
+    speed: 30,
+  },
+  {
+    id: "npc:tut-shadow-b",
+    name: "Gloom Shade",
+    abilityScores: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
+    maxHp: 9,
+    baseAc: 12,
+    speed: 30,
+  },
+];
+
+/**
+ * The Scene 4 chest loot, claimed into Mira's inventory on a successful pick
+ * (D4 scripted grant). Shared plain data: the engine fixture defines it; the
+ * ws-server maps it onto `equipment` rows.
+ */
+export const TUTORIAL_CHEST_LOOT: readonly TutorialLootItem[] = [
+  {
+    name: "Scroll of Cure Wounds",
+    quantity: 1,
+    description: "A single-use spell scroll — casts Cure Wounds (1st level).",
+  },
+  {
+    name: "Gold Pieces",
+    quantity: 12,
+    description: "A handful of coins from the spire chest.",
+  },
+];
+
+/** Combat side ids the tutorial combat handoff uses (re-exported for the room). */
+export const TUTORIAL_PARTY_SIDE = FIXTURE_BATTLE_PARTY_SIDE;
+export const TUTORIAL_FOES_SIDE = FIXTURE_BATTLE_FOES_SIDE;
 
 /**
  * The ordered tutorial scene graph. Index order *is* the progression order:
@@ -244,6 +323,85 @@ export const TUTORIAL_SCRIPT: readonly TutorialSceneScript[] = [
       "Do you stop?",
     mentions: ["Tinker's Mercy"],
   },
+  {
+    id: TUTORIAL_SCENE_SPIRE_LOWER,
+    name: "The Lantern Spire · Lower Hall",
+    enter: (party) => [
+      {
+        type: "create_scene",
+        scene: {
+          id: TUTORIAL_SCENE_SPIRE_LOWER,
+          name: "The Lantern Spire · Lower Hall",
+          description:
+            "Inside the sealed spire: one round chamber of cold stone, the dark great lantern in a glass cage, and bloody fingertip drags leading to the foot of the spiral stair. A small iron chest sits in the corner.",
+          map: { width: 10, height: 8, blockedCells: SPIRE_LOWER_WALLS },
+        },
+      },
+      { type: "change_scene", sceneId: TUTORIAL_SCENE_SPIRE_LOWER },
+      ...relocateLead(party, TUTORIAL_SCENE_SPIRE_LOWER, SPIRE_LOWER_START),
+      ...relocateCompanion(TUTORIAL_SCENE_SPIRE_LOWER, SPIRE_LOWER_COMPANION_CELL),
+    ],
+    narration:
+      "The lock turns with Lily's key and the door groans inward. The great " +
+      "lantern is silent in its glass cage — black wick, no flame. Bloody " +
+      "fingertip drags lead from the door to the foot of the spiral stair. " +
+      "Brennar lowers his staff and says nothing. A small iron chest sits in the " +
+      "corner, its lock old and stubborn. What do you do?",
+    mentions: ["The Lantern Spire", "Marlowe the Lampkeeper"],
+    check: {
+      ability: "dex",
+      skill: "Thieves' Tools",
+      dc: 13,
+      proficient: false,
+      prompt: "Pick the lock (Thieves' Tools, DC 13)",
+      helpPrompt: "Accept Brennar's Help (Advantage)",
+      successText:
+        "The old tumblers give with a soft click. Inside: a small pile of coins " +
+        "and a sealed scroll, its wax stamped with a healer's mark. You pocket " +
+        "both.",
+      failureText:
+        "The pick skitters and the lock holds. Whatever's inside stays locked — " +
+        "no matter; the stair is the way on.",
+      loot: TUTORIAL_CHEST_LOOT,
+    },
+  },
+  {
+    id: TUTORIAL_SCENE_SPIRE_STAIR,
+    name: "The Lantern Spire · The Stair",
+    enter: (party) => [
+      {
+        type: "create_scene",
+        scene: {
+          id: TUTORIAL_SCENE_SPIRE_STAIR,
+          name: "The Lantern Spire · The Stair",
+          description:
+            "The spiral stair winds up into the dark. Something has been waiting in it — shapes of living shadow peel away from the wall and drop toward you.",
+          map: { width: 12, height: 10, blockedCells: SPIRE_STAIR_WALLS },
+        },
+      },
+      { type: "change_scene", sceneId: TUTORIAL_SCENE_SPIRE_STAIR },
+      ...relocateLead(party, TUTORIAL_SCENE_SPIRE_STAIR, SPIRE_STAIR_START),
+      ...relocateCompanion(TUTORIAL_SCENE_SPIRE_STAIR, SPIRE_STAIR_COMPANION_CELL),
+      ...TUTORIAL_STAIR_FOES.map((f, i): Command => ({
+        type: "create_entity",
+        entity: {
+          id: f.id,
+          kind: "monster",
+          name: f.name,
+          abilityScores: f.abilityScores,
+          maxHp: f.maxHp,
+          baseAc: f.baseAc,
+          speed: f.speed,
+          sceneId: TUTORIAL_SCENE_SPIRE_STAIR,
+          position: SPIRE_STAIR_FOE_CELLS[i]!,
+        },
+      })),
+    ],
+    narration:
+      "Shadows pour down the stair. \"Stay close,\" Brennar breathes, lifting his " +
+      "holy symbol. Roll for initiative — the engine takes it from here.",
+    combat: { foes: TUTORIAL_STAIR_FOES, foePositions: SPIRE_STAIR_FOE_CELLS },
+  },
 ];
 
 /** Where Mira stands when she enters the tavern. */
@@ -269,6 +427,28 @@ const LANE_WALLS: GridPosition[] = [
   { x: 8, y: 2 },
   { x: 2, y: 5 },
   { x: 7, y: 4 },
+];
+
+/** Scene 4 (Spire Lower Hall) layout: the round chamber, the lantern, the chest. */
+const SPIRE_LOWER_START: GridPosition = { x: 4, y: 6 };
+const SPIRE_LOWER_COMPANION_CELL: GridPosition = { x: 5, y: 6 };
+const SPIRE_LOWER_WALLS: GridPosition[] = [
+  { x: 4, y: 3 }, // the glass lantern cage, centre
+  { x: 5, y: 3 },
+  { x: 0, y: 0 },
+  { x: 9, y: 0 },
+  { x: 0, y: 7 },
+  { x: 9, y: 7 },
+];
+
+/** Scene 5 (the Stair) combat layout: party low, shadows high on the stair. */
+const SPIRE_STAIR_START: GridPosition = { x: 2, y: 8 };
+const SPIRE_STAIR_COMPANION_CELL: GridPosition = { x: 2, y: 6 };
+const SPIRE_STAIR_WALLS: GridPosition[] = [
+  { x: 6, y: 2 },
+  { x: 6, y: 3 },
+  { x: 6, y: 7 },
+  { x: 6, y: 8 },
 ];
 
 /** The first scene's id — what a freshly-seeded tutorial starts on. */

@@ -8,12 +8,15 @@ import {
   nextTutorialScene,
   tutorialBeat,
   tutorialScene,
+  TUTORIAL_CHEST_LOOT,
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_FIRST_SCENE_ID,
   TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
+  TUTORIAL_SCENE_SPIRE_LOWER,
+  TUTORIAL_SCENE_SPIRE_STAIR,
 } from "./tutorial";
 
 const CAMPAIGN = "tut:fixture-test";
@@ -156,8 +159,84 @@ describe("tutorial script", () => {
     expect(state.entities[TUTORIAL_COMPANION.id]).toBeUndefined();
   });
 
+  it("advances to the Spire Lower Hall, offering a chest check that grants loot", async () => {
+    const engine = await seed();
+    const leadId = TUTORIAL_FALLBACK_PARTY[0]!.id;
+    for (const from of [
+      TUTORIAL_SCENE_HOLLOWS_EDGE,
+      TUTORIAL_SCENE_HEARTH,
+      TUTORIAL_SCENE_CROOKED_LANE,
+    ]) {
+      for (const command of nextTutorialScene(from)!.enter(TUTORIAL_FALLBACK_PARTY)) {
+        await engine.execute(CAMPAIGN, command);
+      }
+    }
+    const state = await engine.getState(CAMPAIGN);
+    expect(state.currentSceneId).toBe(TUTORIAL_SCENE_SPIRE_LOWER);
+    expect(state.entities[leadId]?.sceneId).toBe(TUTORIAL_SCENE_SPIRE_LOWER);
+
+    const scene = tutorialScene(TUTORIAL_SCENE_SPIRE_LOWER);
+    expect(scene?.check?.skill).toBe("Thieves' Tools");
+    expect(scene?.check?.proficient).toBe(false);
+    expect(scene?.check?.helpPrompt).toBeTruthy();
+    expect(scene?.check?.loot).toBe(TUTORIAL_CHEST_LOOT);
+    expect(TUTORIAL_CHEST_LOOT.map((i) => i.name)).toContain(
+      "Scroll of Cure Wounds",
+    );
+  });
+
+  it("resolves the chest check with advantage (the Help action's mode)", async () => {
+    const engine = await seed();
+    const leadId = TUTORIAL_FALLBACK_PARTY[0]!.id;
+    const result = await engine.execute(CAMPAIGN, {
+      type: "ability_check",
+      entity: leadId,
+      ability: "dex",
+      skill: "Thieves' Tools",
+      dc: 13,
+      mode: "advantage",
+    });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    // The engine recorded the roll as an advantage check, and produced a verdict.
+    const checkEvent = result.events.find((e) => e.type === "CheckRolled") as
+      | { payload: { mode: string; total: number; success?: boolean } }
+      | undefined;
+    expect(checkEvent?.payload.mode).toBe("advantage");
+    expect(typeof checkEvent?.payload.total).toBe("number");
+    expect(typeof (result.summary as { success?: boolean }).success).toBe(
+      "boolean",
+    );
+  });
+
+  it("arms a combat scene last: the Stair has scripted shadow foes", async () => {
+    const stair = nextTutorialScene(TUTORIAL_SCENE_SPIRE_LOWER);
+    expect(stair?.id).toBe(TUTORIAL_SCENE_SPIRE_STAIR);
+    expect(stair?.combat?.foes.length).toBe(2);
+
+    const engine = await seed();
+    // Walk to the stair, running each scene's enter commands.
+    for (const from of [
+      TUTORIAL_SCENE_HOLLOWS_EDGE,
+      TUTORIAL_SCENE_HEARTH,
+      TUTORIAL_SCENE_CROOKED_LANE,
+      TUTORIAL_SCENE_SPIRE_LOWER,
+    ]) {
+      for (const command of nextTutorialScene(from)!.enter(TUTORIAL_FALLBACK_PARTY)) {
+        await engine.execute(CAMPAIGN, command);
+      }
+    }
+    const state = await engine.getState(CAMPAIGN);
+    expect(state.currentSceneId).toBe(TUTORIAL_SCENE_SPIRE_STAIR);
+    // The foes are placed on the map (the driver then arms the encounter).
+    const foes = Object.values(state.entities).filter(
+      (e) => e.kind === "monster" && e.sceneId === TUTORIAL_SCENE_SPIRE_STAIR,
+    );
+    expect(foes).toHaveLength(2);
+  });
+
   it("returns no next scene at the end of the script", () => {
-    expect(nextTutorialScene(TUTORIAL_SCENE_CROOKED_LANE)).toBeUndefined();
+    expect(nextTutorialScene(TUTORIAL_SCENE_SPIRE_STAIR)).toBeUndefined();
     expect(nextTutorialScene("scene:not-a-tutorial-scene")).toBeUndefined();
   });
 });

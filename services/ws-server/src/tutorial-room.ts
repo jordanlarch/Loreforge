@@ -28,11 +28,14 @@ import {
   tutorialScene,
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
+  TUTORIAL_FOES_SIDE,
+  TUTORIAL_PARTY_SIDE,
   type BattleAction,
   type Command,
   type CommandSummary,
   type EventStore,
   type PartyMember,
+  type RollMode,
   type TutorialCheck,
   type TutorialDialogueBeat,
   type WorldState,
@@ -50,6 +53,8 @@ export type AdvanceResult = {
   sceneId: string;
   narration: string;
   mentions?: readonly string[];
+  /** True when entering this scene armed an encounter (combat handoff). */
+  combat?: boolean;
 };
 
 /** The outcome of a scripted check: the engine verdict + the scene's copy. */
@@ -129,11 +134,42 @@ export class TutorialRoom implements LiveRoom {
     for (const command of next.enter(party)) {
       await this.engine.execute(this.campaignId, command);
     }
+    // Combat handoff (D2): arm an encounter from whoever is actually in the new
+    // scene (party-side characters + the scripted foes), then roll initiative.
+    if (next.combat) {
+      await this.armEncounter(next.id);
+    }
     return {
       sceneId: next.id,
       narration: next.narration,
       mentions: next.mentions,
+      combat: Boolean(next.combat),
     };
+  }
+
+  /**
+   * Start an encounter from the entities present in `sceneId`: every character
+   * is party-side, every monster is a foe. Built from live state (not the script
+   * party) so the companion's engine entity id matches and an absent companion is
+   * simply omitted — no id guessing, works for the fallback PC too.
+   */
+  private async armEncounter(sceneId: string): Promise<void> {
+    const state = await this.engine.getState(this.campaignId);
+    const inScene = Object.values(state.entities).filter(
+      (e) => e.sceneId === sceneId,
+    );
+    if (inScene.length === 0) return;
+    const sides: Record<string, string> = {};
+    for (const e of inScene) {
+      sides[e.id] = e.kind === "monster" ? TUTORIAL_FOES_SIDE : TUTORIAL_PARTY_SIDE;
+    }
+    await this.engine.execute(this.campaignId, {
+      type: "start_encounter",
+      sceneId,
+      combatants: inScene.map((e) => e.id),
+      sides,
+    });
+    await this.engine.execute(this.campaignId, { type: "roll_initiative" });
   }
 
   /**
@@ -142,12 +178,20 @@ export class TutorialRoom implements LiveRoom {
    * check, or there is no PC to roll it. The caller renders the engine row +
    * the scene's success/failure copy.
    */
-  async runScriptedCheck(): Promise<ScriptedCheckResult | null> {
+  async runScriptedCheck(
+    opts?: { mode?: RollMode },
+  ): Promise<ScriptedCheckResult | null> {
     await this.ensureSeeded();
     const state = await this.engine.getState(this.campaignId);
     const scene = tutorialScene(state.currentSceneId);
     if (!scene?.check) return null;
-    const pc = Object.values(state.entities).find((e) => e.kind === "character");
+    // Resolve the lead PC (Mira) explicitly — once the companion has joined,
+    // a find-by-kind could pick him; the check belongs to the party lead.
+    const party = await this.party();
+    const leadId = party[0]?.id;
+    const pc =
+      (leadId ? state.entities[leadId] : undefined) ??
+      Object.values(state.entities).find((e) => e.kind === "character");
     if (!pc) return null;
 
     const { accepted, summary } = await this.apply(
@@ -155,6 +199,7 @@ export class TutorialRoom implements LiveRoom {
         skill: scene.check.skill,
         dc: scene.check.dc,
         proficient: scene.check.proficient,
+        ...(opts?.mode ? { mode: opts.mode } : {}),
       }),
     );
     return { accepted, summary, check: scene.check, actorName: pc.name };

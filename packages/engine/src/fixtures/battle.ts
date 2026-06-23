@@ -32,6 +32,7 @@ import type {
   ReadiedAction,
   SpellcastingInit,
 } from "../entities/types";
+import type { RollMode } from "../rng/dice";
 import type { WorldState } from "../projections/world-state";
 import { FIXTURE_CHARACTERS } from "./party";
 
@@ -323,11 +324,12 @@ export function castAction(
   return { type: "cast_spell", caster, spellId, slotLevel, targets };
 }
 
-/** Convenience constructor for an engine-resolved ability/skill check (#97). */
+/** Convenience constructor for an engine-resolved ability/skill check (#97).
+ * `mode` drives advantage/disadvantage (e.g. the Help action grants advantage). */
 export function checkAction(
   entity: EntityRef,
   ability: Ability,
-  opts?: { skill?: string; dc?: number; proficient?: boolean },
+  opts?: { skill?: string; dc?: number; proficient?: boolean; mode?: RollMode },
 ): AbilityCheckCommand {
   return {
     type: "ability_check",
@@ -336,6 +338,7 @@ export function checkAction(
     ...(opts?.skill ? { skill: opts.skill } : {}),
     ...(opts?.dc !== undefined ? { dc: opts.dc } : {}),
     ...(opts?.proficient ? { proficient: opts.proficient } : {}),
+    ...(opts?.mode ? { mode: opts.mode } : {}),
   };
 }
 

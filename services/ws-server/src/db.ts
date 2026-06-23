@@ -8,7 +8,7 @@
  * store contract, one source of truth). Connection is env-driven (`DATABASE_URL`);
  * `getDb()` is lazy, so importing this module has no side effects.
  */
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import {
   getDb,
@@ -18,6 +18,7 @@ import {
   characters,
   chatMessages,
   encounters,
+  pinnedMemories,
   rollingSummaries,
 } from "@app/db";
 import {
@@ -233,6 +234,24 @@ export async function getCampaignOwnerId(
     .where(eq(campaigns.id, campaignId))
     .limit(1);
   return row?.ownerId ?? null;
+}
+
+/**
+ * The campaign's pinned memories, most-recent first, capped at `limit` (MEM-8
+ * always-inject, #159). Read directly from the table (not via embeddings) so
+ * pins ground the GM even when the memory tier is unconfigured.
+ */
+export async function loadCampaignPins(
+  campaignId: string,
+  limit: number,
+): Promise<string[]> {
+  const rows = await getDb()
+    .select({ content: pinnedMemories.content })
+    .from(pinnedMemories)
+    .where(eq(pinnedMemories.campaignId, campaignId))
+    .orderBy(desc(pinnedMemories.createdAt))
+    .limit(limit);
+  return rows.map((r) => r.content);
 }
 
 /* ------------------------------------------------------------------------- *

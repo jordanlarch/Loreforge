@@ -8,20 +8,22 @@
  *     owner-scoped.
  *   - **Recaps** — this campaign's past session recaps (what already happened),
  *     campaign-scoped, with a recency boost so recent sessions outrank old ones.
- *   - **Pinned memory** — durable DM-pinned facts (#155), campaign-scoped, with
- *     the highest category weight so they surface preferentially.
+ *
+ * Pinned memory (#155) is handled separately by {@link retrievePinnedMemories}:
+ * durable DM-pinned facts are **always injected** (top-N most recent) rather than
+ * reranked by similarity — the point of pinning is "always keep this in mind"
+ * (#159). It reads the table directly, so pins ground the GM even when the
+ * embedding tier is off.
  *
  * The rolling session summary (MEM-3) is injected separately as the "story so
- * far" (current session); this layer covers durable lore + past sessions +
- * pins. Cross-link inference is a future source type that slots into the same
- * rerank. Best-effort and env-gated on `OPENAI_API_KEY`: no key (dev/tests) →
- * `[]`, and any failure is swallowed — retrieval enrichment must never break a
- * live turn. The deterministic engine still owns all mechanics; this only grounds
- * the prose.
+ * far" (current session); this layer covers durable lore + past sessions.
+ * Cross-link inference is a future source type that slots into the same rerank.
+ * Best-effort and env-gated on `OPENAI_API_KEY`: no key (dev/tests) → `[]`, and
+ * any failure is swallowed — retrieval enrichment must never break a live turn.
+ * The deterministic engine still owns all mechanics; this only grounds the prose.
  */
 import { getDb } from "@app/db";
 import {
-  PINNED_MEMORY_SOURCE,
   REALM_ENTITY_SOURCE,
   SESSION_RECAP_SOURCE,
   resolveEmbeddingClient,
@@ -29,7 +31,7 @@ import {
   type RetrievedChunk,
 } from "@app/memory";
 
-import { getCampaignOwnerId } from "./db.js";
+import { getCampaignOwnerId, loadCampaignPins } from "./db.js";
 
 /** Default total chunks injected into a narration prompt (after rerank). */
 const DEFAULT_K = 4;
@@ -109,15 +111,6 @@ const CATEGORIES: readonly Category[] = [
     recency: true,
     format: (text) => `From an earlier session: ${text}`,
   },
-  {
-    // DM-pinned facts get the highest weight so they outrank lore/recaps at
-    // similar relevance — the point of pinning is "always keep this in mind".
-    scope: "campaign",
-    sourceType: PINNED_MEMORY_SOURCE,
-    weight: 1.5,
-    recency: false,
-    format: (text) => `Pinned by the GM (important): ${text}`,
-  },
 ];
 
 /** Linear recency bonus in `[0, RECENCY_WEIGHT]` across a category's hits. */
@@ -183,6 +176,45 @@ export async function retrieveWorldKnowledge(
     return ranked.slice(0, k).map((r) => r.text);
   } catch {
     // Best-effort: a retrieval failure must never break the live turn.
+    return [];
+  }
+}
+
+/** Default number of most-recent pins always injected into a narration prompt. */
+const DEFAULT_PIN_LIMIT = 3;
+
+/** Provenance prefix marking a line as a GM-pinned, authoritative fact. */
+const PIN_PREFIX = "Pinned by the GM (important): ";
+
+/** Seam for {@link retrievePinnedMemories} (direct table read by default). */
+export type PinnedMemoryDeps = {
+  loadPins: (campaignId: string, limit: number) => Promise<string[]>;
+};
+
+export type RetrievePinnedMemoriesArgs = { campaignId: string; limit?: number };
+
+/**
+ * The campaign's top-N most-recent pinned memories, formatted for the GM prompt.
+ * Unlike {@link retrieveWorldKnowledge} these are **always injected** (not
+ * similarity-ranked) and **not gated on `OPENAI_API_KEY`** — pins are durable
+ * DM-authored facts that should ground every turn, even with the embedding tier
+ * off (#159). Best-effort: any failure yields `[]`. `deps` is injectable for
+ * tests.
+ */
+export async function retrievePinnedMemories(
+  args: RetrievePinnedMemoriesArgs,
+  deps: PinnedMemoryDeps = { loadPins: loadCampaignPins },
+): Promise<string[]> {
+  try {
+    const pins = await deps.loadPins(
+      args.campaignId,
+      args.limit ?? DEFAULT_PIN_LIMIT,
+    );
+    return pins
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => `${PIN_PREFIX}${p}`);
+  } catch {
     return [];
   }
 }

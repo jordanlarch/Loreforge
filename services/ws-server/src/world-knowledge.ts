@@ -8,10 +8,12 @@
  *     owner-scoped.
  *   - **Recaps** — this campaign's past session recaps (what already happened),
  *     campaign-scoped, with a recency boost so recent sessions outrank old ones.
+ *   - **Pinned memory** — durable DM-pinned facts (#155), campaign-scoped, with
+ *     the highest category weight so they surface preferentially.
  *
  * The rolling session summary (MEM-3) is injected separately as the "story so
- * far" (current session); this layer covers durable lore + past sessions. Pinned
- * memories + cross-link inference are future source types that slot into the same
+ * far" (current session); this layer covers durable lore + past sessions +
+ * pins. Cross-link inference is a future source type that slots into the same
  * rerank. Best-effort and env-gated on `OPENAI_API_KEY`: no key (dev/tests) →
  * `[]`, and any failure is swallowed — retrieval enrichment must never break a
  * live turn. The deterministic engine still owns all mechanics; this only grounds
@@ -19,6 +21,7 @@
  */
 import { getDb } from "@app/db";
 import {
+  PINNED_MEMORY_SOURCE,
   REALM_ENTITY_SOURCE,
   SESSION_RECAP_SOURCE,
   resolveEmbeddingClient,
@@ -105,6 +108,15 @@ const CATEGORIES: readonly Category[] = [
     weight: 1,
     recency: true,
     format: (text) => `From an earlier session: ${text}`,
+  },
+  {
+    // DM-pinned facts get the highest weight so they outrank lore/recaps at
+    // similar relevance — the point of pinning is "always keep this in mind".
+    scope: "campaign",
+    sourceType: PINNED_MEMORY_SOURCE,
+    weight: 1.5,
+    recency: false,
+    format: (text) => `Pinned by the GM (important): ${text}`,
   },
 ];
 

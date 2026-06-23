@@ -108,3 +108,35 @@ export const rollingSummaries = pgTable(
   },
   (t) => [uniqueIndex("rolling_summaries_campaign_unique").on(t.campaignId)],
 );
+
+/**
+ * Pinned memory — durable, DM-authored facts the AI-GM should keep in mind
+ * (P5; `docs/data-sources.md` §6). Unlike the transient rolling summary and the
+ * auto-generated session recaps, a pin is something the GM explicitly pins
+ * ("the innkeeper is secretly a doppelganger") so it weights heavily in the
+ * live-turn rerank. Campaign-scoped + owner-set (consistent with `sessions`).
+ *
+ * The content is embedded as a `pinned_memory` source in the `embeddings` table
+ * (best-effort), so pins flow through the same `retrieveSimilar` seam as lore
+ * and recaps; this row is the editable source of truth + provenance.
+ */
+export const pinnedMemories = pgTable(
+  "pinned_memories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    /** The pinned fact the GM wants kept in mind. */
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("pinned_memories_campaign_idx").on(t.campaignId),
+    index("pinned_memories_owner_idx").on(t.ownerId),
+  ],
+);

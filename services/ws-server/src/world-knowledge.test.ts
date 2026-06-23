@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { REALM_ENTITY_SOURCE, SESSION_RECAP_SOURCE } from "@app/memory";
+import {
+  PINNED_MEMORY_SOURCE,
+  REALM_ENTITY_SOURCE,
+  SESSION_RECAP_SOURCE,
+} from "@app/memory";
 import type { RetrievedChunk } from "@app/memory";
 
 import {
@@ -79,6 +83,40 @@ describe("retrieveWorldKnowledge", () => {
     expect(result).toContain("From an earlier session: The party stormed the keep.");
     // Recap scored higher, so it ranks first.
     expect(result[0]).toBe("From an earlier session: The party stormed the keep.");
+  });
+
+  it("weights pinned memory above equally/less-similar lore and tags it", async () => {
+    const result = await retrieveWorldKnowledge(
+      { campaignId: "c1", queryText: "who is the innkeeper" },
+      deps({
+        [REALM_ENTITY_SOURCE]: [chunk(REALM_ENTITY_SOURCE, "The inn sits by the docks.", 0.7)],
+        [PINNED_MEMORY_SOURCE]: [
+          chunk(PINNED_MEMORY_SOURCE, "The innkeeper is secretly a doppelganger.", 0.6),
+        ],
+      }),
+    );
+    // Pinned 0.6 * 1.5 = 0.9 beats lore 0.7 * 1 = 0.7.
+    expect(result[0]).toBe(
+      "Pinned by the GM (important): The innkeeper is secretly a doppelganger.",
+    );
+    expect(result).toContain("The inn sits by the docks.");
+  });
+
+  it("requests pinned memory with a campaign scope", async () => {
+    const scopes: Record<string, string | null | undefined> = {};
+    await retrieveWorldKnowledge(
+      { campaignId: "c1", queryText: "hello" },
+      deps(
+        { [PINNED_MEMORY_SOURCE]: [] },
+        {
+          retrieve: async (params) => {
+            scopes[params.sourceTypes[0]!] = params.campaignId;
+            return [];
+          },
+        },
+      ),
+    );
+    expect(scopes[PINNED_MEMORY_SOURCE]).toBe("c1");
   });
 
   it("only requests recaps with a campaign scope; lore is owner-scoped", async () => {

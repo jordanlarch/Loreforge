@@ -203,6 +203,9 @@ export function OverviewTab({
         )}
       </section>
 
+      {/* —— Pinned memory (#155) —— */}
+      <PinnedMemorySection campaignId={campaignId} />
+
       {/* —— Stat cards —— */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -233,6 +236,97 @@ export function OverviewTab({
         </dl>
       </section>
     </div>
+  );
+}
+
+/**
+ * Pinned Memory (#155): durable DM-authored facts the AI-GM weights heavily
+ * during live play. Pins are embedded as a `pinned_memory` RAG source and
+ * surfaced (high-weighted) in the live-turn world-knowledge rerank.
+ */
+function PinnedMemorySection({ campaignId }: { campaignId: string }) {
+  const utils = trpc.useUtils();
+  const pins = trpc.pins.list.useQuery({ campaignId });
+  const [content, setContent] = useState("");
+
+  async function refresh() {
+    await utils.pins.list.invalidate({ campaignId });
+  }
+
+  const create = trpc.pins.create.useMutation({
+    onSuccess: async () => {
+      setContent("");
+      await refresh();
+    },
+  });
+  const remove = trpc.pins.remove.useMutation({ onSuccess: refresh });
+
+  function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmed = content.trim();
+    if (trimmed.length === 0) return;
+    create.mutate({ campaignId, content: trimmed });
+  }
+
+  const list = pins.data ?? [];
+
+  return (
+    <section className="rounded-lg border border-lore-border bg-lore-surface p-5">
+      <h3 className="text-xs uppercase tracking-widest text-lore-muted">
+        Pinned Memory
+      </h3>
+      <p className="mt-1 text-sm text-lore-muted">
+        Durable facts the AI-GM keeps in mind during play (e.g. &ldquo;the
+        innkeeper is secretly a doppelganger&rdquo;).
+      </p>
+
+      <form onSubmit={onSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          maxLength={2000}
+          placeholder="Pin a fact for the GM to remember…"
+          className="min-w-0 flex-1 rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
+        />
+        <button
+          type="submit"
+          disabled={create.isPending || content.trim().length === 0}
+          className="shrink-0 rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+        >
+          {create.isPending ? "Pinning…" : "Pin"}
+        </button>
+      </form>
+      {create.error && (
+        <p className="mt-2 text-sm text-red-400">{create.error.message}</p>
+      )}
+
+      {pins.isLoading ? (
+        <p className="mt-3 text-sm text-lore-muted">Loading…</p>
+      ) : list.length === 0 ? (
+        <p className="mt-3 text-sm text-lore-muted">
+          No pinned memories yet.
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-2">
+          {list.map((pin) => (
+            <li
+              key={pin.id}
+              className="flex items-start justify-between gap-3 rounded border border-lore-border bg-lore-bg p-3"
+            >
+              <span className="min-w-0 text-sm text-lore-text">📌 {pin.content}</span>
+              <button
+                type="button"
+                onClick={() => remove.mutate({ campaignId, pinId: pin.id })}
+                disabled={remove.isPending}
+                className="shrink-0 text-sm text-lore-muted transition-colors hover:text-red-400 disabled:opacity-40"
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

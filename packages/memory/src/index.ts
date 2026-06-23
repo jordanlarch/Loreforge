@@ -33,7 +33,9 @@ export {
 export {
   REALM_ENTITY_SOURCE,
   SESSION_RECAP_SOURCE,
+  PINNED_MEMORY_SOURCE,
   upsertSourceEmbeddings,
+  deleteSourceEmbeddings,
   embedRealmEntity,
   embedRealmEntityBestEffort,
   retrieveSimilar,

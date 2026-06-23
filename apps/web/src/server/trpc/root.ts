@@ -11,6 +11,7 @@ import { pinsRouter } from "./routers/pins";
 import { realmsRouter } from "./routers/realms";
 import { sessionsRouter } from "./routers/sessions";
 import { smithyRouter } from "./routers/smithy";
+import { tutorialRouter } from "./routers/tutorial";
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   realms: realmsRouter,
   sessions: sessionsRouter,
   smithy: smithyRouter,
+  tutorial: tutorialRouter,
 });
 
 export type AppRouter = typeof appRouter;

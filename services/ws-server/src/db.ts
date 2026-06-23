@@ -20,6 +20,7 @@ import {
   encounters,
   pinnedMemories,
   rollingSummaries,
+  tutorialProgress,
 } from "@app/db";
 import {
   expandEncounterFoes,
@@ -294,6 +295,45 @@ export async function saveRollingSummary(
     .insert(rollingSummaries)
     .values({ campaignId, ...set })
     .onConflictDoUpdate({ target: rollingSummaries.campaignId, set });
+}
+
+/* ------------------------------------------------------------------------- *
+ *  Tutorial onboarding (TUT-1)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * True iff the campaign is the user's scripted onboarding tutorial (TUT-1).
+ * Drives `roomFor` to run the {@link TutorialRoom} (scripted scene graph) rather
+ * than the default encounter seed. Looked up once per room (then cached in the
+ * room map), so the cost is paid only on first join.
+ */
+export async function isTutorialCampaign(campaignId: string): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ isTutorial: campaigns.isTutorial })
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .limit(1);
+  return Boolean(row?.isTutorial);
+}
+
+/**
+ * Persist the user's current tutorial scene (scene-granularity resume, D6).
+ * Best-effort and keyed by `campaignId` (one tutorial per user): a failure must
+ * never break the live channel, so it is swallowed — the engine log remains the
+ * authority on mechanical state.
+ */
+export async function setTutorialScene(
+  campaignId: string,
+  sceneId: string,
+): Promise<void> {
+  try {
+    await getDb()
+      .update(tutorialProgress)
+      .set({ currentSceneId: sceneId, updatedAt: new Date() })
+      .where(eq(tutorialProgress.campaignId, campaignId));
+  } catch {
+    // Progress tracking is best-effort; never break the live channel.
+  }
 }
 
 /** True iff the campaign exists and is owned by the given user. */

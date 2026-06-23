@@ -11,7 +11,7 @@
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   areHostile,
@@ -23,6 +23,7 @@ import {
 
 import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
+import { buildExploreModel } from "@/lib/live-explore";
 import { joinedSincePrompt } from "@/lib/live-presence";
 import { usePacingPrefs, useTurnTimer } from "@/lib/live-pacing";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
@@ -157,6 +158,7 @@ function LiveBattle({
   backHref,
   loadouts,
   campaignId,
+  tutorialControls,
 }: {
   session: LiveSession;
   title: string;
@@ -167,9 +169,16 @@ function LiveBattle({
   loadouts?: Record<string, SheetData>;
   /** Owning campaign id; scopes persisted pacing prefs (#104). */
   campaignId?: string;
+  /** Tutorial-only controls rendered in exploration mode (TUT-1); absent elsewhere. */
+  tutorialControls?: ReactNode;
 }) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
+    [session.state],
+  );
+  // Exploration view model (TUT-1, D2): a mapped scene with no active encounter.
+  const explore = useMemo(
+    () => (session.state ? buildExploreModel(session.state) : null),
     [session.state],
   );
 
@@ -378,6 +387,82 @@ function LiveBattle({
     );
   }
   if (!vm) {
+    // Exploration mode (TUT-1, D2): a mapped scene with no encounter renders the
+    // map + tokens + chat + HUD without combat chrome (no initiative/action bar).
+    if (explore) {
+      const pc = Object.values(session.state.entities).find(
+        (e) => e.kind === "character",
+      );
+      return (
+        <div className="mx-auto max-w-6xl px-4 py-6">
+          <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h1 className="font-display text-xl font-semibold">{title}</h1>
+              <p className="text-sm text-lore-muted">
+                {explore.sceneName ?? context}
+                {session.peers > 1 ? ` · ${session.peers} here` : ""}
+              </p>
+            </div>
+            {backHref && (
+              <Link
+                href={backHref}
+                className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
+              >
+                ← Back
+              </Link>
+            )}
+          </header>
+
+          <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+            <section>
+              <MapViewport
+                sceneBanner={sceneBanner}
+                transitioning={transitioning}
+                cols={explore.cols}
+                rows={explore.rows}
+                walls={explore.walls}
+                tokens={explore.tokens}
+                reachable={[]}
+                onMoveToken={() => {}}
+              />
+              {explore.sceneDescription && (
+                <p className="mt-2 max-w-[33rem] text-xs text-lore-muted">
+                  {explore.sceneDescription}
+                </p>
+              )}
+            </section>
+
+            <aside className="space-y-4">
+              {pc && (
+                <div className="rounded-lg border border-lore-border bg-lore-surface p-4">
+                  <div className="font-display text-lg leading-tight">
+                    {pc.name}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-lore-muted">
+                    <span>
+                      {pc.hp.current}/{pc.hp.max} HP
+                    </span>
+                    <span>AC {pc.baseAc}</span>
+                    <span>Speed {pc.speed}ft</span>
+                  </div>
+                </div>
+              )}
+
+              {tutorialControls}
+
+              <ChatZone
+                entries={session.chat}
+                onSend={session.sendChat}
+                thinking={session.gmThinking}
+              />
+            </aside>
+          </div>
+
+          <PartyRail state={session.state} />
+        </div>
+      );
+    }
+
     return (
       <p className="px-4 py-16 text-center text-lore-muted">
         No active encounter in this scene.
@@ -594,6 +679,54 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
       backHref={`/campaigns/${campaignId}`}
       loadouts={loadouts}
       campaignId={campaignId}
+    />
+  );
+}
+
+/**
+ * Tutorial play surface (TUT-1, M6) — the seeded onboarding campaign rendered
+ * through the shared Live Play surface. It joins the same `campaign:{id}` room
+ * (server-side it resolves to a `TutorialRoom`), so the first scene arrives in
+ * exploration mode (D2). The scripted-trigger controls (continue + the offered
+ * check) are passed into the exploration aside; the server drives all mechanics.
+ */
+export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
+  const session = useLiveSession({ campaignId });
+
+  const tutorialControls = (
+    <div className="space-y-2 rounded-lg border border-lore-accent bg-lore-accent-dim p-3">
+      <div className="text-[10px] uppercase tracking-widest text-lore-muted">
+        Tutorial
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={session.tutorialCheck}
+          disabled={session.isBusy}
+          className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+        >
+          Look for tracks
+        </button>
+        <button
+          type="button"
+          onClick={session.tutorialAdvance}
+          disabled={session.isBusy}
+          className="rounded border border-lore-accent bg-lore-bg px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+        >
+          Continue ▶
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <LiveBattle
+      session={session}
+      title="The Lantern's Last Flicker"
+      context="Tutorial"
+      backHref="/"
+      campaignId={campaignId}
+      tutorialControls={tutorialControls}
     />
   );
 }

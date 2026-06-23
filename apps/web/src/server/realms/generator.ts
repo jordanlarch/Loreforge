@@ -42,6 +42,8 @@ import {
   type RealmEntityType,
 } from "@/lib/realms";
 
+import { loadRelatedLore } from "@/server/memory/related-lore";
+
 import { dataSchemaFor, parseData } from "./schemas";
 
 /* -------------------------------------------------------------------------- *
@@ -250,6 +252,22 @@ function groundingBlock(grounding: Grounding): string {
   return parts.length > 0 ? `\n\n${parts.join("\n")}` : "";
 }
 
+/**
+ * RAG grounding block (MEM-6): existing world entities to keep the generation
+ * consistent with. Framed as connect-to-but-don't-duplicate so the model
+ * references established lore (factions, places, NPCs) instead of inventing a
+ * disconnected world. "" when there's nothing relevant to inject.
+ */
+function relatedLoreBlock(relatedLore: readonly string[]): string {
+  const lines = relatedLore.map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return "";
+  return [
+    "",
+    "Existing entities in this world (for consistency — reference or connect to them where natural; do NOT duplicate or contradict them):",
+    ...lines.map((l) => `- ${l}`),
+  ].join("\n");
+}
+
 /** Type-specific nudge for what the child stubs should be. */
 const CHILD_HINTS: Partial<Record<RealmEntityType, string>> = {
   region:
@@ -296,6 +314,7 @@ function buildNewPrompt(
   hints: Record<string, string | number | undefined> | undefined,
   seed: Record<string, string | number> | undefined,
   grounding: Grounding,
+  relatedLore: readonly string[],
   withChildren: boolean,
 ): string {
   const hintLines = kvLines(hints);
@@ -311,6 +330,7 @@ function buildNewPrompt(
     fieldGuidance(type),
     withChildren ? childGuidance(type) : "",
     groundingBlock(grounding),
+    relatedLoreBlock(relatedLore),
   ]
     .filter(Boolean)
     .join("\n");
@@ -322,6 +342,7 @@ function buildExpandPrompt(
   summary: string,
   parentContext: string[],
   grounding: Grounding,
+  relatedLore: readonly string[],
 ): string {
   return [
     `Flesh out this existing ${REALM_TYPE_LABEL[type]} stub into a full entity.`,
@@ -332,6 +353,7 @@ function buildExpandPrompt(
     "",
     fieldGuidance(type),
     groundingBlock(grounding),
+    relatedLoreBlock(relatedLore),
   ]
     .filter(Boolean)
     .join("\n");
@@ -343,6 +365,7 @@ function buildRegeneratePrompt(
   existingData: Record<string, unknown>,
   fields: string[] | undefined,
   grounding: Grounding,
+  relatedLore: readonly string[],
 ): string {
   const scope =
     fields && fields.length > 0
@@ -356,6 +379,7 @@ function buildRegeneratePrompt(
     "",
     fieldGuidance(type),
     groundingBlock(grounding),
+    relatedLoreBlock(relatedLore),
   ]
     .filter(Boolean)
     .join("\n");
@@ -379,18 +403,27 @@ export async function generateNewEntity(args: {
   hints?: Record<string, string | number | undefined>;
   /** Preferred values for the type's own fields (from the Advanced Form). */
   seed?: Record<string, string | number>;
+  /** Owner whose existing world grounds the generation (MEM-6). Omit to skip RAG. */
+  ownerId?: string;
   client?: LlmClient;
 }): Promise<GenerationOutput<GeneratedEnvelope>> {
   const client = resolveClient(args.client);
   const withChildren = isCascadeParent(args.type);
   const schema = envelopeSchema(args.type, withChildren);
   const grounding = await loadGrounding(args.db, args.type);
+  const relatedLore = args.ownerId
+    ? await loadRelatedLore(args.db, {
+        ownerId: args.ownerId,
+        queryText: `${REALM_TYPE_LABEL[args.type]}: ${args.concept}`,
+      })
+    : [];
   const prompt = buildNewPrompt(
     args.type,
     args.concept,
     args.hints,
     args.seed,
     grounding,
+    relatedLore,
     withChildren,
   );
   const result = (await generateEntity({
@@ -411,16 +444,28 @@ export async function expandStubData(args: {
   name: string;
   summary: string;
   parentContext: string[];
+  /** Owner whose existing world grounds the expansion (MEM-6). Omit to skip RAG. */
+  ownerId?: string;
+  /** The stub being expanded, excluded from its own grounding results. */
+  entityId?: string;
   client?: LlmClient;
 }): Promise<GenerationOutput<Record<string, unknown>>> {
   const client = resolveClient(args.client);
   const grounding = await loadGrounding(args.db, args.type);
+  const relatedLore = args.ownerId
+    ? await loadRelatedLore(args.db, {
+        ownerId: args.ownerId,
+        queryText: [args.name, args.summary].filter(Boolean).join(". "),
+        excludeEntityId: args.entityId,
+      })
+    : [];
   const prompt = buildExpandPrompt(
     args.type,
     args.name,
     args.summary,
     args.parentContext,
     grounding,
+    relatedLore,
   );
   const result = await generateEntity({
     client,
@@ -444,10 +489,21 @@ export async function regenerateEntityCandidate(args: {
   name: string;
   existingData: Record<string, unknown>;
   fields?: string[];
+  /** Owner whose existing world grounds the regeneration (MEM-6). Omit to skip RAG. */
+  ownerId?: string;
+  /** The entity being regenerated, excluded from its own grounding results. */
+  entityId?: string;
   client?: LlmClient;
 }): Promise<GenerationOutput<{ summary: string; data: Record<string, unknown> }>> {
   const client = resolveClient(args.client);
   const grounding = await loadGrounding(args.db, args.type);
+  const relatedLore = args.ownerId
+    ? await loadRelatedLore(args.db, {
+        ownerId: args.ownerId,
+        queryText: args.name,
+        excludeEntityId: args.entityId,
+      })
+    : [];
   const schema = z.object({
     summary: z.string().trim().max(500).default(""),
     data: subsetDataSchema(args.type, args.fields),
@@ -458,6 +514,7 @@ export async function regenerateEntityCandidate(args: {
     args.existingData,
     args.fields,
     grounding,
+    relatedLore,
   );
   const result = await generateEntity({
     client,

@@ -45,6 +45,7 @@ export const generateCascade = task({
         concept: payload.concept,
         hints: payload.hints,
         seed: payload.seed,
+        ownerId: payload.ownerId,
       });
       const merged = payload.seed
         ? { ...envelope.data, ...payload.seed }

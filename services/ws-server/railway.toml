@@ -3,7 +3,11 @@
 # Required env: SUPABASE_JWT_SECRET (verifies Supabase session tokens on connect).
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci"
+# tsx runs the TypeScript entrypoint directly — nothing to compile. A no-op
+# build avoids Nixpacks re-running `npm ci` (which collides with the cached
+# node_modules/.cache mount → EBUSY) and avoids the root `npm run build`
+# default (which would build the Next.js web app on the wrong service).
+buildCommand = "echo no build needed"
 
 [deploy]
 startCommand = "npm run start -w @app/ws-server"

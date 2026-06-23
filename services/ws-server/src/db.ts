@@ -218,6 +218,22 @@ export async function persistChatMessages(
   }
 }
 
+/**
+ * The owner (user id) of a campaign, or null when it doesn't exist (MEM-5).
+ * Used to scope live-turn world-knowledge retrieval to the owner's Realms lore,
+ * since Realms embeddings are owner-scoped (no campaign link yet).
+ */
+export async function getCampaignOwnerId(
+  campaignId: string,
+): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ ownerId: campaigns.ownerId })
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .limit(1);
+  return row?.ownerId ?? null;
+}
+
 /** True iff the campaign exists and is owned by the given user. */
 export async function isCampaignOwner(
   campaignId: string,

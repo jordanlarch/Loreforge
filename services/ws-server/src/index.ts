@@ -70,6 +70,7 @@ import {
   readiedTriggersToFire,
 } from "./enemy-ai.js";
 import { writeProjection } from "./projection.js";
+import { retrieveWorldKnowledge } from "./world-knowledge.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
 const PORT = Number(process.env.PORT ?? process.env.WS_PORT ?? 1234);
@@ -174,12 +175,28 @@ function setThinking(
 }
 
 /**
+ * Retrieved world-knowledge for a player line (MEM-5), scoped to the campaign
+ * owner's Realms lore. Empty for non-campaign (sandbox) rooms and whenever the
+ * memory tier is unconfigured or nothing relevant is found — always best-effort.
+ */
+async function gmKnowledge(
+  documentName: string,
+  text: string,
+): Promise<string[]> {
+  const parsed = parseRoom(documentName);
+  if (parsed?.kind !== "campaign") return [];
+  return retrieveWorldKnowledge({ campaignId: parsed.campaignId, queryText: text });
+}
+
+/**
  * Produce the GM's narration for a player line (#96) with a known-configured
  * client, falling back to the stubbed echo on any narration failure. The
  * deterministic engine still owns all mechanics — this is fiction only.
+ * Grounds the prose in retrieved world-knowledge when available (MEM-5).
  */
 async function composeGmReply(
   room: LiveRoom,
+  documentName: string,
   priorChat: ChatEntry[],
   message: { mode?: string; text: string },
   client: LlmClient,
@@ -191,6 +208,7 @@ async function composeGmReply(
       recentChat: priorChat,
       playerLine: message.text,
       mode: message.mode,
+      knowledge: await gmKnowledge(documentName, message.text),
     });
     return gmEntry(result.text, chatDeps, { mentions: result.mentions });
   } catch {
@@ -215,7 +233,7 @@ async function runCheck(
   const state = await room.getState();
   const actor = activePlayerEntity(state);
   if (!actor) {
-    const gm = await composeGmReply(room, priorChat, message, client);
+    const gm = await composeGmReply(room, documentName, priorChat, message, client);
     await appendAndPersist(document, documentName, [gm]);
     return;
   }
@@ -224,7 +242,7 @@ async function runCheck(
   try {
     decision = await decideCheck({ client, state, playerLine: message.text });
   } catch {
-    const gm = await composeGmReply(room, priorChat, message, client);
+    const gm = await composeGmReply(room, documentName, priorChat, message, client);
     await appendAndPersist(document, documentName, [gm]);
     return;
   }
@@ -240,7 +258,7 @@ async function runCheck(
     | { total?: number; success?: boolean }
     | undefined;
   if (!applied.accepted || !summary || typeof summary.total !== "number") {
-    const gm = await composeGmReply(room, priorChat, message, client);
+    const gm = await composeGmReply(room, documentName, priorChat, message, client);
     await appendAndPersist(document, documentName, [gm]);
     return;
   }
@@ -272,6 +290,7 @@ async function runCheck(
       playerLine: message.text,
       mode: "check",
       outcome,
+      knowledge: await gmKnowledge(documentName, message.text),
     });
     gm = gmEntry(narration.text, chatDeps, { mentions: narration.mentions });
   } catch {
@@ -660,7 +679,13 @@ const server = new Hocuspocus({
         if (message.mode === "check") {
           await runCheck(room, document, documentName, priorChat, message, client);
         } else {
-          const gm = await composeGmReply(room, priorChat, message, client);
+          const gm = await composeGmReply(
+            room,
+            documentName,
+            priorChat,
+            message,
+            client,
+          );
           await appendAndPersist(document, documentName, [gm]);
         }
       } finally {

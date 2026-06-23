@@ -90,6 +90,22 @@ function sceneSummary(state: WorldState | undefined): string {
   return scene.description ? `${scene.name} — ${scene.description}` : scene.name;
 }
 
+/**
+ * The retrieved world-knowledge block (MEM-5), or "" when there's nothing to
+ * inject. Framed as background the GM may draw on but must stay consistent with
+ * — it is *retrieved* lore (possibly only loosely relevant), not ground truth
+ * about the live scene, so it must not override the engine state or be quoted
+ * verbatim as fact.
+ */
+function knowledgeBlock(knowledge: readonly string[] | undefined): string {
+  const lines = (knowledge ?? []).map((k) => k.trim()).filter(Boolean);
+  if (lines.length === 0) return "";
+  return [
+    "World knowledge that may be relevant (background to stay consistent with; do not contradict the scene):",
+    ...lines.map((k) => `- ${k}`),
+  ].join("\n");
+}
+
 /** "Author: text" lines for the last few non-event chat entries. */
 function recentLines(chat: readonly ChatEntry[], limit = 8): string[] {
   return chat
@@ -160,6 +176,10 @@ export async function narrate(args: {
   /** Mechanical result the engine already resolved (e.g. an ability check) that
    * the narration must honour rather than re-decide (#97). */
   outcome?: string;
+  /** Retrieved world-knowledge snippets (MEM-5) to ground the prose — owner's
+   * Realms lore most similar to the player's line. Optional; empty when the
+   * memory tier is unconfigured or nothing relevant was found. */
+  knowledge?: readonly string[];
 }): Promise<NarrationResult> {
   const names = sceneEntityNames(args.state);
   const scene = sceneSummary(args.state);
@@ -169,6 +189,7 @@ export async function narrate(args: {
   const prompt = [
     scene ? `Scene: ${scene}` : "",
     names.length > 0 ? `Entities present: ${names.join(", ")}.` : "",
+    knowledgeBlock(args.knowledge),
     history.length > 0 ? `Recent exchange:\n${history.join("\n")}` : "",
     "",
     `The player ${verb}: "${args.playerLine.trim()}"`,

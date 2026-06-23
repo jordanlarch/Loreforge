@@ -92,6 +92,7 @@ async function forgeEntityIntoCampaign(
     db,
     type,
     concept,
+    ownerId,
   });
   const data = parseData(type, envelope.data);
   const [parent] = await db

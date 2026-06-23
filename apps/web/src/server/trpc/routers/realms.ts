@@ -457,6 +457,7 @@ export const realmsRouter = createTRPCRouter({
           concept: input.concept,
           hints: input.hints,
           seed: input.seed,
+          ownerId: ctx.user.id,
         });
         // Merge the user's explicit seed values over the model output, then
         // re-validate through the same path the manual write uses (Q12).
@@ -549,6 +550,8 @@ export const realmsRouter = createTRPCRouter({
           name: entity.name,
           summary: entity.summary,
           parentContext,
+          ownerId: ctx.user.id,
+          entityId: entity.id,
         });
         const data = parseData(type, rawData);
         const [row] = await db
@@ -622,6 +625,8 @@ export const realmsRouter = createTRPCRouter({
             name: entity.name,
             existingData: entity.data,
             fields: input.fields,
+            ownerId: ctx.user.id,
+            entityId: entity.id,
           },
         );
         // Merge a (possibly partial) candidate over current values, then

@@ -69,6 +69,12 @@ export type EntityMovedPayload = {
   to: GridPosition;
 };
 
+export type EntityRelocatedPayload = {
+  entity: EntityRef;
+  sceneId: SceneId;
+  position?: GridPosition;
+};
+
 export type EncounterStartedPayload = {
   sceneId: SceneId;
   combatants: EntityRef[];
@@ -231,6 +237,10 @@ export type EngineEvent =
   | (EventMeta & { type: "DamageDealt"; payload: DamageDealtPayload })
   | (EventMeta & { type: "HealingApplied"; payload: HealingAppliedPayload })
   | (EventMeta & { type: "EntityMoved"; payload: EntityMovedPayload })
+  | (EventMeta & {
+      type: "EntityRelocated";
+      payload: EntityRelocatedPayload;
+    })
   | (EventMeta & { type: "EncounterStarted"; payload: EncounterStartedPayload })
   | (EventMeta & { type: "InitiativeRolled"; payload: InitiativeRolledPayload })
   | (EventMeta & { type: "TurnStarted"; payload: TurnStartedPayload })

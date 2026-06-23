@@ -17,6 +17,8 @@ import {
   areHostile,
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
+  TUTORIAL_HOOK,
+  TUTORIAL_SCENE_HEARTH,
   type EntityState,
   type WorldState,
 } from "@app/engine";
@@ -56,6 +58,7 @@ import { LivePlayTopBar } from "./live-top-bar";
 import { MapViewport } from "./map-viewport";
 import { PartyRail } from "./party-rail";
 import { ReactionPrompt } from "./reaction-prompt";
+import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { useSceneTransition } from "./use-scene-transition";
 import { useLiveSession } from "./use-live-session";
 
@@ -161,6 +164,7 @@ function LiveBattle({
   loadouts,
   campaignId,
   tutorialControls,
+  onEntityClick,
 }: {
   session: LiveSession;
   title: string;
@@ -173,6 +177,8 @@ function LiveBattle({
   campaignId?: string;
   /** Tutorial-only controls rendered in exploration mode (TUT-1); absent elsewhere. */
   tutorialControls?: ReactNode;
+  /** When set, narration @Entity chips become clickable (tutorial drawer, #171). */
+  onEntityClick?: (name: string) => void;
 }) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
@@ -460,12 +466,15 @@ function LiveBattle({
                   entries={session.chat}
                   onSend={session.sendChat}
                   thinking={session.gmThinking}
+                  onEntityClick={onEntityClick}
                 />
               </div>
             </aside>
           </div>
 
-          <PartyRail state={session.state} />
+          <div data-coachmark="tut-party">
+            <PartyRail state={session.state} />
+          </div>
         </div>
       );
     }
@@ -726,32 +735,148 @@ const TUTORIAL_SCENE1_COACHMARKS: readonly CoachmarkDef[] = [
   },
 ];
 
+/**
+ * Scene 2's coachmarks (TUT-1, #171), fired by action rather than first-sight so
+ * they land on the right beat: entering the tavern (chips), accepting the hook,
+ * and the companion joining.
+ */
+const TUTORIAL_SCENE2_COACHMARKS: readonly CoachmarkDef[] = [
+  {
+    id: "tut-scene2-chips",
+    anchor: "tut-scene1-chat",
+    title: "These names are entities",
+    body: "Tap any highlighted name in the story — people, places, items — to see what your character knows, and to speak with them.",
+    trigger: { kind: "on_action", action: "scene2" },
+  },
+  {
+    id: "tut-scene2-hook",
+    anchor: "tut-hook",
+    title: "Plot hooks live in your campaign",
+    body: "Accepted hooks track through your sessions. You can see all of them anytime in the campaign's Hooks tab.",
+    trigger: { kind: "on_action", action: "hook-accepted" },
+  },
+  {
+    id: "tut-scene2-companion",
+    anchor: "tut-party",
+    title: "You have a companion",
+    body: "Brennar follows you and takes his own turns in combat — a 2nd-level cleric, handy for healing.",
+    trigger: { kind: "on_action", action: "companion-joined" },
+  },
+];
+
+const TUTORIAL_COACHMARKS: readonly CoachmarkDef[] = [
+  ...TUTORIAL_SCENE1_COACHMARKS,
+  ...TUTORIAL_SCENE2_COACHMARKS,
+];
+
 export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const session = useLiveSession({ campaignId });
+  const [drawerName, setDrawerName] = useState<string | null>(null);
+  const [lilySpoken, setLilySpoken] = useState(false);
+
+  const world = trpc.tutorial.world.useQuery();
+  const utils = trpc.useUtils();
+  const acceptHook = trpc.tutorial.acceptHook.useMutation();
+  const companionJoin = trpc.tutorial.companionJoin.useMutation();
+
+  const hookStatus = world.data?.hookStatus ?? null;
+  const companionJoined = world.data?.companionJoined ?? false;
+  const inScene2 = session.state?.currentSceneId === TUTORIAL_SCENE_HEARTH;
+  const hookActive = hookStatus === "active";
+  const hookOffered = lilySpoken || hookStatus === "active";
+
+  // Drive the action-triggered Scene 2 coachmarks off live state.
+  const firedActions = useMemo(() => {
+    const a: string[] = [];
+    if (inScene2) a.push("scene2");
+    if (hookActive) a.push("hook-accepted");
+    if (companionJoined) a.push("companion-joined");
+    return a;
+  }, [inScene2, hookActive, companionJoined]);
+
+  function speak(topic: "barnaby" | "lily") {
+    session.tutorialSay(topic);
+    if (topic === "lily") setLilySpoken(true);
+  }
+
+  function acceptTheHook() {
+    acceptHook.mutate(undefined, {
+      onSuccess: () => {
+        companionJoin.mutate(undefined, {
+          onSettled: () => void utils.tutorial.world.invalidate(),
+        });
+        session.tutorialCompanion();
+        void utils.tutorial.world.invalidate();
+      },
+    });
+  }
+
+  const accepting = acceptHook.isPending || companionJoin.isPending;
 
   const tutorialControls = (
-    <div className="space-y-2 rounded-lg border border-lore-accent bg-lore-accent-dim p-3">
-      <div className="text-[10px] uppercase tracking-widest text-lore-muted">
-        Tutorial
+    <div className="space-y-3">
+      <div className="space-y-2 rounded-lg border border-lore-accent bg-lore-accent-dim p-3">
+        <div className="text-[10px] uppercase tracking-widest text-lore-muted">
+          Tutorial
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!inScene2 && (
+            <button
+              type="button"
+              onClick={session.tutorialCheck}
+              disabled={session.isBusy}
+              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+            >
+              Look for tracks
+            </button>
+          )}
+          {inScene2 && (
+            <button
+              type="button"
+              onClick={() => speak("barnaby")}
+              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent"
+            >
+              Talk to Barnaby
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={session.tutorialAdvance}
+            disabled={session.isBusy}
+            className="rounded border border-lore-accent bg-lore-bg px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+          >
+            Continue ▶
+          </button>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={session.tutorialCheck}
-          disabled={session.isBusy}
-          className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+
+      {hookOffered && (
+        <div
+          data-coachmark="tut-hook"
+          className="space-y-2 rounded-lg border border-lore-accent bg-lore-surface p-3"
         >
-          Look for tracks
-        </button>
-        <button
-          type="button"
-          onClick={session.tutorialAdvance}
-          disabled={session.isBusy}
-          className="rounded border border-lore-accent bg-lore-bg px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
-        >
-          Continue ▶
-        </button>
-      </div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-lore-text">
+            <span aria-hidden>📜</span>
+            {TUTORIAL_HOOK.title}
+          </div>
+          <p className="text-xs text-lore-muted">{TUTORIAL_HOOK.summary}</p>
+          {hookActive ? (
+            <div className="text-xs font-medium text-lore-accent">
+              ✓ Accepted — now Active in your Hooks tab
+              {companionJoined ? " · Old Brennar joined your party" : ""}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={acceptTheHook}
+              disabled={accepting}
+              className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+            >
+              {accepting ? "Accepting…" : "Accept ▶"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -764,8 +889,14 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         backHref="/"
         campaignId={campaignId}
         tutorialControls={tutorialControls}
+        onEntityClick={setDrawerName}
       />
-      <CoachmarkHost defs={TUTORIAL_SCENE1_COACHMARKS} />
+      <TutorialEntityDrawer
+        name={drawerName}
+        onClose={() => setDrawerName(null)}
+        onSpeak={speak}
+      />
+      <CoachmarkHost defs={TUTORIAL_COACHMARKS} firedActions={firedActions} />
     </>
   );
 }

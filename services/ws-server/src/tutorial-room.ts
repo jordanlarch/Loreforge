@@ -11,18 +11,22 @@
  *   - `advance()` runs the next scene's enter-commands (a UI "continue" trigger).
  *   - `runScriptedCheck()` resolves the current scene's offered ability check
  *     through the engine (a deterministic dice roll, air-gapped-safe — no LLM).
+ *   - `say(topic)` returns a canned Scene 2 dialogue beat (the soft rail, D3b).
+ *   - `summonCompanion()` brings Old Brennar into the current scene as a
+ *     party-side entity so the party rail shows him (#171).
  *
  * Current-scene position is derived from the engine's `currentSceneId` (no extra
  * in-memory cursor), so a cold reload resumes exactly where the log left off.
- * This is the tracer slice (#169): scene 1 + a stub scene 2. Later slices append
- * scenes to the script; this driver is unchanged.
  */
 import {
   Engine,
+  buildCompanionCommands,
   buildTutorialSeedCommands,
   checkAction,
   nextTutorialScene,
+  tutorialBeat,
   tutorialScene,
+  TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
   type BattleAction,
   type Command,
@@ -30,6 +34,7 @@ import {
   type EventStore,
   type PartyMember,
   type TutorialCheck,
+  type TutorialDialogueBeat,
   type WorldState,
 } from "@app/engine";
 
@@ -41,7 +46,11 @@ import {
 } from "./room.js";
 
 /** The outcome of a scripted scene advance: the entered scene + its narration. */
-export type AdvanceResult = { sceneId: string; narration: string };
+export type AdvanceResult = {
+  sceneId: string;
+  narration: string;
+  mentions?: readonly string[];
+};
 
 /** The outcome of a scripted check: the engine verdict + the scene's copy. */
 export type ScriptedCheckResult = {
@@ -120,7 +129,11 @@ export class TutorialRoom implements LiveRoom {
     for (const command of next.enter(party)) {
       await this.engine.execute(this.campaignId, command);
     }
-    return { sceneId: next.id, narration: next.narration };
+    return {
+      sceneId: next.id,
+      narration: next.narration,
+      mentions: next.mentions,
+    };
   }
 
   /**
@@ -145,5 +158,31 @@ export class TutorialRoom implements LiveRoom {
       }),
     );
     return { accepted, summary, check: scene.check, actorName: pc.name };
+  }
+
+  /**
+   * The canned dialogue beat for a Scene 2 topic (the soft rail, D3b). Pure
+   * lookup — no engine mutation — so the caller can post it as GM narration.
+   * Returns undefined for an unknown topic.
+   */
+  say(topic: string): TutorialDialogueBeat | undefined {
+    return tutorialBeat(topic);
+  }
+
+  /**
+   * Bring Old Brennar into the current scene as a party-side character entity so
+   * he rides along in the party rail (#171). Idempotent: a no-op when he is
+   * already present. Returns his display name on a fresh join, else null.
+   */
+  async summonCompanion(): Promise<string | null> {
+    await this.ensureSeeded();
+    const state = await this.engine.getState(this.campaignId);
+    if (state.entities[TUTORIAL_COMPANION.id]) return null;
+    const sceneId = state.currentSceneId;
+    if (!sceneId) return null;
+    for (const command of buildCompanionCommands(sceneId)) {
+      await this.engine.execute(this.campaignId, command);
+    }
+    return TUTORIAL_COMPANION.name;
   }
 }

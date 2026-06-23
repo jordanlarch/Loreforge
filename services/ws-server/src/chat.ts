@@ -235,7 +235,7 @@ export function checkEntry(
 export function gmEntry(
   text: string,
   deps: ChatDeps,
-  opts?: { mentions?: string[] },
+  opts?: { mentions?: readonly string[] },
 ): ChatEntry {
   return {
     id: deps.uuid(),
@@ -244,7 +244,7 @@ export function gmEntry(
     author: "GM",
     text,
     ...(opts?.mentions && opts.mentions.length > 0
-      ? { mentions: opts.mentions }
+      ? { mentions: [...opts.mentions] }
       : {}),
   };
 }

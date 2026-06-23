@@ -67,6 +67,7 @@ import {
   type EndTurnCommand,
   type LongRestCommand,
   type MoveEntityCommand,
+  type RelocateEntityCommand,
   type OpportunityAttackCommand,
   type ReadyActionCommand,
   type RemoveConditionCommand,
@@ -435,6 +436,39 @@ function handleMoveEntity(
   }
 
   return { accepted: true, events, summary: { entity: cmd.entity, to } };
+}
+
+/**
+ * Move an existing entity into another scene (exploration scene transition).
+ * Unlike `move_entity` this isn't budget/occupancy-checked — it carries the
+ * party between maps. Rejects if the entity or destination scene is missing.
+ */
+function handleRelocateEntity(
+  cmd: RelocateEntityCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  if (!ctx.world.scenes[cmd.sceneId]) {
+    return reject("SCENE_NOT_FOUND", `Scene ${cmd.sceneId} does not exist.`);
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "EntityRelocated",
+        ...meta(ctx, cmd.entity),
+        payload: {
+          entity: cmd.entity,
+          sceneId: cmd.sceneId,
+          position: cmd.position,
+        },
+      },
+    ],
+    summary: { entity: cmd.entity, sceneId: cmd.sceneId },
+  };
 }
 
 function handleStartEncounter(
@@ -1909,6 +1943,8 @@ export function handleCommand(
       return handleApplyHealing(command, ctx);
     case "move_entity":
       return handleMoveEntity(command, ctx);
+    case "relocate_entity":
+      return handleRelocateEntity(command, ctx);
     case "start_encounter":
       return handleStartEncounter(command, ctx);
     case "roll_initiative":

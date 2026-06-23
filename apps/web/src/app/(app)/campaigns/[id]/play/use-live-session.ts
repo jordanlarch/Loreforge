@@ -207,6 +207,17 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     send({ t: "tutorial", action });
   }
 
+  /**
+   * Request a scripted Scene 2 dialogue beat (the soft rail). Fire-and-forget
+   * like `sendChat` — it only posts GM narration, so it must not gate `isBusy`
+   * (there's no new projection to wait on).
+   */
+  function tutorialSay(topic: string) {
+    const provider = providerRef.current;
+    if (!provider) return;
+    provider.sendStateless(JSON.stringify({ t: "tutorial", action: "say", topic }));
+  }
+
   return {
     state,
     isLoading: status === "connecting" && state === undefined,
@@ -219,6 +230,9 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     sendChat,
     tutorialAdvance: () => tutorialAction("advance"),
     tutorialCheck: () => tutorialAction("check"),
+    tutorialSay,
+    /** Bring the companion (Brennar) into the scene as a party entity. */
+    tutorialCompanion: () => send({ t: "tutorial", action: "companion" }),
     moveToken: (id: string, to: Cell) =>
       send({ t: "cmd", action: { type: "move_entity", entity: id, to } }),
     endTurn: () => send({ t: "cmd", action: { type: "end_turn" } }),

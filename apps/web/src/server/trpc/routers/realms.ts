@@ -29,6 +29,10 @@ import {
   REALM_RELATIONSHIP_KINDS,
   type RealmEntityType,
 } from "@/lib/realms";
+import {
+  deleteCrossLinkEmbeddingsBestEffort,
+  embedCrossLinkOnWrite,
+} from "@/server/memory/cross-link";
 import { embedRealmEntityOnWrite } from "@/server/memory/embed";
 import { parseData } from "@/server/realms/schemas";
 import {
@@ -389,6 +393,31 @@ export const realmsRouter = createTRPCRouter({
           kind: input.kind,
         })
         .returning();
+
+      // Embed the edge as a retrievable cross-link (GEN-5). Best-effort.
+      if (row) {
+        const endpoints = await db
+          .select({
+            id: realmEntities.id,
+            name: realmEntities.name,
+            type: realmEntities.type,
+          })
+          .from(realmEntities)
+          .where(inArray(realmEntities.id, [input.fromId, input.toId]));
+        const from = endpoints.find((e) => e.id === input.fromId);
+        const to = endpoints.find((e) => e.id === input.toId);
+        if (from && to) {
+          await embedCrossLinkOnWrite(db, {
+            relationshipId: row.id,
+            ownerId: ctx.user.id,
+            kind: input.kind,
+            fromName: from.name,
+            fromType: from.type,
+            toName: to.name,
+            toType: to.type,
+          });
+        }
+      }
       return row;
     }),
 
@@ -409,6 +438,7 @@ export const realmsRouter = createTRPCRouter({
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Link not found." });
       }
+      await deleteCrossLinkEmbeddingsBestEffort(db, row.id);
       return { id: row.id };
     }),
 

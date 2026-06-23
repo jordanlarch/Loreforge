@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCrossLinkEmbeddingInput,
   buildEntityEmbeddingInput,
+  composeCrossLinkText,
   composeEntityChunkText,
   contentHash,
+  type CrossLinkInput,
   type EmbeddableRealmEntity,
 } from "./chunk";
 
@@ -75,5 +78,49 @@ describe("buildEntityEmbeddingInput", () => {
 
   it("skips stubs (returns null)", () => {
     expect(buildEntityEmbeddingInput({ ...baseEntity, isStub: true })).toBeNull();
+  });
+});
+
+const baseLink: CrossLinkInput = {
+  fromName: "Eldermoor",
+  fromType: "settlement",
+  kind: "located_in",
+  toName: "The Mistlands",
+  toType: "region",
+};
+
+describe("composeCrossLinkText", () => {
+  it("renders a directed natural-language sentence", () => {
+    expect(composeCrossLinkText(baseLink)).toBe(
+      "Eldermoor (settlement) is located in The Mistlands (region).",
+    );
+  });
+
+  it("maps each known relationship kind to a verb", () => {
+    expect(composeCrossLinkText({ ...baseLink, kind: "owns" })).toContain(
+      "owns",
+    );
+    expect(
+      composeCrossLinkText({ ...baseLink, kind: "allied_with" }),
+    ).toContain("is allied with");
+  });
+
+  it("falls back to a generic verb for an unknown kind", () => {
+    expect(composeCrossLinkText({ ...baseLink, kind: "mystery" })).toContain(
+      "is related to",
+    );
+  });
+});
+
+describe("buildCrossLinkEmbeddingInput", () => {
+  it("returns a chunk + matching contentHash", () => {
+    const input = buildCrossLinkEmbeddingInput(baseLink);
+    expect(input).not.toBeNull();
+    expect(input!.chunkText).toBe(composeCrossLinkText(baseLink));
+    expect(input!.contentHash).toBe(contentHash(input!.chunkText));
+  });
+
+  it("skips when an endpoint name is blank (returns null)", () => {
+    expect(buildCrossLinkEmbeddingInput({ ...baseLink, toName: "  " })).toBeNull();
   });
 });

@@ -9,12 +9,12 @@
  * Trigger task so the two never diverge.
  */
 import { eq } from "drizzle-orm";
-import type { PgDatabase } from "drizzle-orm/pg-core";
+import { alias, type PgDatabase } from "drizzle-orm/pg-core";
 
-import { realmEntities } from "@app/db";
+import { realmEntities, realmRelationships } from "@app/db";
 
 import type { EmbeddingClient } from "./client";
-import { embedRealmEntity } from "./store";
+import { embedCrossLink, embedRealmEntity } from "./store";
 
 type AnyPgDatabase = PgDatabase<any, any, any>;
 
@@ -61,6 +61,75 @@ export async function reembedRealmEntities(
         summary: row.summary,
         data: row.data,
         isStub: row.isStub,
+      });
+      if (result.status === "skipped") skipped++;
+      else if (result.status === "unchanged") unchanged++;
+      else embedded++;
+    } catch (error) {
+      failed++;
+      options.onError?.(row.id, error);
+    }
+  }
+
+  return { total: rows.length, embedded, unchanged, skipped, failed };
+}
+
+export type ReembedCrossLinksResult = {
+  total: number;
+  embedded: number;
+  unchanged: number;
+  skipped: number;
+  failed: number;
+};
+
+export type ReembedCrossLinksOptions = {
+  /** Called per-edge on failure; the error is otherwise swallowed. */
+  onError?: (relationshipId: string, error: unknown) => void;
+};
+
+/**
+ * Re-embed every relationship edge as a `cross_link` chunk (GEN-5), joining each
+ * edge to its two endpoints for the rendered sentence. ContentHash-gated and
+ * idempotent like {@link reembedRealmEntities}, so this is the catch-all that
+ * covers edges created by the cascade or before embed-on-link existed. Only the
+ * initial query can reject; per-edge failures are counted in `failed`.
+ */
+export async function reembedCrossLinks(
+  db: AnyPgDatabase,
+  client: EmbeddingClient,
+  options: ReembedCrossLinksOptions = {},
+): Promise<ReembedCrossLinksResult> {
+  const fromE = alias(realmEntities, "cl_from");
+  const toE = alias(realmEntities, "cl_to");
+  const rows = await db
+    .select({
+      id: realmRelationships.id,
+      ownerId: realmRelationships.ownerId,
+      kind: realmRelationships.kind,
+      fromName: fromE.name,
+      fromType: fromE.type,
+      toName: toE.name,
+      toType: toE.type,
+    })
+    .from(realmRelationships)
+    .innerJoin(fromE, eq(fromE.id, realmRelationships.fromId))
+    .innerJoin(toE, eq(toE.id, realmRelationships.toId));
+
+  let embedded = 0;
+  let unchanged = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const row of rows) {
+    try {
+      const result = await embedCrossLink(db, client, {
+        id: row.id,
+        ownerId: row.ownerId,
+        kind: row.kind,
+        fromName: row.fromName,
+        fromType: row.fromType,
+        toName: row.toName,
+        toType: row.toType,
       });
       if (result.status === "skipped") skipped++;
       else if (result.status === "unchanged") unchanged++;

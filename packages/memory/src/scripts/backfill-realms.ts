@@ -10,7 +10,7 @@
 import { closeDb, getDb } from "@app/db";
 
 import { resolveEmbeddingClient } from "../client";
-import { reembedRealmEntities } from "../reembed";
+import { reembedCrossLinks, reembedRealmEntities } from "../reembed";
 
 async function main(): Promise<void> {
   if (!process.env.OPENAI_API_KEY) {
@@ -33,9 +33,23 @@ async function main(): Promise<void> {
   });
 
   console.info(
-    `[backfill] done — total=${result.total} embedded=${result.embedded} ` +
+    `[backfill] entities — total=${result.total} embedded=${result.embedded} ` +
       `unchanged=${result.unchanged} skipped=${result.skipped} ` +
       `failed=${result.failed}`,
+  );
+
+  const links = await reembedCrossLinks(db, client, {
+    onError: (id, error) =>
+      console.warn(
+        `[backfill] cross_link failed for ${id}: ` +
+          `${error instanceof Error ? error.message : String(error)}`,
+      ),
+  });
+
+  console.info(
+    `[backfill] cross_links — total=${links.total} embedded=${links.embedded} ` +
+      `unchanged=${links.unchanged} skipped=${links.skipped} ` +
+      `failed=${links.failed}`,
   );
 
   await closeDb();

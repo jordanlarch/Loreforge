@@ -4,7 +4,9 @@ import type { PgDatabase } from "drizzle-orm/pg-core";
 import { embeddings } from "@app/db";
 
 import {
+  buildCrossLinkEmbeddingInput,
   buildEntityEmbeddingInput,
+  type CrossLinkInput,
   type EmbeddableRealmEntity,
   type EmbeddingChunk,
 } from "./chunk";
@@ -22,6 +24,9 @@ export const SESSION_RECAP_SOURCE = "session_recap" as const;
 
 /** `sourceType` discriminator for embedded pinned memories (#155). */
 export const PINNED_MEMORY_SOURCE = "pinned_memory" as const;
+
+/** `sourceType` discriminator for embedded relationship edges (GEN-5). */
+export const CROSS_LINK_SOURCE = "cross_link" as const;
 
 export type UpsertSourceEmbeddingsParams = {
   ownerId: string;
@@ -174,6 +179,60 @@ export async function embedRealmEntityBestEffort(
 ): Promise<EmbedRealmEntityResult | null> {
   try {
     const result = await embedRealmEntity(db, client, entity);
+    options.onResult?.(result);
+    return result;
+  } catch (error) {
+    options.onError?.(error);
+    return null;
+  }
+}
+
+/** A relationship edge ready to embed: its id, owner, and rendered endpoints. */
+export type EmbeddableCrossLink = CrossLinkInput & {
+  id: string;
+  ownerId: string;
+};
+
+/** Result of a cross-link embed: `skipped` when an endpoint name is blank. */
+export type EmbedCrossLinkResult =
+  | { status: "skipped" }
+  | UpsertSourceEmbeddingsResult;
+
+/**
+ * Compose a relationship edge's sentence chunk and upsert it (owner-scoped, no
+ * campaign), keyed on the relationship id. Returns `{ status: "skipped" }` when
+ * an endpoint name is blank. Throws on real failures — see the best-effort
+ * variant for the write-path-safe wrapper.
+ */
+export async function embedCrossLink(
+  db: AnyPgDatabase,
+  client: EmbeddingClient,
+  link: EmbeddableCrossLink,
+): Promise<EmbedCrossLinkResult> {
+  const chunk = buildCrossLinkEmbeddingInput(link);
+  if (!chunk) return { status: "skipped" };
+  return upsertSourceEmbeddings(db, client, {
+    ownerId: link.ownerId,
+    sourceType: CROSS_LINK_SOURCE,
+    sourceId: link.id,
+    chunks: [chunk],
+  });
+}
+
+export type EmbedCrossLinkBestEffortOptions = {
+  onResult?: (result: EmbedCrossLinkResult) => void;
+  onError?: (error: unknown) => void;
+};
+
+/** Write-path-safe {@link embedCrossLink}: never throws; `null` on failure. */
+export async function embedCrossLinkBestEffort(
+  db: AnyPgDatabase,
+  client: EmbeddingClient,
+  link: EmbeddableCrossLink,
+  options: EmbedCrossLinkBestEffortOptions = {},
+): Promise<EmbedCrossLinkResult | null> {
+  try {
+    const result = await embedCrossLink(db, client, link);
     options.onResult?.(result);
     return result;
   } catch (error) {

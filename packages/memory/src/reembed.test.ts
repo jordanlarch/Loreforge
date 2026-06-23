@@ -3,16 +3,17 @@ import { vector } from "@electric-sql/pglite/vector";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { realmEntities, type Database } from "@app/db";
+import { realmEntities, realmRelationships, type Database } from "@app/db";
 import * as schema from "@app/db/schema";
 
 import { createDeterministicEmbeddingClient } from "./client";
-import { reembedRealmEntities } from "./reembed";
+import { reembedCrossLinks, reembedRealmEntities } from "./reembed";
 
 const OWNER = "00000000-0000-4000-8000-000000000001";
 const E1 = "00000000-0000-4000-8000-0000000000a1";
 const E2 = "00000000-0000-4000-8000-0000000000a2";
 const STUB = "00000000-0000-4000-8000-0000000000a3";
+const REL1 = "00000000-0000-4000-8000-0000000000b1";
 
 const CREATE_SQL = `
   CREATE TABLE embeddings (
@@ -41,6 +42,14 @@ const CREATE_SQL = `
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   );
+  CREATE TABLE realm_relationships (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id uuid NOT NULL,
+    from_id uuid NOT NULL,
+    to_id uuid NOT NULL,
+    kind text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+  );
 `;
 
 const client = createDeterministicEmbeddingClient();
@@ -59,7 +68,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await pg.exec("DELETE FROM embeddings; DELETE FROM realm_entities;");
+  await pg.exec(
+    "DELETE FROM embeddings; DELETE FROM realm_relationships; DELETE FROM realm_entities;",
+  );
   await db.insert(realmEntities).values([
     { id: E1, ownerId: OWNER, type: "npc", name: "Ember", summary: "A red dragon" },
     { id: E2, ownerId: OWNER, type: "region", name: "Frostmere", summary: "A frozen vale" },
@@ -92,5 +103,38 @@ describe("reembedRealmEntities", () => {
     );
     const third = await reembedRealmEntities(db, client);
     expect(third).toMatchObject({ embedded: 1, unchanged: 1 });
+  });
+});
+
+describe("reembedCrossLinks", () => {
+  beforeEach(async () => {
+    await db.insert(realmRelationships).values([
+      { id: REL1, ownerId: OWNER, fromId: E1, toId: E2, kind: "located_in" },
+    ]);
+  });
+
+  it("embeds each edge joined to its endpoints", async () => {
+    const result = await reembedCrossLinks(db, client);
+    expect(result).toMatchObject({ total: 1, embedded: 1, unchanged: 0, failed: 0 });
+    const rows = await pg.query<{ chunk_text: string; source_type: string }>(
+      "SELECT chunk_text, source_type FROM embeddings",
+    );
+    expect(rows.rows[0]?.source_type).toBe("cross_link");
+    expect(rows.rows[0]?.chunk_text).toBe(
+      "Ember (npc) is located in Frostmere (region).",
+    );
+  });
+
+  it("is idempotent — a second pass re-embeds nothing", async () => {
+    await reembedCrossLinks(db, client);
+    const second = await reembedCrossLinks(db, client);
+    expect(second).toMatchObject({ total: 1, embedded: 0, unchanged: 1 });
+  });
+
+  it("re-embeds an edge after an endpoint is renamed (drift)", async () => {
+    await reembedCrossLinks(db, client);
+    await pg.exec(`UPDATE realm_entities SET name = 'Cinder' WHERE id = '${E1}'`);
+    const after = await reembedCrossLinks(db, client);
+    expect(after).toMatchObject({ embedded: 1, unchanged: 0 });
   });
 });

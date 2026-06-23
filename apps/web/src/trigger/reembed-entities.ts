@@ -1,7 +1,11 @@
 import { logger, schedules } from "@trigger.dev/sdk/v3";
 
 import { closeDb, getDb } from "@app/db";
-import { reembedRealmEntities, resolveEmbeddingClient } from "@app/memory";
+import {
+  reembedCrossLinks,
+  reembedRealmEntities,
+  resolveEmbeddingClient,
+} from "@app/memory";
 
 import { isEmbeddingConfigured } from "@/server/memory/embed";
 
@@ -46,8 +50,18 @@ export const reembedEntitiesNightly = schedules.task({
             error: error instanceof Error ? error.message : String(error),
           }),
       });
-      logger.info("Nightly Realms re-embed complete", { ...result });
-      return { ran: true as const, ...result };
+      const links = await reembedCrossLinks(db, client, {
+        onError: (id, error) =>
+          logger.warn("Re-embed failed for cross-link", {
+            relationshipId: id,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+      });
+      logger.info("Nightly Realms re-embed complete", {
+        entities: result,
+        crossLinks: links,
+      });
+      return { ran: true as const, entities: result, crossLinks: links };
     } finally {
       await closeDb();
     }

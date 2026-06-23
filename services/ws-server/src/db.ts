@@ -18,6 +18,7 @@ import {
   characters,
   chatMessages,
   encounters,
+  rollingSummaries,
 } from "@app/db";
 import {
   expandEncounterFoes,
@@ -232,6 +233,48 @@ export async function getCampaignOwnerId(
     .where(eq(campaigns.id, campaignId))
     .limit(1);
   return row?.ownerId ?? null;
+}
+
+/* ------------------------------------------------------------------------- *
+ *  Rolling session summary (MEM-3, #143)
+ * ------------------------------------------------------------------------- */
+
+export type RollingSummary = { summary: string; coveredSeq: number };
+
+/** The campaign's current rolling session summary, or null if none yet. */
+export async function loadRollingSummary(
+  campaignId: string,
+): Promise<RollingSummary | null> {
+  const [row] = await getDb()
+    .select({
+      summary: rollingSummaries.summary,
+      coveredSeq: rollingSummaries.coveredSeq,
+    })
+    .from(rollingSummaries)
+    .where(eq(rollingSummaries.campaignId, campaignId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Upsert a campaign's rolling session summary (MEM-3). One row per campaign,
+ * keyed by `campaignId`; `coveredSeq` records the chat length it covers so the
+ * cadence only regenerates after enough new turns.
+ */
+export async function saveRollingSummary(
+  campaignId: string,
+  value: { summary: string; coveredSeq: number; model?: string },
+): Promise<void> {
+  const set = {
+    summary: value.summary,
+    coveredSeq: value.coveredSeq,
+    model: value.model ?? "",
+    updatedAt: new Date(),
+  };
+  await getDb()
+    .insert(rollingSummaries)
+    .values({ campaignId, ...set })
+    .onConflictDoUpdate({ target: rollingSummaries.campaignId, set });
 }
 
 /** True iff the campaign exists and is owned by the given user. */

@@ -74,3 +74,37 @@ export const embeddings = pgTable(
     ),
   ],
 );
+
+/**
+ * Rolling session summary — the memory tier's working-memory layer (P5, MEM-3;
+ * `docs/data-sources.md` §6 tier 3).
+ *
+ * A single, periodically-regenerated condensed summary of the *current* live
+ * session per campaign, injected into the AI-GM narration prompt alongside the
+ * engine state, hot chat, and RAG retrieval. The WS server (the authoritative
+ * live host) regenerates it inline, best-effort, every N turns and upserts the
+ * one row keyed by `campaignId`. `coveredSeq` records the chat length the summary
+ * already covers, so the cadence only regenerates after enough new turns.
+ *
+ * Deliberately campaign-scoped (no `ownerId`): it is only ever read/written by
+ * the live host by `campaignId`, never owner-scoped-queried. It is transient
+ * working memory — NOT an embedded RAG source (finalized, embeddable session
+ * recap documents are the separate sessions concept, MEM-4).
+ */
+export const rollingSummaries = pgTable(
+  "rolling_summaries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    /** The condensed running summary text (~500 tokens). */
+    summary: text("summary").notNull().default(""),
+    /** Chat length (entry count) the current summary already covers. */
+    coveredSeq: integer("covered_seq").notNull().default(0),
+    /** Resolved model id that produced the summary ("" before first run). */
+    model: text("model").notNull().default(""),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("rolling_summaries_campaign_unique").on(t.campaignId)],
+);

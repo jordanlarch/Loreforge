@@ -50,8 +50,13 @@ import {
   getEventStore,
   isCampaignOwner,
   loadChatMessages,
+  loadRollingSummary,
   persistChatMessages,
 } from "./db.js";
+import {
+  isSummaryConfigured,
+  maybeUpdateRollingSummary,
+} from "./session-summary.js";
 import {
   abilityLabel,
   activePlayerEntity,
@@ -189,6 +194,41 @@ async function gmKnowledge(
 }
 
 /**
+ * The campaign's rolling session summary (MEM-3) for narration, or "" for
+ * non-campaign (sandbox) rooms / when none exists yet. Best-effort.
+ */
+async function gmSessionSummary(documentName: string): Promise<string> {
+  const parsed = parseRoom(documentName);
+  if (parsed?.kind !== "campaign") return "";
+  try {
+    const row = await loadRollingSummary(parsed.campaignId);
+    return row?.summary ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Regenerate the campaign's rolling session summary if the cadence threshold is
+ * hit (MEM-3). Best-effort and env-gated; no-ops for sandbox rooms or offline.
+ * Reads the post-turn chat from the live doc.
+ */
+async function refreshSessionSummary(
+  document: Parameters<typeof appendChat>[0],
+  documentName: string,
+  client: LlmClient,
+): Promise<void> {
+  if (!isSummaryConfigured()) return;
+  const parsed = parseRoom(documentName);
+  if (parsed?.kind !== "campaign") return;
+  await maybeUpdateRollingSummary({
+    campaignId: parsed.campaignId,
+    client,
+    chat: chatArray(document).toArray(),
+  });
+}
+
+/**
  * Produce the GM's narration for a player line (#96) with a known-configured
  * client, falling back to the stubbed echo on any narration failure. The
  * deterministic engine still owns all mechanics — this is fiction only.
@@ -209,6 +249,7 @@ async function composeGmReply(
       playerLine: message.text,
       mode: message.mode,
       knowledge: await gmKnowledge(documentName, message.text),
+      summary: await gmSessionSummary(documentName),
     });
     return gmEntry(result.text, chatDeps, { mentions: result.mentions });
   } catch {
@@ -291,6 +332,7 @@ async function runCheck(
       mode: "check",
       outcome,
       knowledge: await gmKnowledge(documentName, message.text),
+      summary: await gmSessionSummary(documentName),
     });
     gm = gmEntry(narration.text, chatDeps, { mentions: narration.mentions });
   } catch {
@@ -688,6 +730,8 @@ const server = new Hocuspocus({
           );
           await appendAndPersist(document, documentName, [gm]);
         }
+        // Refresh the rolling session summary between turns (MEM-3, best-effort).
+        await refreshSessionSummary(document, documentName, client);
       } finally {
         setThinking(document, false);
       }

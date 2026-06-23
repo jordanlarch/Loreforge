@@ -85,6 +85,8 @@ export function LivePlayTopBar({
   showTurnActions,
   onEndTurn,
   onReset,
+  onEndSession,
+  endingSession,
   rejected,
   pacing,
 }: {
@@ -102,6 +104,11 @@ export function LivePlayTopBar({
   showTurnActions: boolean;
   onEndTurn: () => void;
   onReset: () => void;
+  /** End the play session: record it + generate a recap, then leave (PLAY-12).
+   * Absent for the sandbox (no campaign to record against). */
+  onEndSession?: () => void;
+  /** Whether the end-session request is in flight. */
+  endingSession?: boolean;
   rejected: boolean;
   pacing?: PacingBundle;
 }) {
@@ -218,6 +225,17 @@ export function LivePlayTopBar({
           >
             Reset
           </button>
+          {onEndSession && (
+            <button
+              type="button"
+              onClick={onEndSession}
+              disabled={endingSession}
+              title="Record this session and generate a recap, then return to the workspace"
+              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-red-400 hover:text-red-400 disabled:opacity-40"
+            >
+              {endingSession ? "Ending…" : "End session"}
+            </button>
+          )}
         </div>
       </div>
 

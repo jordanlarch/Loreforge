@@ -86,3 +86,53 @@ export function buildEntityEmbeddingInput(
   const chunkText = composeEntityChunkText(entity);
   return { chunkText, contentHash: contentHash(chunkText) };
 }
+
+/* -------------------------------------------------------------------------- *
+ *  Cross-links (GEN-5) — typed relationship edges as a retrievable source
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Directed natural-language verb per relationship `kind` (from → to). Mirrors
+ * the web UI's `REL_LABEL` but kept here so this package stays decoupled from
+ * the app; the kinds are the stable `realm_relationships.kind` enum.
+ */
+export const CROSS_LINK_VERBS: Record<string, string> = {
+  located_in: "is located in",
+  member_of: "is a member of",
+  owns: "owns",
+  rules: "rules",
+  allied_with: "is allied with",
+  rival_of: "is a rival of",
+  related_to: "is related to",
+};
+
+/** Minimal shape needed to render a relationship edge into embedding text. */
+export type CrossLinkInput = {
+  fromName: string;
+  fromType: string;
+  kind: string;
+  toName: string;
+  toType: string;
+};
+
+/**
+ * Compose the embedding text for a relationship edge — a single natural-language
+ * sentence, e.g. `Eldermoor (settlement) is located in The Mistlands (region).`
+ * Deterministic, so the `contentHash` is stable until an endpoint is renamed.
+ */
+export function composeCrossLinkText(link: CrossLinkInput): string {
+  const verb = CROSS_LINK_VERBS[link.kind] ?? "is related to";
+  return `${link.fromName} (${link.fromType}) ${verb} ${link.toName} (${link.toType}).`;
+}
+
+/**
+ * Build the embeddable chunk for a cross-link, or `null` when either endpoint
+ * name is blank (nothing meaningful to embed).
+ */
+export function buildCrossLinkEmbeddingInput(
+  link: CrossLinkInput,
+): EmbeddingChunk | null {
+  if (!link.fromName.trim() || !link.toName.trim()) return null;
+  const chunkText = composeCrossLinkText(link);
+  return { chunkText, contentHash: contentHash(chunkText) };
+}

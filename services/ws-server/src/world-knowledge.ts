@@ -3,11 +3,13 @@
  * live-play consumer of the `@app/memory` `retrieveSimilar` seam.
  *
  * Given a player's line, assemble the most relevant grounding for the AI-GM from
- * two memory categories and rerank them into one top-k list:
+ * three memory categories and rerank them into one top-k list:
  *   - **Lore** — the campaign owner's Realms entities (established world facts),
  *     owner-scoped.
  *   - **Recaps** — this campaign's past session recaps (what already happened),
  *     campaign-scoped, with a recency boost so recent sessions outrank old ones.
+ *   - **Cross-links** — relationship edges between entities rendered as sentences
+ *     (GEN-5), owner-scoped, weighted just under direct lore.
  *
  * Pinned memory (#155) is handled separately by {@link retrievePinnedMemories}:
  * durable DM-pinned facts are **always injected** (top-N most recent) rather than
@@ -16,14 +18,15 @@
  * embedding tier is off.
  *
  * The rolling session summary (MEM-3) is injected separately as the "story so
- * far" (current session); this layer covers durable lore + past sessions.
- * Cross-link inference is a future source type that slots into the same rerank.
+ * far" (current session); this layer covers durable lore, past sessions, and the
+ * connections between entities.
  * Best-effort and env-gated on `OPENAI_API_KEY`: no key (dev/tests) → `[]`, and
  * any failure is swallowed — retrieval enrichment must never break a live turn.
  * The deterministic engine still owns all mechanics; this only grounds the prose.
  */
 import { getDb } from "@app/db";
 import {
+  CROSS_LINK_SOURCE,
   REALM_ENTITY_SOURCE,
   SESSION_RECAP_SOURCE,
   resolveEmbeddingClient,
@@ -110,6 +113,16 @@ const CATEGORIES: readonly Category[] = [
     weight: 1,
     recency: true,
     format: (text) => `From an earlier session: ${text}`,
+  },
+  {
+    // Relationship edges (GEN-5). Owner-scoped like lore; weighted just under a
+    // direct entity card so a connection supports — not outranks — the entity it
+    // links. The chunk is already a self-describing sentence ("X is located in Y").
+    scope: "owner",
+    sourceType: CROSS_LINK_SOURCE,
+    weight: 0.9,
+    recency: false,
+    format: (text) => `Connection: ${text}`,
   },
 ];
 

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { REALM_ENTITY_SOURCE, SESSION_RECAP_SOURCE } from "@app/memory";
+import {
+  CROSS_LINK_SOURCE,
+  REALM_ENTITY_SOURCE,
+  SESSION_RECAP_SOURCE,
+} from "@app/memory";
 import type { RetrievedChunk } from "@app/memory";
 
 import {
@@ -82,7 +86,7 @@ describe("retrieveWorldKnowledge", () => {
     expect(result[0]).toBe("From an earlier session: The party stormed the keep.");
   });
 
-  it("only requests recaps with a campaign scope; lore is owner-scoped", async () => {
+  it("only requests recaps with a campaign scope; lore + cross-links are owner-scoped", async () => {
     const scopes: Record<string, string | null | undefined> = {};
     await retrieveWorldKnowledge(
       { campaignId: "c1", queryText: "hello" },
@@ -98,6 +102,30 @@ describe("retrieveWorldKnowledge", () => {
     );
     expect(scopes[REALM_ENTITY_SOURCE]).toBeUndefined();
     expect(scopes[SESSION_RECAP_SOURCE]).toBe("c1");
+    expect(scopes[CROSS_LINK_SOURCE]).toBeUndefined();
+  });
+
+  it("merges cross-link connections, prefixed and weighted under direct lore", async () => {
+    const result = await retrieveWorldKnowledge(
+      { campaignId: "c1", queryText: "Eldermoor" },
+      deps({
+        [REALM_ENTITY_SOURCE]: [
+          chunk(REALM_ENTITY_SOURCE, "Eldermoor is a marsh town.", 0.7),
+        ],
+        [CROSS_LINK_SOURCE]: [
+          chunk(
+            CROSS_LINK_SOURCE,
+            "Eldermoor (settlement) is located in The Mistlands (region).",
+            0.7,
+          ),
+        ],
+      }),
+    );
+    expect(result).toContain(
+      "Connection: Eldermoor (settlement) is located in The Mistlands (region).",
+    );
+    // At equal cosine, the 0.9-weighted connection ranks below direct lore.
+    expect(result[0]).toBe("Eldermoor is a marsh town.");
   });
 
   it("recency-boosts the more recent of two equally-similar recaps", async () => {

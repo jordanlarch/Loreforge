@@ -8,7 +8,7 @@
  * store contract, one source of truth). Connection is env-driven (`DATABASE_URL`);
  * `getDb()` is lazy, so importing this module has no side effects.
  */
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 
 import {
   getDb,
@@ -19,6 +19,7 @@ import {
   chatMessages,
   encounters,
   pinnedMemories,
+  plotHooks,
   rollingSummaries,
   tutorialProgress,
   type EquipmentItem,
@@ -27,6 +28,7 @@ import {
   expandEncounterFoes,
   monsterTemplate,
   totalLevel,
+  xpForLevel,
   type Ability,
   type EventStore,
   type FoeSpec,
@@ -386,6 +388,172 @@ export async function grantTutorialLoot(
     return additions.map((i) => i.name);
   } catch {
     return [];
+  }
+}
+
+/**
+ * The campaign hero's (`pc`) row + inventory, or null. Shared resolver for the
+ * Scene 6 resolution writes (consume item, award XP), mirroring the join used by
+ * {@link grantTutorialLoot}.
+ */
+async function tutorialHeroRow(campaignId: string): Promise<{
+  id: string;
+  xp: number;
+  classes: { class: string; level: number }[];
+  equipment: EquipmentItem[];
+} | null> {
+  const [row] = await getDb()
+    .select({
+      id: characters.id,
+      xp: characters.xp,
+      classes: characters.classes,
+      equipment: characters.equipment,
+    })
+    .from(campaignCharacters)
+    .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.role, "pc"),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+  return {
+    id: row.id,
+    xp: row.xp,
+    classes: row.classes,
+    equipment: (row.equipment ?? []) as EquipmentItem[],
+  };
+}
+
+/* ------------------------------------------------------------------------- *
+ *  Tutorial Scene 6 — resolution writes (TUT-1, #175)
+ * ------------------------------------------------------------------------- */
+
+/** Flat XP each party member earns for the Scene 6 finale (flavor; the hero is
+ * always clamped up to her next-level threshold so the level-up notice fires). */
+export const TUTORIAL_XP_AWARD = 250;
+
+/** The campaign's plot-hook status (TUT-1), or null. Drives the relight
+ * double-fire guard + the client's "lantern lit" state. */
+export async function getTutorialHookStatus(
+  campaignId: string,
+): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ status: plotHooks.status })
+    .from(plotHooks)
+    .where(eq(plotHooks.campaignId, campaignId))
+    .limit(1);
+  return row?.status ?? null;
+}
+
+/**
+ * Resolve the tutorial's central plot hook (Scene 6, D4): flip its status to
+ * "resolved" so it lands in the campaign Hooks tab as done. Returns whether it
+ * actually changed (false if already resolved) — the caller uses this to make
+ * the resolution beat fire exactly once. Best-effort.
+ */
+export async function resolveTutorialHook(campaignId: string): Promise<boolean> {
+  try {
+    const rows = await getDb()
+      .update(plotHooks)
+      .set({ status: "resolved", updatedAt: new Date() })
+      .where(
+        and(
+          eq(plotHooks.campaignId, campaignId),
+          ne(plotHooks.status, "resolved"),
+        ),
+      )
+      .returning({ id: plotHooks.id });
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Consume one of a named item from the tutorial hero's real inventory (D4 — the
+ * Scene 6 Oil-of-Brightness use). Decrements quantity (removing the row at 0).
+ * Returns whether an item was actually consumed. Best-effort.
+ */
+export async function consumeTutorialItem(
+  campaignId: string,
+  itemName: string,
+): Promise<boolean> {
+  try {
+    const hero = await tutorialHeroRow(campaignId);
+    if (!hero) return false;
+    const idx = hero.equipment.findIndex((i) => i.name === itemName);
+    if (idx < 0) return false;
+    const item = hero.equipment[idx]!;
+    const next =
+      item.quantity > 1
+        ? hero.equipment.map((i, n) =>
+            n === idx ? { ...i, quantity: i.quantity - 1 } : i,
+          )
+        : hero.equipment.filter((_, n) => n !== idx);
+    await getDb()
+      .update(characters)
+      .set({ equipment: next, updatedAt: new Date() })
+      .where(eq(characters.id, hero.id));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Award the Scene 6 finale XP (D4). Every party member (pc + companion) gains a
+ * flat {@link TUTORIAL_XP_AWARD}; the hero is additionally clamped up to her
+ * next-level threshold so she becomes level-up-eligible and the notice fires (no
+ * wizard runs — the real Level-Up Wizard stays available on her sheet). Returns
+ * whether the hero crossed into a new level (drives the notice). Best-effort.
+ */
+export async function awardTutorialXp(
+  campaignId: string,
+): Promise<{ leveledUp: boolean; awarded: number }> {
+  try {
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: characters.id,
+        xp: characters.xp,
+        classes: characters.classes,
+        role: campaignCharacters.role,
+      })
+      .from(campaignCharacters)
+      .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
+      .where(
+        and(
+          eq(campaignCharacters.campaignId, campaignId),
+          inArray(campaignCharacters.role, ["pc", "companion"]),
+        ),
+      );
+
+    let leveledUp = false;
+    let awarded = TUTORIAL_XP_AWARD;
+    for (const row of rows) {
+      const base = row.xp + TUTORIAL_XP_AWARD;
+      if (row.role === "pc") {
+        const nextThreshold = xpForLevel(totalLevel(row.classes) + 1);
+        const newXp = Math.max(base, nextThreshold);
+        leveledUp = row.xp < nextThreshold && newXp >= nextThreshold;
+        awarded = newXp - row.xp;
+        await db
+          .update(characters)
+          .set({ xp: newXp, updatedAt: new Date() })
+          .where(eq(characters.id, row.id));
+      } else {
+        await db
+          .update(characters)
+          .set({ xp: base, updatedAt: new Date() })
+          .where(eq(characters.id, row.id));
+      }
+    }
+    return { leveledUp, awarded };
+  } catch {
+    return { leveledUp: false, awarded: 0 };
   }
 }
 

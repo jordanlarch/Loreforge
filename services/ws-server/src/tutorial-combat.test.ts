@@ -24,7 +24,6 @@ const LEAD_ID = "char:mira";
 /** A minimal EntityState good enough for the pure planners. */
 function entity(over: Partial<EntityState> & { id: string }): EntityState {
   return {
-    id: over.id,
     name: over.name ?? over.id,
     kind: over.kind ?? "character",
     alive: over.alive ?? true,

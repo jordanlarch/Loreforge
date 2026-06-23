@@ -22,6 +22,8 @@ export function ChatZone({
   onSend,
   thinking = false,
   onEntityClick,
+  onPin,
+  pinnedTexts,
 }: {
   entries: ChatEntry[];
   onSend: (text: string, mode?: string) => void;
@@ -29,6 +31,10 @@ export function ChatZone({
   thinking?: boolean;
   /** When set, @Entity chips become clickable (opens the entity drawer, #171). */
   onEntityClick?: (name: string) => void;
+  /** When set, GM messages show a "📌 Pin to memory" action (tutorial, #175). */
+  onPin?: (text: string) => void;
+  /** Texts already pinned, so the affordance reflects a pinned state (#175). */
+  pinnedTexts?: ReadonlySet<string>;
 }) {
   const [mode, setMode] = useState<InputModeId>(DEFAULT_INPUT_MODE);
   const [text, setText] = useState("");
@@ -70,6 +76,8 @@ export function ChatZone({
               key={entry.id}
               entry={entry}
               onEntityClick={onEntityClick}
+              onPin={onPin}
+              pinned={pinnedTexts?.has(entry.text) ?? false}
             />
           ))
         )}
@@ -91,9 +99,13 @@ export function ChatZone({
 function ChatRow({
   entry,
   onEntityClick,
+  onPin,
+  pinned = false,
 }: {
   entry: ChatEntry;
   onEntityClick?: (name: string) => void;
+  onPin?: (text: string) => void;
+  pinned?: boolean;
 }) {
   if (entry.kind === "roll" && entry.dice) {
     return (
@@ -152,6 +164,21 @@ function ChatRow({
             <EntityChip key={name} name={name} onClick={onEntityClick} />
           ))}
         </span>
+      ) : null}
+      {isGm && onPin ? (
+        <button
+          type="button"
+          data-coachmark="tut-pin"
+          onClick={() => onPin(entry.text)}
+          disabled={pinned}
+          className={`ml-2 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 align-middle text-[11px] transition-colors ${
+            pinned
+              ? "border-lore-accent text-lore-accent"
+              : "border-lore-border text-lore-muted hover:border-lore-accent hover:text-lore-text"
+          }`}
+        >
+          📌 {pinned ? "Pinned" : "Pin to memory"}
+        </button>
       ) : null}
     </div>
   );

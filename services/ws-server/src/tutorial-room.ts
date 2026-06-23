@@ -30,6 +30,7 @@ import {
   TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_FOES_SIDE,
   TUTORIAL_PARTY_SIDE,
+  type Ability,
   type BattleAction,
   type Command,
   type CommandSummary,
@@ -241,6 +242,52 @@ export class TutorialRoom implements LiveRoom {
       }),
     );
     return { accepted, summary, check: scene.check, actorName: pc.name };
+  }
+
+  /**
+   * Resolve a Scene 6 relight ability check through the engine (the prayer's RP
+   * reach, D3) — a real deterministic d20, rolled for the lead PC (Mira). Mirrors
+   * {@link runScriptedCheck} but takes an explicit check (Scene 6 has no single
+   * `scene.check`; each path carries its own). Returns null when there is no PC.
+   */
+  async runRelightCheck(check: {
+    ability: Ability;
+    skill?: string;
+    dc: number;
+    proficient?: boolean;
+  }): Promise<ScriptedCheckResult | null> {
+    await this.ensureSeeded();
+    const state = await this.engine.getState(this.campaignId);
+    const party = await this.party();
+    const leadId = party[0]?.id;
+    const pc =
+      (leadId ? state.entities[leadId] : undefined) ??
+      Object.values(state.entities).find((e) => e.kind === "character");
+    if (!pc) return null;
+
+    const { accepted, summary } = await this.apply(
+      checkAction(pc.id, check.ability, {
+        skill: check.skill,
+        dc: check.dc,
+        proficient: check.proficient,
+      }),
+    );
+    return {
+      accepted,
+      summary,
+      actorName: pc.name,
+      // Re-shape the explicit check into the shared result's `check` field so the
+      // caller renders the row the same way as `runScriptedCheck`.
+      check: {
+        ability: check.ability,
+        skill: check.skill,
+        dc: check.dc,
+        proficient: check.proficient,
+        prompt: "",
+        successText: "",
+        failureText: "",
+      },
+    };
   }
 
   /**

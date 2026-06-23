@@ -19,10 +19,13 @@ import {
   FIXTURE_BATTLE_PARTY_SIDE,
   TUTORIAL_CHEST_LOOT,
   TUTORIAL_HOOK,
+  TUTORIAL_OIL_NAME,
+  TUTORIAL_RESOLUTION,
   TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
   TUTORIAL_SCENE_SPIRE_LOWER,
+  TUTORIAL_SCENE_SPIRE_UPPER,
   type EntityState,
   type WorldState,
 } from "@app/engine";
@@ -173,6 +176,8 @@ function LiveBattle({
   hudExtra,
   onEntityClick,
   onReactionPass,
+  onPin,
+  pinnedTexts,
 }: {
   session: LiveSession;
   title: string;
@@ -191,6 +196,10 @@ function LiveBattle({
   onEntityClick?: (name: string) => void;
   /** Tutorial Scene 5: resume the paused combat loop after a passed OA (#174). */
   onReactionPass?: () => void;
+  /** Tutorial Scene 6: pin a GM message to memory (#175); absent elsewhere. */
+  onPin?: (text: string) => void;
+  /** Texts already pinned, so the pin affordance reflects state (#175). */
+  pinnedTexts?: ReadonlySet<string>;
 }) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
@@ -480,6 +489,8 @@ function LiveBattle({
                   onSend={session.sendChat}
                   thinking={session.gmThinking}
                   onEntityClick={onEntityClick}
+                  onPin={onPin}
+                  pinnedTexts={pinnedTexts}
                 />
               </div>
             </aside>
@@ -840,12 +851,35 @@ const TUTORIAL_SCENE5_COACHMARKS: readonly CoachmarkDef[] = [
   },
 ];
 
+/**
+ * Scene 6's coachmarks (TUT-1, #175) — the finale. Fired by server signals: the
+ * level-up notice when the hero crosses the threshold, and the pin affordance on
+ * the memory-demo beat.
+ */
+const TUTORIAL_SCENE6_COACHMARKS: readonly CoachmarkDef[] = [
+  {
+    id: "tut-scene6-levelup",
+    anchor: "tut-levelup",
+    title: "You leveled up",
+    body: "In a normal campaign you'd open the Level-Up Wizard to pick new features. We'll skip that for the tutorial — but it lives on your character sheet anytime you're ready to advance.",
+    trigger: { kind: "on_action", action: "leveled-up" },
+  },
+  {
+    id: "tut-scene6-pin",
+    anchor: "tut-pin",
+    title: "You can pin anything to memory",
+    body: "The AI-GM uses pinned facts in future sessions to stay consistent. Try pinning the moment Lily gives you her father's key — it'll show in your campaign's Memory panel.",
+    trigger: { kind: "on_action", action: "pin-demo" },
+  },
+];
+
 const TUTORIAL_COACHMARKS: readonly CoachmarkDef[] = [
   ...TUTORIAL_SCENE1_COACHMARKS,
   ...TUTORIAL_SCENE2_COACHMARKS,
   ...TUTORIAL_SCENE3_COACHMARKS,
   ...TUTORIAL_SCENE4_COACHMARKS,
   ...TUTORIAL_SCENE5_COACHMARKS,
+  ...TUTORIAL_SCENE6_COACHMARKS,
 ];
 
 export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
@@ -854,6 +888,11 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const [lilySpoken, setLilySpoken] = useState(false);
   const [invOpen, setInvOpen] = useState(false);
   const [helpUsed, setHelpUsed] = useState(false);
+  const [relightSent, setRelightSent] = useState(false);
+
+  const [pinnedTexts, setPinnedTexts] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const world = trpc.tutorial.world.useQuery();
   const inventory = trpc.tutorial.inventory.useQuery();
@@ -861,6 +900,7 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const acceptHook = trpc.tutorial.acceptHook.useMutation();
   const companionJoin = trpc.tutorial.companionJoin.useMutation();
   const grantOil = trpc.tutorial.grantOil.useMutation();
+  const createPin = trpc.pins.create.useMutation();
 
   const hookStatus = world.data?.hookStatus ?? null;
   const companionJoined = world.data?.companionJoined ?? false;
@@ -869,21 +909,35 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const inScene2 = sceneId === TUTORIAL_SCENE_HEARTH;
   const inScene3 = sceneId === TUTORIAL_SCENE_CROOKED_LANE;
   const inScene4 = sceneId === TUTORIAL_SCENE_SPIRE_LOWER;
+  const inScene6 = sceneId === TUTORIAL_SCENE_SPIRE_UPPER;
   const hookActive = hookStatus === "active";
   const hookOffered = lilySpoken || hookStatus === "active";
+  // The lantern is lit once the central hook is resolved (Scene 6 finale).
+  const lanternLit = hookStatus === "resolved";
 
   const items = inventory.data?.items ?? [];
   const oilGranted = items.some((i) => i.name === TUTORIAL_SHOP.listings[0]?.name);
+  const oilInPack = items.some((i) => i.name === TUTORIAL_OIL_NAME);
   const lootClaimed = items.some((i) => i.name === TUTORIAL_CHEST_LOOT[0]?.name);
 
-  // Server signalled the scripted chest loot landed — refresh the drawer.
+  // Server signalled the scripted chest loot landed (or Scene 6 consumed the
+  // oil) — refresh the drawer + the inventory query.
   useEffect(() => {
     if (session.lootNonce === 0) return;
     void utils.tutorial.inventory.invalidate();
-    setInvOpen(true);
   }, [session.lootNonce, utils]);
 
   const signals = session.tutorialSignals;
+
+  // Scene 6 resolution signals (server-driven, #175): once the finale fires, the
+  // hook is resolved + XP awarded — refetch the world (and inventory) so the
+  // relight controls retire and the level-up state is current.
+  const sawPin = signals.includes("pin");
+  useEffect(() => {
+    if (!sawPin) return;
+    void utils.tutorial.world.invalidate();
+    void utils.tutorial.inventory.invalidate();
+  }, [sawPin, utils]);
 
   // Drive the action-triggered coachmarks off live state.
   const firedActions = useMemo(() => {
@@ -897,8 +951,30 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     if (signals.includes("combat")) a.push("combat-start");
     if (signals.includes("npc-turn")) a.push("npc-turn");
     if (signals.includes("reaction")) a.push("oa-reaction");
+    // Scene 6 finale signals (server-driven, #175).
+    if (signals.includes("leveled-up")) a.push("leveled-up");
+    if (sawPin) a.push("pin-demo");
     return a;
-  }, [inScene2, hookActive, companionJoined, oilGranted, helpUsed, signals]);
+  }, [inScene2, hookActive, companionJoined, oilGranted, helpUsed, signals, sawPin]);
+
+  function pinMessage(text: string) {
+    if (pinnedTexts.has(text)) return;
+    setPinnedTexts((prev) => new Set(prev).add(text));
+    createPin.mutate(
+      { campaignId, content: text },
+      {
+        onError: () =>
+          // Roll back the optimistic pin if the write failed.
+          setPinnedTexts((prev) => {
+            const next = new Set(prev);
+            next.delete(text);
+            return next;
+          }),
+      },
+    );
+  }
+
+  const leveledUp = signals.includes("leveled-up");
 
   function pickLock(help: boolean) {
     if (help) setHelpUsed(true);
@@ -929,6 +1005,11 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         setInvOpen(true);
       },
     });
+  }
+
+  function relight(path: string) {
+    setRelightSent(true);
+    session.tutorialRelight(path);
   }
 
   const accepting = acceptHook.isPending || companionJoin.isPending;
@@ -1085,6 +1166,79 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         </div>
       )}
 
+      {inScene6 && (
+        <div className="space-y-2 rounded-lg border border-lore-accent bg-lore-surface p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-lore-text">
+            <span aria-hidden>🪔</span>
+            The great lantern
+          </div>
+          {lanternLit ? (
+            <div className="text-xs font-medium text-lore-accent">
+              ✓ The lantern burns again — the Hungering Forest pulls back from the
+              village. Pin a memory below, then press Continue to finish.
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-lore-muted">
+                Light it however you can — each way tells a slightly different
+                story, and the engine resolves what your choice can do.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {oilInPack && (
+                  <button
+                    type="button"
+                    onClick={() => relight("oil")}
+                    disabled={relightSent}
+                    className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+                  >
+                    Use the Oil of Brightness
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => relight("flint")}
+                  disabled={relightSent}
+                  className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+                >
+                  Marlowe&apos;s flint &amp; oil
+                </button>
+                <button
+                  type="button"
+                  onClick={() => relight("prayer")}
+                  disabled={relightSent}
+                  className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+                >
+                  Recite the Order&apos;s prayer (Religion)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => relight("improv")}
+                  disabled={relightSent}
+                  className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+                >
+                  Try something else
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {leveledUp && (
+        <div
+          data-coachmark="tut-levelup"
+          className="space-y-1 rounded-lg border border-lore-accent bg-lore-accent-dim p-3"
+        >
+          <div className="flex items-center gap-2 text-sm font-semibold text-lore-text">
+            <span aria-hidden>✨</span>
+            You leveled up!
+          </div>
+          <p className="text-xs text-lore-muted">
+            {TUTORIAL_RESOLUTION.levelUp.notice}
+          </p>
+        </div>
+      )}
+
       {hookOffered && (
         <div
           data-coachmark="tut-hook"
@@ -1127,6 +1281,8 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         hudExtra={hudExtra}
         onEntityClick={setDrawerName}
         onReactionPass={session.tutorialResume}
+        onPin={pinMessage}
+        pinnedTexts={pinnedTexts}
       />
       <TutorialEntityDrawer
         name={drawerName}

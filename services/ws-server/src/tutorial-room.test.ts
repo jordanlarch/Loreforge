@@ -200,6 +200,27 @@ describe("TutorialRoom", () => {
     expect(await room.runScriptedCheck()).toBeNull();
   });
 
+  it("rolls the Scene 6 prayer relight check through the engine for the lead PC (#175)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+
+    const result = await room.runRelightCheck({
+      ability: "int",
+      skill: "Religion",
+      dc: 10,
+      proficient: false,
+    });
+
+    expect(result?.accepted).toBe(true);
+    // The lead (Mira) rolls — a real deterministic engine verdict, not faked.
+    expect(result?.actorName).toBe("Mira Thornwood");
+    expect(result?.check.skill).toBe("Religion");
+    expect(typeof (result?.summary as { total?: number }).total).toBe("number");
+    expect(typeof (result?.summary as { success?: boolean }).success).toBe(
+      "boolean",
+    );
+  });
+
   it("resolves the chest check with advantage and always rolls for the lead PC", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);

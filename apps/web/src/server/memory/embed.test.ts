@@ -1,7 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite/vector";
 import { drizzle } from "drizzle-orm/pglite";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { tasks } from "@trigger.dev/sdk/v3";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Database } from "@app/db";
 import * as schema from "@app/db/schema";
@@ -13,6 +14,10 @@ import {
 } from "@app/memory";
 
 import { embedRealmEntityOnWrite } from "./embed";
+
+vi.mock("@trigger.dev/sdk/v3", () => ({
+  tasks: { trigger: vi.fn(async () => ({ id: "run_1" })) },
+}));
 
 const OWNER = "00000000-0000-4000-8000-000000000001";
 const ENTITY = "00000000-0000-4000-8000-0000000000a1";
@@ -70,13 +75,20 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await pg.exec("DELETE FROM embeddings;");
+  vi.mocked(tasks.trigger).mockClear();
+  // The dispatch branch keys off this; default to "not configured" so the
+  // inline-path tests are deterministic regardless of the ambient env.
+  delete process.env.TRIGGER_SECRET_KEY;
 });
 
 describe("embedRealmEntityOnWrite", () => {
   const originalKey = process.env.OPENAI_API_KEY;
+  const originalTrigger = process.env.TRIGGER_SECRET_KEY;
   afterEach(() => {
     if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = originalKey;
+    if (originalTrigger === undefined) delete process.env.TRIGGER_SECRET_KEY;
+    else process.env.TRIGGER_SECRET_KEY = originalTrigger;
   });
 
   it("embeds via an injected client so the entity is retrievable", async () => {
@@ -101,5 +113,28 @@ describe("embedRealmEntityOnWrite", () => {
   it("skips stubs", async () => {
     await embedRealmEntityOnWrite(db, { ...entity, isStub: true }, { client });
     expect(await rowCount()).toBe(0);
+  });
+
+  it("dispatches to the durable job when Trigger is configured (MEM-7)", async () => {
+    process.env.TRIGGER_SECRET_KEY = "tr_dev_test";
+    await embedRealmEntityOnWrite(db, entity); // no injected client
+    expect(tasks.trigger).toHaveBeenCalledWith("embed-entity", {
+      entityId: ENTITY,
+    });
+    // Dispatched, not embedded inline.
+    expect(await rowCount()).toBe(0);
+  });
+
+  it("never dispatches for stubs even when Trigger is configured", async () => {
+    process.env.TRIGGER_SECRET_KEY = "tr_dev_test";
+    await embedRealmEntityOnWrite(db, { ...entity, isStub: true });
+    expect(tasks.trigger).not.toHaveBeenCalled();
+  });
+
+  it("stays inline (no dispatch) when an explicit client is injected", async () => {
+    process.env.TRIGGER_SECRET_KEY = "tr_dev_test";
+    await embedRealmEntityOnWrite(db, entity, { client });
+    expect(tasks.trigger).not.toHaveBeenCalled();
+    expect(await rowCount()).toBe(1);
   });
 });

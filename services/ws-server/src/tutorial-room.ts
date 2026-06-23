@@ -71,6 +71,8 @@ export class TutorialRoom implements LiveRoom {
   private seeded = false;
   /** Whether the Shade has already run its one scripted disengage (the OA beat). */
   private shadeFled = false;
+  /** Whether the Scene 7 wrap (closing narration) has already been posted. */
+  private graduated = false;
 
   constructor(
     private readonly campaignId: string,
@@ -117,6 +119,7 @@ export class TutorialRoom implements LiveRoom {
     await this.store.truncate(this.campaignId, baseline);
     this.engine = new Engine({ store: this.store });
     this.shadeFled = false;
+    this.graduated = false;
   }
 
   /** Whether the Shade has already run its scripted disengage (Opportunity-Attack beat). */
@@ -127,6 +130,16 @@ export class TutorialRoom implements LiveRoom {
   /** Record that the Shade has run its one scripted disengage. */
   markShadeFled(): void {
     this.shadeFled = true;
+  }
+
+  /** Whether the Scene 7 wrap has already been posted (fire-once, #176). */
+  hasGraduated(): boolean {
+    return this.graduated;
+  }
+
+  /** Record that the Scene 7 wrap narration has been posted. */
+  markGraduated(): void {
+    this.graduated = true;
   }
 
   /**

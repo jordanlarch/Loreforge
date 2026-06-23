@@ -9,7 +9,12 @@
  * persistent rows. `get` resolves the current run; `skip` records that the user
  * bailed (the frictionless skip→starter handoff lands in a later slice).
  */
-import { TUTORIAL_FIRST_SCENE_ID, TUTORIAL_HOOK } from "@app/engine";
+import {
+  TUTORIAL_ACHIEVEMENT_FIRST_LIGHT,
+  TUTORIAL_ACHIEVEMENT_FIRST_STEPS,
+  TUTORIAL_FIRST_SCENE_ID,
+  TUTORIAL_HOOK,
+} from "@app/engine";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -20,6 +25,7 @@ import {
   characters,
   getDb,
   plotHooks,
+  tutorialAchievements,
   tutorialProgress,
   tutorialSeenFeatures,
 } from "@app/db";
@@ -58,6 +64,21 @@ async function tutorialHero(
     .limit(1);
   if (!row) return null;
   return { id: row.id, equipment: (row.equipment ?? []) as EquipmentItem[] };
+}
+
+/**
+ * Unlock a tutorial achievement for a user (TUT-1, #176). Idempotent: the unique
+ * `(owner, achievement)` index makes a repeat unlock a no-op, so the Scene 2
+ * hook-accept and the Scene 7 completion can each fire it freely.
+ */
+async function unlockAchievement(
+  ownerId: string,
+  achievementId: string,
+): Promise<void> {
+  await getDb()
+    .insert(tutorialAchievements)
+    .values({ ownerId, achievementId })
+    .onConflictDoNothing();
 }
 
 /** The pregenerated tutorial hero (`docs/onboarding/tutorial-adventure.md` §2.1). */
@@ -298,6 +319,8 @@ export const tutorialRouter = createTRPCRouter({
         ),
       )
       .returning();
+    // First Steps (TUT-1, §10): accepting the first hook unlocks the bronze badge.
+    await unlockAchievement(ctx.user.id, TUTORIAL_ACHIEVEMENT_FIRST_STEPS);
     return row ?? null;
   }),
 
@@ -386,4 +409,39 @@ export const tutorialRouter = createTRPCRouter({
         .onConflictDoNothing();
       return { ok: true };
     }),
+
+  /* --------------------------------------------------------------------- *
+   *  Scene 7 — wrap & handoff: completion + achievements (TUT-1, #176, D8)
+   * --------------------------------------------------------------------- */
+
+  /** The achievement ids the current user has unlocked (drives the modal badges). */
+  achievements: protectedProcedure.query(async ({ ctx }) => {
+    const rows = await getDb()
+      .select({ achievementId: tutorialAchievements.achievementId })
+      .from(tutorialAchievements)
+      .where(eq(tutorialAchievements.ownerId, ctx.user.id));
+    return rows.map((r) => r.achievementId);
+  }),
+
+  /**
+   * Graduate the tutorial (Scene 7): mark the run completed and unlock the
+   * **First Light** achievement. Idempotent — re-completing only touches
+   * timestamps, and the achievement unlock is upsert-safe — so the graduation
+   * modal can re-open on a reload (D7, graduation always). Returns the full
+   * unlocked-achievement set so the client can render the badges immediately.
+   */
+  complete: protectedProcedure.mutation(async ({ ctx }) => {
+    const db = getDb();
+    const now = new Date();
+    await db
+      .update(tutorialProgress)
+      .set({ status: "completed", completedAt: now, updatedAt: now })
+      .where(eq(tutorialProgress.ownerId, ctx.user.id));
+    await unlockAchievement(ctx.user.id, TUTORIAL_ACHIEVEMENT_FIRST_LIGHT);
+    const rows = await db
+      .select({ achievementId: tutorialAchievements.achievementId })
+      .from(tutorialAchievements)
+      .where(eq(tutorialAchievements.ownerId, ctx.user.id));
+    return { ok: true, achievements: rows.map((r) => r.achievementId) };
+  }),
 });

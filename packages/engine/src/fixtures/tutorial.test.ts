@@ -6,9 +6,13 @@ import {
   buildTutorialSeedCommands,
   classifyScene2Topic,
   nextTutorialScene,
+  tutorialAchievement,
   tutorialBeat,
   tutorialRelightPath,
   tutorialScene,
+  TUTORIAL_ACHIEVEMENT_FIRST_LIGHT,
+  TUTORIAL_ACHIEVEMENT_FIRST_STEPS,
+  TUTORIAL_ACHIEVEMENTS,
   TUTORIAL_CHEST_LOOT,
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
@@ -22,6 +26,7 @@ import {
   TUTORIAL_SCENE_SPIRE_STAIR,
   TUTORIAL_SCENE_SPIRE_UPPER,
   TUTORIAL_SHADE_ID,
+  TUTORIAL_WRAP,
 } from "./tutorial";
 
 const CAMPAIGN = "tut:fixture-test";
@@ -292,5 +297,36 @@ describe("tutorial script", () => {
     // A failed prayer converges narratively on the standard (warm-gold) outcome.
     expect(prayer?.check?.failureText).toMatch(/warm gold/i);
     expect(tutorialRelightPath("not-a-path")).toBeUndefined();
+  });
+
+  it("defines exactly the two tutorial achievements (Scene 7, #176)", () => {
+    const ids = TUTORIAL_ACHIEVEMENTS.map((a) => a.id);
+    expect(ids).toEqual([
+      TUTORIAL_ACHIEVEMENT_FIRST_STEPS,
+      TUTORIAL_ACHIEVEMENT_FIRST_LIGHT,
+    ]);
+    // Each badge carries display copy for the graduation modal.
+    for (const a of TUTORIAL_ACHIEVEMENTS) {
+      expect(a.title.length).toBeGreaterThan(0);
+      expect(a.description.length).toBeGreaterThan(0);
+      expect(a.unlockedWhen.length).toBeGreaterThan(0);
+    }
+    expect(tutorialAchievement(TUTORIAL_ACHIEVEMENT_FIRST_STEPS)?.title).toBe(
+      "First Steps",
+    );
+    expect(tutorialAchievement(TUTORIAL_ACHIEVEMENT_FIRST_LIGHT)?.title).toBe(
+      "First Light",
+    );
+    expect(tutorialAchievement("not-an-achievement")).toBeUndefined();
+  });
+
+  it("carries the Scene 7 wrap copy: closing beat + static recap", () => {
+    expect(TUTORIAL_WRAP.narration.length).toBeGreaterThan(0);
+    expect(TUTORIAL_WRAP.sessionComplete).toMatch(/complete/i);
+    expect(TUTORIAL_WRAP.subtitle).toMatch(/complete/i);
+    // The static recap lists the features the player exercised (no share gen).
+    expect(TUTORIAL_WRAP.used.length).toBeGreaterThan(0);
+    expect(TUTORIAL_WRAP.used).toContain("Tier-4 combat with reactions");
+    expect(TUTORIAL_WRAP.closing.length).toBeGreaterThan(0);
   });
 });

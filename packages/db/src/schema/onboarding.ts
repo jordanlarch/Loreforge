@@ -79,3 +79,34 @@ export const tutorialSeenFeatures = pgTable(
     index("tutorial_seen_features_owner_idx").on(t.ownerId),
   ],
 );
+
+/**
+ * Per-user tutorial achievement ledger (TUT-1, #176, §10).
+ *
+ * Records the two warm "I did this" moments the tutorial unlocks — **First
+ * Steps** (accepting the first plot hook in Scene 2) and **First Light**
+ * (completing the tutorial in Scene 7). Both show in the graduation modal. This
+ * is deliberately *not* a general achievement system (out of v1 scope, D8): a
+ * minimal owner-scoped table keyed by a stable string `achievement_id`, with the
+ * unique `(owner, achievement)` pair making the "unlock" write an idempotent
+ * upsert. Owner-scoped, no FK, app-scoped — matching the rest of the schema.
+ */
+export const tutorialAchievements = pgTable(
+  "tutorial_achievements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id").notNull(),
+    /** Stable id of the achievement (e.g. "first-steps", "first-light"). */
+    achievementId: text("achievement_id").notNull(),
+    unlockedAt: timestamp("unlocked_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("tutorial_achievements_owner_achievement_unique").on(
+      t.ownerId,
+      t.achievementId,
+    ),
+    index("tutorial_achievements_owner_idx").on(t.ownerId),
+  ],
+);

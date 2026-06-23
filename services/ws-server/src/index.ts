@@ -31,6 +31,7 @@ import {
   tutorialRelightPath,
   tutorialScene,
   TUTORIAL_SHADE_ID,
+  TUTORIAL_WRAP,
   type TutorialRelightPath,
   type WorldState,
 } from "@app/engine";
@@ -122,7 +123,8 @@ type TutorialAction =
   | "say"
   | "companion"
   | "resume"
-  | "relight";
+  | "relight"
+  | "wrap";
 
 /** Stateless message protocol (client → server). */
 type ClientMessage =
@@ -160,7 +162,8 @@ function parseMessage(payload: string): ClientMessage | null {
       action === "say" ||
       action === "companion" ||
       action === "resume" ||
-      action === "relight"
+      action === "relight" ||
+      action === "wrap"
     ) {
       return {
         t: "tutorial",
@@ -975,6 +978,35 @@ async function tutorialRelight(
 }
 
 /**
+ * Scene 7 wrap (TUT-1, #176): post the closing GM beat + the session-complete
+ * summary line, then broadcast the `graduated` signal so the surface opens the
+ * graduation modal. LLM-free (D3); fires exactly once per room (re-sends are
+ * no-ops). The completion DB write + achievement unlock are owned by the web
+ * `tutorial.complete` mutation (D4) — this only narrates the handoff.
+ */
+async function tutorialWrap(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+): Promise<void> {
+  if (room.hasGraduated()) return;
+  // Only wrap once the finale has actually resolved (the lantern is lit).
+  const parsed = parseRoom(documentName);
+  const campaignId = parsed?.kind === "campaign" ? parsed.campaignId : undefined;
+  if (campaignId && (await getTutorialHookStatus(campaignId)) !== "resolved") {
+    return;
+  }
+  room.markGraduated();
+  await appendAndPersist(document, documentName, [
+    gmEntry(TUTORIAL_WRAP.narration, chatDeps),
+    gmEntry(TUTORIAL_WRAP.sessionComplete, chatDeps),
+  ]);
+  tutorialSignal(document, "graduated");
+}
+
+/**
  * The Scene 5 combat driver (TUT-1): after the player acts, run the Shade and
  * companion turns through the real engine, apply the near-death safety net, and
  * on victory advance to Scene 6. Pauses on an open party reaction window so the
@@ -1078,6 +1110,14 @@ async function handleTutorial(
     // Scene 6 finale: light the lantern via the chosen path (`topic`), then run
     // the shared resolution (hook resolved, XP/level, reputation, memory pin).
     await tutorialRelight(room, document, documentName, topic ?? "improv");
+    return;
+  }
+
+  if (action === "wrap") {
+    // Scene 7 wrap: post the closing narration + session-complete summary and
+    // signal the surface to open the graduation modal (completion + achievement
+    // writes are owned by the web `tutorial.complete` mutation).
+    await tutorialWrap(room, document, documentName);
     return;
   }
 

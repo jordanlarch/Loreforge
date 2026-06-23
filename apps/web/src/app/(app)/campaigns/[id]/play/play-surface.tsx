@@ -172,6 +172,7 @@ function LiveBattle({
   tutorialControls,
   hudExtra,
   onEntityClick,
+  onReactionPass,
 }: {
   session: LiveSession;
   title: string;
@@ -188,6 +189,8 @@ function LiveBattle({
   hudExtra?: ReactNode;
   /** When set, narration @Entity chips become clickable (tutorial drawer, #171). */
   onEntityClick?: (name: string) => void;
+  /** Tutorial Scene 5: resume the paused combat loop after a passed OA (#174). */
+  onReactionPass?: () => void;
 }) {
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
@@ -550,11 +553,13 @@ function LiveBattle({
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
         {/* Map zone */}
         <section>
-          <CombatOverlay
-            round={vm.round}
-            activeName={vm.activeName}
-            order={vm.order}
-          />
+          <div data-coachmark="tut-combat">
+            <CombatOverlay
+              round={vm.round}
+              activeName={vm.activeName}
+              order={vm.order}
+            />
+          </div>
 
           {controllableTurn && !paused && (
             <CombatActionBar
@@ -627,6 +632,9 @@ function LiveBattle({
               }}
               onPass={() => {
                 if (reactionKey) setDismissedReaction(reactionKey);
+                // Tutorial Scene 5: a passed/timed-out OA must resume the paused
+                // server loop (the Shade's turn) so the fight plays on.
+                onReactionPass?.();
               }}
             />
           )}
@@ -803,11 +811,41 @@ const TUTORIAL_SCENE4_COACHMARKS: readonly CoachmarkDef[] = [
   },
 ];
 
+/**
+ * Scene 5's coachmarks (TUT-1, #174) — the first real fight. Fired by server
+ * signals: combat starting (Tier-4 framing), the companion taking his own turn,
+ * and the Shade provoking the player's one Opportunity-Attack reaction.
+ */
+const TUTORIAL_SCENE5_COACHMARKS: readonly CoachmarkDef[] = [
+  {
+    id: "tut-scene5-combat",
+    anchor: "tut-combat",
+    title: "This is real combat",
+    body: "Full Tier-4, multiplayer-ready combat — initiative, action economy, saves, and reactions all run on the deterministic engine. Move, then arm an Attack or Cast.",
+    trigger: { kind: "on_action", action: "combat-start" },
+  },
+  {
+    id: "tut-scene5-npc-turn",
+    anchor: "tut-combat",
+    title: "Brennar plays himself",
+    body: "Companions act on their own initiative — Brennar will heal you when you're hurt or strike the foe with Sacred Flame. You only control your own character.",
+    trigger: { kind: "on_action", action: "npc-turn" },
+  },
+  {
+    id: "tut-scene5-reaction",
+    anchor: "tut-combat",
+    title: "You have a reaction",
+    body: "The Shade broke away from you — that provokes an Opportunity Attack. Take it for a free swing, or pass. Reactions happen on other creatures' turns.",
+    trigger: { kind: "on_action", action: "oa-reaction" },
+  },
+];
+
 const TUTORIAL_COACHMARKS: readonly CoachmarkDef[] = [
   ...TUTORIAL_SCENE1_COACHMARKS,
   ...TUTORIAL_SCENE2_COACHMARKS,
   ...TUTORIAL_SCENE3_COACHMARKS,
   ...TUTORIAL_SCENE4_COACHMARKS,
+  ...TUTORIAL_SCENE5_COACHMARKS,
 ];
 
 export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
@@ -845,6 +883,8 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     setInvOpen(true);
   }, [session.lootNonce, utils]);
 
+  const signals = session.tutorialSignals;
+
   // Drive the action-triggered coachmarks off live state.
   const firedActions = useMemo(() => {
     const a: string[] = [];
@@ -853,8 +893,12 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     if (companionJoined) a.push("companion-joined");
     if (oilGranted) a.push("oil-granted");
     if (helpUsed) a.push("help-used");
+    // Scene 5 combat signals (server-driven, #174).
+    if (signals.includes("combat")) a.push("combat-start");
+    if (signals.includes("npc-turn")) a.push("npc-turn");
+    if (signals.includes("reaction")) a.push("oa-reaction");
     return a;
-  }, [inScene2, hookActive, companionJoined, oilGranted, helpUsed]);
+  }, [inScene2, hookActive, companionJoined, oilGranted, helpUsed, signals]);
 
   function pickLock(help: boolean) {
     if (help) setHelpUsed(true);
@@ -1082,6 +1126,7 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         tutorialControls={tutorialControls}
         hudExtra={hudExtra}
         onEntityClick={setDrawerName}
+        onReactionPass={session.tutorialResume}
       />
       <TutorialEntityDrawer
         name={drawerName}

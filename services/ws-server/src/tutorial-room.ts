@@ -68,6 +68,8 @@ export type ScriptedCheckResult = {
 export class TutorialRoom implements LiveRoom {
   private engine: Engine;
   private seeded = false;
+  /** Whether the Shade has already run its one scripted disengage (the OA beat). */
+  private shadeFled = false;
 
   constructor(
     private readonly campaignId: string,
@@ -113,6 +115,42 @@ export class TutorialRoom implements LiveRoom {
     const baseline = await baselineSequence(await this.seedCommands());
     await this.store.truncate(this.campaignId, baseline);
     this.engine = new Engine({ store: this.store });
+    this.shadeFled = false;
+  }
+
+  /** Whether the Shade has already run its scripted disengage (Opportunity-Attack beat). */
+  shadeHasFled(): boolean {
+    return this.shadeFled;
+  }
+
+  /** Record that the Shade has run its one scripted disengage. */
+  markShadeFled(): void {
+    this.shadeFled = true;
+  }
+
+  /**
+   * The near-death safety net (TUT-1, #174): top the lead PC (Mira) back up when
+   * she is downed so the tutorial fight can never be lost. Applies a direct
+   * engine heal (Brennar steadying her); a no-op if she is already up or truly
+   * dead. Returns whether the heal was applied.
+   */
+  async rescueLead(amount: number): Promise<boolean> {
+    await this.ensureSeeded();
+    const state = await this.engine.getState(this.campaignId);
+    const party = await this.party();
+    const leadId = party[0]?.id;
+    const lead =
+      (leadId ? state.entities[leadId] : undefined) ??
+      Object.values(state.entities).find(
+        (e) => e.kind === "character" && e.id !== TUTORIAL_COMPANION.id,
+      );
+    if (!lead || lead.dead || lead.hp.current > 0) return false;
+    const { accepted } = await this.engine.execute(this.campaignId, {
+      type: "apply_healing",
+      target: lead.id,
+      source: { amount },
+    });
+    return accepted;
   }
 
   async getState(): Promise<WorldState> {

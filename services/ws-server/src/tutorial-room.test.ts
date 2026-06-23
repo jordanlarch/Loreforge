@@ -9,6 +9,8 @@ import {
   TUTORIAL_SCENE_HOLLOWS_EDGE,
   TUTORIAL_SCENE_SPIRE_LOWER,
   TUTORIAL_SCENE_SPIRE_STAIR,
+  TUTORIAL_SCENE_SPIRE_UPPER,
+  TUTORIAL_SHADE_ID,
   type PartyMember,
 } from "@app/engine";
 
@@ -104,21 +106,54 @@ describe("TutorialRoom", () => {
 
     const state = await room.getState();
     expect(state.encounter).toBeDefined();
-    // The PC and both shadow foes are in initiative.
+    // The PC and the single Hungering Shade foe are in initiative (#174).
     const ids = state.encounter!.order.map((o) => o.entity);
     expect(ids).toContain(MIRA.id);
-    expect(ids.filter((id) => id.startsWith("npc:tut-shadow"))).toHaveLength(2);
+    expect(ids).toContain(TUTORIAL_SHADE_ID);
+    expect(ids.filter((id) => id.startsWith("npc:tut-shade"))).toHaveLength(1);
   });
 
-  it("returns null when advancing past the end of the script", async () => {
+  it("advances from the Stair to the Upper Chamber finale, then ends (#174)", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
     await room.advance(); // → Hearth
     await room.advance(); // → Crooked Lane
     await room.advance(); // → Spire Lower Hall
-    await room.advance(); // → the Stair (the last entry)
+    await room.advance(); // → the Stair (combat)
+
+    const finale = await room.advance(); // → the Upper Chamber (Scene 6)
+    expect(finale?.sceneId).toBe(TUTORIAL_SCENE_SPIRE_UPPER);
+    expect(finale?.combat).toBeFalsy();
 
     expect(await room.advance()).toBeNull();
+  });
+
+  it("rescues a downed lead via the near-death safety net (#174)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    await room.getState();
+    // Drop Mira to 0 HP through the engine, then the safety net heals her.
+    // (apply_damage is a Command, not a BattleAction — cast for the test.)
+    await room.apply({
+      type: "apply_damage",
+      target: MIRA.id,
+      damageType: "necrotic",
+      source: { amount: MIRA.maxHp },
+    } as unknown as Parameters<typeof room.apply>[0]);
+    expect((await room.getState()).entities[MIRA.id]?.hp.current).toBe(0);
+
+    expect(await room.rescueLead(8)).toBe(true);
+    expect((await room.getState()).entities[MIRA.id]?.hp.current).toBeGreaterThan(0);
+    // Idempotent once she's up: a second rescue is a no-op.
+    expect(await room.rescueLead(8)).toBe(false);
+  });
+
+  it("tracks the Shade's one scripted disengage", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    expect(room.shadeHasFled()).toBe(false);
+    room.markShadeFled();
+    expect(room.shadeHasFled()).toBe(true);
   });
 
   it("returns canned Scene 2 dialogue beats for a topic (soft rail)", async () => {

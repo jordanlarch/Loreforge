@@ -17,6 +17,7 @@
  */
 import type { Command } from "../commands/types";
 import type { Ability, GridPosition } from "../entities/types";
+import { monsterTemplate } from "../content/monsters";
 import type { FoeSpec, PartyMember } from "./battle";
 import { FIXTURE_BATTLE_FOES_SIDE, FIXTURE_BATTLE_PARTY_SIDE } from "./battle";
 
@@ -33,6 +34,7 @@ export const TUTORIAL_SCENE_HEARTH = "scene:tut-hearth";
 export const TUTORIAL_SCENE_CROOKED_LANE = "scene:tut-crooked-lane";
 export const TUTORIAL_SCENE_SPIRE_LOWER = "scene:tut-spire-lower";
 export const TUTORIAL_SCENE_SPIRE_STAIR = "scene:tut-spire-stair";
+export const TUTORIAL_SCENE_SPIRE_UPPER = "scene:tut-spire-upper";
 
 /** A scripted loot item granted on a successful check (D4). Plain data so both
  * the engine fixture and the DB grant (ws-server) share one definition; the
@@ -172,34 +174,34 @@ function relocateCompanion(sceneId: string, position: GridPosition): Command[] {
   ];
 }
 
-/** Where the Scene 5 shadows stand on the stair (parallel to the foe list). */
-const SPIRE_STAIR_FOE_CELLS: readonly GridPosition[] = [
-  { x: 8, y: 2 },
-  { x: 9, y: 4 },
-];
+/** The stable entity id of the tutorial's combat foe (the Hungering Shade). */
+export const TUTORIAL_SHADE_ID = "npc:tut-shade";
 
 /**
- * The shadow creatures that ambush the party on the stair (Scene 5). A pair of
- * low-HP foes — a winnable first fight that demonstrates the combat loop with
- * the companion. Full Scene 5 polish (narration, AI tuning) is a later slice.
+ * Where the Hungering Shade ambushes from — adjacent to Mira's stair cell, so it
+ * bites on Round 1 and (when the driver scripts its disengage) provokes a real
+ * Opportunity Attack from her.
+ */
+const SPIRE_STAIR_FOE_CELLS: readonly GridPosition[] = [{ x: 3, y: 8 }];
+
+/**
+ * The Scene 5 encounter foe: a single Hungering Shade, built from the shared
+ * `MONSTER_TEMPLATE` (AC) so the bestiary stays the single source of truth. A
+ * winnable first fight — enough HP for 3–5 rounds, never a real threat to a
+ * Brennar-healed Mira.
  */
 const TUTORIAL_STAIR_FOES: readonly FoeSpec[] = [
-  {
-    id: "npc:tut-shadow-a",
-    name: "Gloom Shade",
-    abilityScores: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
-    maxHp: 9,
-    baseAc: 12,
-    speed: 30,
-  },
-  {
-    id: "npc:tut-shadow-b",
-    name: "Gloom Shade",
-    abilityScores: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
-    maxHp: 9,
-    baseAc: 12,
-    speed: 30,
-  },
+  (() => {
+    const t = monsterTemplate("hungering-shade")!;
+    return {
+      id: TUTORIAL_SHADE_ID,
+      name: t.name,
+      abilityScores: t.abilityScores,
+      maxHp: t.maxHp,
+      baseAc: t.baseAc,
+      speed: t.speed,
+    };
+  })(),
 ];
 
 /**
@@ -398,9 +400,35 @@ export const TUTORIAL_SCRIPT: readonly TutorialSceneScript[] = [
       })),
     ],
     narration:
-      "Shadows pour down the stair. \"Stay close,\" Brennar breathes, lifting his " +
+      "Something peels away from the dark of the stair — a shape of living " +
+      "shadow, cold pouring off it. \"Stay close,\" Brennar breathes, lifting his " +
       "holy symbol. Roll for initiative — the engine takes it from here.",
     combat: { foes: TUTORIAL_STAIR_FOES, foePositions: SPIRE_STAIR_FOE_CELLS },
+  },
+  {
+    id: TUTORIAL_SCENE_SPIRE_UPPER,
+    name: "The Lantern Spire · Upper Chamber",
+    enter: (party) => [
+      {
+        type: "create_scene",
+        scene: {
+          id: TUTORIAL_SCENE_SPIRE_UPPER,
+          name: "The Lantern Spire · Upper Chamber",
+          description:
+            "The top of the spire: a cold round room, the great lantern dark on its pedestal, and Marlowe the Lampkeeper still beside it. The shade is gone; the silence is enormous.",
+          map: { width: 10, height: 8, blockedCells: SPIRE_UPPER_WALLS },
+        },
+      },
+      { type: "change_scene", sceneId: TUTORIAL_SCENE_SPIRE_UPPER },
+      ...relocateLead(party, TUTORIAL_SCENE_SPIRE_UPPER, SPIRE_UPPER_START),
+      ...relocateCompanion(TUTORIAL_SCENE_SPIRE_UPPER, SPIRE_UPPER_COMPANION_CELL),
+    ],
+    narration:
+      "The cold leaves the room in a single, silent rush. At the top of the spire " +
+      "the great lantern stands dark on its pedestal, and Marlowe the Lampkeeper " +
+      "lies beside it, still. Brennar kneels and closes the old man's eyes. " +
+      "\"Light it however you can,\" he says quietly. What do you do?",
+    mentions: ["Marlowe the Lampkeeper", "The Lantern Spire"],
   },
 ];
 
@@ -441,7 +469,7 @@ const SPIRE_LOWER_WALLS: GridPosition[] = [
   { x: 9, y: 7 },
 ];
 
-/** Scene 5 (the Stair) combat layout: party low, shadows high on the stair. */
+/** Scene 5 (the Stair) combat layout: party low, the shade ambushing from it. */
 const SPIRE_STAIR_START: GridPosition = { x: 2, y: 8 };
 const SPIRE_STAIR_COMPANION_CELL: GridPosition = { x: 2, y: 6 };
 const SPIRE_STAIR_WALLS: GridPosition[] = [
@@ -449,6 +477,14 @@ const SPIRE_STAIR_WALLS: GridPosition[] = [
   { x: 6, y: 3 },
   { x: 6, y: 7 },
   { x: 6, y: 8 },
+];
+
+/** Scene 6 (Upper Chamber) layout: the pedestal/lantern, the PC, the companion. */
+const SPIRE_UPPER_START: GridPosition = { x: 4, y: 6 };
+const SPIRE_UPPER_COMPANION_CELL: GridPosition = { x: 5, y: 6 };
+const SPIRE_UPPER_WALLS: GridPosition[] = [
+  { x: 4, y: 3 }, // the lantern pedestal, centre
+  { x: 5, y: 3 },
 ];
 
 /** The first scene's id — what a freshly-seeded tutorial starts on. */

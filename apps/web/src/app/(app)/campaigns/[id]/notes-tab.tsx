@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
+import { linkifyMentions, hasMentions } from "@/lib/notes-mentions";
 import { trpc } from "@/lib/trpc/client";
 
 type Note = {
@@ -143,7 +145,12 @@ function NoteEditor({
     setBody(note.body);
     setShared(note.shared);
     setPinnedAt(null);
+    setConvertedAt(null);
   }, [note.id, note.title, note.body, note.shared]);
+
+  const [convertedAt, setConvertedAt] = useState<number | null>(null);
+
+  const entities = trpc.realms.list.useQuery();
 
   const update = trpc.notes.update.useMutation({ onSuccess: onSaved });
   const remove = trpc.notes.remove.useMutation({ onSuccess: onDeleted });
@@ -151,6 +158,12 @@ function NoteEditor({
     onSuccess: async () => {
       setPinnedAt(Date.now());
       await utils.pins.list.invalidate({ campaignId });
+    },
+  });
+  const convert = trpc.hooks.create.useMutation({
+    onSuccess: async () => {
+      setConvertedAt(Date.now());
+      await utils.hooks.list.invalidate({ campaignId });
     },
   });
 
@@ -162,6 +175,22 @@ function NoteEditor({
     .filter(Boolean)
     .join("\n")
     .slice(0, PIN_MAX);
+
+  // Hook title: the note title, else the first non-empty body line.
+  const hookTitle = (title.trim() || body.trim().split("\n")[0] || "").slice(
+    0,
+    200,
+  );
+
+  // `@Entity` autolink segments for the live preview (CAMP-9).
+  const segments = useMemo(
+    () =>
+      linkifyMentions(
+        body,
+        (entities.data ?? []).map((e) => ({ id: e.id, name: e.name })),
+      ),
+    [body, entities.data],
+  );
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-lore-border bg-lore-surface p-4">
@@ -190,7 +219,7 @@ function NoteEditor({
           />
           Shared with players
         </label>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {pinnedAt ? (
             <span className="text-sm text-lore-accent">📌 Pinned to memory</span>
           ) : (
@@ -202,6 +231,25 @@ function NoteEditor({
               className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
             >
               {pin.isPending ? "Pinning…" : "📌 Pin to memory"}
+            </button>
+          )}
+          {convertedAt ? (
+            <span className="text-sm text-lore-accent">🪝 Hook created</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                convert.mutate({
+                  campaignId,
+                  title: hookTitle,
+                  summary: body.trim().slice(0, 2000),
+                })
+              }
+              disabled={convert.isPending || hookTitle.length === 0}
+              title="Turn this note into a campaign plot hook"
+              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+            >
+              {convert.isPending ? "Converting…" : "🪝 Convert to hook"}
             </button>
           )}
           <button
@@ -223,10 +271,35 @@ function NoteEditor({
             Delete
           </button>
         </div>
-        {pin.error && (
-          <p className="w-full text-sm text-red-400">{pin.error.message}</p>
+        {(pin.error || convert.error) && (
+          <p className="w-full text-sm text-red-400">
+            {pin.error?.message ?? convert.error?.message}
+          </p>
         )}
       </div>
+
+      {hasMentions(segments) && (
+        <div className="rounded border border-lore-border bg-lore-bg p-3">
+          <span className="text-xs uppercase tracking-widest text-lore-muted">
+            Linked entities
+          </span>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-lore-text">
+            {segments.map((seg, idx) =>
+              seg.kind === "mention" ? (
+                <Link
+                  key={idx}
+                  href={`/realms/${seg.entityId}`}
+                  className="text-lore-accent hover:underline"
+                >
+                  {seg.text}
+                </Link>
+              ) : (
+                <span key={idx}>{seg.text}</span>
+              ),
+            )}
+          </p>
+        </div>
+      )}
     </section>
   );
 }

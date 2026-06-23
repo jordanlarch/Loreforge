@@ -197,6 +197,16 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     provider.sendStateless(JSON.stringify({ t: "chat", mode, text }));
   }
 
+  /**
+   * Fire a scripted tutorial trigger (TUT-1). The server (a `TutorialRoom`)
+   * advances the scene or resolves the offered check and broadcasts the result;
+   * non-tutorial rooms ignore it. Gated through `send` so the map shows busy
+   * until the new projection arrives.
+   */
+  function tutorialAction(action: "advance" | "check") {
+    send({ t: "tutorial", action });
+  }
+
   return {
     state,
     isLoading: status === "connecting" && state === undefined,
@@ -207,6 +217,8 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     chat,
     gmThinking,
     sendChat,
+    tutorialAdvance: () => tutorialAction("advance"),
+    tutorialCheck: () => tutorialAction("check"),
     moveToken: (id: string, to: Cell) =>
       send({ t: "cmd", action: { type: "move_entity", entity: id, to } }),
     endTurn: () => send({ t: "cmd", action: { type: "end_turn" } }),

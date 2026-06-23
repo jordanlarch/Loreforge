@@ -44,6 +44,14 @@ export const campaigns = pgTable(
       .default("async"),
     /** Campaign-level art-style lock label (Q16). Free text / preset label. */
     artStyle: text("art_style").notNull().default(""),
+    /**
+     * Marks the per-user onboarding tutorial campaign ("Lantern's Last Flicker",
+     * TUT-1). When set, the live room runs the scripted `TutorialRoom` (seeds the
+     * tutorial scene graph + scene-advance driver) instead of the default
+     * encounter seed. A real owned campaign otherwise (D4), so it round-trips
+     * through the same surfaces.
+     */
+    isTutorial: boolean("is_tutorial").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

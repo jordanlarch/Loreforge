@@ -28,6 +28,7 @@ import {
   checkAction,
   opportunityAttackAction,
   triggerReadiedAction,
+  tutorialScene,
   type WorldState,
 } from "@app/engine";
 import type { LlmClient } from "@app/llm";
@@ -49,9 +50,11 @@ import {
   getCampaignParty,
   getEventStore,
   isCampaignOwner,
+  isTutorialCampaign,
   loadChatMessages,
   loadRollingSummary,
   persistChatMessages,
+  setTutorialScene,
 } from "./db.js";
 import {
   isSummaryConfigured,
@@ -80,6 +83,7 @@ import {
   retrieveWorldKnowledge,
 } from "./world-knowledge.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
+import { TutorialRoom } from "./tutorial-room.js";
 
 const PORT = Number(process.env.PORT ?? process.env.WS_PORT ?? 1234);
 const SUPABASE_URL =
@@ -94,11 +98,15 @@ const verifier = buildVerifier({
 });
 const authConfigured = Boolean(SUPABASE_URL || LEGACY_SECRET);
 
+/** A scripted tutorial trigger from the client (TUT-1). */
+type TutorialAction = "advance" | "check";
+
 /** Stateless message protocol (client → server). */
 type ClientMessage =
   | { t: "cmd"; action: unknown }
   | { t: "reset" }
-  | { t: "chat"; mode?: string; text: string };
+  | { t: "chat"; mode?: string; text: string }
+  | { t: "tutorial"; action: TutorialAction };
 
 function parseMessage(payload: string): ClientMessage | null {
   let value: unknown;
@@ -117,6 +125,12 @@ function parseMessage(payload: string): ClientMessage | null {
     if (!isChatInput({ mode, text })) return null;
     return { t: "chat", mode: mode as string | undefined, text: text as string };
   }
+  if (message.t === "tutorial") {
+    const { action } = message as { action?: unknown };
+    if (action === "advance" || action === "check") {
+      return { t: "tutorial", action };
+    }
+  }
   return null;
 }
 
@@ -132,19 +146,24 @@ const REJECTED = JSON.stringify({ t: "rejected" });
 /** In-memory rooms, keyed by documentName. Evicted when the last client leaves. */
 const rooms = new Map<string, LiveRoom>();
 
-function roomFor(documentName: string): LiveRoom {
+async function roomFor(documentName: string): Promise<LiveRoom> {
   let room = rooms.get(documentName);
   if (!room) {
     const parsed = parseRoom(documentName);
-    room =
-      parsed?.kind === "campaign"
-        ? new CampaignRoom(
+    if (parsed?.kind === "campaign") {
+      // The per-user onboarding campaign runs the scripted TutorialRoom (its
+      // own scene graph + advance driver) rather than the default encounter.
+      room = (await isTutorialCampaign(parsed.campaignId))
+        ? new TutorialRoom(parsed.campaignId, getEventStore(), getCampaignParty)
+        : new CampaignRoom(
             parsed.campaignId,
             getEventStore(),
             getCampaignParty,
             getCampaignEncounter,
-          )
-        : new BattleRoom();
+          );
+    } else {
+      room = new BattleRoom();
+    }
     rooms.set(documentName, room);
   }
   return room;
@@ -621,6 +640,62 @@ async function runEnemyTurns(
   }
 }
 
+/**
+ * Drive a scripted tutorial trigger (TUT-1). `advance` runs the next scene's
+ * commands, broadcasts the new projection, persists the resume pointer (D6), and
+ * posts the scene's canned GM narration. `check` resolves the scene's offered
+ * ability check through the engine (a real deterministic roll), then posts the
+ * engine row + the pre-written success/failure copy. Both are LLM-free, so the
+ * tutorial works air-gapped.
+ */
+async function handleTutorial(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  action: TutorialAction,
+): Promise<void> {
+  if (action === "advance") {
+    const result = await room.advance();
+    writeProjection(document, await room.getState());
+    if (!result) return;
+    const parsed = parseRoom(documentName);
+    if (parsed?.kind === "campaign") {
+      await setTutorialScene(parsed.campaignId, result.sceneId);
+    }
+    await appendAndPersist(document, documentName, [
+      gmEntry(result.narration, chatDeps),
+    ]);
+    return;
+  }
+
+  // action === "check"
+  const result = await room.runScriptedCheck();
+  writeProjection(document, await room.getState());
+  if (!result) return;
+  const summary = result.summary as
+    | { total?: number; success?: boolean }
+    | undefined;
+  if (!result.accepted || !summary || typeof summary.total !== "number") return;
+
+  const success = summary.success ?? false;
+  await appendAndPersist(document, documentName, [
+    checkEntry(
+      {
+        actorName: result.actorName,
+        abilityLabel: abilityLabel(result.check.ability),
+        skill: result.check.skill,
+        total: summary.total,
+        dc: result.check.dc,
+        success,
+      },
+      chatDeps,
+    ),
+    gmEntry(success ? result.check.successText : result.check.failureText, chatDeps),
+  ]);
+}
+
 const server = new Hocuspocus({
   name: "loreforge-ws",
   port: PORT,
@@ -651,7 +726,7 @@ const server = new Hocuspocus({
   },
 
   async onLoadDocument({ document, documentName }) {
-    const room = roomFor(documentName);
+    const room = await roomFor(documentName);
     await room.ensureSeeded();
     writeProjection(document, await room.getState());
     // Re-hydrate persisted chat so a cold-loaded campaign room resumes the
@@ -659,7 +734,18 @@ const server = new Hocuspocus({
     const parsed = parseRoom(documentName);
     if (parsed?.kind === "campaign") {
       const history = await loadChatMessages(parsed.campaignId);
-      if (history.length > 0) appendChat(document, history);
+      if (history.length > 0) {
+        appendChat(document, history);
+      } else if (room instanceof TutorialRoom) {
+        // First load of a fresh tutorial: open with the scripted GM hook (TUT-1)
+        // so the player lands in-fiction, even with the LLM unconfigured.
+        const opening = tutorialScene((await room.getState()).currentSceneId);
+        if (opening) {
+          await appendAndPersist(document, documentName, [
+            gmEntry(opening.narration, chatDeps),
+          ]);
+        }
+      }
     }
     // If a foe won initiative, let it act before the first player join sees the
     // board — so combat never opens stuck on an enemy's turn.
@@ -670,7 +756,14 @@ const server = new Hocuspocus({
   async onStateless({ connection, document, documentName, payload }) {
     const message = parseMessage(payload);
     if (!message) return;
-    const room = roomFor(documentName);
+    const room = await roomFor(documentName);
+
+    if (message.t === "tutorial") {
+      if (room instanceof TutorialRoom) {
+        await handleTutorial(room, document, documentName, message.action);
+      }
+      return;
+    }
 
     if (message.t === "cmd") {
       if (!isBattleAction(message.action)) {

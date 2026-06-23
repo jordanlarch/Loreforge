@@ -30,7 +30,7 @@ import {
 } from "@app/engine";
 
 /** Deterministic clock so a re-seeded room reproduces the same fixture state. */
-const FIXED_CLOCK = () => 0;
+export const FIXED_CLOCK = () => 0;
 
 /** The outcome of applying one action: the legality verdict + (if accepted) the
  * command's summary, so callers can read mechanical results (e.g. an ability
@@ -88,7 +88,9 @@ export class BattleRoom implements LiveRoom {
  * Recomputed from the (deterministic) seed so it stays correct whether the room
  * was seeded with the fixture or a real campaign roster.
  */
-async function baselineSequence(commands: readonly Command[]): Promise<number> {
+export async function baselineSequence(
+  commands: readonly Command[],
+): Promise<number> {
   const probe = new Engine({ now: FIXED_CLOCK });
   const probeId = "probe:seed-baseline";
   for (const command of commands) {

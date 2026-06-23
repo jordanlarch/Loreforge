@@ -304,3 +304,17 @@ export type {
   FixtureCharacter,
   SavingThrow,
 } from "./fixtures/party";
+export {
+  buildTutorialSeedCommands,
+  nextTutorialScene,
+  tutorialScene,
+  TUTORIAL_FALLBACK_PARTY,
+  TUTORIAL_FIRST_SCENE_ID,
+  TUTORIAL_PC_NAME,
+  TUTORIAL_SCENE_HEARTH_STUB,
+  TUTORIAL_SCENE_HOLLOWS_EDGE,
+  TUTORIAL_SCRIPT,
+  type PartyMemberLike,
+  type TutorialCheck,
+  type TutorialSceneScript,
+} from "./fixtures/tutorial";

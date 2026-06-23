@@ -122,6 +122,15 @@ export {
 } from "./combat/death";
 export { areHostile, provokesOpportunityAttack, REACH_FEET } from "./combat/reactions";
 export {
+  ENCOUNTER_XP_THRESHOLDS,
+  encounterMultiplier,
+  partyThresholds,
+  rateEncounter,
+  type EncounterDifficulty,
+  type EncounterRating,
+  type XpThresholds,
+} from "./combat/encounter-budget";
+export {
   applyAbilityBonuses,
   ASI_LEVELS,
   baseArmorClass,

@@ -21,6 +21,10 @@ export type MonsterTemplate = {
   maxHp: number;
   baseAc: number;
   speed: number;
+  /** Challenge Rating label (e.g. "1/4", "2"). Display + provenance only. */
+  cr: string;
+  /** Experience-point value used for encounter difficulty budgeting (DMG). */
+  xp: number;
 };
 
 /** The curated foe templates, keyed by slug. */
@@ -32,6 +36,8 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     maxHp: 7,
     baseAc: 15,
     speed: 30,
+    cr: "1/4",
+    xp: 50,
   },
   orc: {
     slug: "orc",
@@ -40,6 +46,8 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     maxHp: 15,
     baseAc: 13,
     speed: 30,
+    cr: "1/2",
+    xp: 100,
   },
   wolf: {
     slug: "wolf",
@@ -48,6 +56,8 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     maxHp: 11,
     baseAc: 13,
     speed: 40,
+    cr: "1/4",
+    xp: 50,
   },
   skeleton: {
     slug: "skeleton",
@@ -56,6 +66,8 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     maxHp: 13,
     baseAc: 13,
     speed: 30,
+    cr: "1/4",
+    xp: 50,
   },
   bandit: {
     slug: "bandit",
@@ -64,6 +76,8 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     maxHp: 11,
     baseAc: 12,
     speed: 30,
+    cr: "1/8",
+    xp: 25,
   },
   ogre: {
     slug: "ogre",
@@ -72,6 +86,8 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     maxHp: 59,
     baseAc: 11,
     speed: 40,
+    cr: "2",
+    xp: 450,
   },
 };
 

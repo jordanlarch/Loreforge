@@ -1,9 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { MONSTER_TEMPLATES, MONSTER_TEMPLATE_LIST } from "@app/engine";
+import {
+  MONSTER_TEMPLATES,
+  MONSTER_TEMPLATE_LIST,
+  rateEncounter,
+  totalLevel,
+  type EncounterDifficulty,
+} from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 
@@ -30,6 +36,44 @@ function foeSummary(foes: FoeRow[]): string {
     .join(", ");
 }
 
+/** Expand foe rows into one XP entry per individual foe (unknown slugs → 0). */
+function foeXps(foes: FoeRow[]): number[] {
+  const xps: number[] = [];
+  for (const row of foes) {
+    const xp = MONSTER_TEMPLATES[row.template]?.xp ?? 0;
+    for (let i = 0; i < row.count; i += 1) xps.push(xp);
+  }
+  return xps;
+}
+
+const DIFFICULTY_STYLE: Record<EncounterDifficulty, { label: string; cls: string }> = {
+  trivial: { label: "Trivial", cls: "border-lore-border text-lore-muted" },
+  easy: { label: "Easy", cls: "border-emerald-500/60 text-emerald-400" },
+  medium: { label: "Medium", cls: "border-amber-500/60 text-amber-400" },
+  hard: { label: "Hard", cls: "border-orange-500/60 text-orange-400" },
+  deadly: { label: "Deadly", cls: "border-red-500/60 text-red-400" },
+  unknown: { label: "No party", cls: "border-lore-border text-lore-muted" },
+};
+
+/** Small colored chip showing an encounter's difficulty for the current party. */
+function DifficultyBadge({
+  difficulty,
+  title,
+}: {
+  difficulty: EncounterDifficulty;
+  title?: string;
+}) {
+  const { label, cls } = DIFFICULTY_STYLE[difficulty];
+  return (
+    <span
+      title={title}
+      className={`rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 /**
  * Combat tab (#115, CAMP-8): author named encounters from a small monster
  * catalog and **Run Now** to seed them into Live Play. Removes the goblin-only
@@ -40,6 +84,16 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
   const router = useRouter();
   const encounters = trpc.campaigns.encounters.useQuery({ campaignId });
+  const party = trpc.campaigns.party.useQuery({ campaignId });
+
+  // Every active combatant (PCs + companions) counts toward the XP budget.
+  const partyLevels = useMemo(
+    () =>
+      (party.data ?? [])
+        .filter((m) => m.status !== "bench")
+        .map((m) => Math.max(1, totalLevel(m.classes ?? []))),
+    [party.data],
+  );
 
   async function refresh() {
     await utils.campaigns.encounters.invalidate({ campaignId });
@@ -65,7 +119,11 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
         current one).
       </p>
 
-      <NewEncounterForm campaignId={campaignId} onCreated={refresh} />
+      <NewEncounterForm
+        campaignId={campaignId}
+        partyLevels={partyLevels}
+        onCreated={refresh}
+      />
 
       {encounters.isLoading ? (
         <p className="text-sm text-lore-muted">Loading encounters…</p>
@@ -91,6 +149,19 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
                       Armed
                     </span>
                   )}
+                  {(() => {
+                    const rating = rateEncounter(partyLevels, foeXps(enc.foes));
+                    return (
+                      <DifficultyBadge
+                        difficulty={rating.difficulty}
+                        title={
+                          rating.difficulty === "unknown"
+                            ? "Add party members to rate difficulty"
+                            : `Adjusted ${rating.adjustedXp} XP (×${rating.multiplier}) vs party thresholds — E ${rating.thresholds.easy} / M ${rating.thresholds.medium} / H ${rating.thresholds.hard} / D ${rating.thresholds.deadly}`
+                        }
+                      />
+                    );
+                  })()}
                 </div>
                 <p className="mt-1 text-sm text-lore-muted">
                   {foeSummary(enc.foes)}
@@ -128,15 +199,22 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
 
 function NewEncounterForm({
   campaignId,
+  partyLevels,
   onCreated,
 }: {
   campaignId: string;
+  partyLevels: number[];
   onCreated: () => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [rows, setRows] = useState<FoeRow[]>([
     { template: MONSTER_TEMPLATE_LIST[0]!.slug, count: 1 },
   ]);
+
+  const rating = useMemo(
+    () => rateEncounter(partyLevels, foeXps(rows)),
+    [partyLevels, rows],
+  );
   const create = trpc.campaigns.createEncounter.useMutation({
     onSuccess: async () => {
       setName("");
@@ -253,6 +331,18 @@ function NewEncounterForm({
         >
           {create.isPending ? "Saving…" : "Save encounter"}
         </button>
+
+        <div className="ml-auto flex items-center gap-2 text-xs text-lore-muted">
+          <span>Difficulty</span>
+          <DifficultyBadge difficulty={rating.difficulty} />
+          {rating.difficulty === "unknown" ? (
+            <span>add party to rate</span>
+          ) : (
+            <span>
+              {rating.adjustedXp} XP{rating.multiplier !== 1 && ` (×${rating.multiplier})`}
+            </span>
+          )}
+        </div>
       </div>
     </form>
   );

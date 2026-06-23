@@ -141,6 +141,13 @@
       "when": 1782243142877,
       "tag": "0019_tutorial_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782244538394,
+      "tag": "0020_tutorial_seen_features",
+      "breakpoints": true
     }
   ]
 }

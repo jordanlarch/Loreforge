@@ -9,9 +9,9 @@ import type { EquipmentItem, SpellLoadout } from "./characters";
 import * as schema from "./index";
 
 // Hand-create just the tables under test (mirrors migrations 0000 + 0008 +
-// 0012). The full migration set can't run on PGlite because earlier migrations
-// use the pgvector `vector` type, so — like pg-event-store.test.ts — we DDL
-// locally.
+// 0012 + 0019). The full migration set can't run on PGlite because earlier
+// migrations use the pgvector `vector` type, so — like pg-event-store.test.ts —
+// we DDL locally.
 const DDL = `
   CREATE TABLE campaigns (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -22,6 +22,7 @@ const DDL = `
     gm_persona text NOT NULL DEFAULT '',
     play_mode text NOT NULL DEFAULT 'async',
     art_style text NOT NULL DEFAULT '',
+    is_tutorial boolean NOT NULL DEFAULT false,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   );

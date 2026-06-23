@@ -16,6 +16,7 @@ import { HooksTab } from "./hooks-tab";
 import { NotesTab } from "./notes-tab";
 import { OverviewTab } from "./overview-tab";
 import { PartyTab } from "./party-tab";
+import { SessionsTab } from "./sessions-tab";
 import { SettingsTab } from "./settings-tab";
 import { WorldTab } from "./world-tab";
 
@@ -139,6 +140,8 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
           <WorldTab campaignId={campaignId} />
         ) : active === "hooks" ? (
           <HooksTab campaignId={campaignId} />
+        ) : active === "sessions" ? (
+          <SessionsTab campaignId={campaignId} />
         ) : active === "combat" ? (
           <CombatTab campaignId={campaignId} />
         ) : active === "notes" ? (

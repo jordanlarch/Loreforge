@@ -10,6 +10,7 @@
  * the same account share one live battle. The renderer below is unchanged.
  */
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -180,6 +181,16 @@ function LiveBattle({
   // Client-side session pause (#101): freezes the local turn UI + clock. The
   // server-authoritative engine freeze is a deferred follow-up.
   const [paused, setPaused] = useState(false);
+
+  // End-session (PLAY-12, #151): record the session + generate a recap (MEM-4),
+  // then return to the workspace Sessions tab where the recap appears. Only for
+  // real campaigns (the sandbox has nothing to record against).
+  const router = useRouter();
+  const endSession = trpc.sessions.end.useMutation({
+    onSettled: () => {
+      if (campaignId) router.push(`/campaigns/${campaignId}?tab=sessions`);
+    },
+  });
 
   // Scene transition (#103): watch the synced scene id and cross-fade + drop a
   // location banner when the engine advances to a new scene.
@@ -395,6 +406,10 @@ function LiveBattle({
         showTurnActions={controllableTurn}
         onEndTurn={session.endTurn}
         onReset={session.reset}
+        onEndSession={
+          campaignId ? () => endSession.mutate({ campaignId }) : undefined
+        }
+        endingSession={endSession.isPending}
         rejected={session.rejected}
         pacing={{
           prefs: pacingPrefs,

@@ -29,6 +29,7 @@ import {
   opportunityAttackAction,
   triggerReadiedAction,
   tutorialScene,
+  TUTORIAL_SHADE_ID,
   type WorldState,
 } from "@app/engine";
 import type { LlmClient } from "@app/llm";
@@ -78,6 +79,15 @@ import {
   planMonsterTurn,
   readiedTriggersToFire,
 } from "./enemy-ai.js";
+import {
+  COMPANION_ID,
+  activeCombatant,
+  leadPc,
+  partyReactionPending,
+  planCompanionTurn,
+  shadeFleeMove,
+  tutorialCombatOver,
+} from "./tutorial-combat.js";
 import { writeProjection } from "./projection.js";
 import {
   retrievePinnedMemories,
@@ -100,7 +110,12 @@ const verifier = buildVerifier({
 const authConfigured = Boolean(SUPABASE_URL || LEGACY_SECRET);
 
 /** A scripted tutorial trigger from the client (TUT-1). */
-type TutorialAction = "advance" | "check" | "say" | "companion";
+type TutorialAction =
+  | "advance"
+  | "check"
+  | "say"
+  | "companion"
+  | "resume";
 
 /** Stateless message protocol (client → server). */
 type ClientMessage =
@@ -136,7 +151,8 @@ function parseMessage(payload: string): ClientMessage | null {
       action === "advance" ||
       action === "check" ||
       action === "say" ||
-      action === "companion"
+      action === "companion" ||
+      action === "resume"
     ) {
       return {
         t: "tutorial",
@@ -655,6 +671,243 @@ async function runEnemyTurns(
   }
 }
 
+/* ------------------------------------------------------------------------- *
+ *  Tutorial Scene 5 — scripted combat driver (TUT-1, #174)
+ * ------------------------------------------------------------------------- */
+
+/** HP the safety net restores when the lead is downed (a guaranteed rescue). */
+const TUTORIAL_RESCUE_HP = 8;
+
+/** Broadcast a tutorial UI signal (loot/combat coachmarks) to every tab. */
+function tutorialSignal(
+  document: { broadcastStateless(payload: string): void },
+  event: string,
+): void {
+  try {
+    document.broadcastStateless(JSON.stringify({ t: "tutorial", event }));
+  } catch {
+    // Best-effort UX hint; never let it break the loop.
+  }
+}
+
+/**
+ * Whether the Shade should run its scripted disengage now: past the opening
+ * round, not already fled, and currently biting the lead (adjacent) so that
+ * leaving provokes her one Opportunity-Attack beat.
+ */
+function shouldShadeFlee(room: TutorialRoom, state: WorldState): boolean {
+  if (room.shadeHasFled()) return false;
+  const enc = state.encounter;
+  if (!enc || enc.round < 2) return false;
+  const lead = leadPc(state);
+  return Boolean(lead?.alive) && shadeFleeMove(state) !== undefined;
+}
+
+/**
+ * Run the foe (Hungering Shade) turns until a party turn — like `runEnemyTurns`
+ * but air-gapped (no LLM narration) and with the scripted disengage that fires
+ * the player's Opportunity-Attack beat. Returns having either reached a party
+ * turn or paused on an open party reaction window (the OA prompt).
+ */
+async function runTutorialShadeTurns(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  client: LlmClient | undefined,
+): Promise<void> {
+  let guard = 0;
+  while (guard < MAX_ENEMY_TURNS) {
+    guard += 1;
+    let state = await room.getState();
+    const enemy = activeEnemy(state);
+    if (!enemy) return;
+
+    // Scripted disengage (once): step out of the lead's reach to provoke her OA.
+    if (enemy.id === TUTORIAL_SHADE_ID && shouldShadeFlee(room, state)) {
+      const step = shadeFleeMove(state);
+      if (step) {
+        room.markShadeFled();
+        const { accepted } = await room.apply({
+          type: "move_entity",
+          entity: enemy.id,
+          to: step,
+        });
+        if (accepted) {
+          state = await room.getState();
+          writeProjection(document, state);
+          await appendAndPersist(document, documentName, [
+            gmEntry(
+              `The ${enemy.name} lunges past you toward Brennar — leaving your reach!`,
+              chatDeps,
+            ),
+          ]);
+          if (partyReactionPending(state)) {
+            tutorialSignal(document, "reaction");
+            return; // pause: the player takes (or passes) their Opportunity Attack
+          }
+        }
+      }
+    }
+
+    // A normal Shade turn: plan + apply, posting engine resolution rows.
+    const actions = planMonsterTurn(state, enemy.id);
+    for (const action of actions) {
+      const { accepted, summary } = await room.apply(action);
+      if (!accepted) continue;
+      state = await room.getState();
+      writeProjection(document, state);
+      if (action.type === "attack") {
+        await appendAndPersist(document, documentName, [
+          resolutionEntry(
+            action,
+            summary as Record<string, unknown> | undefined,
+            nameResolver(state),
+            chatDeps,
+          ),
+        ]);
+      }
+      await runReadiedTriggers(room, document, documentName, client);
+      state = await room.getState();
+    }
+  }
+}
+
+/** Run Old Brennar's AI turn (heal the lead or Sacred Flame the foe). */
+async function runCompanionTurn(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+): Promise<void> {
+  let state = await room.getState();
+  if (!state.entities[COMPANION_ID]) return;
+  const actions = planCompanionTurn(state);
+  for (const action of actions) {
+    const { accepted, summary } = await room.apply(action);
+    if (!accepted) continue;
+    state = await room.getState();
+    writeProjection(document, state);
+    if (action.type === "cast_spell") {
+      await appendAndPersist(document, documentName, [
+        resolutionEntry(
+          action,
+          summary as Record<string, unknown> | undefined,
+          nameResolver(state),
+          chatDeps,
+        ),
+      ]);
+      const healed = (summary as { healing?: number } | undefined)?.healing;
+      if (typeof healed === "number" && healed > 0) {
+        await appendAndPersist(document, documentName, [
+          gmEntry(
+            `Brennar's eyes flash white-gold — ${healed} HP knit back into the wound.`,
+            chatDeps,
+          ),
+        ]);
+      }
+    }
+  }
+  tutorialSignal(document, "npc-turn");
+}
+
+/** Guaranteed safety net: if the lead is downed (0 HP, not dead), Brennar steadies
+ * her before any death save resolves — the tutorial cannot be lost (D-spec). */
+async function tutorialSafetyNet(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+): Promise<void> {
+  const state = await room.getState();
+  const lead = leadPc(state);
+  if (!lead || lead.dead || lead.hp.current > 0) return;
+  const rescued = await room.rescueLead(TUTORIAL_RESCUE_HP);
+  if (!rescued) return;
+  writeProjection(document, await room.getState());
+  await appendAndPersist(document, documentName, [
+    gmEntry(
+      `"I've got you." Brennar's hand closes over the wound and warmth floods ` +
+        `back — you're on your feet before the dark can take you.`,
+      chatDeps,
+    ),
+  ]);
+  tutorialSignal(document, "rescue");
+}
+
+/** Victory: end the fight narratively and advance to Scene 6 (post-combat). */
+async function tutorialVictory(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+): Promise<void> {
+  await appendAndPersist(document, documentName, [
+    gmEntry(
+      `The Hungering Shade collapses in on itself like extinguished smoke. ` +
+        `Cold leaves the room in a single, silent rush.`,
+      chatDeps,
+    ),
+  ]);
+  const result = await room.advance();
+  writeProjection(document, await room.getState());
+  if (!result) return;
+  const parsed = parseRoom(documentName);
+  if (parsed?.kind === "campaign") {
+    await setTutorialScene(parsed.campaignId, result.sceneId);
+  }
+  await appendAndPersist(document, documentName, [
+    gmEntry(result.narration, chatDeps, { mentions: result.mentions }),
+  ]);
+}
+
+/**
+ * The Scene 5 combat driver (TUT-1): after the player acts, run the Shade and
+ * companion turns through the real engine, apply the near-death safety net, and
+ * on victory advance to Scene 6. Pauses on an open party reaction window so the
+ * player gets their Opportunity-Attack prompt. LLM-free (D3), so it plays
+ * air-gapped. Resuming after the OA is just the next call to this driver.
+ */
+async function runTutorialCombat(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  client: LlmClient | undefined,
+): Promise<void> {
+  let guard = 0;
+  while (guard < MAX_ENEMY_TURNS) {
+    guard += 1;
+    // Foe-side opportunity attacks first (a player move may have provoked one).
+    await runEnemyReactions(room, document, documentName, client);
+    await runTutorialShadeTurns(room, document, documentName, client);
+
+    let state = await room.getState();
+    if (partyReactionPending(state)) return; // wait for the player's OA
+
+    await tutorialSafetyNet(room, document, documentName);
+    state = await room.getState();
+
+    if (tutorialCombatOver(state)) {
+      await tutorialVictory(room, document, documentName);
+      return;
+    }
+
+    const active = activeCombatant(state);
+    if (!active) return;
+    if (active.id === COMPANION_ID) {
+      await runCompanionTurn(room, document, documentName);
+      continue;
+    }
+    return; // the lead's (player's) turn — hand control back
+  }
+}
+
 /**
  * Drive a scripted tutorial trigger (TUT-1). `advance` runs the next scene's
  * commands, broadcasts the new projection, persists the resume pointer (D6), and
@@ -684,6 +937,12 @@ async function handleTutorial(
     await appendAndPersist(document, documentName, [
       gmEntry(result.narration, chatDeps, { mentions: result.mentions }),
     ]);
+    // Entering a combat scene: signal the combat coachmarks and let any
+    // combatant ahead of the lead in initiative act before her first turn.
+    if (result.combat) {
+      tutorialSignal(document, "combat");
+      await runTutorialCombat(room, document, documentName, getNarrationClient());
+    }
     return;
   }
 
@@ -695,6 +954,14 @@ async function handleTutorial(
     await appendAndPersist(document, documentName, [
       gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
     ]);
+    return;
+  }
+
+  if (action === "resume") {
+    // The player passed (or timed out) their Opportunity-Attack reaction: the
+    // paused Scene 5 loop finishes the Shade's turn (clearing the window) and
+    // plays on. A no-op outside combat.
+    await runTutorialCombat(room, document, documentName, getNarrationClient());
     return;
   }
 
@@ -862,8 +1129,14 @@ const server = new Hocuspocus({
         ]);
         // A move may have fled an AI reactor's reach — let foes take their
         // opportunity attacks first, then (if the turn ended) their full turns.
-        await runEnemyReactions(room, document, documentName, getNarrationClient());
-        await runEnemyTurns(room, document, documentName, getNarrationClient());
+        // Tutorial rooms run the scripted Scene 5 driver (companion AI, safety
+        // net, victory→advance) instead of the generic enemy loop.
+        if (room instanceof TutorialRoom) {
+          await runTutorialCombat(room, document, documentName, getNarrationClient());
+        } else {
+          await runEnemyReactions(room, document, documentName, getNarrationClient());
+          await runEnemyTurns(room, document, documentName, getNarrationClient());
+        }
       } else {
         connection.sendStateless(REJECTED);
       }

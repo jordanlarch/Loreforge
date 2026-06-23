@@ -94,6 +94,9 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
   // Bumped whenever the server signals scripted tutorial loot was claimed, so
   // the surface can refresh the inventory drawer (TUT-1 Scene 4, #173).
   const [lootNonce, setLootNonce] = useState(0);
+  // Tutorial combat UI signals seen so far ("combat" | "reaction" | "npc-turn"
+  // | "rescue"), driving the Scene 5 coachmarks (TUT-1, #174).
+  const [tutorialSignals, setTutorialSignals] = useState<string[]>([]);
   const providerRef = useRef<HocuspocusProvider | null>(null);
 
   useEffect(() => {
@@ -144,6 +147,13 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
             } else if (message?.t === "tutorial" && message.event === "loot") {
               // Scripted loot landed in the DB — nudge the surface to refetch.
               setLootNonce((n) => n + 1);
+            } else if (message?.t === "tutorial" && message.event) {
+              // Scene 5 combat UX signals (combat start / OA reaction / NPC turn
+              // / rescue) — record each once for the matching coachmark.
+              const event = message.event;
+              setTutorialSignals((seen) =>
+                seen.includes(event) ? seen : [...seen, event],
+              );
             }
           } catch {
             // ignore malformed server messages
@@ -244,12 +254,15 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     chat,
     gmThinking,
     lootNonce,
+    tutorialSignals,
     sendChat,
     tutorialAdvance: () => tutorialAction("advance"),
     tutorialCheck,
     tutorialSay,
     /** Bring the companion (Brennar) into the scene as a party entity. */
     tutorialCompanion: () => send({ t: "tutorial", action: "companion" }),
+    /** Resume the paused Scene 5 loop after a passed/timed-out OA reaction. */
+    tutorialResume: () => send({ t: "tutorial", action: "resume" }),
     moveToken: (id: string, to: Cell) =>
       send({ t: "cmd", action: { type: "move_entity", entity: id, to } }),
     endTurn: () => send({ t: "cmd", action: { type: "end_turn" } }),

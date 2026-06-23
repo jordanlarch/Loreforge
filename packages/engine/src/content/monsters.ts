@@ -89,6 +89,20 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     cr: "2",
     xp: 450,
   },
+  "hungering-shade": {
+    slug: "hungering-shade",
+    name: "The Hungering Shade",
+    // A Dexterous, hungry void-thing: a +5 bite (Dex +3 + proficiency) and
+    // enough HP to last 3–5 rounds without ever truly threatening a healed Mira.
+    // The custom 1d8+3 necrotic bite from the tutorial spec is narrated; the
+    // engine resolves the derived profile (see TUT-1 note in deferrals).
+    abilityScores: { str: 14, dex: 16, con: 16, int: 6, wis: 12, cha: 10 },
+    maxHp: 35,
+    baseAc: 13,
+    speed: 30,
+    cr: "2",
+    xp: 450,
+  },
 };
 
 /** The catalog as an ordered list (form dropdowns, iteration). */

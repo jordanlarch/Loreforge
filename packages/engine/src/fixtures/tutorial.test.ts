@@ -17,6 +17,8 @@ import {
   TUTORIAL_SCENE_HOLLOWS_EDGE,
   TUTORIAL_SCENE_SPIRE_LOWER,
   TUTORIAL_SCENE_SPIRE_STAIR,
+  TUTORIAL_SCENE_SPIRE_UPPER,
+  TUTORIAL_SHADE_ID,
 } from "./tutorial";
 
 const CAMPAIGN = "tut:fixture-test";
@@ -209,10 +211,12 @@ describe("tutorial script", () => {
     );
   });
 
-  it("arms a combat scene last: the Stair has scripted shadow foes", async () => {
+  it("arms the Stair combat scene with the single Hungering Shade foe", async () => {
     const stair = nextTutorialScene(TUTORIAL_SCENE_SPIRE_LOWER);
     expect(stair?.id).toBe(TUTORIAL_SCENE_SPIRE_STAIR);
-    expect(stair?.combat?.foes.length).toBe(2);
+    // Scene 5 (#174): one boss-flavoured Shade, not the two earlier stub shadows.
+    expect(stair?.combat?.foes.length).toBe(1);
+    expect(stair?.combat?.foes[0]?.id).toBe(TUTORIAL_SHADE_ID);
 
     const engine = await seed();
     // Walk to the stair, running each scene's enter commands.
@@ -228,15 +232,22 @@ describe("tutorial script", () => {
     }
     const state = await engine.getState(CAMPAIGN);
     expect(state.currentSceneId).toBe(TUTORIAL_SCENE_SPIRE_STAIR);
-    // The foes are placed on the map (the driver then arms the encounter).
+    // The foe is placed on the map (the driver then arms the encounter).
     const foes = Object.values(state.entities).filter(
       (e) => e.kind === "monster" && e.sceneId === TUTORIAL_SCENE_SPIRE_STAIR,
     );
-    expect(foes).toHaveLength(2);
+    expect(foes).toHaveLength(1);
+    expect(foes[0]?.id).toBe(TUTORIAL_SHADE_ID);
+  });
+
+  it("advances from the Stair to the Upper Chamber finale (Scene 6, #174)", () => {
+    const upper = nextTutorialScene(TUTORIAL_SCENE_SPIRE_STAIR);
+    expect(upper?.id).toBe(TUTORIAL_SCENE_SPIRE_UPPER);
+    expect(upper?.combat).toBeUndefined();
   });
 
   it("returns no next scene at the end of the script", () => {
-    expect(nextTutorialScene(TUTORIAL_SCENE_SPIRE_STAIR)).toBeUndefined();
+    expect(nextTutorialScene(TUTORIAL_SCENE_SPIRE_UPPER)).toBeUndefined();
     expect(nextTutorialScene("scene:not-a-tutorial-scene")).toBeUndefined();
   });
 });

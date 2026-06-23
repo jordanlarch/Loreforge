@@ -167,7 +167,7 @@ function key(c: GridPosition): string {
  * move cost (`distanceFeet`) against the budget, so any cell in this square is
  * affordable; we mirror its bounds/wall/occupancy checks so the plan is accepted.
  */
-function reachableCells(
+export function reachableCells(
   state: WorldState,
   monster: EntityState,
   budgetCells: number,
@@ -203,8 +203,13 @@ function reachableCells(
   return cells;
 }
 
+/** Whole cells of movement the combatant has left this turn (5-5-5 grid). */
+export function movementCellsLeft(entity: EntityState): number {
+  return movementCells(entity);
+}
+
 /** The reachable cell that gets closest to `target` (tie-break: shortest step). */
-function bestStepToward(
+export function bestStepToward(
   state: WorldState,
   monster: EntityState,
   target: EntityState,

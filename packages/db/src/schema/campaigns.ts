@@ -197,6 +197,43 @@ export const campaignNotes = pgTable(
   ],
 );
 
+/**
+ * Play sessions with auto-generated recaps (#145, MEM-4; `docs/data-sources.md`
+ * §6). A session is a closed span of a campaign's live chat: ending one records
+ * the `[startSeq, endSeq)` range of `chat_messages` it covers and a condensed
+ * `recap`. Unlike the transient rolling summary (MEM-3), a recap is a finalized,
+ * embeddable document — it is embedded into `embeddings` as a `session_recap`
+ * source so it grounds *future* sessions via RAG. Recap text is best-effort:
+ * empty when AI generation is unconfigured. `ownerId` is denormalized for
+ * owner-scoped queries, matching the no-FK, app-scoped convention.
+ */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    /** Chat `seq` this session starts at (the previous session's `endSeq`). */
+    startSeq: integer("start_seq").notNull().default(0),
+    /** Chat length (exclusive end) when the session was ended. */
+    endSeq: integer("end_seq").notNull(),
+    /** Condensed recap of the session ("" when generation is unconfigured). */
+    recap: text("recap").notNull().default(""),
+    /** Resolved model id that produced the recap ("" when none). */
+    model: text("model").notNull().default(""),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("sessions_campaign_idx").on(t.campaignId),
+    index("sessions_owner_idx").on(t.ownerId),
+  ],
+);
+
 /** A resolved dice expression rendered as a structured chat widget (#57). */
 export type ChatDiceRoll = {
   notation: string;

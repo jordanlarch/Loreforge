@@ -60,6 +60,7 @@ function turnEconomy(totalFt = 30) {
     reaction: "available",
     freeInteractionUsed: false,
     movement: { total: totalFt, used: 0 },
+    attacks: { used: 0, total: 1 },
   } as const;
 }
 

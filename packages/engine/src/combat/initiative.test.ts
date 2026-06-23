@@ -52,8 +52,14 @@ describe("freshActionEconomy", () => {
       action: "available",
       bonusAction: "available",
       movement: { used: 0, total: 30 },
+      attacks: { used: 0, total: 1 },
       freeInteractionUsed: false,
     });
+  });
+
+  it("seeds the attack budget from the attacks-per-action argument", () => {
+    expect(freshActionEconomy(30, 3).attacks).toEqual({ used: 0, total: 3 });
+    expect(freshActionEconomy(30, 0).attacks.total).toBe(1);
   });
 
   it("clamps negative speed to zero movement", () => {

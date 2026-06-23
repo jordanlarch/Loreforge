@@ -240,4 +240,30 @@ describe("TutorialRoom", () => {
       "boolean",
     );
   });
+
+  it("serializes actions: acquire fails while one is in flight (#bug2)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+
+    expect(room.acquireAction()).toBe(true);
+    // A second, concurrent action is rejected until the first releases.
+    expect(room.acquireAction()).toBe(false);
+    room.releaseAction();
+    expect(room.acquireAction()).toBe(true);
+  });
+
+  it("plays a one-shot beat at most once until reset (#bug2)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+
+    expect(room.markOnce("say:barnaby")).toBe(true);
+    expect(room.markOnce("say:barnaby")).toBe(false);
+    // A different beat is independent.
+    expect(room.markOnce("say:lily")).toBe(true);
+
+    await room.reset();
+    // Reset clears the played beats + the in-flight latch (full replay).
+    expect(room.markOnce("say:barnaby")).toBe(true);
+    expect(room.acquireAction()).toBe(true);
+  });
 });

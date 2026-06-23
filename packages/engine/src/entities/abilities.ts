@@ -5,6 +5,56 @@
 import { fullCasterSlots } from "../content/spell-slots";
 import type { ClassLevel, EntityInit, EntityState } from "./types";
 
+/**
+ * Classes that gain the Extra Attack feature at level 5 (two attacks per Attack
+ * action). Fighter scales further (3 at 11, 4 at 20) and is handled separately.
+ */
+const EXTRA_ATTACK_CLASSES = new Set([
+  "barbarian",
+  "monk",
+  "paladin",
+  "ranger",
+]);
+
+/** Attacks granted by one Attack action for a single class at a given level. */
+function classAttackCount(cls: string, level: number): number {
+  const name = cls.trim().toLowerCase();
+  if (name === "fighter") {
+    if (level >= 20) return 4;
+    if (level >= 11) return 3;
+    if (level >= 5) return 2;
+    return 1;
+  }
+  if (EXTRA_ATTACK_CLASSES.has(name)) return level >= 5 ? 2 : 1;
+  return 1;
+}
+
+/**
+ * Attacks granted by a single Attack action, derived from class levels. Extra
+ * Attack does not stack across classes, so the best single class wins (SRD).
+ */
+export function extraAttackCount(classes: ClassLevel[]): number {
+  return classes.reduce(
+    (best, c) => Math.max(best, classAttackCount(c.class, c.level)),
+    1,
+  );
+}
+
+/**
+ * How many attacks a creature makes with one Attack action this turn. An
+ * explicit `attacksPerAction` (a monster's Multiattack) wins; otherwise it is
+ * derived from class levels (Extra Attack). Always at least 1.
+ */
+export function attacksPerAction(entity: {
+  attacksPerAction?: number;
+  classes: ClassLevel[];
+}): number {
+  if (typeof entity.attacksPerAction === "number") {
+    return Math.max(1, Math.floor(entity.attacksPerAction));
+  }
+  return extraAttackCount(entity.classes);
+}
+
 /** 5E ability modifier: floor((score - 10) / 2). */
 export function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
@@ -38,6 +88,9 @@ export function createEntityState(init: EntityInit): EntityState {
     speed: init.speed ?? 30,
     classes,
     proficiencyBonus: proficiencyBonusForLevel(level),
+    ...(init.attacksPerAction !== undefined
+      ? { attacksPerAction: init.attacksPerAction }
+      : {}),
     sceneId: init.sceneId,
     position: init.position,
     alive: init.maxHp > 0,

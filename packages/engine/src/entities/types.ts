@@ -71,6 +71,15 @@ export type ActionEconomyState = {
   action: ResourceState;
   bonusAction: ResourceState;
   movement: { used: number; total: number };
+  /**
+   * The Attack action's attack budget for this turn. `total` is the creature's
+   * attacks-per-Attack-action — 1 for most creatures, 2+ with Extra Attack
+   * (martial classes at level 5+) or a monster's Multiattack. `used` counts the
+   * attacks already made this turn. Taking the Attack action spends the single
+   * `action` once; the remaining attacks of that action ride on this budget
+   * without re-spending the action.
+   */
+  attacks: { used: number; total: number };
   /** One free object interaction per turn. */
   freeInteractionUsed: boolean;
 };
@@ -89,6 +98,13 @@ export type EntityState = {
   classes: ClassLevel[];
   /** Proficiency bonus, derived from total level / CR. */
   proficiencyBonus: number;
+  /**
+   * Attacks granted by a single Attack action. Defaults to the Extra Attack
+   * value derived from {@link classes} (1, or 2+ for martial classes at level
+   * 5+). Set explicitly to model a monster's Multiattack (e.g. 2 or 3). Read via
+   * `attacksPerAction(entity)`.
+   */
+  attacksPerAction?: number;
   sceneId?: SceneId;
   position?: GridPosition;
   /** True while current HP > 0. Maintained by the projection. */
@@ -197,6 +213,9 @@ export type EntityInit = {
   baseAc: number;
   speed?: number;
   classes?: ClassLevel[];
+  /** Override attacks-per-Attack-action (monster Multiattack). Defaults to the
+   * Extra Attack value derived from `classes`. */
+  attacksPerAction?: number;
   sceneId?: SceneId;
   position?: GridPosition;
   spellcasting?: SpellcastingInit;

@@ -298,6 +298,14 @@ function LiveBattle({
       : castableSpellsFor(activeEntity)
     : [];
 
+  // Action-economy gating for the action bar: how many attacks remain in the
+  // Attack action's budget (Extra Attack / Multiattack) and whether the single
+  // action is still free (cast / ready). One attack per turn for most PCs.
+  const econ = activeEntity?.actionEconomy;
+  const attacksLeft = econ ? Math.max(0, econ.attacks.total - econ.attacks.used) : 0;
+  const canAttack = attacksLeft > 0;
+  const canAct = econ?.action === "available";
+
   // A confirmation line while the active PC holds a readied action (#104). The
   // engine clears `readied` at the start of the owner's next turn.
   const readiedNote =
@@ -580,6 +588,9 @@ function LiveBattle({
               disabled={session.isBusy}
               aimReady={aimCell !== null}
               readiedNote={readiedNote}
+              canAttack={canAttack}
+              canAct={canAct}
+              attacksLeft={attacksLeft}
               onAttack={(attack) => setArmed({ kind: "attack", attack })}
               onCast={(spell) => setArmed({ kind: "cast", spell })}
               onReady={(attack) => setArmed({ kind: "ready", attack })}
@@ -889,6 +900,12 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const [invOpen, setInvOpen] = useState(false);
   const [helpUsed, setHelpUsed] = useState(false);
   const [relightSent, setRelightSent] = useState(false);
+  // Fire-once guards so a re-click can't repeat a scripted beat (#bug2): the set
+  // of dialogue topics already requested, and an in-flight "advancing" latch.
+  const [spokenTopics, setSpokenTopics] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [advancing, setAdvancing] = useState(false);
 
   const [pinnedTexts, setPinnedTexts] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -912,6 +929,12 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const inScene6 = sceneId === TUTORIAL_SCENE_SPIRE_UPPER;
   const hookActive = hookStatus === "active";
   const hookOffered = lilySpoken || hookStatus === "active";
+
+  // Release the Continue latch once the scene actually changes (the advance
+  // landed) so the next scene's Continue is clickable again (#bug2).
+  useEffect(() => {
+    setAdvancing(false);
+  }, [sceneId]);
   // The lantern is lit once the central hook is resolved (Scene 6 finale).
   const lanternLit = hookStatus === "resolved";
 
@@ -938,6 +961,22 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     void utils.tutorial.world.invalidate();
     void utils.tutorial.inventory.invalidate();
   }, [sawPin, utils]);
+
+  // Full reset (#bug3): the server cleared the chat + restored the seeded DB
+  // state, so refetch the DB-backed world/inventory and clear every local
+  // fire-once guard, returning the surface to a pristine Scene 1.
+  const resetNonce = session.resetNonce;
+  useEffect(() => {
+    if (resetNonce === 0) return;
+    setSpokenTopics(new Set());
+    setLilySpoken(false);
+    setHelpUsed(false);
+    setRelightSent(false);
+    setAdvancing(false);
+    setPinnedTexts(new Set());
+    void utils.tutorial.world.invalidate();
+    void utils.tutorial.inventory.invalidate();
+  }, [resetNonce, utils]);
 
   // Drive the action-triggered coachmarks off live state.
   const firedActions = useMemo(() => {
@@ -982,8 +1021,18 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   }
 
   function speak(topic: "barnaby" | "lily") {
+    if (spokenTopics.has(topic)) return;
+    setSpokenTopics((prev) => new Set(prev).add(topic));
     session.tutorialSay(topic);
     if (topic === "lily") setLilySpoken(true);
+  }
+
+  // Advance with a one-click latch: the button stays disabled until the scene id
+  // changes, so a double-click can't skip a scene (#bug2).
+  function advance() {
+    if (advancing) return;
+    setAdvancing(true);
+    session.tutorialAdvance();
   }
 
   function acceptTheHook() {
@@ -1052,15 +1101,16 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
             <button
               type="button"
               onClick={() => speak("barnaby")}
-              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent"
+              disabled={spokenTopics.has("barnaby")}
+              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
             >
-              Talk to Barnaby
+              {spokenTopics.has("barnaby") ? "Spoke to Barnaby ✓" : "Talk to Barnaby"}
             </button>
           )}
           <button
             type="button"
-            onClick={session.tutorialAdvance}
-            disabled={session.isBusy}
+            onClick={advance}
+            disabled={session.isBusy || advancing}
             className="rounded border border-lore-accent bg-lore-bg px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
           >
             Continue ▶

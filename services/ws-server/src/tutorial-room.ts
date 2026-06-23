@@ -71,6 +71,11 @@ export class TutorialRoom implements LiveRoom {
   private seeded = false;
   /** Whether the Shade has already run its one scripted disengage (the OA beat). */
   private shadeFled = false;
+  /** Serializes tutorial actions so rapid re-clicks can't double-process (#bug2). */
+  private inFlight = false;
+  /** Keys of one-shot tutorial beats already played (dialogue, etc.) — repeats are
+   * dropped so the GM never says the same scripted line twice (#bug2). */
+  private readonly oneShots = new Set<string>();
 
   constructor(
     private readonly campaignId: string,
@@ -117,6 +122,33 @@ export class TutorialRoom implements LiveRoom {
     await this.store.truncate(this.campaignId, baseline);
     this.engine = new Engine({ store: this.store });
     this.shadeFled = false;
+    this.inFlight = false;
+    this.oneShots.clear();
+  }
+
+  /**
+   * Acquire the per-room action lock. Returns false when an action is already in
+   * flight, so the caller drops the duplicate (debounces rapid re-clicks).
+   */
+  acquireAction(): boolean {
+    if (this.inFlight) return false;
+    this.inFlight = true;
+    return true;
+  }
+
+  /** Release the per-room action lock (always in a `finally`). */
+  releaseAction(): void {
+    this.inFlight = false;
+  }
+
+  /**
+   * Mark a one-shot tutorial beat as played. Returns true the first time and
+   * false on every repeat, so scripted lines are posted at most once.
+   */
+  markOnce(key: string): boolean {
+    if (this.oneShots.has(key)) return false;
+    this.oneShots.add(key);
+    return true;
   }
 
   /** Whether the Shade has already run its scripted disengage (Opportunity-Attack beat). */

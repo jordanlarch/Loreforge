@@ -45,7 +45,9 @@ export {
 // Entities
 export {
   abilityModifier,
+  attacksPerAction,
   createEntityState,
+  extraAttackCount,
   proficiencyBonusForLevel,
   totalLevel,
 } from "./entities/abilities";

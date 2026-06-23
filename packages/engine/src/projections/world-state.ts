@@ -9,7 +9,7 @@
 import { freshActionEconomy, type InitiativeEntry } from "../combat/initiative";
 import { distanceFeet } from "../combat/grid";
 import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
-import { createEntityState } from "../entities/abilities";
+import { attacksPerAction, createEntityState } from "../entities/abilities";
 import type {
   EntityRef,
   EntityState,
@@ -250,6 +250,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           ...actor,
           actionEconomy: freshActionEconomy(
             effectiveSpeed(actor.speed, actor.conditions),
+            attacksPerAction(actor),
           ),
           reaction: "available",
           readied: undefined,
@@ -391,6 +392,21 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           actionEconomy,
           readied: { trigger: event.payload.trigger, action: event.payload.action },
         };
+      }
+      break;
+    }
+    case "ActionSpent": {
+      // Debit the active combatant's turn economy: the single action and/or one
+      // attack of the Attack action's budget. No-op outside the owner's turn
+      // (no economy present), so reactions/opportunity attacks never burn it.
+      const entity = next.entities[event.payload.entity];
+      if (entity?.actionEconomy) {
+        let ae = entity.actionEconomy;
+        if (event.payload.action) ae = { ...ae, action: "used" };
+        if (event.payload.attack) {
+          ae = { ...ae, attacks: { ...ae.attacks, used: ae.attacks.used + 1 } };
+        }
+        next.entities[entity.id] = { ...entity, actionEconomy: ae };
       }
       break;
     }

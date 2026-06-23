@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { Engine } from "../engine";
 import {
+  buildCompanionCommands,
   buildTutorialSeedCommands,
+  classifyScene2Topic,
   nextTutorialScene,
+  tutorialBeat,
   tutorialScene,
+  TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_FIRST_SCENE_ID,
-  TUTORIAL_SCENE_HEARTH_STUB,
+  TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
 } from "./tutorial";
 
@@ -37,17 +41,49 @@ describe("tutorial script", () => {
     expect(state.encounter).toBeUndefined();
   });
 
-  it("advances to the stub second scene by replaying its enter-commands", async () => {
+  it("advances to the Hearth scene by replaying its enter-commands", async () => {
     const engine = await seed();
     const next = nextTutorialScene(TUTORIAL_SCENE_HOLLOWS_EDGE);
-    expect(next?.id).toBe(TUTORIAL_SCENE_HEARTH_STUB);
+    expect(next?.id).toBe(TUTORIAL_SCENE_HEARTH);
+    expect(next?.mentions).toContain("Lily Lampmaker");
 
     for (const command of next!.enter(TUTORIAL_FALLBACK_PARTY)) {
       await engine.execute(CAMPAIGN, command);
     }
     const state = await engine.getState(CAMPAIGN);
-    expect(state.currentSceneId).toBe(TUTORIAL_SCENE_HEARTH_STUB);
-    expect(state.scenes[TUTORIAL_SCENE_HEARTH_STUB]?.map).toBeDefined();
+    expect(state.currentSceneId).toBe(TUTORIAL_SCENE_HEARTH);
+    expect(state.scenes[TUTORIAL_SCENE_HEARTH]?.map).toBeDefined();
+    // The lead PC is carried into the tavern scene.
+    expect(state.entities[TUTORIAL_FALLBACK_PARTY[0]!.id]?.sceneId).toBe(
+      TUTORIAL_SCENE_HEARTH,
+    );
+  });
+
+  it("routes free text to a dialogue topic and always reaches Lily's hook", () => {
+    expect(classifyScene2Topic("I order a stew from the barman")).toBe(
+      "barnaby",
+    );
+    // Anything else — including trying to leave — funnels to the quest-giver.
+    expect(classifyScene2Topic("I turn and walk out the door")).toBe("lily");
+    expect(classifyScene2Topic("I sit at the crying woman's table")).toBe(
+      "lily",
+    );
+    expect(tutorialBeat("lily")?.offersHook).toBe(true);
+    expect(tutorialBeat("barnaby")?.mentions).toContain("Lily Lampmaker");
+    expect(tutorialBeat("nope")).toBeUndefined();
+  });
+
+  it("brings the companion in as a party-side character in the given scene", async () => {
+    const engine = await seed();
+    for (const command of buildCompanionCommands(TUTORIAL_SCENE_HOLLOWS_EDGE)) {
+      await engine.execute(CAMPAIGN, command);
+    }
+    const brennar = (await engine.getState(CAMPAIGN)).entities[
+      TUTORIAL_COMPANION.id
+    ];
+    expect(brennar?.kind).toBe("character");
+    expect(brennar?.sceneId).toBe(TUTORIAL_SCENE_HOLLOWS_EDGE);
+    expect(brennar?.name).toBe("Old Brennar");
   });
 
   it("offers a scene-1 ability check the engine resolves to a verdict", async () => {
@@ -71,7 +107,7 @@ describe("tutorial script", () => {
   });
 
   it("returns no next scene at the end of the script", () => {
-    expect(nextTutorialScene(TUTORIAL_SCENE_HEARTH_STUB)).toBeUndefined();
+    expect(nextTutorialScene(TUTORIAL_SCENE_HEARTH)).toBeUndefined();
     expect(nextTutorialScene("scene:not-a-tutorial-scene")).toBeUndefined();
   });
 });

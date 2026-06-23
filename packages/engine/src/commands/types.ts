@@ -68,6 +68,18 @@ export type MoveEntityCommand = {
   to: GridPosition;
 };
 
+/**
+ * Move an existing entity to another scene (and optional cell) — an exploration
+ * scene transition, distinct from in-scene `move_entity` (which is budgeted and
+ * occupancy-checked within one map). Used to carry the party between scenes.
+ */
+export type RelocateEntityCommand = {
+  type: "relocate_entity";
+  entity: EntityRef;
+  sceneId: SceneId;
+  position?: GridPosition;
+};
+
 /** Open an encounter over a set of combatants in a scene. Initiative is rolled separately. */
 export type StartEncounterCommand = {
   type: "start_encounter";
@@ -244,6 +256,7 @@ export type Command =
   | ApplyDamageCommand
   | ApplyHealingCommand
   | MoveEntityCommand
+  | RelocateEntityCommand
   | StartEncounterCommand
   | RollInitiativeCommand
   | EndTurnCommand

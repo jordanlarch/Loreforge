@@ -99,14 +99,14 @@ const verifier = buildVerifier({
 const authConfigured = Boolean(SUPABASE_URL || LEGACY_SECRET);
 
 /** A scripted tutorial trigger from the client (TUT-1). */
-type TutorialAction = "advance" | "check";
+type TutorialAction = "advance" | "check" | "say" | "companion";
 
 /** Stateless message protocol (client → server). */
 type ClientMessage =
   | { t: "cmd"; action: unknown }
   | { t: "reset" }
   | { t: "chat"; mode?: string; text: string }
-  | { t: "tutorial"; action: TutorialAction };
+  | { t: "tutorial"; action: TutorialAction; topic?: string };
 
 function parseMessage(payload: string): ClientMessage | null {
   let value: unknown;
@@ -126,9 +126,18 @@ function parseMessage(payload: string): ClientMessage | null {
     return { t: "chat", mode: mode as string | undefined, text: text as string };
   }
   if (message.t === "tutorial") {
-    const { action } = message as { action?: unknown };
-    if (action === "advance" || action === "check") {
-      return { t: "tutorial", action };
+    const { action, topic } = message as { action?: unknown; topic?: unknown };
+    if (
+      action === "advance" ||
+      action === "check" ||
+      action === "say" ||
+      action === "companion"
+    ) {
+      return {
+        t: "tutorial",
+        action,
+        topic: typeof topic === "string" ? topic : undefined,
+      };
     }
   }
   return null;
@@ -655,6 +664,7 @@ async function handleTutorial(
   },
   documentName: string,
   action: TutorialAction,
+  topic: string | undefined,
 ): Promise<void> {
   if (action === "advance") {
     const result = await room.advance();
@@ -665,7 +675,34 @@ async function handleTutorial(
       await setTutorialScene(parsed.campaignId, result.sceneId);
     }
     await appendAndPersist(document, documentName, [
-      gmEntry(result.narration, chatDeps),
+      gmEntry(result.narration, chatDeps, { mentions: result.mentions }),
+    ]);
+    return;
+  }
+
+  if (action === "say") {
+    // A scripted NPC dialogue beat (the soft rail): post the canned GM line with
+    // its @Entity chips. Deterministic + air-gapped — no LLM in the loop.
+    const beat = topic ? room.say(topic) : undefined;
+    if (!beat) return;
+    await appendAndPersist(document, documentName, [
+      gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
+    ]);
+    return;
+  }
+
+  if (action === "companion") {
+    // Old Brennar steps in and joins the party (the engine entity; the DB
+    // membership row is written by the tutorial tRPC router, D4).
+    const joined = await room.summonCompanion();
+    writeProjection(document, await room.getState());
+    if (!joined) return;
+    await appendAndPersist(document, documentName, [
+      gmEntry(
+        `An old cleric steps in from the back room, eyes on the door. ` +
+          `"Then I'm coming too. I knew Marlowe." ${joined} has joined your party.`,
+        chatDeps,
+      ),
     ]);
     return;
   }
@@ -742,7 +779,7 @@ const server = new Hocuspocus({
         const opening = tutorialScene((await room.getState()).currentSceneId);
         if (opening) {
           await appendAndPersist(document, documentName, [
-            gmEntry(opening.narration, chatDeps),
+            gmEntry(opening.narration, chatDeps, { mentions: opening.mentions }),
           ]);
         }
       }
@@ -760,7 +797,13 @@ const server = new Hocuspocus({
 
     if (message.t === "tutorial") {
       if (room instanceof TutorialRoom) {
-        await handleTutorial(room, document, documentName, message.action);
+        await handleTutorial(
+          room,
+          document,
+          documentName,
+          message.action,
+          message.topic,
+        );
       }
       return;
     }

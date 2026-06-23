@@ -21,11 +21,14 @@ export function ChatZone({
   entries,
   onSend,
   thinking = false,
+  onEntityClick,
 }: {
   entries: ChatEntry[];
   onSend: (text: string, mode?: string) => void;
   /** Server signal that the AI-GM is composing a reply (#97). */
   thinking?: boolean;
+  /** When set, @Entity chips become clickable (opens the entity drawer, #171). */
+  onEntityClick?: (name: string) => void;
 }) {
   const [mode, setMode] = useState<InputModeId>(DEFAULT_INPUT_MODE);
   const [text, setText] = useState("");
@@ -62,7 +65,13 @@ export function ChatZone({
             <code className="text-lore-accent">/roll 1d20</code> to get going.
           </p>
         ) : (
-          entries.map((entry) => <ChatRow key={entry.id} entry={entry} />)
+          entries.map((entry) => (
+            <ChatRow
+              key={entry.id}
+              entry={entry}
+              onEntityClick={onEntityClick}
+            />
+          ))
         )}
         {thinking ? <ThinkingRow /> : null}
       </div>
@@ -79,7 +88,13 @@ export function ChatZone({
   );
 }
 
-function ChatRow({ entry }: { entry: ChatEntry }) {
+function ChatRow({
+  entry,
+  onEntityClick,
+}: {
+  entry: ChatEntry;
+  onEntityClick?: (name: string) => void;
+}) {
   if (entry.kind === "roll" && entry.dice) {
     return (
       <div className="flex items-center gap-2 rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm">
@@ -134,7 +149,7 @@ function ChatRow({ entry }: { entry: ChatEntry }) {
       {entry.mentions && entry.mentions.length > 0 ? (
         <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
           {entry.mentions.map((name) => (
-            <EntityChip key={name} name={name} />
+            <EntityChip key={name} name={name} onClick={onEntityClick} />
           ))}
         </span>
       ) : null}
@@ -161,11 +176,26 @@ function ThinkingRow() {
 }
 
 /** A referenced world entity rendered as an @Entity chip in narration (#96). */
-function EntityChip({ name }: { name: string }) {
+function EntityChip({
+  name,
+  onClick,
+}: {
+  name: string;
+  onClick?: (name: string) => void;
+}) {
+  const className =
+    "inline-flex items-center rounded border border-lore-accent/40 bg-lore-accent-dim px-1.5 py-0.5 text-xs text-lore-accent";
+  if (!onClick) {
+    return <span className={className}>@{name}</span>;
+  }
   return (
-    <span className="inline-flex items-center rounded border border-lore-accent/40 bg-lore-accent-dim px-1.5 py-0.5 text-xs text-lore-accent">
+    <button
+      type="button"
+      onClick={() => onClick(name)}
+      className={`${className} transition-colors hover:border-lore-accent hover:bg-lore-accent/20`}
+    >
       @{name}
-    </span>
+    </button>
   );
 }
 

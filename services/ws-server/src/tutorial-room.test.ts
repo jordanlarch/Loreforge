@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   InMemoryEventStore,
+  TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
-  TUTORIAL_SCENE_HEARTH_STUB,
+  TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
   type PartyMember,
 } from "@app/engine";
@@ -57,7 +58,7 @@ describe("TutorialRoom", () => {
     );
   });
 
-  it("advances to the stub second scene and grows the log", async () => {
+  it("advances to the Hearth scene and grows the log", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
     const baseline = await (async () => {
@@ -67,20 +68,43 @@ describe("TutorialRoom", () => {
 
     const result = await room.advance();
 
-    expect(result?.sceneId).toBe(TUTORIAL_SCENE_HEARTH_STUB);
+    expect(result?.sceneId).toBe(TUTORIAL_SCENE_HEARTH);
     expect(result?.narration.length).toBeGreaterThan(0);
-    expect((await room.getState()).currentSceneId).toBe(
-      TUTORIAL_SCENE_HEARTH_STUB,
-    );
+    expect(result?.mentions).toContain("Lily Lampmaker");
+    expect((await room.getState()).currentSceneId).toBe(TUTORIAL_SCENE_HEARTH);
     expect(await store.lastSequence(CAMPAIGN)).toBeGreaterThan(baseline);
   });
 
   it("returns null when advancing past the end of the script", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
-    await room.advance(); // → stub scene 2 (the last entry)
+    await room.advance(); // → Hearth scene (the last entry)
 
     expect(await room.advance()).toBeNull();
+  });
+
+  it("returns canned Scene 2 dialogue beats for a topic (soft rail)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+
+    expect(room.say("lily")?.offersHook).toBe(true);
+    expect(room.say("barnaby")?.speaker).toBe("Barnaby Bramblefoot");
+    expect(room.say("unknown")).toBeUndefined();
+  });
+
+  it("summons the companion as a party-side entity in the current scene", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    await room.advance(); // into the Hearth, where Brennar joins
+
+    const joined = await room.summonCompanion();
+
+    expect(joined).toBe("Old Brennar");
+    const brennar = (await room.getState()).entities[TUTORIAL_COMPANION.id];
+    expect(brennar?.kind).toBe("character");
+    expect(brennar?.sceneId).toBe(TUTORIAL_SCENE_HEARTH);
+    // Idempotent: a second summon is a no-op.
+    expect(await room.summonCompanion()).toBeNull();
   });
 
   it("resolves the scene's offered check through the engine", async () => {
@@ -98,7 +122,7 @@ describe("TutorialRoom", () => {
   it("offers no check once advanced to a scene without one", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
-    await room.advance(); // stub scene 2 has no check
+    await room.advance(); // the Hearth scene has no offered check
 
     expect(await room.runScriptedCheck()).toBeNull();
   });

@@ -191,6 +191,19 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "EntityRelocated": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        next.entities[entity.id] = {
+          ...entity,
+          sceneId: event.payload.sceneId,
+          ...(event.payload.position
+            ? { position: { ...event.payload.position } }
+            : {}),
+        };
+      }
+      break;
+    }
     case "EncounterStarted": {
       next.encounter = {
         sceneId: event.payload.sceneId,

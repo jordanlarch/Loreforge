@@ -75,7 +75,10 @@ import {
   readiedTriggersToFire,
 } from "./enemy-ai.js";
 import { writeProjection } from "./projection.js";
-import { retrieveWorldKnowledge } from "./world-knowledge.js";
+import {
+  retrievePinnedMemories,
+  retrieveWorldKnowledge,
+} from "./world-knowledge.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 
 const PORT = Number(process.env.PORT ?? process.env.WS_PORT ?? 1234);
@@ -180,9 +183,10 @@ function setThinking(
 }
 
 /**
- * Retrieved world-knowledge for a player line (MEM-5), scoped to the campaign
- * owner's Realms lore. Empty for non-campaign (sandbox) rooms and whenever the
- * memory tier is unconfigured or nothing relevant is found — always best-effort.
+ * Grounding for a player line: always-injected GM-pinned facts (MEM-8, #159)
+ * followed by the similarity-reranked Realms lore + recaps (MEM-5). Empty for
+ * non-campaign (sandbox) rooms; pins ground every turn (even with embeddings
+ * off), lore/recaps only when the memory tier is configured. Always best-effort.
  */
 async function gmKnowledge(
   documentName: string,
@@ -190,7 +194,12 @@ async function gmKnowledge(
 ): Promise<string[]> {
   const parsed = parseRoom(documentName);
   if (parsed?.kind !== "campaign") return [];
-  return retrieveWorldKnowledge({ campaignId: parsed.campaignId, queryText: text });
+  const { campaignId } = parsed;
+  const [pins, similar] = await Promise.all([
+    retrievePinnedMemories({ campaignId }),
+    retrieveWorldKnowledge({ campaignId, queryText: text }),
+  ]);
+  return [...pins, ...similar];
 }
 
 /**

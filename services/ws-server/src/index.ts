@@ -28,8 +28,10 @@ import {
   checkAction,
   opportunityAttackAction,
   triggerReadiedAction,
+  tutorialRelightPath,
   tutorialScene,
   TUTORIAL_SHADE_ID,
+  type TutorialRelightPath,
   type WorldState,
 } from "@app/engine";
 import type { LlmClient } from "@app/llm";
@@ -47,15 +49,19 @@ import {
   type ChatEntry,
 } from "./chat.js";
 import {
+  awardTutorialXp,
+  consumeTutorialItem,
   getCampaignEncounter,
   getCampaignParty,
   getEventStore,
+  getTutorialHookStatus,
   grantTutorialLoot,
   isCampaignOwner,
   isTutorialCampaign,
   loadChatMessages,
   loadRollingSummary,
   persistChatMessages,
+  resolveTutorialHook,
   setTutorialScene,
 } from "./db.js";
 import {
@@ -115,7 +121,8 @@ type TutorialAction =
   | "check"
   | "say"
   | "companion"
-  | "resume";
+  | "resume"
+  | "relight";
 
 /** Stateless message protocol (client → server). */
 type ClientMessage =
@@ -152,7 +159,8 @@ function parseMessage(payload: string): ClientMessage | null {
       action === "check" ||
       action === "say" ||
       action === "companion" ||
-      action === "resume"
+      action === "resume" ||
+      action === "relight"
     ) {
       return {
         t: "tutorial",
@@ -866,6 +874,107 @@ async function tutorialVictory(
 }
 
 /**
+ * Scene 6 finale (TUT-1, #175): light the great lantern via the chosen path, then
+ * run the shared resolution — resolve the central hook, award XP + fire the
+ * level-up notice, note reputation, and post the memory-pin demo beat. LLM-free
+ * (D3); every effect hits real data (D4). Fires exactly once, guarded on the hook
+ * already being resolved (re-clicks after the lantern is lit are no-ops).
+ */
+async function tutorialRelight(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  pathId: string,
+): Promise<void> {
+  const state = await room.getState();
+  const resolution = tutorialScene(state.currentSceneId)?.resolution;
+  if (!resolution) return; // not the finale scene
+
+  const path: TutorialRelightPath | undefined =
+    tutorialRelightPath(pathId) ??
+    resolution.paths.find((p) => p.id === "improv");
+  if (!path) return;
+
+  const parsed = parseRoom(documentName);
+  const campaignId = parsed?.kind === "campaign" ? parsed.campaignId : undefined;
+
+  // Fire once: a resolved hook means the lantern is already lit.
+  if (campaignId && (await getTutorialHookStatus(campaignId)) === "resolved") {
+    return;
+  }
+
+  // A checked path (the prayer, D3) rolls a real engine d20; on a failure the
+  // narration converges on the standard outcome.
+  let relightText = path.text;
+  if (path.check) {
+    const result = await room.runRelightCheck(path.check);
+    writeProjection(document, await room.getState());
+    const summary = result?.summary as
+      | { total?: number; success?: boolean }
+      | undefined;
+    if (result?.accepted && summary && typeof summary.total === "number") {
+      const success = summary.success ?? false;
+      await appendAndPersist(document, documentName, [
+        checkEntry(
+          {
+            actorName: result.actorName,
+            abilityLabel: abilityLabel(path.check.ability),
+            skill: path.check.skill,
+            total: summary.total,
+            dc: path.check.dc,
+            success,
+          },
+          chatDeps,
+        ),
+      ]);
+      if (!success) relightText = path.check.failureText;
+    }
+  }
+
+  // Consume the scripted item (D4) — the Oil of Brightness on the best path.
+  let consumedNote = "";
+  if (path.consumesItem && campaignId) {
+    if (await consumeTutorialItem(campaignId, path.consumesItem)) {
+      consumedNote = ` (${path.consumesItem} used)`;
+      try {
+        document.broadcastStateless(
+          JSON.stringify({ t: "tutorial", event: "loot" }),
+        );
+      } catch {
+        // Drawer refresh is best-effort; the consume is already persisted.
+      }
+    }
+  }
+
+  // The relight beat, then the shared resolution beat.
+  await appendAndPersist(document, documentName, [
+    gmEntry(relightText + consumedNote, chatDeps),
+    gmEntry(resolution.resolution, chatDeps),
+  ]);
+
+  // Real-data effects: resolve the hook, award XP / make the hero level-up
+  // eligible, and signal the matching coachmarks.
+  if (campaignId) {
+    await resolveTutorialHook(campaignId);
+    const { leveledUp } = await awardTutorialXp(campaignId);
+    if (leveledUp) tutorialSignal(document, "leveled-up");
+  }
+
+  // Reputation flavor (narration-only this slice; real reputation deferred), the
+  // level-up notice, and the pinnable memory beat (the pin coachmark fires last).
+  await appendAndPersist(document, documentName, [
+    gmEntry(resolution.reputationNote, chatDeps),
+    gmEntry(resolution.levelUp.notice, chatDeps),
+    gmEntry(resolution.memory.text, chatDeps, {
+      mentions: resolution.memory.mentions,
+    }),
+  ]);
+  tutorialSignal(document, "pin");
+}
+
+/**
  * The Scene 5 combat driver (TUT-1): after the player acts, run the Shade and
  * companion turns through the real engine, apply the near-death safety net, and
  * on victory advance to Scene 6. Pauses on an open party reaction window so the
@@ -962,6 +1071,13 @@ async function handleTutorial(
     // paused Scene 5 loop finishes the Shade's turn (clearing the window) and
     // plays on. A no-op outside combat.
     await runTutorialCombat(room, document, documentName, getNarrationClient());
+    return;
+  }
+
+  if (action === "relight") {
+    // Scene 6 finale: light the lantern via the chosen path (`topic`), then run
+    // the shared resolution (hook resolved, XP/level, reputation, memory pin).
+    await tutorialRelight(room, document, documentName, topic ?? "improv");
     return;
   }
 

@@ -7,11 +7,14 @@ import {
   classifyScene2Topic,
   nextTutorialScene,
   tutorialBeat,
+  tutorialRelightPath,
   tutorialScene,
   TUTORIAL_CHEST_LOOT,
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_FIRST_SCENE_ID,
+  TUTORIAL_OIL_NAME,
+  TUTORIAL_RESOLUTION,
   TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
@@ -249,5 +252,45 @@ describe("tutorial script", () => {
   it("returns no next scene at the end of the script", () => {
     expect(nextTutorialScene(TUTORIAL_SCENE_SPIRE_UPPER)).toBeUndefined();
     expect(nextTutorialScene("scene:not-a-tutorial-scene")).toBeUndefined();
+  });
+
+  it("attaches the finale resolution to the Upper Chamber scene (Scene 6, #175)", () => {
+    const scene = tutorialScene(TUTORIAL_SCENE_SPIRE_UPPER);
+    expect(scene?.resolution).toBe(TUTORIAL_RESOLUTION);
+    // The choice framing + the spec's relight + memory beats are present.
+    expect(scene?.narration).toContain("How do you light it?");
+    expect(TUTORIAL_RESOLUTION.reputationNote).toMatch(/Honored/i);
+    expect(TUTORIAL_RESOLUTION.levelUp.tooltipBody.length).toBeGreaterThan(0);
+    expect(TUTORIAL_RESOLUTION.memory.pinSuggestion).toBe(
+      "Lily gave me her father's key.",
+    );
+    expect(TUTORIAL_RESOLUTION.memory.mentions).toContain("Lily Lampmaker");
+  });
+
+  it("offers four distinct relight paths that converge on one resolution", () => {
+    const ids = TUTORIAL_RESOLUTION.paths.map((p) => p.id);
+    expect(ids).toEqual(["oil", "flint", "prayer", "improv"]);
+    // Each path tells a distinct story (distinct narration), per the spec.
+    const texts = TUTORIAL_RESOLUTION.paths.map((p) => p.text);
+    expect(new Set(texts).size).toBe(texts.length);
+    expect(texts.every((t) => t.length > 0)).toBe(true);
+  });
+
+  it("maps the Oil-of-Brightness path to the best outcome that consumes the item", () => {
+    const oil = tutorialRelightPath("oil");
+    expect(oil?.consumesItem).toBe(TUTORIAL_OIL_NAME);
+    expect(oil?.text).toMatch(/white-gold|brilliant/i);
+    // The other paths don't consume the oil.
+    expect(tutorialRelightPath("flint")?.consumesItem).toBeUndefined();
+    expect(tutorialRelightPath("improv")?.consumesItem).toBeUndefined();
+  });
+
+  it("gates the prayer path on a real engine ability check with a fallback", () => {
+    const prayer = tutorialRelightPath("prayer");
+    expect(prayer?.check?.skill).toBe("Religion");
+    expect(prayer?.check?.dc).toBeGreaterThan(0);
+    // A failed prayer converges narratively on the standard (warm-gold) outcome.
+    expect(prayer?.check?.failureText).toMatch(/warm gold/i);
+    expect(tutorialRelightPath("not-a-path")).toBeUndefined();
   });
 });

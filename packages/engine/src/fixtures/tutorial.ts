@@ -64,6 +64,73 @@ export type TutorialCheck = {
   loot?: readonly TutorialLootItem[];
 };
 
+/** The four scripted lantern-relight paths in the Scene 6 finale (TUT-1, #175). */
+export type TutorialRelightPathId = "oil" | "flint" | "prayer" | "improv";
+
+/**
+ * One scripted way to relight the great lantern in Scene 6 (D4 item-use → effect,
+ * D3 RP-check via the real engine). Every path converges on the same resolution
+ * beat but produces distinct narration:
+ *
+ *   - `oil`    — uses the Oil of Brightness (best outcome); consumes the item.
+ *   - `flint`  — Marlowe's flint + lamp oil (the standard outcome).
+ *   - `prayer` — recites the Order's prayer: a real engine ability check; on a
+ *                failure it falls back to the standard outcome's narration.
+ *   - `improv` — anything unexpected (the air-gapped fallback for AI improv):
+ *                converges narratively on the standard outcome.
+ */
+export type TutorialRelightPath = {
+  id: TutorialRelightPathId;
+  /** Button label the Scene 6 control card shows to take this path. */
+  prompt: string;
+  /** GM narration when this path lights the lantern. */
+  text: string;
+  /** Item consumed from the hero's real inventory on this path (D4). */
+  consumesItem?: string;
+  /**
+   * A real engine ability check gating this path (the prayer's RP reach, D3).
+   * On success the engine blesses the relight (`text`); on failure it converges
+   * on `failureText` (the standard outcome). Air-gapped: a deterministic d20.
+   */
+  check?: {
+    ability: Ability;
+    /** Display-only SRD skill label (e.g. "Religion"). */
+    skill?: string;
+    dc: number;
+    proficient?: boolean;
+    /** Narration when the check fails (the standard fallback outcome). */
+    failureText: string;
+  };
+};
+
+/**
+ * The Scene 6 finale resolution (TUT-1, #175): the relight paths plus the shared
+ * post-relight beat that resolves the hook, notes reputation, awards XP / makes
+ * the hero level-up-eligible, and demos memory pinning. The mechanical effects
+ * are applied by the ws-server against real data (D4); this is the canned copy.
+ */
+export type TutorialResolution = {
+  /** The mutually-exclusive relight paths offered to the player. */
+  paths: readonly TutorialRelightPath[];
+  /** Shared GM narration after any path lights the lantern. */
+  resolution: string;
+  /** Reputation flavor note (narration-only this slice; real rep is deferred). */
+  reputationNote: string;
+  /** The level-up notice + first-time tooltip copy (no wizard in the tutorial). */
+  levelUp: {
+    notice: string;
+    tooltipTitle: string;
+    tooltipBody: string;
+  };
+  /** The memory-pin demo beat: a GM message the player can pin to memory. */
+  memory: {
+    text: string;
+    mentions?: readonly string[];
+    /** A concise suggested pin the coachmark nudges the player toward. */
+    pinSuggestion: string;
+  };
+};
+
 /** One scene in the scripted tutorial flow. */
 export type TutorialSceneScript = {
   id: string;
@@ -81,6 +148,8 @@ export type TutorialSceneScript = {
   mentions?: readonly string[];
   /** Optional scripted check available while in this scene. */
   check?: TutorialCheck;
+  /** Optional finale resolution (the Scene 6 multi-path relight, TUT-1, #175). */
+  resolution?: TutorialResolution;
   /**
    * When set, this scene is a combat handoff: after its `enter` commands run,
    * the driver arms an encounter from the party-side characters present plus
@@ -225,6 +294,108 @@ export const TUTORIAL_CHEST_LOOT: readonly TutorialLootItem[] = [
 /** Combat side ids the tutorial combat handoff uses (re-exported for the room). */
 export const TUTORIAL_PARTY_SIDE = FIXTURE_BATTLE_PARTY_SIDE;
 export const TUTORIAL_FOES_SIDE = FIXTURE_BATTLE_FOES_SIDE;
+
+/**
+ * The name of the scripted "best-outcome" relight item (D4). Single source of
+ * truth shared by the Scene 3 grant (web `tutorial-shop`) and the Scene 6
+ * consume path (ws-server), so the item round-trips under one name.
+ */
+export const TUTORIAL_OIL_NAME = "Oil of Brightness";
+
+/**
+ * The Scene 6 finale resolution (TUT-1, #175): four relight paths converging on
+ * one resolution beat, the reputation note, the level-up notice + tooltip, and
+ * the memory-pin demo. Defined before `TUTORIAL_SCRIPT` (referenced eagerly in
+ * the Scene 6 entry, so it must precede it to avoid the temporal-dead-zone).
+ */
+export const TUTORIAL_RESOLUTION: TutorialResolution = {
+  paths: [
+    {
+      id: "oil",
+      prompt: "Use the Oil of Brightness on the lantern",
+      consumesItem: TUTORIAL_OIL_NAME,
+      text:
+        "You pour Toric's Oil of Brightness over the cold wick and strike a " +
+        "spark. The lantern catches in a brilliant white-gold blaze — far " +
+        "brighter than any lamp has a right to be. Through the high window the " +
+        "Hungering Forest visibly recoils, branches drawing back from the " +
+        "village like a tide going out.",
+    },
+    {
+      id: "flint",
+      prompt: "Light it with Marlowe's flint and lamp oil",
+      text:
+        "You take up Marlowe's flint-and-cedar, feed the wick with the last of " +
+        "his lamp oil, and strike. The lantern catches in a steady, warm gold. " +
+        "It is enough: the dark at the village edge stops creeping closer and " +
+        "holds, just out of reach.",
+    },
+    {
+      id: "prayer",
+      prompt: "Recite the Order's prayer (Religion)",
+      text:
+        "\"Cedar to the flame, flame to the dark, dark to the deep,\" you say, " +
+        "and the old words seem to find their place. The wick takes light on " +
+        "the final word and burns with a clean, blessed steadiness — Brennar " +
+        "looks up sharply, then bows his head. The Order's lantern remembers " +
+        "its purpose.",
+      check: {
+        ability: "int",
+        skill: "Religion",
+        dc: 10,
+        proficient: false,
+        failureText:
+          "The prayer falters on your tongue — the words are not yours to carry. " +
+          "No matter: you feed the wick with Marlowe's lamp oil and strike his " +
+          "flint, and the lantern catches in a steady, warm gold. It is enough.",
+      },
+    },
+    {
+      id: "improv",
+      prompt: "Try something else",
+      text:
+        "You improvise — coaxing the flame your own way — and against the odds " +
+        "the wick catches and holds in a steady, warm gold. Brennar raises an " +
+        "eyebrow, then nods. However it is done, the lantern is lit, and the " +
+        "dark at the village edge stops creeping closer.",
+    },
+  ],
+  resolution:
+    "Light pours from the lantern in a slow, even tide, and far below the " +
+    "forest pulls back from the village edge — not far, but enough. Brennar " +
+    "exhales for the first time in hours. \"Marlowe would have wanted you to " +
+    "keep his flint,\" he says. \"He'd have wanted someone besides us to " +
+    "remember him.\" The hook is resolved; Last Light Hollow is in your debt; " +
+    "and the night's work has earned you enough to grow stronger.",
+  reputationNote:
+    "Reputation with Last Light Hollow: Honored — the village will not forget " +
+    "the night the lantern was relit.",
+  levelUp: {
+    notice:
+      "You've earned enough experience to reach Level 4. The Level-Up Wizard " +
+      "is waiting on your character sheet whenever you're ready.",
+    tooltipTitle: "Mira leveled up.",
+    tooltipBody:
+      "In a normal campaign you'd open the Level-Up Wizard to pick new " +
+      "features. We'll skip that for the tutorial — but it lives on your " +
+      "character sheet anytime you're ready to advance.",
+  },
+  memory: {
+    text:
+      "Lily is waiting at the spire's base when you descend. She knows — she " +
+      "knew before you came down. She presses her father's iron key into your " +
+      "hand and refuses to take it back.",
+    mentions: ["Lily Lampmaker"],
+    pinSuggestion: "Lily gave me her father's key.",
+  },
+};
+
+/** A relight path by id within the Scene 6 resolution, or undefined. */
+export function tutorialRelightPath(
+  id: string,
+): TutorialRelightPath | undefined {
+  return TUTORIAL_RESOLUTION.paths.find((p) => p.id === id);
+}
 
 /**
  * The ordered tutorial scene graph. Index order *is* the progression order:
@@ -427,8 +598,12 @@ export const TUTORIAL_SCRIPT: readonly TutorialSceneScript[] = [
       "The cold leaves the room in a single, silent rush. At the top of the spire " +
       "the great lantern stands dark on its pedestal, and Marlowe the Lampkeeper " +
       "lies beside it, still. Brennar kneels and closes the old man's eyes. " +
-      "\"Light it however you can,\" he says quietly. What do you do?",
+      "\"Light it however you can,\" he says quietly. \"The Order's prayer was " +
+      "'cedar to the flame, flame to the dark, dark to the deep.' But I think any " +
+      "light will do.\" You have Marlowe's flint-and-cedar, the last of his lamp " +
+      "oil — and, if you took it, Toric's Oil of Brightness. How do you light it?",
     mentions: ["Marlowe the Lampkeeper", "The Lantern Spire"],
+    resolution: TUTORIAL_RESOLUTION,
   },
 ];
 

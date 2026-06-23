@@ -244,6 +244,19 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     provider.sendStateless(JSON.stringify({ t: "tutorial", action: "say", topic }));
   }
 
+  /**
+   * Light the Scene 6 lantern via the chosen path (TUT-1, #175). Fire-and-forget
+   * like `tutorialSay`: the server posts the relight + resolution narration over
+   * chat (no battle-map projection to wait on), so it must not gate `isBusy`.
+   */
+  function tutorialRelight(path: string) {
+    const provider = providerRef.current;
+    if (!provider) return;
+    provider.sendStateless(
+      JSON.stringify({ t: "tutorial", action: "relight", topic: path }),
+    );
+  }
+
   return {
     state,
     isLoading: status === "connecting" && state === undefined,
@@ -259,6 +272,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     tutorialAdvance: () => tutorialAction("advance"),
     tutorialCheck,
     tutorialSay,
+    tutorialRelight,
     /** Bring the companion (Brennar) into the scene as a party entity. */
     tutorialCompanion: () => send({ t: "tutorial", action: "companion" }),
     /** Resume the paused Scene 5 loop after a passed/timed-out OA reaction. */

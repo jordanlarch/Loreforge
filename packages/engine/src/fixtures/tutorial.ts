@@ -29,6 +29,7 @@ export type PartyMemberLike = PartyMember;
 /** Stable scene ids for the tutorial (referenced by the driver + tests). */
 export const TUTORIAL_SCENE_HOLLOWS_EDGE = "scene:tut-hollows-edge";
 export const TUTORIAL_SCENE_HEARTH = "scene:tut-hearth";
+export const TUTORIAL_SCENE_CROOKED_LANE = "scene:tut-crooked-lane";
 
 /** A scripted ability check offered within a scene (the engine rolls it). */
 export type TutorialCheck = {
@@ -134,6 +135,17 @@ function relocateLead(
 }
 
 /**
+ * Carry the companion (Old Brennar) into a new scene if he has joined. The
+ * command no-ops in the engine when he isn't present (hook not yet accepted),
+ * so it is always safe to include.
+ */
+function relocateCompanion(sceneId: string, position: GridPosition): Command[] {
+  return [
+    { type: "relocate_entity", entity: TUTORIAL_COMPANION.id, sceneId, position },
+  ];
+}
+
+/**
  * The ordered tutorial scene graph. Index order *is* the progression order:
  * the driver advances from the scene matching the current `currentSceneId` to
  * the next entry. Adding scenes 2–7 is appending entries here.
@@ -205,6 +217,33 @@ export const TUTORIAL_SCRIPT: readonly TutorialSceneScript[] = [
       "Tap a highlighted name to see what you know about them.",
     mentions: ["Barnaby Bramblefoot", "Lily Lampmaker"],
   },
+  {
+    id: TUTORIAL_SCENE_CROOKED_LANE,
+    name: "The Crooked Lane",
+    enter: (party) => [
+      {
+        type: "create_scene",
+        scene: {
+          id: TUTORIAL_SCENE_CROOKED_LANE,
+          name: "The Crooked Lane",
+          description:
+            "A single dirt road through the village toward the dark spire. A small shopfront — Tinker's Mercy — has its door wedged open against the rain.",
+          map: { width: 10, height: 8, blockedCells: LANE_WALLS },
+        },
+      },
+      { type: "change_scene", sceneId: TUTORIAL_SCENE_CROOKED_LANE },
+      // Carry the party (PC + companion, if he joined) up the lane.
+      ...relocateLead(party, TUTORIAL_SCENE_CROOKED_LANE, LANE_START),
+      ...relocateCompanion(TUTORIAL_SCENE_CROOKED_LANE, LANE_COMPANION_CELL),
+    ],
+    narration:
+      "You start up the lane toward the spire. Halfway along you pass a small " +
+      "shopfront — a hand-painted sign reads Tinker's Mercy, and the door is " +
+      "wedged open with a brick despite the rain. Inside, a stooped old gnome is " +
+      "closing up. He sees you, hesitates, then jerks his head: come in, come in. " +
+      "Do you stop?",
+    mentions: ["Tinker's Mercy"],
+  },
 ];
 
 /** Where Mira stands when she enters the tavern. */
@@ -221,6 +260,16 @@ const HEARTH_WALLS: GridPosition[] = [
 
 /** Where Old Brennar appears when he joins the party (beside Mira). */
 const HEARTH_COMPANION_CELL: GridPosition = { x: 6, y: 6 };
+
+/** Scene 3 (Crooked Lane) layout: the road, the PC, and the companion. */
+const LANE_START: GridPosition = { x: 4, y: 6 };
+const LANE_COMPANION_CELL: GridPosition = { x: 5, y: 6 };
+const LANE_WALLS: GridPosition[] = [
+  { x: 1, y: 2 },
+  { x: 8, y: 2 },
+  { x: 2, y: 5 },
+  { x: 7, y: 4 },
+];
 
 /** The first scene's id — what a freshly-seeded tutorial starts on. */
 export const TUTORIAL_FIRST_SCENE_ID = TUTORIAL_SCRIPT[0]!.id;

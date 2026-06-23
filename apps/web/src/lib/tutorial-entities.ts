@@ -63,6 +63,13 @@ export const TUTORIAL_ENTITIES: Record<string, TutorialEntity> = {
     known:
       "Home of the great lantern that holds the Hungering Forest at bay — now dark, and warded shut.",
   },
+  "Tinker's Mercy": {
+    name: "Tinker's Mercy",
+    kind: "place",
+    subtitle: "Tiny shop on the Crooked Lane",
+    known:
+      "A cluttered curio shop run by Toric Pennywhistle, kept open against the rain. Useful oddments for travellers heading to the spire.",
+  },
 };
 
 /** The registry entry for an entity name, or undefined if it isn't a known one. */

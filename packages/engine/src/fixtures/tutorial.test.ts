@@ -11,6 +11,7 @@ import {
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_FIRST_SCENE_ID,
+  TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
 } from "./tutorial";
@@ -106,8 +107,57 @@ describe("tutorial script", () => {
     expect(typeof (summary as { success?: boolean }).success).toBe("boolean");
   });
 
+  it("advances to the Crooked Lane, carrying the PC and the companion", async () => {
+    const engine = await seed();
+    const leadId = TUTORIAL_FALLBACK_PARTY[0]!.id;
+
+    // Walk Hollow's Edge → Hearth, summon the companion there, then on to the lane.
+    for (const command of nextTutorialScene(TUTORIAL_SCENE_HOLLOWS_EDGE)!.enter(
+      TUTORIAL_FALLBACK_PARTY,
+    )) {
+      await engine.execute(CAMPAIGN, command);
+    }
+    for (const command of buildCompanionCommands(TUTORIAL_SCENE_HEARTH)) {
+      await engine.execute(CAMPAIGN, command);
+    }
+
+    const lane = nextTutorialScene(TUTORIAL_SCENE_HEARTH);
+    expect(lane?.id).toBe(TUTORIAL_SCENE_CROOKED_LANE);
+    expect(lane?.mentions).toContain("Tinker's Mercy");
+    for (const command of lane!.enter(TUTORIAL_FALLBACK_PARTY)) {
+      await engine.execute(CAMPAIGN, command);
+    }
+
+    const state = await engine.getState(CAMPAIGN);
+    expect(state.currentSceneId).toBe(TUTORIAL_SCENE_CROOKED_LANE);
+    expect(state.scenes[TUTORIAL_SCENE_CROOKED_LANE]?.map).toBeDefined();
+    // Both the lead PC and the companion are carried up the lane together.
+    expect(state.entities[leadId]?.sceneId).toBe(TUTORIAL_SCENE_CROOKED_LANE);
+    expect(state.entities[TUTORIAL_COMPANION.id]?.sceneId).toBe(
+      TUTORIAL_SCENE_CROOKED_LANE,
+    );
+  });
+
+  it("relocating an absent companion is a safe no-op (hook not accepted)", async () => {
+    const engine = await seed();
+    // Advance straight to the lane without ever summoning Brennar.
+    for (const command of nextTutorialScene(TUTORIAL_SCENE_HOLLOWS_EDGE)!.enter(
+      TUTORIAL_FALLBACK_PARTY,
+    )) {
+      await engine.execute(CAMPAIGN, command);
+    }
+    for (const command of nextTutorialScene(TUTORIAL_SCENE_HEARTH)!.enter(
+      TUTORIAL_FALLBACK_PARTY,
+    )) {
+      await engine.execute(CAMPAIGN, command);
+    }
+    const state = await engine.getState(CAMPAIGN);
+    expect(state.currentSceneId).toBe(TUTORIAL_SCENE_CROOKED_LANE);
+    expect(state.entities[TUTORIAL_COMPANION.id]).toBeUndefined();
+  });
+
   it("returns no next scene at the end of the script", () => {
-    expect(nextTutorialScene(TUTORIAL_SCENE_HEARTH)).toBeUndefined();
+    expect(nextTutorialScene(TUTORIAL_SCENE_CROOKED_LANE)).toBeUndefined();
     expect(nextTutorialScene("scene:not-a-tutorial-scene")).toBeUndefined();
   });
 });

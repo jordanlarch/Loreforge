@@ -18,6 +18,7 @@ import {
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
   TUTORIAL_HOOK,
+  TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   type EntityState,
   type WorldState,
@@ -59,8 +60,10 @@ import { MapViewport } from "./map-viewport";
 import { PartyRail } from "./party-rail";
 import { ReactionPrompt } from "./reaction-prompt";
 import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
+import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
 import { useSceneTransition } from "./use-scene-transition";
 import { useLiveSession } from "./use-live-session";
+import { TUTORIAL_SHOP } from "@/lib/tutorial-shop";
 
 type ViewModel = {
   cols: number;
@@ -164,6 +167,7 @@ function LiveBattle({
   loadouts,
   campaignId,
   tutorialControls,
+  hudExtra,
   onEntityClick,
 }: {
   session: LiveSession;
@@ -177,6 +181,8 @@ function LiveBattle({
   campaignId?: string;
   /** Tutorial-only controls rendered in exploration mode (TUT-1); absent elsewhere. */
   tutorialControls?: ReactNode;
+  /** Extra HUD content under the exploration PC panel (tutorial inventory, #172). */
+  hudExtra?: ReactNode;
   /** When set, narration @Entity chips become clickable (tutorial drawer, #171). */
   onEntityClick?: (name: string) => void;
 }) {
@@ -456,6 +462,7 @@ function LiveBattle({
                     <span>AC {pc.baseAc}</span>
                     <span>Speed {pc.speed}ft</span>
                   </div>
+                  {hudExtra}
                 </div>
               )}
 
@@ -764,35 +771,60 @@ const TUTORIAL_SCENE2_COACHMARKS: readonly CoachmarkDef[] = [
   },
 ];
 
+/**
+ * Scene 3's coachmark (TUT-1, #172) — fired when Toric's scripted gift lands in
+ * Mira's pack, pointing at the inventory button so the player learns items are
+ * real and live on the sheet.
+ */
+const TUTORIAL_SCENE3_COACHMARKS: readonly CoachmarkDef[] = [
+  {
+    id: "tut-scene3-inventory",
+    anchor: "tut-inventory",
+    title: "Items work mechanically",
+    body: "Oil of Brightness has a real game effect — use it on the lantern later and it'll do something. Your inventory lives on your sheet, here in the HUD.",
+    trigger: { kind: "on_action", action: "oil-granted" },
+  },
+];
+
 const TUTORIAL_COACHMARKS: readonly CoachmarkDef[] = [
   ...TUTORIAL_SCENE1_COACHMARKS,
   ...TUTORIAL_SCENE2_COACHMARKS,
+  ...TUTORIAL_SCENE3_COACHMARKS,
 ];
 
 export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const session = useLiveSession({ campaignId });
   const [drawerName, setDrawerName] = useState<string | null>(null);
   const [lilySpoken, setLilySpoken] = useState(false);
+  const [invOpen, setInvOpen] = useState(false);
 
   const world = trpc.tutorial.world.useQuery();
+  const inventory = trpc.tutorial.inventory.useQuery();
   const utils = trpc.useUtils();
   const acceptHook = trpc.tutorial.acceptHook.useMutation();
   const companionJoin = trpc.tutorial.companionJoin.useMutation();
+  const grantOil = trpc.tutorial.grantOil.useMutation();
 
   const hookStatus = world.data?.hookStatus ?? null;
   const companionJoined = world.data?.companionJoined ?? false;
-  const inScene2 = session.state?.currentSceneId === TUTORIAL_SCENE_HEARTH;
+  const sceneId = session.state?.currentSceneId;
+  const inScene2 = sceneId === TUTORIAL_SCENE_HEARTH;
+  const inScene3 = sceneId === TUTORIAL_SCENE_CROOKED_LANE;
   const hookActive = hookStatus === "active";
   const hookOffered = lilySpoken || hookStatus === "active";
 
-  // Drive the action-triggered Scene 2 coachmarks off live state.
+  const items = inventory.data?.items ?? [];
+  const oilGranted = items.some((i) => i.name === TUTORIAL_SHOP.listings[0]?.name);
+
+  // Drive the action-triggered coachmarks off live state.
   const firedActions = useMemo(() => {
     const a: string[] = [];
     if (inScene2) a.push("scene2");
     if (hookActive) a.push("hook-accepted");
     if (companionJoined) a.push("companion-joined");
+    if (oilGranted) a.push("oil-granted");
     return a;
-  }, [inScene2, hookActive, companionJoined]);
+  }, [inScene2, hookActive, companionJoined, oilGranted]);
 
   function speak(topic: "barnaby" | "lily") {
     session.tutorialSay(topic);
@@ -811,7 +843,33 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     });
   }
 
+  function takeTorricsGift() {
+    grantOil.mutate(undefined, {
+      onSuccess: () => {
+        void utils.tutorial.inventory.invalidate();
+        setInvOpen(true);
+      },
+    });
+  }
+
   const accepting = acceptHook.isPending || companionJoin.isPending;
+
+  // Inventory affordance on the HUD (#172) — the gift lands here; opening it
+  // shows the real `equipment` rows. The coachmark anchors to this button.
+  const hudExtra = (
+    <button
+      type="button"
+      data-coachmark="tut-inventory"
+      onClick={() => setInvOpen(true)}
+      className={`mt-3 w-full rounded border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent ${
+        oilGranted
+          ? "animate-pulse border-lore-accent text-lore-accent"
+          : "border-lore-border text-lore-muted"
+      }`}
+    >
+      🎒 Inventory{items.length > 0 ? ` (${items.length})` : ""}
+    </button>
+  );
 
   const tutorialControls = (
     <div className="space-y-3">
@@ -820,7 +878,7 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
           Tutorial
         </div>
         <div className="flex flex-wrap gap-2">
-          {!inScene2 && (
+          {!inScene2 && !inScene3 && (
             <button
               type="button"
               onClick={session.tutorialCheck}
@@ -849,6 +907,60 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
           </button>
         </div>
       </div>
+
+      {inScene3 && (
+        <div
+          data-coachmark="tut-shop"
+          className="space-y-2 rounded-lg border border-lore-accent bg-lore-surface p-3"
+        >
+          <div className="flex items-center gap-2 text-sm font-semibold text-lore-text">
+            <span aria-hidden>🛒</span>
+            {TUTORIAL_SHOP.name}
+          </div>
+          <div className="text-xs text-lore-muted">
+            Shopkeeper: {TUTORIAL_SHOP.keeper} ({TUTORIAL_SHOP.keeperBlurb})
+          </div>
+          <ul className="flex flex-col gap-1.5">
+            {TUTORIAL_SHOP.listings.map((listing) => (
+              <li
+                key={listing.name}
+                className="rounded border border-lore-border bg-lore-bg p-2"
+              >
+                <div className="flex items-center justify-between gap-2 text-xs text-lore-text">
+                  <span>
+                    {listing.icon} {listing.name}
+                  </span>
+                  <span className="text-lore-muted">{listing.price}</span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-lore-muted">
+                  {listing.blurb}
+                </p>
+              </li>
+            ))}
+          </ul>
+          {oilGranted ? (
+            <div className="text-xs font-medium text-lore-accent">
+              ✓ Toric pressed the Oil of Brightness into your hand — it&apos;s in
+              your pack.
+            </div>
+          ) : (
+            <>
+              <p className="text-[11px] italic text-lore-muted">
+                &ldquo;You&apos;ll need it. And if you&apos;re back tomorrow,
+                we&apos;ll all owe you. If you&apos;re not… well.&rdquo;
+              </p>
+              <button
+                type="button"
+                onClick={takeTorricsGift}
+                disabled={grantOil.isPending}
+                className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+              >
+                {grantOil.isPending ? "Taking…" : "Accept Toric's gift ▶"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {hookOffered && (
         <div
@@ -889,12 +1001,19 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         backHref="/"
         campaignId={campaignId}
         tutorialControls={tutorialControls}
+        hudExtra={hudExtra}
         onEntityClick={setDrawerName}
       />
       <TutorialEntityDrawer
         name={drawerName}
         onClose={() => setDrawerName(null)}
         onSpeak={speak}
+      />
+      <TutorialInventoryDrawer
+        open={invOpen}
+        items={items}
+        loading={inventory.isLoading}
+        onClose={() => setInvOpen(false)}
       />
       <CoachmarkHost defs={TUTORIAL_COACHMARKS} firedActions={firedActions} />
     </>

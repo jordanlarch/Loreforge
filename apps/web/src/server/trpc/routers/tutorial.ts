@@ -24,6 +24,9 @@ import {
   tutorialSeenFeatures,
 } from "@app/db";
 
+import type { EquipmentItem } from "@/lib/character";
+import { TUTORIAL_OIL_GRANT, withOilGrant } from "@/lib/tutorial-shop";
+
 import { createTRPCRouter, protectedProcedure } from "../init";
 
 /** The current user's tutorial campaign id, or null if they haven't started. */
@@ -34,6 +37,27 @@ async function tutorialCampaignId(ownerId: string): Promise<string | null> {
     .where(and(eq(campaigns.ownerId, ownerId), eq(campaigns.isTutorial, true)))
     .limit(1);
   return row?.id ?? null;
+}
+
+/** Resolve the tutorial hero (Mira, the `pc`) row + her current inventory. */
+async function tutorialHero(
+  ownerId: string,
+): Promise<{ id: string; equipment: EquipmentItem[] } | null> {
+  const campaignId = await tutorialCampaignId(ownerId);
+  if (!campaignId) return null;
+  const [row] = await getDb()
+    .select({ id: characters.id, equipment: characters.equipment })
+    .from(campaignCharacters)
+    .innerJoin(characters, eq(campaignCharacters.characterId, characters.id))
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.role, "pc"),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+  return { id: row.id, equipment: (row.equipment ?? []) as EquipmentItem[] };
 }
 
 /** The pregenerated tutorial hero (`docs/onboarding/tutorial-adventure.md` §2.1). */
@@ -301,6 +325,37 @@ export const tutorialRouter = createTRPCRouter({
         ),
       );
     return { ok: true };
+  }),
+
+  /* --------------------------------------------------------------------- *
+   *  Scene 3 — shop + inventory + scripted item grant (TUT-1, #172, D4)
+   * --------------------------------------------------------------------- */
+
+  /** Mira's live inventory (real `equipment` rows) for the HUD drawer. */
+  inventory: protectedProcedure.query(async ({ ctx }) => {
+    const hero = await tutorialHero(ctx.user.id);
+    return { items: hero?.equipment ?? [] };
+  }),
+
+  /**
+   * Toric's scripted gift (D4): append the Oil of Brightness to Mira's real
+   * `equipment` exactly once — no currency math, no purchase friction. Skipping
+   * the shop simply never calls this; both paths funnel forward. Idempotent.
+   */
+  grantOil: protectedProcedure.mutation(async ({ ctx }) => {
+    const hero = await tutorialHero(ctx.user.id);
+    if (!hero) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "No tutorial in progress.",
+      });
+    }
+    const next = withOilGrant(hero.equipment);
+    await getDb()
+      .update(characters)
+      .set({ equipment: next, updatedAt: new Date() })
+      .where(eq(characters.id, hero.id));
+    return { items: next, granted: TUTORIAL_OIL_GRANT.name };
   }),
 
   /* --------------------------------------------------------------------- *

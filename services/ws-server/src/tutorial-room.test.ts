@@ -4,6 +4,7 @@ import {
   InMemoryEventStore,
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
+  TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
   type PartyMember,
@@ -75,10 +76,24 @@ describe("TutorialRoom", () => {
     expect(await store.lastSequence(CAMPAIGN)).toBeGreaterThan(baseline);
   });
 
+  it("advances on to the Crooked Lane shop scene", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    await room.advance(); // → Hearth
+
+    const result = await room.advance(); // → Crooked Lane
+    expect(result?.sceneId).toBe(TUTORIAL_SCENE_CROOKED_LANE);
+    expect(result?.mentions).toContain("Tinker's Mercy");
+    expect((await room.getState()).currentSceneId).toBe(
+      TUTORIAL_SCENE_CROOKED_LANE,
+    );
+  });
+
   it("returns null when advancing past the end of the script", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
-    await room.advance(); // → Hearth scene (the last entry)
+    await room.advance(); // → Hearth
+    await room.advance(); // → Crooked Lane (the last entry)
 
     expect(await room.advance()).toBeNull();
   });

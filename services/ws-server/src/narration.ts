@@ -91,6 +91,17 @@ function sceneSummary(state: WorldState | undefined): string {
 }
 
 /**
+ * The rolling session summary block (MEM-3), or "" when there's no summary yet.
+ * The "story so far" — the condensed throughline of the session the GM should
+ * stay consistent with (it summarizes what already happened, so it outranks
+ * loosely-retrieved lore but never the live scene/engine state).
+ */
+function summaryBlock(summary: string | undefined): string {
+  const text = summary?.trim();
+  return text ? `Story so far (running summary of this session):\n${text}` : "";
+}
+
+/**
  * The retrieved world-knowledge block (MEM-5), or "" when there's nothing to
  * inject. Framed as background the GM may draw on but must stay consistent with
  * — it is *retrieved* lore (possibly only loosely relevant), not ground truth
@@ -180,6 +191,9 @@ export async function narrate(args: {
    * Realms lore most similar to the player's line. Optional; empty when the
    * memory tier is unconfigured or nothing relevant was found. */
   knowledge?: readonly string[];
+  /** Rolling session summary (MEM-3): the "story so far" for this session.
+   * Optional; empty before the first summary or when unconfigured. */
+  summary?: string;
 }): Promise<NarrationResult> {
   const names = sceneEntityNames(args.state);
   const scene = sceneSummary(args.state);
@@ -188,6 +202,7 @@ export async function narrate(args: {
 
   const prompt = [
     scene ? `Scene: ${scene}` : "",
+    summaryBlock(args.summary),
     names.length > 0 ? `Entities present: ${names.join(", ")}.` : "",
     knowledgeBlock(args.knowledge),
     history.length > 0 ? `Recent exchange:\n${history.join("\n")}` : "",

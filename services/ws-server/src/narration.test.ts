@@ -138,6 +138,34 @@ describe("narrate", () => {
     expect(prompt).toContain("Order of the Ember");
   });
 
+  it("injects the rolling session summary as 'story so far' (MEM-3)", async () => {
+    const client = createFakeLlmClient({
+      input: { narration: "You press on through the dark." },
+    });
+    await narrate({
+      client,
+      state: world(),
+      recentChat: chat,
+      playerLine: "I keep going",
+      summary: "The party fled the burning village and seeks the hidden shrine.",
+    });
+    const prompt = client.calls[0]!.messages[0]!.content;
+    expect(prompt).toContain("Story so far");
+    expect(prompt).toContain("hidden shrine");
+  });
+
+  it("omits the story-so-far block when there is no summary", async () => {
+    const client = createFakeLlmClient({ input: { narration: "Onward." } });
+    await narrate({
+      client,
+      state: world(),
+      recentChat: chat,
+      playerLine: "go",
+      summary: "   ",
+    });
+    expect(client.calls[0]!.messages[0]!.content).not.toContain("Story so far");
+  });
+
   it("omits the world-knowledge block when there is nothing to inject", async () => {
     const client = createFakeLlmClient({ input: { narration: "Quiet." } });
     await narrate({

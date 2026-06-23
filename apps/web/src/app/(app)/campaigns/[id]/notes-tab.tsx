@@ -15,7 +15,8 @@ type Note = {
 /**
  * Notes tab (#118, CAMP-9): a campaign-scoped DM scratchpad. A list of notes on
  * the left, an editor on the right, each note DM-only or shared with players.
- * `@Entity` autolink, convert-to-hook, and pin-to-memory are deferred.
+ * A note can be pinned to memory (MEM-8) so the AI-GM keeps it in mind during
+ * play. `@Entity` autolink and convert-to-hook are deferred.
  */
 export function NotesTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
@@ -97,6 +98,7 @@ export function NotesTab({ campaignId }: { campaignId: string }) {
           {selected ? (
             <NoteEditor
               key={selected.id}
+              campaignId={campaignId}
               note={selected}
               onSaved={refresh}
               onDeleted={async () => {
@@ -115,31 +117,51 @@ export function NotesTab({ campaignId }: { campaignId: string }) {
   );
 }
 
+/** Max pin length (mirrors the `pins.create` server cap). */
+const PIN_MAX = 2000;
+
 function NoteEditor({
+  campaignId,
   note,
   onSaved,
   onDeleted,
 }: {
+  campaignId: string;
   note: Note;
   onSaved: () => Promise<void>;
   onDeleted: () => Promise<void>;
 }) {
+  const utils = trpc.useUtils();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [shared, setShared] = useState(note.shared);
+  const [pinnedAt, setPinnedAt] = useState<number | null>(null);
 
   // Re-seed when a different note is selected (key remount also covers this).
   useEffect(() => {
     setTitle(note.title);
     setBody(note.body);
     setShared(note.shared);
+    setPinnedAt(null);
   }, [note.id, note.title, note.body, note.shared]);
 
   const update = trpc.notes.update.useMutation({ onSuccess: onSaved });
   const remove = trpc.notes.remove.useMutation({ onSuccess: onDeleted });
+  const pin = trpc.pins.create.useMutation({
+    onSuccess: async () => {
+      setPinnedAt(Date.now());
+      await utils.pins.list.invalidate({ campaignId });
+    },
+  });
 
   const dirty =
     title !== note.title || body !== note.body || shared !== note.shared;
+
+  // Pin the current editor text (title + body), capped at the server max.
+  const pinContent = [title.trim(), body.trim()]
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, PIN_MAX);
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-lore-border bg-lore-surface p-4">
@@ -169,6 +191,19 @@ function NoteEditor({
           Shared with players
         </label>
         <div className="flex items-center gap-2">
+          {pinnedAt ? (
+            <span className="text-sm text-lore-accent">📌 Pinned to memory</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => pin.mutate({ campaignId, content: pinContent })}
+              disabled={pin.isPending || pinContent.length === 0}
+              title="Pin this note's text so the AI-GM keeps it in mind during play"
+              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+            >
+              {pin.isPending ? "Pinning…" : "📌 Pin to memory"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -188,6 +223,9 @@ function NoteEditor({
             Delete
           </button>
         </div>
+        {pin.error && (
+          <p className="w-full text-sm text-red-400">{pin.error.message}</p>
+        )}
       </div>
     </section>
   );

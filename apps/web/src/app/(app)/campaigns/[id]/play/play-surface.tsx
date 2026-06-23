@@ -21,7 +21,9 @@ import {
   type WorldState,
 } from "@app/engine";
 
+import { CoachmarkHost } from "@/components/coachmark";
 import { trpc } from "@/lib/trpc/client";
+import type { CoachmarkDef } from "@/lib/coachmark";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { buildExploreModel } from "@/lib/live-explore";
 import { joinedSincePrompt } from "@/lib/live-presence";
@@ -414,7 +416,7 @@ function LiveBattle({
           </header>
 
           <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
-            <section>
+            <section data-coachmark="tut-scene1-map">
               <MapViewport
                 sceneBanner={sceneBanner}
                 transitioning={transitioning}
@@ -434,7 +436,10 @@ function LiveBattle({
 
             <aside className="space-y-4">
               {pc && (
-                <div className="rounded-lg border border-lore-border bg-lore-surface p-4">
+                <div
+                  data-coachmark="tut-scene1-hud"
+                  className="rounded-lg border border-lore-border bg-lore-surface p-4"
+                >
                   <div className="font-display text-lg leading-tight">
                     {pc.name}
                   </div>
@@ -450,11 +455,13 @@ function LiveBattle({
 
               {tutorialControls}
 
-              <ChatZone
-                entries={session.chat}
-                onSend={session.sendChat}
-                thinking={session.gmThinking}
-              />
+              <div data-coachmark="tut-scene1-chat">
+                <ChatZone
+                  entries={session.chat}
+                  onSend={session.sendChat}
+                  thinking={session.gmThinking}
+                />
+              </div>
             </aside>
           </div>
 
@@ -690,6 +697,35 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
  * exploration mode (D2). The scripted-trigger controls (continue + the offered
  * check) are passed into the exploration aside; the server drives all mechanics.
  */
+/**
+ * Scene 1's first-time coachmarks (TUT-1, D5) — point at the three core regions
+ * of the play surface the first time the user lands in the Hollow. Shown one at
+ * a time, in order, and never again once dismissed.
+ */
+const TUTORIAL_SCENE1_COACHMARKS: readonly CoachmarkDef[] = [
+  {
+    id: "tut-scene1-map",
+    anchor: "tut-scene1-map",
+    title: "The world, mapped",
+    body: "This is where the story plays out. Your hero's token stands on the road into Last Light Hollow — scenes, tokens, and (soon) combat all live here.",
+    trigger: { kind: "first_seen" },
+  },
+  {
+    id: "tut-scene1-hud",
+    anchor: "tut-scene1-hud",
+    title: "Your hero",
+    body: "Mira Thornwood at a glance — hit points, armor class, and speed. Her full sheet is a click away whenever you need it.",
+    trigger: { kind: "first_seen" },
+  },
+  {
+    id: "tut-scene1-chat",
+    anchor: "tut-scene1-chat",
+    title: "Tell the GM what you do",
+    body: "Type your actions here and the Game Master narrates back. When the moment calls for it, use the Tutorial buttons above to roll the dice.",
+    trigger: { kind: "first_seen" },
+  },
+];
+
 export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const session = useLiveSession({ campaignId });
 
@@ -720,13 +756,16 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   );
 
   return (
-    <LiveBattle
-      session={session}
-      title="The Lantern's Last Flicker"
-      context="Tutorial"
-      backHref="/"
-      campaignId={campaignId}
-      tutorialControls={tutorialControls}
-    />
+    <>
+      <LiveBattle
+        session={session}
+        title="The Lantern's Last Flicker"
+        context="Tutorial"
+        backHref="/"
+        campaignId={campaignId}
+        tutorialControls={tutorialControls}
+      />
+      <CoachmarkHost defs={TUTORIAL_SCENE1_COACHMARKS} />
+    </>
   );
 }

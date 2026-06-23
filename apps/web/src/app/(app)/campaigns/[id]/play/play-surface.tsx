@@ -17,9 +17,12 @@ import {
   areHostile,
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
+  TUTORIAL_CHEST_LOOT,
   TUTORIAL_HOOK,
   TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
+  TUTORIAL_SCENE_HOLLOWS_EDGE,
+  TUTORIAL_SCENE_SPIRE_LOWER,
   type EntityState,
   type WorldState,
 } from "@app/engine";
@@ -786,10 +789,25 @@ const TUTORIAL_SCENE3_COACHMARKS: readonly CoachmarkDef[] = [
   },
 ];
 
+/**
+ * Scene 4's coachmark (TUT-1, #173) — fires the first time the player accepts
+ * Brennar's Help on the chest, explaining the engine's automatic advantage.
+ */
+const TUTORIAL_SCENE4_COACHMARKS: readonly CoachmarkDef[] = [
+  {
+    id: "tut-scene4-advantage",
+    anchor: "tut-advantage",
+    title: "Advantage rolls two dice",
+    body: "When someone Helps you, the engine rolls two d20s and keeps the higher. Most 5E advantage/disadvantage is automatic — you never track it by hand.",
+    trigger: { kind: "on_action", action: "help-used" },
+  },
+];
+
 const TUTORIAL_COACHMARKS: readonly CoachmarkDef[] = [
   ...TUTORIAL_SCENE1_COACHMARKS,
   ...TUTORIAL_SCENE2_COACHMARKS,
   ...TUTORIAL_SCENE3_COACHMARKS,
+  ...TUTORIAL_SCENE4_COACHMARKS,
 ];
 
 export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
@@ -797,6 +815,7 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const [drawerName, setDrawerName] = useState<string | null>(null);
   const [lilySpoken, setLilySpoken] = useState(false);
   const [invOpen, setInvOpen] = useState(false);
+  const [helpUsed, setHelpUsed] = useState(false);
 
   const world = trpc.tutorial.world.useQuery();
   const inventory = trpc.tutorial.inventory.useQuery();
@@ -808,13 +827,23 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   const hookStatus = world.data?.hookStatus ?? null;
   const companionJoined = world.data?.companionJoined ?? false;
   const sceneId = session.state?.currentSceneId;
+  const inScene1 = sceneId === TUTORIAL_SCENE_HOLLOWS_EDGE;
   const inScene2 = sceneId === TUTORIAL_SCENE_HEARTH;
   const inScene3 = sceneId === TUTORIAL_SCENE_CROOKED_LANE;
+  const inScene4 = sceneId === TUTORIAL_SCENE_SPIRE_LOWER;
   const hookActive = hookStatus === "active";
   const hookOffered = lilySpoken || hookStatus === "active";
 
   const items = inventory.data?.items ?? [];
   const oilGranted = items.some((i) => i.name === TUTORIAL_SHOP.listings[0]?.name);
+  const lootClaimed = items.some((i) => i.name === TUTORIAL_CHEST_LOOT[0]?.name);
+
+  // Server signalled the scripted chest loot landed — refresh the drawer.
+  useEffect(() => {
+    if (session.lootNonce === 0) return;
+    void utils.tutorial.inventory.invalidate();
+    setInvOpen(true);
+  }, [session.lootNonce, utils]);
 
   // Drive the action-triggered coachmarks off live state.
   const firedActions = useMemo(() => {
@@ -823,8 +852,14 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     if (hookActive) a.push("hook-accepted");
     if (companionJoined) a.push("companion-joined");
     if (oilGranted) a.push("oil-granted");
+    if (helpUsed) a.push("help-used");
     return a;
-  }, [inScene2, hookActive, companionJoined, oilGranted]);
+  }, [inScene2, hookActive, companionJoined, oilGranted, helpUsed]);
+
+  function pickLock(help: boolean) {
+    if (help) setHelpUsed(true);
+    session.tutorialCheck(help);
+  }
 
   function speak(topic: "barnaby" | "lily") {
     session.tutorialSay(topic);
@@ -878,10 +913,10 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
           Tutorial
         </div>
         <div className="flex flex-wrap gap-2">
-          {!inScene2 && !inScene3 && (
+          {inScene1 && (
             <button
               type="button"
-              onClick={session.tutorialCheck}
+              onClick={() => session.tutorialCheck()}
               disabled={session.isBusy}
               className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
             >
@@ -957,6 +992,50 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
               >
                 {grantOil.isPending ? "Taking…" : "Accept Toric's gift ▶"}
               </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {inScene4 && (
+        <div className="space-y-2 rounded-lg border border-lore-accent bg-lore-surface p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-lore-text">
+            <span aria-hidden>🧰</span>
+            The iron chest
+          </div>
+          {lootClaimed ? (
+            <div className="text-xs font-medium text-lore-accent">
+              ✓ The chest is open — its contents are in your pack. The stair waits
+              above; press Continue when you&apos;re ready.
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-lore-muted">
+                A Dexterity check with Thieves&apos; Tools, DC 13. You&apos;re not
+                proficient — but Brennar can Help, giving you advantage.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => pickLock(false)}
+                  disabled={session.isBusy}
+                  className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+                >
+                  Pick the lock
+                </button>
+                <button
+                  type="button"
+                  data-coachmark="tut-advantage"
+                  onClick={() => pickLock(true)}
+                  disabled={session.isBusy}
+                  className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+                >
+                  Accept Brennar&apos;s Help (Advantage)
+                </button>
+              </div>
+              <p className="text-[11px] text-lore-muted">
+                Or skip the chest — press Continue to climb the stair.
+              </p>
             </>
           )}
         </div>

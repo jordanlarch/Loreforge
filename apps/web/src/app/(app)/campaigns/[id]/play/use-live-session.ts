@@ -91,6 +91,9 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
   const [peers, setPeers] = useState(1);
   const [chat, setChat] = useState<ChatEntry[]>([]);
   const [gmThinking, setGmThinking] = useState(false);
+  // Bumped whenever the server signals scripted tutorial loot was claimed, so
+  // the surface can refresh the inventory drawer (TUT-1 Scene 4, #173).
+  const [lootNonce, setLootNonce] = useState(0);
   const providerRef = useRef<HocuspocusProvider | null>(null);
 
   useEffect(() => {
@@ -127,13 +130,20 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
         },
         onStateless: ({ payload }) => {
           try {
-            const message = JSON.parse(payload) as { t?: string; on?: boolean };
+            const message = JSON.parse(payload) as {
+              t?: string;
+              on?: boolean;
+              event?: string;
+            };
             if (message?.t === "rejected") {
               setBusy(false);
               setRejected(true);
             } else if (message?.t === "thinking") {
               // Server signal that the AI-GM is composing a reply (#97).
               setGmThinking(Boolean(message.on));
+            } else if (message?.t === "tutorial" && message.event === "loot") {
+              // Scripted loot landed in the DB — nudge the surface to refetch.
+              setLootNonce((n) => n + 1);
             }
           } catch {
             // ignore malformed server messages
@@ -207,6 +217,12 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     send({ t: "tutorial", action });
   }
 
+  /** Resolve the current scene's check; `help` grants advantage (the companion's
+   * Help action), driving the engine to roll two d20s and keep the higher. */
+  function tutorialCheck(help?: boolean) {
+    send({ t: "tutorial", action: "check", help: Boolean(help) });
+  }
+
   /**
    * Request a scripted Scene 2 dialogue beat (the soft rail). Fire-and-forget
    * like `sendChat` — it only posts GM narration, so it must not gate `isBusy`
@@ -227,9 +243,10 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     peers,
     chat,
     gmThinking,
+    lootNonce,
     sendChat,
     tutorialAdvance: () => tutorialAction("advance"),
-    tutorialCheck: () => tutorialAction("check"),
+    tutorialCheck,
     tutorialSay,
     /** Bring the companion (Brennar) into the scene as a party entity. */
     tutorialCompanion: () => send({ t: "tutorial", action: "companion" }),

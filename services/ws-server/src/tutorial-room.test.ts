@@ -7,6 +7,8 @@ import {
   TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
+  TUTORIAL_SCENE_SPIRE_LOWER,
+  TUTORIAL_SCENE_SPIRE_STAIR,
   type PartyMember,
 } from "@app/engine";
 
@@ -89,11 +91,32 @@ describe("TutorialRoom", () => {
     );
   });
 
+  it("arms an encounter on the combat handoff (Scene 4 → the Stair)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    await room.advance(); // → Hearth
+    await room.advance(); // → Crooked Lane
+    await room.advance(); // → Spire Lower Hall
+    const result = await room.advance(); // → the Stair (combat)
+
+    expect(result?.sceneId).toBe(TUTORIAL_SCENE_SPIRE_STAIR);
+    expect(result?.combat).toBe(true);
+
+    const state = await room.getState();
+    expect(state.encounter).toBeDefined();
+    // The PC and both shadow foes are in initiative.
+    const ids = state.encounter!.order.map((o) => o.entity);
+    expect(ids).toContain(MIRA.id);
+    expect(ids.filter((id) => id.startsWith("npc:tut-shadow"))).toHaveLength(2);
+  });
+
   it("returns null when advancing past the end of the script", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
     await room.advance(); // → Hearth
-    await room.advance(); // → Crooked Lane (the last entry)
+    await room.advance(); // → Crooked Lane
+    await room.advance(); // → Spire Lower Hall
+    await room.advance(); // → the Stair (the last entry)
 
     expect(await room.advance()).toBeNull();
   });
@@ -140,5 +163,25 @@ describe("TutorialRoom", () => {
     await room.advance(); // the Hearth scene has no offered check
 
     expect(await room.runScriptedCheck()).toBeNull();
+  });
+
+  it("resolves the chest check with advantage and always rolls for the lead PC", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    await room.advance(); // → Hearth
+    await room.summonCompanion(); // Brennar is now also a character entity
+    await room.advance(); // → Crooked Lane
+    await room.advance(); // → Spire Lower Hall (the chest scene)
+
+    const result = await room.runScriptedCheck({ mode: "advantage" });
+
+    expect(result?.accepted).toBe(true);
+    // The lead (Mira) rolls — not the companion, even though both are present.
+    expect(result?.actorName).toBe("Mira Thornwood");
+    expect(result?.check.skill).toBe("Thieves' Tools");
+    expect(result?.check.loot?.length).toBeGreaterThan(0);
+    expect(typeof (result?.summary as { success?: boolean }).success).toBe(
+      "boolean",
+    );
   });
 });

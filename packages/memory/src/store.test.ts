@@ -6,9 +6,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import * as schema from "@app/db/schema";
 
 import { buildEntityEmbeddingInput, type EmbeddableRealmEntity } from "./chunk";
-import { createDeterministicEmbeddingClient } from "./client";
+import {
+  createDeterministicEmbeddingClient,
+  type EmbeddingClient,
+} from "./client";
 import {
   REALM_ENTITY_SOURCE,
+  embedRealmEntity,
+  embedRealmEntityBestEffort,
   retrieveSimilar,
   upsertSourceEmbeddings,
 } from "./store";
@@ -150,7 +155,12 @@ describe("upsertSourceEmbeddings + retrieveSimilar (pgvector via PGlite)", () =>
       chunks: [chunk],
     });
 
-    expect(result).toEqual({ status: "unchanged", embedded: 0 });
+    expect(result).toEqual({
+      status: "unchanged",
+      embedded: 0,
+      model: "",
+      tokens: 0,
+    });
     // No new embed call was made for the unchanged source.
     expect(embedder.calls.length).toBe(callsAfterFirst);
   });
@@ -213,12 +223,82 @@ describe("upsertSourceEmbeddings + retrieveSimilar (pgvector via PGlite)", () =>
       sourceId: ID.dragon,
       chunks: [],
     });
-    expect(result).toEqual({ status: "embedded", embedded: 0 });
+    expect(result).toEqual({
+      status: "embedded",
+      embedded: 0,
+      model: "",
+      tokens: 0,
+    });
 
     const rows = await client.query<{ count: number }>(
       "SELECT count(*)::int AS count FROM embeddings WHERE source_id = $1",
       [ID.dragon],
     );
     expect(rows.rows[0]!.count).toBe(0);
+  });
+});
+
+describe("embedRealmEntity", () => {
+  it("embeds a real entity so it is retrievable", async () => {
+    const result = await embedRealmEntity(db, embedder, dragon);
+    expect(result.status).toBe("embedded");
+
+    const hits = await retrieveSimilar(db, embedder, {
+      ownerId: OWNER,
+      queryText: buildEntityEmbeddingInput(dragon)!.chunkText,
+      k: 3,
+    });
+    expect(hits[0]!.sourceId).toBe(ID.dragon);
+  });
+
+  it("skips a stub without writing a row", async () => {
+    const result = await embedRealmEntity(db, embedder, {
+      ...dragon,
+      isStub: true,
+    });
+    expect(result).toEqual({ status: "skipped" });
+
+    const rows = await client.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM embeddings WHERE source_id = $1",
+      [ID.dragon],
+    );
+    expect(rows.rows[0]!.count).toBe(0);
+  });
+});
+
+describe("embedRealmEntityBestEffort", () => {
+  it("swallows provider failures and reports them via onError", async () => {
+    const failing: EmbeddingClient = {
+      model: "boom",
+      embed: async () => {
+        throw new Error("provider down");
+      },
+    };
+    let captured: unknown;
+    const result = await embedRealmEntityBestEffort(db, failing, dragon, {
+      onError: (e) => {
+        captured = e;
+      },
+    });
+    expect(result).toBeNull();
+    expect((captured as Error).message).toBe("provider down");
+
+    // The originating write is unaffected: no rows were written.
+    const rows = await client.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM embeddings WHERE source_id = $1",
+      [ID.dragon],
+    );
+    expect(rows.rows[0]!.count).toBe(0);
+  });
+
+  it("returns the result and fires onResult on success", async () => {
+    let seen: string | undefined;
+    const result = await embedRealmEntityBestEffort(db, embedder, dragon, {
+      onResult: (r) => {
+        seen = r.status;
+      },
+    });
+    expect(result?.status).toBe("embedded");
+    expect(seen).toBe("embedded");
   });
 });

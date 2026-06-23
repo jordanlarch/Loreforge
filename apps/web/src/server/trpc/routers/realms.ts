@@ -29,6 +29,7 @@ import {
   REALM_RELATIONSHIP_KINDS,
   type RealmEntityType,
 } from "@/lib/realms";
+import { embedRealmEntityOnWrite } from "@/server/memory/embed";
 import { parseData } from "@/server/realms/schemas";
 import {
   GeneratorNotConfiguredError,
@@ -244,6 +245,7 @@ export const realmsRouter = createTRPCRouter({
           message: "Failed to create entity.",
         });
       }
+      await embedRealmEntityOnWrite(db, row);
       return row;
     }),
 
@@ -272,6 +274,7 @@ export const realmsRouter = createTRPCRouter({
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Entity not found." });
       }
+      await embedRealmEntityOnWrite(db, row);
       return row;
     }),
 
@@ -490,6 +493,7 @@ export const realmsRouter = createTRPCRouter({
           model,
           usage,
         });
+        await embedRealmEntityOnWrite(db, row);
         return { entity: row, childCount };
       } catch (err) {
         await logGeneration(db, {
@@ -566,6 +570,7 @@ export const realmsRouter = createTRPCRouter({
           model,
           usage,
         });
+        if (row) await embedRealmEntityOnWrite(db, row);
         return row!;
       } catch (err) {
         await logGeneration(db, {

@@ -22,8 +22,9 @@ const ART_STYLES = [
 /**
  * Settings tab (#117, CAMP-10): campaign-level configuration — the AI-GM persona
  * that steers narration voice, the default play tempo (Q19c hybrid), and the
- * art-style lock (Q16) — plus a danger zone to delete the campaign. Members /
- * invites, memory export, and per-NPC TTS voices are deferred (see deferrals).
+ * art-style lock (Q16) — plus memory export and a danger zone to delete the
+ * campaign. Members / invites and per-NPC TTS voices are deferred (see
+ * deferrals).
  */
 export function SettingsTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
@@ -138,8 +139,83 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
         </div>
       </form>
 
+      <MemorySection campaignId={campaignId} name={campaign.data.name} />
+
       <DangerZone campaignId={campaignId} name={campaign.data.name} />
     </div>
+  );
+}
+
+/** Filesystem-safe slug for the export filename. */
+function slugify(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "campaign"
+  );
+}
+
+/**
+ * Memory export (CAMP-10): download everything the memory tier holds for this
+ * campaign — the rolling summary (MEM-3), session recaps (MEM-4), and pinned
+ * memories (MEM-8) — as a portable JSON file. Read-only; lazily fetched on click.
+ */
+function MemorySection({
+  campaignId,
+  name,
+}: {
+  campaignId: string;
+  name: string;
+}) {
+  const utils = trpc.useUtils();
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onExport() {
+    setExporting(true);
+    setError(null);
+    try {
+      const data = await utils.memory.exportCampaign.fetch({ campaignId });
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const date = new Date().toISOString().slice(0, 10);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `loreforge-${slugify(name)}-memory-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-lore-border bg-lore-surface p-5">
+      <h3 className="font-display text-lg">Memory</h3>
+      <p className="mt-1 text-sm text-lore-muted">
+        Export this campaign&apos;s accumulated memory — the rolling summary,
+        session recaps, and pinned memories — as a portable JSON file.
+      </p>
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onExport}
+          disabled={exporting}
+          className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+        >
+          {exporting ? "Exporting…" : "Export memory (JSON)"}
+        </button>
+        {error && <span className="text-sm text-red-400">{error}</span>}
+      </div>
+    </section>
   );
 }
 

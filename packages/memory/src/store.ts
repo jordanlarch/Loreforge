@@ -177,6 +177,8 @@ export type RetrievedChunk = {
   chunkText: string;
   /** Cosine similarity in [-1, 1]; ~1.0 for an exact text match. */
   score: number;
+  /** When the chunk was embedded; lets consumers recency-rank (MEM-5). */
+  createdAt: Date;
 };
 
 /**
@@ -212,6 +214,7 @@ export async function retrieveSimilar(
       chunkIndex: embeddings.chunkIndex,
       chunkText: embeddings.chunkText,
       score,
+      createdAt: embeddings.createdAt,
     })
     .from(embeddings)
     .where(and(...filters))
@@ -225,5 +228,6 @@ export async function retrieveSimilar(
     chunkIndex: r.chunkIndex,
     chunkText: r.chunkText,
     score: Number(r.score),
+    createdAt: r.createdAt,
   }));
 }

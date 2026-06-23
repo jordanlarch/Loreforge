@@ -118,6 +118,39 @@ describe("narrate", () => {
     expect(result.mentions).toEqual([]);
   });
 
+  it("injects retrieved world-knowledge as background (MEM-5)", async () => {
+    const client = createFakeLlmClient({
+      input: { narration: "The sigil pulses, familiar." },
+    });
+    await narrate({
+      client,
+      state: world(),
+      recentChat: chat,
+      playerLine: "I study the glowing sigil",
+      mode: "action",
+      knowledge: [
+        "The Order of the Ember brands its sigil on cursed relics.",
+        "  ", // blank entries are dropped
+      ],
+    });
+    const prompt = client.calls[0]!.messages[0]!.content;
+    expect(prompt).toContain("World knowledge that may be relevant");
+    expect(prompt).toContain("Order of the Ember");
+  });
+
+  it("omits the world-knowledge block when there is nothing to inject", async () => {
+    const client = createFakeLlmClient({ input: { narration: "Quiet." } });
+    await narrate({
+      client,
+      state: world(),
+      recentChat: chat,
+      playerLine: "I wait",
+      knowledge: ["   "],
+    });
+    const prompt = client.calls[0]!.messages[0]!.content;
+    expect(prompt).not.toContain("World knowledge");
+  });
+
   it("injects an already-decided outcome the narration must honour", async () => {
     const client = createFakeLlmClient({ input: { narration: "You spot it." } });
     await narrate({

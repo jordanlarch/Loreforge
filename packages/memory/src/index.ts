@@ -32,6 +32,7 @@ export {
 } from "./chunk";
 export {
   REALM_ENTITY_SOURCE,
+  SESSION_RECAP_SOURCE,
   upsertSourceEmbeddings,
   embedRealmEntity,
   embedRealmEntityBestEffort,

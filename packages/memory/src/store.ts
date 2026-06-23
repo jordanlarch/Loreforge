@@ -17,6 +17,9 @@ type AnyPgDatabase = PgDatabase<any, any, any>;
 /** `sourceType` discriminator for embedded Realms entities. */
 export const REALM_ENTITY_SOURCE = "realm_entity" as const;
 
+/** `sourceType` discriminator for embedded session recaps (MEM-4). */
+export const SESSION_RECAP_SOURCE = "session_recap" as const;
+
 export type UpsertSourceEmbeddingsParams = {
   ownerId: string;
   /** Null for owner-scoped sources (Realms entities) not yet campaign-linked. */

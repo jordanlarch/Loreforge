@@ -44,3 +44,8 @@ export {
   type RetrieveSimilarOptions,
   type RetrievedChunk,
 } from "./store";
+export {
+  reembedRealmEntities,
+  type ReembedRealmEntitiesResult,
+  type ReembedRealmEntitiesOptions,
+} from "./reembed";

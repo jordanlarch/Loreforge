@@ -1,17 +1,16 @@
 /**
  * One-off backfill: embed every existing non-stub Realms entity (MEM-2).
  *
- * Idempotent — `upsertSourceEmbeddings` is contentHash-gated, so re-running only
+ * Idempotent — `reembedRealmEntities` is contentHash-gated, so re-running only
  * (re-)embeds entities whose composed text changed. Requires a real provider
  * (`OPENAI_API_KEY`); without one the run aborts rather than writing fake
- * vectors. Run via `npm run backfill:embeddings`.
+ * vectors. Run via `npm run backfill:embeddings`. Shares the same pass as the
+ * nightly `reembed-entities` Trigger task (MEM-7).
  */
-import { eq } from "drizzle-orm";
-
-import { closeDb, getDb, realmEntities } from "@app/db";
+import { closeDb, getDb } from "@app/db";
 
 import { resolveEmbeddingClient } from "../client";
-import { embedRealmEntity } from "../store";
+import { reembedRealmEntities } from "../reembed";
 
 async function main(): Promise<void> {
   if (!process.env.OPENAI_API_KEY) {
@@ -25,42 +24,18 @@ async function main(): Promise<void> {
   const db = getDb();
   const client = resolveEmbeddingClient();
 
-  const rows = await db
-    .select()
-    .from(realmEntities)
-    .where(eq(realmEntities.isStub, false));
-
-  let embedded = 0;
-  let unchanged = 0;
-  let skipped = 0;
-  let failed = 0;
-
-  for (const row of rows) {
-    try {
-      const result = await embedRealmEntity(db, client, {
-        id: row.id,
-        ownerId: row.ownerId,
-        type: row.type,
-        name: row.name,
-        summary: row.summary,
-        data: row.data,
-        isStub: row.isStub,
-      });
-      if (result.status === "skipped") skipped++;
-      else if (result.status === "unchanged") unchanged++;
-      else embedded++;
-    } catch (error) {
-      failed++;
+  const result = await reembedRealmEntities(db, client, {
+    onError: (id, error) =>
       console.warn(
-        `[backfill] failed for ${row.id}: ` +
+        `[backfill] failed for ${id}: ` +
           `${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
+      ),
+  });
 
   console.info(
-    `[backfill] done — total=${rows.length} embedded=${embedded} ` +
-      `unchanged=${unchanged} skipped=${skipped} failed=${failed}`,
+    `[backfill] done — total=${result.total} embedded=${result.embedded} ` +
+      `unchanged=${result.unchanged} skipped=${result.skipped} ` +
+      `failed=${result.failed}`,
   );
 
   await closeDb();

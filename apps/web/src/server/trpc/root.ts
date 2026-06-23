@@ -7,6 +7,7 @@ import { healthRouter } from "./routers/health";
 import { hooksRouter } from "./routers/hooks";
 import { memoryRouter } from "./routers/memory";
 import { notesRouter } from "./routers/notes";
+import { pinsRouter } from "./routers/pins";
 import { realmsRouter } from "./routers/realms";
 import { sessionsRouter } from "./routers/sessions";
 import { smithyRouter } from "./routers/smithy";
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   hooks: hooksRouter,
   memory: memoryRouter,
   notes: notesRouter,
+  pins: pinsRouter,
   realms: realmsRouter,
   sessions: sessionsRouter,
   smithy: smithyRouter,

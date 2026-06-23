@@ -20,6 +20,9 @@ export const REALM_ENTITY_SOURCE = "realm_entity" as const;
 /** `sourceType` discriminator for embedded session recaps (MEM-4). */
 export const SESSION_RECAP_SOURCE = "session_recap" as const;
 
+/** `sourceType` discriminator for embedded pinned memories (#155). */
+export const PINNED_MEMORY_SOURCE = "pinned_memory" as const;
+
 export type UpsertSourceEmbeddingsParams = {
   ownerId: string;
   /** Null for owner-scoped sources (Realms entities) not yet campaign-linked. */
@@ -102,6 +105,26 @@ export async function upsertSourceEmbeddings(
     model,
     tokens: usage.totalTokens,
   };
+}
+
+/**
+ * Delete all embeddings for a single source by `(sourceType, sourceId)`. No
+ * embedding client needed — used when the source row is removed (e.g. an
+ * unpinned memory). Returns nothing; idempotent (a no-op when none exist).
+ */
+export async function deleteSourceEmbeddings(
+  db: AnyPgDatabase,
+  sourceType: string,
+  sourceId: string,
+): Promise<void> {
+  await db
+    .delete(embeddings)
+    .where(
+      and(
+        eq(embeddings.sourceType, sourceType),
+        eq(embeddings.sourceId, sourceId),
+      ),
+    );
 }
 
 /** Result of an entity embed: `skipped` when the entity is a stub. */

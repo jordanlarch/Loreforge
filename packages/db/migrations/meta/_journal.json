@@ -127,6 +127,13 @@
       "when": 1782181182472,
       "tag": "0017_lying_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782236236042,
+      "tag": "0018_gorgeous_changeling",
+      "breakpoints": true
     }
   ]
 }

@@ -33,9 +33,13 @@ export {
 export {
   REALM_ENTITY_SOURCE,
   upsertSourceEmbeddings,
+  embedRealmEntity,
+  embedRealmEntityBestEffort,
   retrieveSimilar,
   type UpsertSourceEmbeddingsParams,
   type UpsertSourceEmbeddingsResult,
+  type EmbedRealmEntityResult,
+  type EmbedRealmEntityBestEffortOptions,
   type RetrieveSimilarOptions,
   type RetrievedChunk,
 } from "./store";

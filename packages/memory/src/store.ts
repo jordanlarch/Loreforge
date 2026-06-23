@@ -3,7 +3,11 @@ import type { PgDatabase } from "drizzle-orm/pg-core";
 
 import { embeddings } from "@app/db";
 
-import type { EmbeddingChunk } from "./chunk";
+import {
+  buildEntityEmbeddingInput,
+  type EmbeddableRealmEntity,
+  type EmbeddingChunk,
+} from "./chunk";
 import type { EmbeddingClient } from "./client";
 
 // Driver-agnostic Drizzle handle (postgres-js in prod, PGlite in tests) —
@@ -28,6 +32,10 @@ export type UpsertSourceEmbeddingsResult = {
   status: "embedded" | "unchanged";
   /** Number of chunks (re-)embedded and written. */
   embedded: number;
+  /** Model the embeddings were produced with ("" when nothing was embedded). */
+  model: string;
+  /** Total embedding tokens billed (0 when nothing was embedded). */
+  tokens: number;
 };
 
 /**
@@ -60,14 +68,16 @@ export async function upsertSourceEmbeddings(
     chunks.length > 0 &&
     existing.length === chunks.length &&
     chunks.every((c, i) => existing[i]?.contentHash === c.contentHash);
-  if (unchanged) return { status: "unchanged", embedded: 0 };
+  if (unchanged) return { status: "unchanged", embedded: 0, model: "", tokens: 0 };
 
   if (chunks.length === 0) {
     if (existing.length > 0) await db.delete(embeddings).where(sourceMatch);
-    return { status: "embedded", embedded: 0 };
+    return { status: "embedded", embedded: 0, model: "", tokens: 0 };
   }
 
-  const { vectors, model } = await client.embed(chunks.map((c) => c.chunkText));
+  const { vectors, model, usage } = await client.embed(
+    chunks.map((c) => c.chunkText),
+  );
   await db.delete(embeddings).where(sourceMatch);
   await db.insert(embeddings).values(
     chunks.map((c, i) => ({
@@ -83,7 +93,67 @@ export async function upsertSourceEmbeddings(
     })),
   );
 
-  return { status: "embedded", embedded: chunks.length };
+  return {
+    status: "embedded",
+    embedded: chunks.length,
+    model,
+    tokens: usage.totalTokens,
+  };
+}
+
+/** Result of an entity embed: `skipped` when the entity is a stub. */
+export type EmbedRealmEntityResult =
+  | { status: "skipped" }
+  | UpsertSourceEmbeddingsResult;
+
+/**
+ * Compose a Realms entity's "card" chunk and upsert it (owner-scoped, no
+ * campaign). Returns `{ status: "skipped" }` for stubs (no content to embed).
+ * Throws on real failures — see {@link embedRealmEntityBestEffort} for the
+ * write-path-safe variant.
+ */
+export async function embedRealmEntity(
+  db: AnyPgDatabase,
+  client: EmbeddingClient,
+  entity: EmbeddableRealmEntity,
+): Promise<EmbedRealmEntityResult> {
+  const chunk = buildEntityEmbeddingInput(entity);
+  if (!chunk) return { status: "skipped" };
+  return upsertSourceEmbeddings(db, client, {
+    ownerId: entity.ownerId,
+    sourceType: REALM_ENTITY_SOURCE,
+    sourceId: entity.id,
+    chunks: [chunk],
+  });
+}
+
+export type EmbedRealmEntityBestEffortOptions = {
+  /** Called once with the result on success (e.g. for structured cost logs). */
+  onResult?: (result: EmbedRealmEntityResult) => void;
+  /** Called if embedding throws; the error is otherwise swallowed. */
+  onError?: (error: unknown) => void;
+};
+
+/**
+ * Write-path-safe {@link embedRealmEntity}: never throws, so a provider/network
+ * failure can't fail the originating mutation. Returns the result on success or
+ * `null` on failure. Embedding is a best-effort enrichment — a missed embed is
+ * recoverable later (backfill / re-embed), so it must not break the write.
+ */
+export async function embedRealmEntityBestEffort(
+  db: AnyPgDatabase,
+  client: EmbeddingClient,
+  entity: EmbeddableRealmEntity,
+  options: EmbedRealmEntityBestEffortOptions = {},
+): Promise<EmbedRealmEntityResult | null> {
+  try {
+    const result = await embedRealmEntity(db, client, entity);
+    options.onResult?.(result);
+    return result;
+  } catch (error) {
+    options.onError?.(error);
+    return null;
+  }
 }
 
 export type RetrieveSimilarOptions = {

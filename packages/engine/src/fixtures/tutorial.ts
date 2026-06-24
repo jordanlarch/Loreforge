@@ -17,6 +17,7 @@
  */
 import type { Command } from "../commands/types";
 import type { Ability, GridPosition } from "../entities/types";
+import type { WorldState } from "../projections/world-state";
 import { monsterTemplate } from "../content/monsters";
 import type { FoeSpec, PartyMember } from "./battle";
 import { FIXTURE_BATTLE_FOES_SIDE, FIXTURE_BATTLE_PARTY_SIDE } from "./battle";
@@ -273,6 +274,198 @@ export function createTutorialNpcCommands(
       position,
     },
   }));
+}
+
+/** Where the lead PC, companion, and NPC tokens belong in each exploration scene. */
+export type TutorialScenePlacement = {
+  lead: GridPosition;
+  companion?: GridPosition;
+  npcs: ReadonlyArray<{ id: string; name: string; position: GridPosition }>;
+};
+
+/** Token layout for a tutorial scene (exploration maps only). */
+export function tutorialScenePlacement(
+  sceneId: string,
+): TutorialScenePlacement | undefined {
+  switch (sceneId) {
+    case TUTORIAL_SCENE_HOLLOWS_EDGE:
+      return { lead: HOLLOWS_EDGE_START, npcs: [] };
+    case TUTORIAL_SCENE_HEARTH:
+      return {
+        lead: HEARTH_START,
+        companion: HEARTH_COMPANION_CELL,
+        npcs: [
+          {
+            id: TUTORIAL_NPC_BARNABY_ID,
+            name: "Barnaby Bramblefoot",
+            position: { x: 2, y: 2 },
+          },
+          {
+            id: TUTORIAL_NPC_LILY_ID,
+            name: "Lily Lampmaker",
+            position: { x: 8, y: 6 },
+          },
+        ],
+      };
+    case TUTORIAL_SCENE_CROOKED_LANE:
+      return {
+        lead: LANE_START,
+        companion: LANE_COMPANION_CELL,
+        npcs: [
+          {
+            id: TUTORIAL_NPC_TORIC_ID,
+            name: "Toric Pennywhistle",
+            position: { x: 8, y: 4 },
+          },
+        ],
+      };
+    case TUTORIAL_SCENE_SPIRE_LOWER:
+      return {
+        lead: SPIRE_LOWER_START,
+        companion: SPIRE_LOWER_COMPANION_CELL,
+        npcs: [],
+      };
+    case TUTORIAL_SCENE_SPIRE_UPPER:
+      return {
+        lead: SPIRE_UPPER_START,
+        companion: SPIRE_UPPER_COMPANION_CELL,
+        npcs: [
+          {
+            id: TUTORIAL_NPC_MARLOWE_ID,
+            name: "Marlowe the Lampkeeper",
+            position: { x: 3, y: 4 },
+          },
+        ],
+      };
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Resolve the live lead PC entity id. Handles legacy seeds that used the
+ * fixture id (`pc:mira`) before the persisted character row existed.
+ */
+export function resolveTutorialLeadEntityId(
+  party: readonly PartyMemberLike[],
+  entities: Readonly<Record<string, { id: string; kind: string; name: string }>>,
+): string | undefined {
+  const lead = party[0];
+  if (!lead) return undefined;
+  if (entities[lead.id]) return lead.id;
+  const legacy = TUTORIAL_FALLBACK_PARTY[0]!.id;
+  if (entities[legacy]) return legacy;
+  return Object.values(entities).find(
+    (e) =>
+      e.kind === "character" &&
+      e.id !== TUTORIAL_COMPANION.id &&
+      e.name === lead.name,
+  )?.id;
+}
+
+function partyMemberForLead(
+  party: readonly PartyMemberLike[],
+  leadEntityId: string,
+): PartyMemberLike | undefined {
+  return (
+    party.find((m) => m.id === leadEntityId) ??
+    (leadEntityId === TUTORIAL_FALLBACK_PARTY[0]!.id
+      ? TUTORIAL_FALLBACK_PARTY[0]
+      : party[0])
+  );
+}
+
+function entityNeedsPlacement(
+  entity:
+    | { sceneId?: string; position?: GridPosition }
+    | undefined,
+  sceneId: string,
+): boolean {
+  return !entity || entity.sceneId !== sceneId || entity.position === undefined;
+}
+
+/**
+ * Idempotent repair for exploration scenes: place the lead PC, carry the
+ * companion, and create any missing NPC tokens for the current scene. Safe to
+ * run after seed, advance, or reconnect when an older log skipped enter-commands.
+ */
+export function buildTutorialSceneRepairCommands(
+  sceneId: string,
+  party: readonly PartyMemberLike[],
+  state: Pick<WorldState, "entities" | "encounter">,
+): Command[] {
+  if (state.encounter) return [];
+  const placement = tutorialScenePlacement(sceneId);
+  if (!placement) return [];
+
+  const cmds: Command[] = [];
+  const leadEntityId = resolveTutorialLeadEntityId(party, state.entities);
+
+  if (leadEntityId) {
+    const lead = state.entities[leadEntityId];
+    if (entityNeedsPlacement(lead, sceneId)) {
+      if (lead) {
+        cmds.push({
+          type: "relocate_entity",
+          entity: leadEntityId,
+          sceneId,
+          position: placement.lead,
+        });
+      } else {
+        const member = partyMemberForLead(party, leadEntityId);
+        if (member) {
+          cmds.push({
+            type: "create_entity",
+            entity: {
+              id: leadEntityId,
+              kind: "character",
+              name: member.name,
+              abilityScores: member.abilityScores,
+              maxHp: member.maxHp,
+              baseAc: member.baseAc,
+              speed: member.speed,
+              classes: member.classes,
+              sceneId,
+              position: placement.lead,
+              ...(member.spellcasting
+                ? { spellcasting: member.spellcasting }
+                : {}),
+            },
+          });
+        }
+      }
+    }
+  } else if (party[0]) {
+    cmds.push(...placeLead(party, sceneId, placement.lead));
+  }
+
+  if (placement.companion && state.entities[TUTORIAL_COMPANION.id]) {
+    const companion = state.entities[TUTORIAL_COMPANION.id];
+    if (entityNeedsPlacement(companion, sceneId)) {
+      cmds.push({
+        type: "relocate_entity",
+        entity: TUTORIAL_COMPANION.id,
+        sceneId,
+        position: placement.companion,
+      });
+    }
+  }
+
+  for (const npc of placement.npcs) {
+    const existing = state.entities[npc.id];
+    if (!existing) {
+      cmds.push(...createTutorialNpcCommands(sceneId, [npc]));
+    } else if (entityNeedsPlacement(existing, sceneId)) {
+      cmds.push({
+        type: "relocate_entity",
+        entity: npc.id,
+        sceneId,
+        position: npc.position,
+      });
+    }
+  }
+
+  return cmds;
 }
 
 /** The stable entity id of the tutorial's combat foe (the Hungering Shade). */

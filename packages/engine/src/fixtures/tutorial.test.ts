@@ -8,7 +8,9 @@ import {
   TUTORIAL_NPC_MARLOWE_ID,
   createTutorialNpcCommands,
   buildCompanionCommands,
+  buildTutorialSceneRepairCommands,
   buildTutorialSeedCommands,
+  resolveTutorialLeadEntityId,
   classifyScene2Topic,
   nextTutorialScene,
   tutorialAchievement,
@@ -135,6 +137,52 @@ describe("tutorial script", () => {
     if (cmds[0]?.type !== "create_entity") throw new Error("expected create_entity");
     expect(cmds[0].entity.kind).toBe("npc");
     expect(cmds[0].entity.speed).toBe(0);
+  });
+
+  it("resolves the legacy fixture lead id when the roster uuid is absent", async () => {
+    const engine = await seed();
+    const state = await engine.getState(CAMPAIGN);
+    const legacyId = TUTORIAL_FALLBACK_PARTY[0]!.id;
+    expect(state.entities[legacyId]).toBeDefined();
+    expect(
+      resolveTutorialLeadEntityId(
+        [{ ...TUTORIAL_FALLBACK_PARTY[0]!, id: "char:mira-row" }],
+        state.entities,
+      ),
+    ).toBe(legacyId);
+  });
+
+  it("repairs missing NPC tokens on the current exploration scene", async () => {
+    const engine = await seed();
+    const hearth = nextTutorialScene(TUTORIAL_SCENE_HOLLOWS_EDGE)!;
+    for (const command of hearth.enter(TUTORIAL_FALLBACK_PARTY)) {
+      if (
+        command.type === "create_entity" &&
+        command.entity.kind === "npc"
+      ) {
+        continue;
+      }
+      await engine.execute(CAMPAIGN, command);
+    }
+    let state = await engine.getState(CAMPAIGN);
+    expect(state.currentSceneId).toBe(TUTORIAL_SCENE_HEARTH);
+    expect(state.entities[TUTORIAL_NPC_BARNABY_ID]).toBeUndefined();
+
+    for (const command of buildTutorialSceneRepairCommands(
+      TUTORIAL_SCENE_HEARTH,
+      TUTORIAL_FALLBACK_PARTY,
+      state,
+    )) {
+      await engine.execute(CAMPAIGN, command);
+    }
+    state = await engine.getState(CAMPAIGN);
+    expect(state.entities[TUTORIAL_NPC_BARNABY_ID]?.sceneId).toBe(
+      TUTORIAL_SCENE_HEARTH,
+    );
+    expect(state.entities[TUTORIAL_NPC_LILY_ID]?.position).toEqual({ x: 8, y: 6 });
+    expect(state.entities[TUTORIAL_FALLBACK_PARTY[0]!.id]?.sceneId).toBe(
+      TUTORIAL_SCENE_HEARTH,
+    );
   });
 
   it("routes free text to a dialogue topic and always reaches Lily's hook", () => {

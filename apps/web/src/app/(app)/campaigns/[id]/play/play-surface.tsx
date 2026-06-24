@@ -18,6 +18,8 @@ import {
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
   TUTORIAL_CHEST_LOOT,
+  TUTORIAL_COMPANION,
+  TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_HOOK,
   TUTORIAL_OIL_NAME,
   TUTORIAL_RESOLUTION,
@@ -1000,7 +1002,26 @@ export function TutorialPlaySurface({
   const router = useRouter();
   const session = useLiveSession({ campaignId });
   const partyQuery = trpc.campaigns.party.useQuery({ campaignId });
+  const loadoutQuery = trpc.campaigns.partyLoadout.useQuery({ campaignId });
   const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
+  const loadouts = useMemo(() => {
+    const map: Record<string, SheetData> = {};
+    for (const row of loadoutQuery.data ?? []) {
+      map[row.id] = { equipment: row.equipment, spells: row.spells };
+    }
+    const pcRow = partyQuery.data?.find((m) => m.role === "pc");
+    if (pcRow && map[pcRow.id]) {
+      // Legacy tutorial seeds used the fixture entity id before the roster row existed.
+      map[TUTORIAL_FALLBACK_PARTY[0]!.id] = map[pcRow.id]!;
+    }
+    const brennarRow = partyQuery.data?.find(
+      (m) => m.role === "companion" || m.name === TUTORIAL_COMPANION.name,
+    );
+    if (brennarRow && map[brennarRow.id]) {
+      map[TUTORIAL_COMPANION.id] = map[brennarRow.id]!;
+    }
+    return map;
+  }, [loadoutQuery.data, partyQuery.data]);
   const [drawerName, setDrawerName] = useState<string | null>(null);
   const [catalogKind, setCatalogKind] = useState<"shop" | "tavern" | null>(
     null,
@@ -1545,6 +1566,7 @@ export function TutorialPlaySurface({
         backHref="/"
         campaignId={campaignId}
         pcCharacterId={pcCharacterId}
+        loadouts={loadouts}
         tutorialControls={tutorialControls}
         hudExtra={hudExtra}
         onEntityClick={setDrawerName}

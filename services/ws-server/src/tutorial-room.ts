@@ -22,6 +22,7 @@ import {
   Engine,
   buildCompanionCommands,
   buildTutorialSeedCommands,
+  buildTutorialSceneRepairCommands,
   checkAction,
   nextTutorialScene,
   tutorialBeat,
@@ -107,6 +108,22 @@ export class TutorialRoom implements LiveRoom {
       }
     }
     this.seeded = true;
+    await this.repairSceneTokens();
+  }
+
+  /** Backfill missing map tokens for the current exploration scene (idempotent). */
+  private async repairSceneTokens(): Promise<void> {
+    const state = await this.engine.getState(this.campaignId);
+    const sceneId = state.currentSceneId;
+    if (!sceneId) return;
+    const party = await this.party();
+    for (const command of buildTutorialSceneRepairCommands(
+      sceneId,
+      party,
+      state,
+    )) {
+      await this.engine.execute(this.campaignId, command);
+    }
   }
 
   async apply(action: BattleAction): Promise<ApplyResult> {
@@ -227,6 +244,7 @@ export class TutorialRoom implements LiveRoom {
     for (const command of next.enter(party)) {
       await this.engine.execute(this.campaignId, command);
     }
+    await this.repairSceneTokens();
     // Combat handoff (D2): arm an encounter from whoever is actually in the new
     // scene (party-side characters + the scripted foes), then roll initiative.
     if (next.combat) {
@@ -367,6 +385,7 @@ export class TutorialRoom implements LiveRoom {
     for (const command of buildCompanionCommands(sceneId)) {
       await this.engine.execute(this.campaignId, command);
     }
+    await this.repairSceneTokens();
     return TUTORIAL_COMPANION.name;
   }
 }

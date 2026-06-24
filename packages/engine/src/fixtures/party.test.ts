@@ -20,6 +20,12 @@ describe("buildCharacterSheet", () => {
     const intSave = sheet.savingThrows.find((s) => s.ability === "int")!;
     expect(intSave.proficient).toBe(false);
     expect(intSave.modifier).toBe(-1); // int 9 → -1, no prof
+    const athletics = sheet.skills.find((s) => s.skill === "Athletics")!;
+    expect(athletics.proficient).toBe(true);
+    expect(athletics.modifier).toBe(6); // str +3 + prof 3
+    const arcana = sheet.skills.find((s) => s.skill === "Arcana")!;
+    expect(arcana.proficient).toBe(false);
+    expect(arcana.modifier).toBe(-1);
   });
 });
 

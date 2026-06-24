@@ -13,6 +13,7 @@ import {
   proficiencyBonusForLevel,
   totalLevel,
 } from "../entities/abilities";
+import { SKILLS, SKILL_ABILITY, type Skill } from "../entities/character-build";
 import type {
   Ability,
   AbilityScores,
@@ -77,6 +78,13 @@ export type SavingThrow = {
   proficient: boolean;
 };
 
+export type SkillRow = {
+  skill: Skill;
+  ability: Ability;
+  modifier: number;
+  proficient: boolean;
+};
+
 export type CharacterSheet = {
   id: string;
   name: string;
@@ -92,6 +100,8 @@ export type CharacterSheet = {
   speed: number;
   initiative: number;
   savingThrows: SavingThrow[];
+  /** All 18 SRD skills, alphabetical, with computed modifiers. */
+  skills: SkillRow[];
   skillProficiencies: string[];
 };
 
@@ -120,6 +130,20 @@ export function buildCharacterSheet(
     };
   });
 
+  const skills: SkillRow[] = [...SKILLS]
+    .sort((a, b) => a.localeCompare(b))
+    .map((skill) => {
+      const ability = SKILL_ABILITY[skill];
+      const proficient = character.skillProficiencies.includes(skill);
+      return {
+        skill,
+        ability,
+        proficient,
+        modifier:
+          abilityModifiers[ability] + (proficient ? proficiencyBonus : 0),
+      };
+    });
+
   return {
     id: character.id,
     name: character.name,
@@ -135,6 +159,7 @@ export function buildCharacterSheet(
     speed: character.speed,
     initiative: abilityModifiers.dex,
     savingThrows,
+    skills,
     skillProficiencies: character.skillProficiencies,
   };
 }

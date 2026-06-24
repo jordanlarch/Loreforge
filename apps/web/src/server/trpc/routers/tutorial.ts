@@ -52,6 +52,133 @@ async function tutorialCampaignId(ownerId: string): Promise<string | null> {
   return row?.id ?? null;
 }
 
+/**
+ * Clear a dangling `tutorial_progress.campaign_id` when the campaign row was
+ * deleted (e.g. Settings danger zone). Nothing is permanently lost — `start` /
+ * `replay` can re-seed the tutorial campaign.
+ */
+async function healOrphanedTutorialProgress(ownerId: string): Promise<void> {
+  const db = getDb();
+  const [progress] = await db
+    .select({ campaignId: tutorialProgress.campaignId })
+    .from(tutorialProgress)
+    .where(eq(tutorialProgress.ownerId, ownerId))
+    .limit(1);
+  if (!progress?.campaignId) return;
+
+  const [campaign] = await db
+    .select({ id: campaigns.id })
+    .from(campaigns)
+    .where(eq(campaigns.id, progress.campaignId))
+    .limit(1);
+  if (campaign) return;
+
+  await db
+    .update(tutorialProgress)
+    .set({ campaignId: null, updatedAt: new Date() })
+    .where(eq(tutorialProgress.ownerId, ownerId));
+}
+
+/** Create a fresh tutorial campaign + roster seed (D4). Returns the campaign id. */
+async function createTutorialCampaign(ownerId: string): Promise<string> {
+  const db = getDb();
+
+  const [campaign] = await db
+    .insert(campaigns)
+    .values({
+      ownerId,
+      name: TUTORIAL_CAMPAIGN_NAME,
+      description: "A 30-minute guided adventure to learn the ropes.",
+      isTutorial: true,
+    })
+    .returning({ id: campaigns.id });
+  if (!campaign) {
+    throw new Error("Failed to create tutorial campaign.");
+  }
+
+  const [miraRow] = await (async () => {
+    const reused = await findOwnedCharacter(ownerId, STARTER_MIRA.name);
+    if (reused) {
+      await db
+        .update(characters)
+        .set({
+          notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
+          libraryVisibility: "campaign_only",
+          updatedAt: new Date(),
+        })
+        .where(eq(characters.id, reused));
+      return [{ id: reused }];
+    }
+    return db
+      .insert(characters)
+      .values({
+        ...TUTORIAL_MIRA,
+        ownerId,
+        notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
+        libraryVisibility: "campaign_only",
+      })
+      .returning({ id: characters.id });
+  })();
+  const mira = miraRow;
+  if (mira) {
+    await db
+      .insert(campaignCharacters)
+      .values({
+        campaignId: campaign.id,
+        characterId: mira.id,
+        ownerId,
+        role: "pc",
+        status: "active",
+      })
+      .onConflictDoNothing();
+  }
+
+  const brennarId =
+    (await findOwnedCharacter(ownerId, STARTER_BRENNAR.name)) ??
+    (
+      await db
+        .insert(characters)
+        .values({
+          ...TUTORIAL_BRENNAR,
+          ownerId,
+          libraryVisibility: "campaign_only",
+        })
+        .returning({ id: characters.id })
+    )[0]?.id;
+  if (brennarId) {
+    await db
+      .insert(campaignCharacters)
+      .values({
+        campaignId: campaign.id,
+        characterId: brennarId,
+        ownerId,
+        role: "companion",
+        status: "reserve",
+      })
+      .onConflictDoNothing();
+  }
+
+  await db
+    .insert(plotHooks)
+    .values({
+      campaignId: campaign.id,
+      ownerId,
+      title: TUTORIAL_HOOK.title,
+      summary: TUTORIAL_HOOK.summary,
+      status: "suggested",
+    })
+    .onConflictDoNothing();
+
+  return campaign.id;
+}
+
+/** Return the user's tutorial campaign id, creating one if it was deleted. */
+async function ensureTutorialCampaign(ownerId: string): Promise<string> {
+  const existing = await tutorialCampaignId(ownerId);
+  if (existing) return existing;
+  return createTutorialCampaign(ownerId);
+}
+
 /** Resolve the tutorial hero (Mira, the `pc`) row + her current inventory. */
 async function tutorialHero(
   ownerId: string,
@@ -100,6 +227,7 @@ export const tutorialRouter = createTRPCRouter({
   /** The current user's tutorial run, or null if they haven't started. */
   get: protectedProcedure.query(async ({ ctx }) => {
     const db = getDb();
+    await healOrphanedTutorialProgress(ctx.user.id);
     const [row] = await db
       .select()
       .from(tutorialProgress)
@@ -114,114 +242,22 @@ export const tutorialRouter = createTRPCRouter({
    * the seed. Returns the campaign id to mount the play surface against.
    */
   start: protectedProcedure.mutation(async ({ ctx }) => {
-    const db = getDb();
     const ownerId = ctx.user.id;
+    await healOrphanedTutorialProgress(ownerId);
 
-    const [existing] = await db
-      .select({ id: campaigns.id })
-      .from(campaigns)
-      .where(and(eq(campaigns.ownerId, ownerId), eq(campaigns.isTutorial, true)))
-      .limit(1);
+    const existing = await tutorialCampaignId(ownerId);
     if (existing) {
       trackTutorialEvent({ name: "tutorial_continue" });
-      return { campaignId: existing.id };
+      return { campaignId: existing };
     }
 
-    const [campaign] = await db
-      .insert(campaigns)
-      .values({
-        ownerId,
-        name: TUTORIAL_CAMPAIGN_NAME,
-        description: "A 30-minute guided adventure to learn the ropes.",
-        isTutorial: true,
-      })
-      .returning({ id: campaigns.id });
-    if (!campaign) {
-      throw new Error("Failed to create tutorial campaign.");
-    }
+    const campaignId = await createTutorialCampaign(ownerId);
 
-    const [miraRow] = await (async () => {
-      const reused = await findOwnedCharacter(ownerId, STARTER_MIRA.name);
-      if (reused) {
-        await db
-          .update(characters)
-          .set({
-            notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
-            libraryVisibility: "campaign_only",
-            updatedAt: new Date(),
-          })
-          .where(eq(characters.id, reused));
-        return [{ id: reused }];
-      }
-      return db
-        .insert(characters)
-        .values({
-          ...TUTORIAL_MIRA,
-          ownerId,
-          notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
-          libraryVisibility: "campaign_only",
-        })
-        .returning({ id: characters.id });
-    })();
-    const mira = miraRow;
-    if (mira) {
-      await db
-        .insert(campaignCharacters)
-        .values({
-          campaignId: campaign.id,
-          characterId: mira.id,
-          ownerId,
-          role: "pc",
-          status: "active",
-        })
-        .onConflictDoNothing();
-    }
-
-    // Old Brennar is seeded now (D4) but parked as a "reserve" companion so he
-    // doesn't load into Scene 1; accepting the hook in Scene 2 activates him.
-    const brennarId =
-      (await findOwnedCharacter(ownerId, STARTER_BRENNAR.name)) ??
-      (
-        await db
-          .insert(characters)
-          .values({
-            ...TUTORIAL_BRENNAR,
-            ownerId,
-            libraryVisibility: "campaign_only",
-          })
-          .returning({ id: characters.id })
-      )[0]?.id;
-    if (brennarId) {
-      await db
-        .insert(campaignCharacters)
-        .values({
-          campaignId: campaign.id,
-          characterId: brennarId,
-          ownerId,
-          role: "companion",
-          status: "reserve",
-        })
-        .onConflictDoNothing();
-    }
-
-    // The central plot hook, seeded as a "suggested" campaign hook; Scene 2's
-    // offer flips it to "active" (it then surfaces in the Hooks tab).
-    await db
-      .insert(plotHooks)
-      .values({
-        campaignId: campaign.id,
-        ownerId,
-        title: TUTORIAL_HOOK.title,
-        summary: TUTORIAL_HOOK.summary,
-        status: "suggested",
-      })
-      .onConflictDoNothing();
-
-    await db
+    await getDb()
       .insert(tutorialProgress)
       .values({
         ownerId,
-        campaignId: campaign.id,
+        campaignId,
         currentSceneId: TUTORIAL_FIRST_SCENE_ID,
         status: "in_progress",
         completedAt: null,
@@ -229,7 +265,7 @@ export const tutorialRouter = createTRPCRouter({
       .onConflictDoUpdate({
         target: tutorialProgress.ownerId,
         set: {
-          campaignId: campaign.id,
+          campaignId,
           currentSceneId: TUTORIAL_FIRST_SCENE_ID,
           status: "in_progress",
           completedAt: null,
@@ -238,7 +274,7 @@ export const tutorialRouter = createTRPCRouter({
       });
 
     trackTutorialEvent({ name: "tutorial_start" });
-    return { campaignId: campaign.id };
+    return { campaignId };
   }),
 
   /**
@@ -249,25 +285,29 @@ export const tutorialRouter = createTRPCRouter({
    */
   replay: protectedProcedure.mutation(async ({ ctx }) => {
     const ownerId = ctx.user.id;
-    const campaignId = await tutorialCampaignId(ownerId);
-
-    if (!campaignId) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "No tutorial campaign to replay. Start the tutorial first.",
-      });
-    }
+    await healOrphanedTutorialProgress(ownerId);
+    const campaignId = await ensureTutorialCampaign(ownerId);
 
     const now = new Date();
     await getDb()
-      .update(tutorialProgress)
-      .set({
+      .insert(tutorialProgress)
+      .values({
+        ownerId,
+        campaignId,
         currentSceneId: TUTORIAL_FIRST_SCENE_ID,
         status: "in_progress",
         completedAt: null,
-        updatedAt: now,
       })
-      .where(eq(tutorialProgress.ownerId, ownerId));
+      .onConflictDoUpdate({
+        target: tutorialProgress.ownerId,
+        set: {
+          campaignId,
+          currentSceneId: TUTORIAL_FIRST_SCENE_ID,
+          status: "in_progress",
+          completedAt: null,
+          updatedAt: now,
+        },
+      });
 
     trackTutorialEvent({ name: "tutorial_replay" });
     return { campaignId, resetEngine: true as const };

@@ -126,6 +126,16 @@ function ChatRow({
     );
   }
 
+  if (entry.kind === "scene_divider") {
+    return (
+      <div className="flex items-center gap-3 py-1 text-xs text-lore-muted">
+        <span className="h-px flex-1 bg-lore-border" aria-hidden />
+        <span className="shrink-0 italic">{entry.text}</span>
+        <span className="h-px flex-1 bg-lore-border" aria-hidden />
+      </div>
+    );
+  }
+
   if (entry.kind === "event") {
     return (
       <p className="text-center text-xs italic text-lore-muted">{entry.text}</p>

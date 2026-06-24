@@ -12,6 +12,7 @@ import {
   SpellDefinitionMechanics,
   SpellDefinitionStats,
 } from "@/components/spell-definition-panel";
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { trpc } from "@/lib/trpc/client";
 
 type RawSpell = Record<string, unknown>;
@@ -131,19 +132,25 @@ export function SpellDetail({
           </button>
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => copy.mutate({ slug })}
-            disabled={copy.isPending || spell.isLoading}
-            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
-          >
-            {copy.isPending ? "Copying…" : "Copy to The Smithy"}
-          </button>
-          {copy.error && (
-            <p className="self-center text-sm text-red-400">{copy.error.message}</p>
-          )}
-        </div>
+        <CodexDetailActions
+          category="Spells"
+          slug={slug}
+          name={spell.data?.name ?? slug}
+          raw={raw}
+          copyAction={
+            <button
+              type="button"
+              onClick={() => copy.mutate({ slug })}
+              disabled={copy.isPending || spell.isLoading}
+              className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+            >
+              {copy.isPending ? "Copying…" : "Copy to The Smithy"}
+            </button>
+          }
+        />
+        {copy.error && (
+          <p className="mb-4 text-sm text-red-400">{copy.error.message}</p>
+        )}
 
         {spell.isLoading && <p className="text-lore-muted">Loading…</p>}
 

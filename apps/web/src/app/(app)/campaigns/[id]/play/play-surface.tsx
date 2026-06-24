@@ -75,8 +75,9 @@ import { PartyRail } from "./party-rail";
 import { ReactionPrompt } from "./reaction-prompt";
 import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
-import { useSceneTransition } from "./use-scene-transition";
+import { useSceneTransition, useCombatTransition } from "./use-scene-transition";
 import { useLiveSession } from "./use-live-session";
+import { mergeChatEntries } from "@/lib/scene-transition-chat";
 import { TUTORIAL_SHOP } from "@/lib/tutorial-shop";
 
 type ViewModel = {
@@ -239,14 +240,22 @@ function LiveBattle({
   });
 
   // Scene transition (#103): watch the synced scene id and cross-fade + drop a
-  // location banner when the engine advances to a new scene.
+  // location banner + chat divider when the engine advances to a new scene.
+  const inCombat = session.state?.encounter !== undefined;
   const transitionSceneId = session.state?.currentSceneId;
-  const transitionSceneName = transitionSceneId
-    ? session.state?.scenes[transitionSceneId]?.name
+  const transitionScene = transitionSceneId
+    ? session.state?.scenes[transitionSceneId]
     : undefined;
-  const { banner: sceneBanner, transitioning } = useSceneTransition(
-    transitionSceneId,
-    transitionSceneName,
+  const { banner: sceneBanner, transitioning, dividers: sceneDividers } =
+    useSceneTransition(
+      transitionSceneId,
+      transitionScene?.name,
+      transitionScene?.description,
+    );
+  const combatDividers = useCombatTransition(inCombat);
+  const chatEntries = useMemo(
+    () => mergeChatEntries(session.chat, [...sceneDividers, ...combatDividers]),
+    [session.chat, sceneDividers, combatDividers],
   );
 
   // Async → Live affordance (#105): when a peer joins, surface a dismissible
@@ -263,7 +272,6 @@ function LiveBattle({
   // Skip quick controls. Continue/Skip nudge the AI through chat; Hold is local.
   const { prefs: pacingPrefs, update: updatePacing } = usePacingPrefs(campaignId);
   const [holding, setHolding] = useState(false);
-  const inCombat = session.state?.encounter !== undefined;
   const turnKey =
     inCombat && vm ? `${vm.round}:${vm.activeName ?? ""}` : undefined;
   const turnElapsed = useTurnTimer(turnKey, paused || holding);
@@ -505,7 +513,7 @@ function LiveBattle({
 
               <div data-coachmark="tut-scene1-chat">
                 <ChatZone
-                  entries={session.chat}
+                  entries={chatEntries}
                   onSend={session.sendChat}
                   thinking={session.gmThinking}
                   onEntityClick={onEntityClick}
@@ -676,7 +684,7 @@ function LiveBattle({
           <CharacterHud session={session} weapons={weapons} items={quickItems} />
 
           <ChatZone
-            entries={session.chat}
+            entries={chatEntries}
             onSend={session.sendChat}
             thinking={session.gmThinking}
           />

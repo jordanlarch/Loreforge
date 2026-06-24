@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
 
 import {
   ABILITIES,
@@ -74,6 +74,7 @@ function signed(n: number): string {
 
 export function CreationWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const utils = trpc.useUtils();
   const species = trpc.codex.listSpecies.useQuery();
   const classes = trpc.codex.listClasses.useQuery();
@@ -93,6 +94,21 @@ export function CreationWizard() {
   const [method, setMethod] = useState<AbilityMethod>("point-buy");
   const [base, setBase] = useState<AbilityScores>(POINT_BUY_BASE);
   const [skills, setSkills] = useState<string[]>([]);
+
+  // Codex deep links (CODEX-6): ?species=hill-dwarf&class=fighter
+  useEffect(() => {
+    const speciesParam = searchParams.get("species");
+    const classParam = searchParams.get("class");
+    if (speciesParam) {
+      setSpeciesSlug(speciesParam);
+    }
+    if (classParam) {
+      setClassSlug(classParam);
+      setStep(1);
+    } else if (speciesParam) {
+      setStep(0);
+    }
+  }, [searchParams]);
 
   const selectedSpecies = useMemo(
     () => species.data?.find((s) => s.slug === speciesSlug) ?? null,

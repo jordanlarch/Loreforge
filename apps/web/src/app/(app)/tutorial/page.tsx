@@ -29,7 +29,7 @@ export default function TutorialSplashPage() {
   const status = progress.data?.status;
   const hasCampaign = Boolean(progress.data?.campaignId);
   const inProgress = status === "in_progress" && hasCampaign;
-  const canReplay = hasCampaign && (status === "completed" || status === "in_progress");
+  const showReplay = status === "completed" || status === "in_progress";
 
   function continueRun() {
     router.push("/tutorial/play");
@@ -69,7 +69,7 @@ export default function TutorialSplashPage() {
             {start.isPending ? "Lighting the lantern…" : "Begin the adventure"}
           </button>
         )}
-        {canReplay && (
+        {showReplay && (
           <button
             type="button"
             onClick={() => replay.mutate()}

@@ -26,6 +26,7 @@ import {
   plotHooks,
   realmEntities,
   realmRelationships,
+  tutorialProgress,
 } from "@app/db";
 import { MONSTER_TEMPLATES } from "@app/engine";
 
@@ -362,6 +363,10 @@ export const campaignsRouter = createTRPCRouter({
             eq(campaignCharacters.ownerId, owner),
           ),
         );
+      await db
+        .update(tutorialProgress)
+        .set({ campaignId: null, updatedAt: new Date() })
+        .where(eq(tutorialProgress.campaignId, cid));
       await db
         .delete(campaigns)
         .where(and(eq(campaigns.id, cid), eq(campaigns.ownerId, owner)));

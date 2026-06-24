@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
 
 import { traitDescription } from "@app/db/traits";
 import { ABILITIES, type AbilityScores } from "@app/engine";
 
 import { SrdHint } from "@/components/srd-hint";
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { abilityBonusLine, ABILITY_LABELS, signed } from "@/lib/codex-display";
 import { trpc } from "@/lib/trpc/client";
 
@@ -37,6 +37,12 @@ export function SpeciesDetail({
         <p className="text-sm text-red-400">Species not found.</p>
       ) : (
         <>
+          <CodexDetailActions
+            category="Species"
+            slug={slug}
+            name={species.data.name}
+            raw={species.data.raw as Record<string, unknown>}
+          />
           <p className="text-sm text-lore-muted">
             {species.data.size} · {species.data.speed} ft speed · SRD
           </p>
@@ -100,12 +106,6 @@ export function SpeciesDetail({
           </section>
 
           <footer className="mt-8 flex flex-wrap gap-2 border-t border-lore-border pt-4">
-            <Link
-              href="/characters/new"
-              className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent"
-            >
-              Create character
-            </Link>
             <button
               type="button"
               onClick={onClose}

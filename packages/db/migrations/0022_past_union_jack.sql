@@ -1,0 +1,1 @@
+ALTER TABLE "tutorial_progress" ALTER COLUMN "campaign_id" DROP NOT NULL;

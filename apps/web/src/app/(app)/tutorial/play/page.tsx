@@ -22,14 +22,17 @@ export default function TutorialPlayPage() {
   }
 
   const campaignId = progress.data?.campaignId;
+  const skipped = progress.data?.status === "skipped";
   if (!campaignId) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-semibold">
-          The lantern isn&apos;t lit yet
+          {skipped ? "Tutorial skipped" : "The lantern isn&apos;t lit yet"}
         </h1>
         <p className="mt-4 text-lore-muted">
-          You haven&apos;t started the tutorial. Begin it from the splash.
+          {skipped
+            ? "You skipped the guided adventure. Mira is on your Characters list if you kept her — or begin the tutorial from the splash anytime."
+            : "You haven&apos;t started the tutorial. Begin it from the splash."}
         </p>
         <p className="mt-6 text-sm">
           <Link className="text-lore-accent underline" href="/tutorial">

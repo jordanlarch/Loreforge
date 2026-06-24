@@ -53,6 +53,7 @@ const DDL = `
     owner_id uuid NOT NULL,
     role text NOT NULL DEFAULT 'pc',
     status text NOT NULL DEFAULT 'active',
+    player_user_id uuid,
     joined_at timestamptz NOT NULL DEFAULT now()
   );
   CREATE UNIQUE INDEX campaign_characters_unique_idx

@@ -90,6 +90,7 @@ The following alternatives came up during design and were explicitly considered 
 
 - All design docs live under `docs/`. Code (when written) lives under `apps/` or `src/`.
 - **All deferrals go in `docs/deferrals.md`** — the single source of truth for deferred/backlog/scoped-out items. When you punt a feature or leave a TODO, add a row there first; don't re-scatter deferrals across docs. Mark shipped items `Done` (don't delete). GitHub-issue mirroring is opportunistic (local file is canonical).
+- **Post-implementation ship workflow:** after code is done, follow `.cursor/skills/ship-it/SKILL.md` — verify CI, commit, PR, merge, migrations (if any), and update `deferrals.md` / `CONTEXT.md` when applicable.
 - Architectural changes that contradict the consolidated plan require an explicit decision update + bump to `docs/00-consolidated-plan.md` with rationale.
 - New design docs should follow the structure of existing ones: clear headings, wireframe-style ASCII mockups where useful, concrete examples over abstractions, engineering effort estimates at the end.
 - The transcripts that produced these docs are not in this repo (they live in the user's local Cursor session history). The docs in `docs/` are canonical; the transcripts are background.

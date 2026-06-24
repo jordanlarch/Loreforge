@@ -128,6 +128,23 @@ describe("TutorialRoom", () => {
     expect(await room.advance()).toBeNull();
   });
 
+  it("endEncounter clears combat so the finale plays in exploration mode (#174)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    await room.advance(); // → Hearth
+    await room.advance(); // → Crooked Lane
+    await room.advance(); // → Spire Lower Hall
+    await room.advance(); // → the Stair (combat)
+    expect((await room.getState()).encounter).toBeDefined();
+
+    expect(await room.endEncounter()).toBe(true);
+    expect((await room.getState()).encounter).toBeUndefined();
+
+    const finale = await room.advance();
+    expect(finale?.sceneId).toBe(TUTORIAL_SCENE_SPIRE_UPPER);
+    expect((await room.getState()).encounter).toBeUndefined();
+  });
+
   it("rescues a downed lead via the near-death safety net (#174)", async () => {
     const store = new InMemoryEventStore();
     const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);

@@ -106,6 +106,11 @@ export type EndTurnCommand = {
   type: "end_turn";
 };
 
+/** Tear down the open encounter and return to exploration mode. */
+export type EndEncounterCommand = {
+  type: "end_encounter";
+};
+
 /**
  * Resolve a weapon attack: d20 + `attackBonus` vs the target's AC (with optional
  * advantage/disadvantage), then roll and apply damage on a hit (doubled dice on
@@ -258,6 +263,7 @@ export type Command =
   | MoveEntityCommand
   | RelocateEntityCommand
   | StartEncounterCommand
+  | EndEncounterCommand
   | RollInitiativeCommand
   | EndTurnCommand
   | AttackCommand

@@ -82,6 +82,11 @@ export type EncounterStartedPayload = {
   sides: Record<EntityRef, string>;
 };
 
+export type EncounterEndedPayload = {
+  sceneId: SceneId;
+  combatants: EntityRef[];
+};
+
 export type InitiativeRolledPayload = {
   /** Combatants in resolved descending turn order. */
   order: InitiativeEntry[];
@@ -255,6 +260,7 @@ export type EngineEvent =
       payload: EntityRelocatedPayload;
     })
   | (EventMeta & { type: "EncounterStarted"; payload: EncounterStartedPayload })
+  | (EventMeta & { type: "EncounterEnded"; payload: EncounterEndedPayload })
   | (EventMeta & { type: "InitiativeRolled"; payload: InitiativeRolledPayload })
   | (EventMeta & { type: "TurnStarted"; payload: TurnStartedPayload })
   | (EventMeta & { type: "TurnEnded"; payload: TurnEndedPayload })

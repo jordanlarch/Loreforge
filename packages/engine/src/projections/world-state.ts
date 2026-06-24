@@ -216,6 +216,23 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       };
       break;
     }
+    case "EncounterEnded": {
+      if (next.encounter) {
+        for (const ref of next.encounter.combatants) {
+          const c = next.entities[ref];
+          if (c) {
+            next.entities[ref] = {
+              ...c,
+              actionEconomy: undefined,
+              reaction: undefined,
+              readied: undefined,
+            };
+          }
+        }
+        next.encounter = undefined;
+      }
+      break;
+    }
     case "InitiativeRolled": {
       if (next.encounter) {
         next.encounter = {

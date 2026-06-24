@@ -28,6 +28,7 @@ import {
   checkAction,
   classifyScene2Topic,
   classifyTutorialLeaveIntent,
+  classifyTutorialRelightIntent,
   isTutorialFriendlyFireTarget,
   opportunityAttackAction,
   triggerReadiedAction,
@@ -35,6 +36,7 @@ import {
   TUTORIAL_LEAVE_VILLAGE_RAIL,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
+  TUTORIAL_SCENE_SPIRE_UPPER,
   tutorialChatFallback,
   tutorialHintForScene,
   tutorialRelightPath,
@@ -875,6 +877,8 @@ async function tutorialVictory(
   },
   documentName: string,
 ): Promise<void> {
+  if (!room.markOnce("combat-victory")) return;
+
   await appendAndPersist(document, documentName, [
     gmEntry(
       `The Hungering Shade collapses in on itself like extinguished smoke. ` +
@@ -882,6 +886,10 @@ async function tutorialVictory(
       chatDeps,
     ),
   ]);
+
+  await room.endEncounter();
+  writeProjection(document, await room.getState());
+
   const result = await room.advance();
   writeProjection(document, await room.getState());
   if (!result) return;
@@ -1039,6 +1047,9 @@ async function runTutorialCombat(
   documentName: string,
   client: LlmClient | undefined,
 ): Promise<void> {
+  const initial = await room.getState();
+  if (!initial.encounter) return;
+
   let guard = 0;
   while (guard < MAX_ENEMY_TURNS) {
     guard += 1;
@@ -1287,6 +1298,14 @@ async function handleTutorialChat(
       await appendAndPersist(document, documentName, [
         gmEntry(TUTORIAL_LEAVE_VILLAGE_RAIL, chatDeps),
       ]);
+      return true;
+    }
+  }
+
+  if (sceneId === TUTORIAL_SCENE_SPIRE_UPPER && !state.encounter) {
+    const pathId = classifyTutorialRelightIntent(message.text);
+    if (pathId) {
+      await tutorialRelight(room, document, documentName, pathId);
       return true;
     }
   }

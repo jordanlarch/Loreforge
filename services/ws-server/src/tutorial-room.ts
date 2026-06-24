@@ -117,6 +117,15 @@ export class TutorialRoom implements LiveRoom {
       : { accepted: false };
   }
 
+  /** Tear down an open encounter (Scene 5 victory → Scene 6 exploration). */
+  async endEncounter(): Promise<boolean> {
+    await this.ensureSeeded();
+    const result = await this.engine.execute(this.campaignId, {
+      type: "end_encounter",
+    });
+    return result.accepted;
+  }
+
   /** Truncate back to the first-scene seed (replay-from-start; full replay UX is a later slice). */
   async reset(): Promise<void> {
     await this.ensureSeeded();

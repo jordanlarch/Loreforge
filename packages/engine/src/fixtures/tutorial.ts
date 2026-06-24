@@ -1027,6 +1027,21 @@ export function classifyTutorialLeaveIntent(text: string): boolean {
 }
 
 /**
+ * Classify free-text in Scene 6 into a relight path id (fail-forward, #178).
+ * Returns null when the line does not look like lighting the lantern.
+ */
+export function classifyTutorialRelightIntent(text: string): TutorialRelightPathId | null {
+  const t = text.toLowerCase();
+  const lighting =
+    /\b(light|lit|lantern|wick|flame|ignite|kindle|spark|burn)\b/.test(t);
+  if (!lighting) return null;
+  if (/\b(oil|brightness|toric)\b/.test(t)) return "oil";
+  if (/\b(prayer|cedar to the flame|religion|order'?s)\b/.test(t)) return "prayer";
+  if (/\b(flint|lamp oil|marlowe|cedar)\b/.test(t)) return "flint";
+  return "improv";
+}
+
+/**
  * True when `target` is a friendly the player must not harm (companion / NPC).
  * Monsters (the Shade) are never friendly fire.
  */

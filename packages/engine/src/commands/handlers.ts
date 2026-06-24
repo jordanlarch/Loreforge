@@ -64,6 +64,7 @@ import {
   type DamageSource,
   type DeathSaveCommand,
   type EndConcentrationCommand,
+  type EndEncounterCommand,
   type EndTurnCommand,
   type LongRestCommand,
   type MoveEntityCommand,
@@ -580,6 +581,30 @@ function handleRollInitiative(
     accepted: true,
     events,
     summary: { order, active: first.entity, round: 1 },
+  };
+}
+
+function handleEndEncounter(
+  _cmd: EndEncounterCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const encounter = ctx.world.encounter;
+  if (!encounter) {
+    return reject("NO_ENCOUNTER", "No encounter is in progress.");
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "EncounterEnded",
+        ...meta(ctx, "system"),
+        payload: {
+          sceneId: encounter.sceneId,
+          combatants: [...encounter.combatants],
+        },
+      },
+    ],
+    summary: { combatants: encounter.combatants.length },
   };
 }
 
@@ -2012,6 +2037,8 @@ export function handleCommand(
       return handleStartEncounter(command, ctx);
     case "roll_initiative":
       return handleRollInitiative(command, ctx);
+    case "end_encounter":
+      return handleEndEncounter(command, ctx);
     case "end_turn":
       return handleEndTurn(command, ctx);
     case "attack":

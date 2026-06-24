@@ -248,3 +248,44 @@ describe("Combat: rejections", () => {
     if (!r.accepted) expect(r.reason.code).toBe("TARGET_NOT_FOUND");
   });
 });
+
+describe("Combat: end encounter", () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 1_700_000_000_000 });
+    await setupArena(engine);
+    await startAndRoll(engine);
+  });
+
+  it("clears the encounter and strips combat clocks from combatants", async () => {
+    const before = await engine.getState(CAMPAIGN);
+    expect(before.encounter).toBeDefined();
+    const activeId = before.encounter!.order[before.encounter!.activeIndex]?.entity;
+    expect(activeId).toBeDefined();
+    expect(before.entities[activeId!]?.actionEconomy).toBeDefined();
+
+    const result = await engine.execute(CAMPAIGN, { type: "end_encounter" });
+    expect(result.accepted).toBe(true);
+
+    const after = await engine.getState(CAMPAIGN);
+    expect(after.encounter).toBeUndefined();
+    for (const id of COMBATANTS) {
+      expect(after.entities[id]?.actionEconomy).toBeUndefined();
+      expect(after.entities[id]?.reaction).toBeUndefined();
+    }
+  });
+
+  it("rejects when no encounter is open", async () => {
+    await engine.execute(CAMPAIGN, { type: "end_encounter" });
+    const r = await engine.execute(CAMPAIGN, { type: "end_encounter" });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason.code).toBe("NO_ENCOUNTER");
+  });
+
+  it("rejects end_turn after the encounter ends", async () => {
+    await engine.execute(CAMPAIGN, { type: "end_encounter" });
+    const r = await engine.execute(CAMPAIGN, { type: "end_turn" });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason.code).toBe("NO_ENCOUNTER");
+  });
+});

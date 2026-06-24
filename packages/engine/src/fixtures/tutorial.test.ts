@@ -28,6 +28,7 @@ import {
   TUTORIAL_SHADE_ID,
   TUTORIAL_WRAP,
   classifyTutorialLeaveIntent,
+  classifyTutorialRelightIntent,
   isTutorialFriendlyFireTarget,
   tutorialChatFallback,
   tutorialHintForScene,
@@ -345,6 +346,21 @@ describe("Tutorial hints + fail-forward (#178)", () => {
   it("classifies leave intent for the village soft rail", () => {
     expect(classifyTutorialLeaveIntent("I turn back for the road")).toBe(true);
     expect(classifyTutorialLeaveIntent("I look for tracks")).toBe(false);
+  });
+
+  it("classifies Scene 6 relight intent from free-text (#178)", () => {
+    expect(
+      classifyTutorialRelightIntent(
+        "I light it with any materials that I currently have",
+      ),
+    ).toBe("improv");
+    expect(classifyTutorialRelightIntent("Use Toric's oil on the lantern")).toBe(
+      "oil",
+    );
+    expect(
+      classifyTutorialRelightIntent("I strike Marlowe's flint and light the wick"),
+    ).toBe("flint");
+    expect(classifyTutorialRelightIntent("I ask about the weather")).toBeNull();
   });
 
   it("blocks friendly-fire targets but not the Shade", () => {

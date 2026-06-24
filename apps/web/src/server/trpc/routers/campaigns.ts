@@ -396,6 +396,7 @@ export const campaignsRouter = createTRPCRouter({
           saveProficiencies: characters.saveProficiencies,
           skillProficiencies: characters.skillProficiencies,
           portraitUrl: characters.portraitUrl,
+          libraryVisibility: characters.libraryVisibility,
         })
         .from(campaignCharacters)
         .innerJoin(

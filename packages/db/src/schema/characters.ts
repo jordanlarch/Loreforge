@@ -24,6 +24,11 @@ type ClassLevel = {
   subclass?: string;
 };
 
+/** Whether a character appears on `/characters` (My Characters). */
+export const CHARACTER_LIBRARY_VISIBILITY = ["library", "campaign_only"] as const;
+export type CharacterLibraryVisibility =
+  (typeof CHARACTER_LIBRARY_VISIBILITY)[number];
+
 /**
  * A single inventory/equipment entry (#56, rich shape). `name`/`quantity`/
  * `equipped` are always present; the rest are optional so generators and the
@@ -111,6 +116,14 @@ export const characters = pgTable(
       .notNull()
       .$type<SpellLoadout>()
       .default(EMPTY_SPELLS),
+    /**
+     * `library` — shown on the Characters tab (player-created heroes).
+     * `campaign_only` — campaign/tutor pregen rows until the player imports them.
+     */
+    libraryVisibility: text("library_visibility")
+      .notNull()
+      .default("library")
+      .$type<CharacterLibraryVisibility>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

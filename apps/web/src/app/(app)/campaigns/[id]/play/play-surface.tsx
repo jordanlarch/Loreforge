@@ -458,6 +458,10 @@ function LiveBattle({
             )}
           </header>
 
+          <div className="mb-4" data-coachmark="tut-party">
+            <PartyRail state={session.state} />
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
             <section data-coachmark="tut-scene1-map">
               <MapViewport
@@ -510,10 +514,6 @@ function LiveBattle({
                 />
               </div>
             </aside>
-          </div>
-
-          <div data-coachmark="tut-party">
-            <PartyRail state={session.state} />
           </div>
         </div>
       );
@@ -576,6 +576,10 @@ function LiveBattle({
           </button>
         </div>
       )}
+
+      <div className="mb-4" data-coachmark="tut-party">
+        <PartyRail state={session.state} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
         {/* Map zone */}
@@ -678,8 +682,6 @@ function LiveBattle({
           />
         </aside>
       </div>
-
-      <PartyRail state={session.state} />
     </div>
   );
 }

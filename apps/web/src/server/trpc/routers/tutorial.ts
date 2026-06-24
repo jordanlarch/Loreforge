@@ -147,6 +147,7 @@ export const tutorialRouter = createTRPCRouter({
           .update(characters)
           .set({
             notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
+            libraryVisibility: "campaign_only",
             updatedAt: new Date(),
           })
           .where(eq(characters.id, reused));
@@ -158,6 +159,7 @@ export const tutorialRouter = createTRPCRouter({
           ...TUTORIAL_MIRA,
           ownerId,
           notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
+          libraryVisibility: "campaign_only",
         })
         .returning({ id: characters.id });
     })();
@@ -182,7 +184,11 @@ export const tutorialRouter = createTRPCRouter({
       (
         await db
           .insert(characters)
-          .values({ ...TUTORIAL_BRENNAR, ownerId })
+          .values({
+            ...TUTORIAL_BRENNAR,
+            ownerId,
+            libraryVisibility: "campaign_only",
+          })
           .returning({ id: characters.id })
       )[0]?.id;
     if (brennarId) {

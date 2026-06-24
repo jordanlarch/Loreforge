@@ -12,6 +12,7 @@ type PartyMember = {
   membershipId: string;
   role: string;
   status: string;
+  libraryVisibility: "library" | "campaign_only";
   id: string;
   name: string;
   species: string;
@@ -60,6 +61,14 @@ export function PartyTab({ campaignId }: { campaignId: string }) {
   });
   const remove = trpc.characters.removeFromCampaign.useMutation({
     onSuccess: refresh,
+  });
+  const addToLibrary = trpc.characters.addToLibrary.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        refresh(),
+        utils.characters.list.invalidate(),
+      ]);
+    },
   });
 
   const members = (party.data ?? []) as PartyMember[];
@@ -146,6 +155,10 @@ export function PartyTab({ campaignId }: { campaignId: string }) {
             onRemove={(characterId) =>
               remove.mutate({ characterId, campaignId })
             }
+            onAddToLibrary={(characterId) =>
+              addToLibrary.mutate({ characterId })
+            }
+            addingToLibrary={addToLibrary.isPending}
             removing={remove.isPending}
           />
           {companions.length > 0 && (
@@ -155,6 +168,10 @@ export function PartyTab({ campaignId }: { campaignId: string }) {
               onRemove={(characterId) =>
                 remove.mutate({ characterId, campaignId })
               }
+              onAddToLibrary={(characterId) =>
+                addToLibrary.mutate({ characterId })
+              }
+              addingToLibrary={addToLibrary.isPending}
               removing={remove.isPending}
             />
           )}
@@ -165,6 +182,10 @@ export function PartyTab({ campaignId }: { campaignId: string }) {
               onRemove={(characterId) =>
                 remove.mutate({ characterId, campaignId })
               }
+              onAddToLibrary={(characterId) =>
+                addToLibrary.mutate({ characterId })
+              }
+              addingToLibrary={addToLibrary.isPending}
               removing={remove.isPending}
             />
           )}
@@ -188,11 +209,15 @@ function RosterSection({
   title,
   members,
   onRemove,
+  onAddToLibrary,
+  addingToLibrary,
   removing,
 }: {
   title: string;
   members: PartyMember[];
   onRemove: (characterId: string) => void;
+  onAddToLibrary: (characterId: string) => void;
+  addingToLibrary: boolean;
   removing: boolean;
 }) {
   return (
@@ -210,9 +235,16 @@ function RosterSection({
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="font-display text-xl">{sheet.name}</span>
-                <span className="rounded bg-lore-bg px-2 py-0.5 text-xs text-lore-accent">
-                  Lvl {sheet.level}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="rounded bg-lore-bg px-2 py-0.5 text-xs text-lore-accent">
+                    Lvl {sheet.level}
+                  </span>
+                  {member.libraryVisibility === "campaign_only" && (
+                    <span className="rounded border border-lore-border px-1.5 py-0.5 text-[10px] text-lore-muted">
+                      Campaign only
+                    </span>
+                  )}
+                </div>
               </div>
               <span className="text-sm text-lore-muted">
                 {[sheet.species, sheet.classLine].filter(Boolean).join(" · ")}
@@ -224,13 +256,23 @@ function RosterSection({
                 </span>
                 <span>Speed {sheet.speed}</span>
               </div>
-              <div className="mt-auto flex items-center gap-3 pt-1 text-sm">
+              <div className="mt-auto flex flex-wrap items-center gap-3 pt-1 text-sm">
                 <Link
                   href={`/characters/${member.id}`}
                   className="text-lore-accent hover:underline"
                 >
                   Open Sheet
                 </Link>
+                {member.libraryVisibility === "campaign_only" && (
+                  <button
+                    type="button"
+                    onClick={() => onAddToLibrary(member.id)}
+                    disabled={addingToLibrary}
+                    className="text-lore-accent transition-colors hover:underline disabled:opacity-40"
+                  >
+                    {addingToLibrary ? "Adding…" : "Add to My Characters"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onRemove(member.id)}

@@ -46,6 +46,7 @@ const DDL = `
     notes text NOT NULL DEFAULT '',
     equipment jsonb NOT NULL DEFAULT '[]'::jsonb,
     spells jsonb NOT NULL DEFAULT '{"spells":[],"slots":{}}'::jsonb,
+    library_visibility text NOT NULL DEFAULT 'library',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   );

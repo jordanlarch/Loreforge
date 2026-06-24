@@ -1104,7 +1104,7 @@ export function TutorialPlaySurface({
 
   const leveledUp = signals.includes("leveled-up");
 
-  function runCheck(help: boolean) {
+  function runCheck(help = false) {
     if (checkUsed) return;
     bumpActivity();
     setCheckUsed(true);

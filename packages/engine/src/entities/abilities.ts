@@ -91,6 +91,7 @@ export function createEntityState(init: EntityInit): EntityState {
     ...(init.attacksPerAction !== undefined
       ? { attacksPerAction: init.attacksPerAction }
       : {}),
+    ...(init.meleeReachFt !== undefined ? { meleeReachFt: init.meleeReachFt } : {}),
     sceneId: init.sceneId,
     position: init.position,
     alive: init.maxHp > 0,

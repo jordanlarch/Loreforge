@@ -22,9 +22,8 @@ const ART_STYLES = [
 /**
  * Settings tab (#117, CAMP-10): campaign-level configuration — the AI-GM persona
  * that steers narration voice, the default play tempo (Q19c hybrid), and the
- * art-style lock (Q16) — plus memory export and a danger zone to delete the
- * campaign. Members / invites and per-NPC TTS voices are deferred (see
- * deferrals).
+ * art-style lock (Q16) — plus memory export, multiplayer invites (CAMP-14),
+ * reputation display (REP-1), and a danger zone to delete the campaign.
  */
 export function SettingsTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
@@ -139,10 +138,113 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
         </div>
       </form>
 
+      <InvitesSection campaignId={campaignId} />
+      <ReputationSection campaignId={campaignId} />
+
       <MemorySection campaignId={campaignId} name={campaign.data.name} />
 
       <DangerZone campaignId={campaignId} name={campaign.data.name} />
     </div>
+  );
+}
+
+function inviteUrl(token: string): string {
+  const base =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return `${base}/campaigns/join/${token}`;
+}
+
+/** Multiplayer invite links (CAMP-14). */
+function InvitesSection({ campaignId }: { campaignId: string }) {
+  const utils = trpc.useUtils();
+  const invites = trpc.campaigns.listInvites.useQuery({ campaignId });
+  const create = trpc.campaigns.createInvite.useMutation({
+    onSuccess: () => utils.campaigns.listInvites.invalidate({ campaignId }),
+  });
+  const revoke = trpc.campaigns.revokeInvite.useMutation({
+    onSuccess: () => utils.campaigns.listInvites.invalidate({ campaignId }),
+  });
+
+  return (
+    <section className="rounded-lg border border-lore-border bg-lore-surface p-5">
+      <h3 className="font-display text-lg">Players & invites</h3>
+      <p className="mt-1 text-sm text-lore-muted">
+        Share a link so another player can join Live Play. Invited players can
+        connect to the campaign room; per-entity command ownership is still
+        owner-wide until seat auth deepens.
+      </p>
+      <button
+        type="button"
+        onClick={() => create.mutate({ campaignId, label: "Player" })}
+        disabled={create.isPending}
+        className="mt-4 rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm disabled:opacity-40"
+      >
+        {create.isPending ? "Creating…" : "Create invite link"}
+      </button>
+      <ul className="mt-4 space-y-2 text-sm">
+        {(invites.data ?? []).map((inv) => (
+          <li
+            key={inv.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded border border-lore-border px-3 py-2"
+          >
+            <div>
+              <span className="font-medium">{inv.label}</span>
+              {inv.redeemedByUserId ? (
+                <span className="ml-2 text-xs text-lore-muted">Redeemed</span>
+              ) : (
+                <code className="ml-2 break-all text-xs text-lore-accent">
+                  {inviteUrl(inv.token)}
+                </code>
+              )}
+            </div>
+            {!inv.redeemedByUserId ? (
+              <button
+                type="button"
+                onClick={() =>
+                  revoke.mutate({ campaignId, inviteId: inv.id })
+                }
+                className="text-xs text-lore-muted hover:text-red-300"
+              >
+                Revoke
+              </button>
+            ) : null}
+          </li>
+        ))}
+        {invites.data?.length === 0 ? (
+          <li className="text-lore-muted">No invites yet.</li>
+        ) : null}
+      </ul>
+    </section>
+  );
+}
+
+/** Campaign reputation standings (REP-1). */
+function ReputationSection({ campaignId }: { campaignId: string }) {
+  const rep = trpc.campaigns.reputation.useQuery({ campaignId });
+
+  return (
+    <section className="rounded-lg border border-lore-border bg-lore-surface p-5">
+      <h3 className="font-display text-lg">Reputation</h3>
+      <p className="mt-1 text-sm text-lore-muted">
+        Faction and settlement standing tracked for this campaign.
+      </p>
+      <ul className="mt-4 space-y-2 text-sm">
+        {(rep.data ?? []).map((row) => (
+          <li
+            key={row.subjectKey}
+            className="flex items-center justify-between rounded border border-lore-border px-3 py-2"
+          >
+            <span>{row.subjectName}</span>
+            <span className="capitalize text-lore-accent">{row.standing}</span>
+          </li>
+        ))}
+        {rep.data?.length === 0 ? (
+          <li className="text-lore-muted">No reputation recorded yet.</li>
+        ) : null}
+      </ul>
+    </section>
   );
 }
 

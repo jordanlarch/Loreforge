@@ -151,6 +151,11 @@ export const campaignCharacters = pgTable(
     role: text("role").notNull().default("pc"),
     /** active | bench */
     status: text("status").notNull().default("active"),
+    /**
+     * When set, this Supabase user controls the character seat in live play
+     * (CAMP-14 multiplayer). Null for owner-only / unassigned seats.
+     */
+    playerUserId: uuid("player_user_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { areHostile, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "./reactions";
+import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "./reactions";
 
 describe("provokesOpportunityAttack", () => {
   const threatener = { x: 0, y: 0 };
@@ -43,6 +43,16 @@ describe("provokesOpportunityAttack", () => {
 
   it("defaults reach to 5 ft", () => {
     expect(REACH_FEET).toBe(5);
+  });
+});
+
+describe("opportunityAttackReach", () => {
+  it("defaults to melee reach when unset", () => {
+    expect(opportunityAttackReach({})).toBe(5);
+  });
+
+  it("honours an explicit meleeReachFt override", () => {
+    expect(opportunityAttackReach({ meleeReachFt: 10 })).toBe(10);
   });
 });
 

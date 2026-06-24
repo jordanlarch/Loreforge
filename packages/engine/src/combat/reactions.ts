@@ -47,3 +47,8 @@ export function provokesOpportunityAttack(
     distanceFeet(threatener, from) <= reach && distanceFeet(threatener, to) > reach
   );
 }
+
+/** The reach (in feet) a reactor threatens for opportunity attacks. */
+export function opportunityAttackReach(reactor: { meleeReachFt?: number }): number {
+  return reactor.meleeReachFt ?? REACH_FEET;
+}

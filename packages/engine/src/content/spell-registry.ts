@@ -20,6 +20,9 @@
  *     Shatter, Cone of Cold, Mass Healing Word, Prayer of Healing. Spells whose
  *     core effect is a *condition/rider* (Bless, Hold Person, Shield, …) wait on
  *     the Effect system; their non-damage riders are noted in `description`.
+ *   - Batch 3 (ENG-2): Eldritch Blast, Chromatic Orb, Scorching Ray, Toll the
+ *     Dead, Dissonant Whispers, Ray of Sickness, Melf's Acid Arrow, Moonbeam,
+ *     Mind Sliver, Chaos Bolt.
  *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
  * a malformed registry entry fails CI rather than at cast time, and every
@@ -460,6 +463,223 @@ const PRAYER_OF_HEALING: SpellDefinition = {
     "Up to six creatures of your choice that you can see within range each regain hit points equal to 2d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs. When cast with a slot of 3rd level or higher, the healing increases by 1d8 for each slot level above 2nd.",
 };
 
+/** Eldritch Blast — warlock cantrip; a ranged spell attack for 1d10 force. */
+const ELDRITCH_BLAST: SpellDefinition = {
+  id: "eldritch-blast",
+  name: "Eldritch Blast",
+  level: 0,
+  school: "evocation",
+  classes: ["Warlock"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d10", type: "force" }],
+  description:
+    "A beam of crackling energy streaks toward a creature within range. Make a ranged spell attack. On a hit, the target takes 1d10 force damage.",
+};
+
+/** Chromatic Orb — a level-1 ranged spell attack for 3d8 lightning. */
+const CHROMATIC_ORB: SpellDefinition = {
+  id: "chromatic-orb",
+  name: "Chromatic Orb",
+  level: 1,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 90 },
+  components: {
+    verbal: true,
+    somatic: true,
+    material: "a diamond worth at least 50 gp",
+  },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "3d8", type: "lightning" }],
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
+  description:
+    "You hurl a 4-inch-diameter sphere of energy at a creature within range. Make a ranged spell attack. On a hit, the target takes 3d8 damage of a type you choose (lightning is used here).",
+};
+
+/** Scorching Ray — three 2d6 fire rays (+1 ray per upcast). */
+const SCORCHING_RAY: SpellDefinition = {
+  id: "scorching-ray",
+  name: "Scorching Ray",
+  level: 2,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  projectiles: { base: 3, perSlotLevel: 1 },
+  damage: [{ dice: "2d6", type: "fire" }],
+  description:
+    "You create three rays of fire and hurl them at targets within range. Each ray requires a separate ranged spell attack, dealing 2d6 fire damage on a hit.",
+};
+
+/** Toll the Dead — Wis save or 1d8 necrotic (wounded rider narrated). */
+const TOLL_THE_DEAD: SpellDefinition = {
+  id: "toll-the-dead",
+  name: "Toll the Dead",
+  level: 0,
+  school: "necromancy",
+  classes: ["Cleric", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d8", type: "necrotic" }],
+  description:
+    "The target makes a Wisdom saving throw, taking 1d8 necrotic damage on a failed save (1d12 if wounded — narrated, not yet mechanized).",
+};
+
+/** Dissonant Whispers — Wis save or 3d6 psychic. */
+const DISSONANT_WHISPERS: SpellDefinition = {
+  id: "dissonant-whispers",
+  name: "Dissonant Whispers",
+  level: 1,
+  school: "enchantment",
+  classes: ["Bard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "3d6", type: "psychic" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "The target makes a Wisdom saving throw, taking 3d6 psychic damage on a failed save (forced movement narrated, not yet mechanized).",
+};
+
+/** Ray of Sickness — Con save or 2d8 poison. */
+const RAY_OF_SICKNESS: SpellDefinition = {
+  id: "ray-of-sickness",
+  name: "Ray of Sickness",
+  level: 1,
+  school: "necromancy",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "2d8", type: "poison" }],
+  description:
+    "The target makes a Constitution saving throw, taking 2d8 poison damage on a failed save (poisoned condition narrated, not yet mechanized).",
+};
+
+/** Melf's Acid Arrow — ranged spell attack for 4d4 acid. */
+const MELFS_ACID_ARROW: SpellDefinition = {
+  id: "melfs-acid-arrow",
+  name: "Melf's Acid Arrow",
+  level: 2,
+  school: "evocation",
+  classes: ["Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 90 },
+  components: {
+    verbal: true,
+    somatic: true,
+    material: "powdered rhubarb leaf and an adder's stomach",
+  },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "4d4", type: "acid" }],
+  upcastScaling: { perSlotDice: "2d4", appliesTo: "damage" },
+  description:
+    "Make a ranged spell attack. On a hit, the target takes 4d4 acid damage immediately (end-of-turn splash narrated, not yet mechanized).",
+};
+
+/** Moonbeam — 5-ft sphere, Con save-for-half, 2d10 radiant. */
+const MOONBEAM: SpellDefinition = {
+  id: "moonbeam",
+  name: "Moonbeam",
+  level: 2,
+  school: "evocation",
+  classes: ["Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 5 } },
+  components: {
+    verbal: true,
+    somatic: true,
+    material: "several seeds of any moonseed plant and a piece of opalescent feldspar",
+  },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "2d10", type: "radiant" }],
+  upcastScaling: { perSlotDice: "1d10", appliesTo: "damage" },
+  description:
+    "Each creature in the cylinder makes a Constitution saving throw, taking 2d10 radiant damage on a failed save, or half as much on a success (ongoing turns narrated, not yet mechanized).",
+};
+
+/** Mind Sliver — Int save or 1d6 psychic. */
+const MIND_SLIVER: SpellDefinition = {
+  id: "mind-sliver",
+  name: "Mind Sliver",
+  level: 0,
+  school: "enchantment",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "int", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d6", type: "psychic" }],
+  description:
+    "The target makes an Intelligence saving throw, taking 1d6 psychic damage on a failed save (save penalty narrated, not yet mechanized).",
+};
+
+/** Chaos Bolt — ranged spell attack for 2d8 force (simplified). */
+const CHAOS_BOLT: SpellDefinition = {
+  id: "chaos-bolt",
+  name: "Chaos Bolt",
+  level: 1,
+  school: "evocation",
+  classes: ["Sorcerer"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "2d8", type: "force" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "Make a ranged spell attack. On a hit, the target takes 2d8 force damage (random type + bounce narrated, not yet mechanized).",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -483,6 +703,16 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [CONE_OF_COLD.id]: CONE_OF_COLD,
   [MASS_HEALING_WORD.id]: MASS_HEALING_WORD,
   [PRAYER_OF_HEALING.id]: PRAYER_OF_HEALING,
+  [ELDRITCH_BLAST.id]: ELDRITCH_BLAST,
+  [CHROMATIC_ORB.id]: CHROMATIC_ORB,
+  [SCORCHING_RAY.id]: SCORCHING_RAY,
+  [TOLL_THE_DEAD.id]: TOLL_THE_DEAD,
+  [DISSONANT_WHISPERS.id]: DISSONANT_WHISPERS,
+  [RAY_OF_SICKNESS.id]: RAY_OF_SICKNESS,
+  [MELFS_ACID_ARROW.id]: MELFS_ACID_ARROW,
+  [MOONBEAM.id]: MOONBEAM,
+  [MIND_SLIVER.id]: MIND_SLIVER,
+  [CHAOS_BOLT.id]: CHAOS_BOLT,
 };
 
 /** Look up an authored spell definition by slug id. */

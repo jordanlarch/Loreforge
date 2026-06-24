@@ -142,6 +142,11 @@ export type EntityState = {
   reaction?: ResourceState;
   /** A queued Ready action awaiting its trigger; cleared on the owner's next turn. */
   readied?: ReadyState;
+  /**
+   * Melee reach in feet for opportunity-attack provoke detection (ENG-10).
+   * Defaults to 5 ft when omitted. Set from equipped reach weapons at seed time.
+   */
+  meleeReachFt?: number;
 };
 
 export type DeathSaveTally = { successes: number; failures: number };
@@ -218,6 +223,8 @@ export type EntityInit = {
   /** Override attacks-per-Attack-action (monster Multiattack). Defaults to the
    * Extra Attack value derived from `classes`. */
   attacksPerAction?: number;
+  /** Melee reach for OA provoke (reach weapons). Defaults to 5 ft. */
+  meleeReachFt?: number;
   sceneId?: SceneId;
   position?: GridPosition;
   spellcasting?: SpellcastingInit;

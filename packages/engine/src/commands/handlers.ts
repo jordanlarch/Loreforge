@@ -37,7 +37,7 @@ import {
   type RollAdjust,
 } from "../combat/conditions";
 import { concentrationDC, resolveDeathSave } from "../combat/death";
-import { areHostile, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
+import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
   Ability,
   EntityRef,
@@ -424,7 +424,12 @@ function handleMoveEntity(
         reactor.sceneId === entity.sceneId &&
         // Only hostiles take opportunity attacks; neutral/allied do not provoke.
         areHostile(moverSide, encounter.sides[ref]) &&
-        provokesOpportunityAttack(reactor.position, from, to)
+        provokesOpportunityAttack(
+          reactor.position,
+          from,
+          to,
+          opportunityAttackReach(reactor),
+        )
       );
     });
     if (eligible.length > 0) {

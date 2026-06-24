@@ -61,6 +61,8 @@ export type PartyMember = {
   classes: ClassLevel[];
   /** Present for casters so the live cast loop is exercisable. */
   spellcasting?: SpellcastingInit;
+  /** Melee reach from equipped weapons (OA provoke detection, ENG-10). */
+  meleeReachFt?: number;
 };
 
 /** A short pillar wall down the middle with a gap, to make movement interesting. */
@@ -115,6 +117,8 @@ export type FoeSpec = {
   maxHp: number;
   baseAc: number;
   speed: number;
+  /** Monster Multiattack override; defaults to 1 attack per Attack action. */
+  attacksPerAction?: number;
 };
 
 /** The two goblin foes the default ambush fields, as {@link FoeSpec}s. */
@@ -210,6 +214,7 @@ export function buildPartyBattleCommands(
         sceneId: FIXTURE_BATTLE_SCENE_ID,
         position: PARTY_POSITIONS[i]!,
         ...(m.spellcasting ? { spellcasting: m.spellcasting } : {}),
+        ...(m.meleeReachFt !== undefined ? { meleeReachFt: m.meleeReachFt } : {}),
       },
     })),
     ...foes.map((f, i): Command => ({
@@ -224,6 +229,9 @@ export function buildPartyBattleCommands(
         speed: f.speed,
         sceneId: FIXTURE_BATTLE_SCENE_ID,
         position: FOE_POSITIONS[i]!,
+        ...(f.attacksPerAction !== undefined
+          ? { attacksPerAction: f.attacksPerAction }
+          : {}),
       },
     })),
     {
@@ -251,6 +259,7 @@ export function expandEncounterFoes(
     maxHp: number;
     baseAc: number;
     speed: number;
+    attacksPerAction?: number;
   } | undefined,
 ): FoeSpec[] {
   const foes: FoeSpec[] = [];
@@ -268,6 +277,9 @@ export function expandEncounterFoes(
         maxHp: template.maxHp,
         baseAc: template.baseAc,
         speed: template.speed,
+        ...(template.attacksPerAction !== undefined
+          ? { attacksPerAction: template.attacksPerAction }
+          : {}),
       });
     }
   }

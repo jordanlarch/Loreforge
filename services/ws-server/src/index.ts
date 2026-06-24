@@ -73,6 +73,8 @@ import {
   getTutorialHookStatus,
   grantTutorialLoot,
   isCampaignOwner,
+  canAccessCampaign,
+  awardTutorialReputation,
   isTutorialCampaign,
   loadChatMessages,
   loadRollingSummary,
@@ -1001,6 +1003,7 @@ async function tutorialRelight(
     await resolveTutorialHook(campaignId);
     const { leveledUp } = await awardTutorialXp(campaignId);
     if (leveledUp) tutorialSignal(document, "leveled-up");
+    await awardTutorialReputation(campaignId);
   }
 
   // Reputation flavor (narration-only this slice; real reputation deferred), the
@@ -1365,8 +1368,8 @@ const server = new Hocuspocus({
       if (parsed.userId !== userId) {
         throw new Error("forbidden: room does not belong to authenticated user");
       }
-    } else if (!(await isCampaignOwner(parsed.campaignId, userId))) {
-      throw new Error("forbidden: not the campaign owner");
+    } else if (!(await canAccessCampaign(parsed.campaignId, userId))) {
+      throw new Error("forbidden: not a campaign member");
     }
 
     return { userId };

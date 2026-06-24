@@ -53,14 +53,14 @@ function ent(
 }
 
 /** Active-turn action economy with a configurable movement budget (in feet). */
-function turnEconomy(totalFt = 30) {
+function turnEconomy(totalFt = 30, attacksTotal = 1) {
   return {
     action: "available",
     bonusAction: "available",
     reaction: "available",
     freeInteractionUsed: false,
     movement: { total: totalFt, used: 0 },
-    attacks: { used: 0, total: 1 },
+    attacks: { used: 0, total: attacksTotal },
   } as const;
 }
 
@@ -285,6 +285,40 @@ describe("planMonsterTurn", () => {
     expect(plan.map((a) => a.type)).toEqual(["attack", "end_turn"]);
     const attack = plan[0] as { target: string };
     expect(attack.target).toBe("hero");
+  });
+
+  it("spends the full Multiattack budget when adjacent", () => {
+    const sides = { ogre: "foes", hero: "party" };
+    const ogre = ent({
+      id: "ogre",
+      position: { x: 8, y: 3 },
+      attacksPerAction: 2,
+      actionEconomy: turnEconomy(30, 2),
+    });
+    const hero = ent({ id: "hero", kind: "character", position: { x: 9, y: 3 } });
+    const plan = planMonsterTurn(battle([ogre, hero], sides), "ogre");
+    expect(plan.map((a) => a.type)).toEqual(["attack", "attack", "end_turn"]);
+    expect(
+      plan.filter((a) => a.type === "attack").map((a) => (a as { target: string }).target),
+    ).toEqual(["hero", "hero"]);
+  });
+
+  it("fires every attack after a move that lands in reach", () => {
+    const sides = { ogre: "foes", hero: "party" };
+    const ogre = ent({
+      id: "ogre",
+      position: { x: 9, y: 3 },
+      attacksPerAction: 2,
+      actionEconomy: turnEconomy(30, 2),
+    });
+    const hero = ent({ id: "hero", kind: "character", position: { x: 2, y: 3 } });
+    const plan = planMonsterTurn(battle([ogre, hero], sides), "ogre");
+    expect(plan.map((a) => a.type)).toEqual([
+      "move_entity",
+      "attack",
+      "attack",
+      "end_turn",
+    ]);
   });
 
   it("closes the gap and attacks when the move lands in reach", () => {

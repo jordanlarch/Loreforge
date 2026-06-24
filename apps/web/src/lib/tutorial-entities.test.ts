@@ -20,11 +20,12 @@ describe("tutorial entity registry (TUT-1, #171)", () => {
     expect(tutorialEntity("The Lantern Spire")?.speak).toBeUndefined();
   });
 
-  it("knows the Scene 3 shop as a non-speakable place", () => {
+  it("knows the Scene 3 shop as a place and Toric as its keeper", () => {
     const shop = tutorialEntity("Tinker's Mercy");
     expect(shop?.kind).toBe("place");
     expect(shop?.speak).toBeUndefined();
     expect(shop?.known).toMatch(/Toric/);
+    expect(tutorialEntity("Toric Pennywhistle")?.kind).toBe("npc");
   });
 
   it("returns undefined for an unknown name", () => {

@@ -243,6 +243,38 @@ function relocateCompanion(sceneId: string, position: GridPosition): Command[] {
   ];
 }
 
+/** Stable entity ids for tutorial NPC tokens placed on exploration maps. */
+export const TUTORIAL_NPC_BARNABY_ID = "npc:tut-barnaby";
+export const TUTORIAL_NPC_LILY_ID = "npc:tut-lily";
+export const TUTORIAL_NPC_TORIC_ID = "npc:tut-toric";
+export const TUTORIAL_NPC_MARLOWE_ID = "npc:tut-marlowe";
+
+/** Decorative statline for stationary social-scene NPCs (not combatants). */
+const TUTORIAL_NPC_STATLINE = {
+  abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+  maxHp: 1,
+  baseAc: 10,
+  speed: 0,
+} as const;
+
+/** Place fixed NPC tokens when a tutorial scene is entered (exploration mode). */
+export function createTutorialNpcCommands(
+  sceneId: string,
+  npcs: ReadonlyArray<{ id: string; name: string; position: GridPosition }>,
+): Command[] {
+  return npcs.map(({ id, name, position }) => ({
+    type: "create_entity" as const,
+    entity: {
+      id,
+      kind: "npc" as const,
+      name,
+      ...TUTORIAL_NPC_STATLINE,
+      sceneId,
+      position,
+    },
+  }));
+}
+
 /** The stable entity id of the tutorial's combat foe (the Hungering Shade). */
 export const TUTORIAL_SHADE_ID = "npc:tut-shade";
 
@@ -568,6 +600,18 @@ export const TUTORIAL_SCRIPT: readonly TutorialSceneScript[] = [
       { type: "change_scene", sceneId: TUTORIAL_SCENE_HEARTH },
       // The PC already exists (created in Scene 1) — carry her into the tavern.
       ...relocateLead(party, TUTORIAL_SCENE_HEARTH, HEARTH_START),
+      ...createTutorialNpcCommands(TUTORIAL_SCENE_HEARTH, [
+        {
+          id: TUTORIAL_NPC_BARNABY_ID,
+          name: "Barnaby Bramblefoot",
+          position: { x: 2, y: 2 },
+        },
+        {
+          id: TUTORIAL_NPC_LILY_ID,
+          name: "Lily Lampmaker",
+          position: { x: 8, y: 6 },
+        },
+      ]),
     ],
     narration:
       "Warm air rolls out as you push open the heavy door — hearth-smoke, mulled " +
@@ -596,6 +640,13 @@ export const TUTORIAL_SCRIPT: readonly TutorialSceneScript[] = [
       // Carry the party (PC + companion, if he joined) up the lane.
       ...relocateLead(party, TUTORIAL_SCENE_CROOKED_LANE, LANE_START),
       ...relocateCompanion(TUTORIAL_SCENE_CROOKED_LANE, LANE_COMPANION_CELL),
+      ...createTutorialNpcCommands(TUTORIAL_SCENE_CROOKED_LANE, [
+        {
+          id: TUTORIAL_NPC_TORIC_ID,
+          name: "Toric Pennywhistle",
+          position: { x: 8, y: 4 },
+        },
+      ]),
     ],
     narration:
       "You start up the lane toward the spire. Halfway along you pass a small " +
@@ -702,6 +753,13 @@ export const TUTORIAL_SCRIPT: readonly TutorialSceneScript[] = [
       { type: "change_scene", sceneId: TUTORIAL_SCENE_SPIRE_UPPER },
       ...relocateLead(party, TUTORIAL_SCENE_SPIRE_UPPER, SPIRE_UPPER_START),
       ...relocateCompanion(TUTORIAL_SCENE_SPIRE_UPPER, SPIRE_UPPER_COMPANION_CELL),
+      ...createTutorialNpcCommands(TUTORIAL_SCENE_SPIRE_UPPER, [
+        {
+          id: TUTORIAL_NPC_MARLOWE_ID,
+          name: "Marlowe the Lampkeeper",
+          position: { x: 3, y: 4 },
+        },
+      ]),
     ],
     narration:
       "The cold leaves the room in a single, silent rush. At the top of the spire " +

@@ -70,6 +70,14 @@ export const TUTORIAL_ENTITIES: Record<string, TutorialEntity> = {
     known:
       "A cluttered curio shop run by Toric Pennywhistle, kept open against the rain. Useful oddments for travellers heading to the spire.",
   },
+  "Toric Pennywhistle": {
+    name: "Toric Pennywhistle",
+    kind: "npc",
+    subtitle: "Gnome · Tinkerer",
+    known:
+      "Keeps Tinker's Mercy open against the rain. He has oddments for travellers — and tonight, a gift for anyone heading to the spire.",
+    disposition: "friendly",
+  },
 };
 
 /** The registry entry for an entity name, or undefined if it isn't a known one. */

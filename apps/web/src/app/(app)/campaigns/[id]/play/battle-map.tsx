@@ -41,6 +41,8 @@ export type BattleToken = {
   hostile: boolean;
   isActive: boolean;
   draggable: boolean;
+  /** When true, a tap opens exploration interactions (PLAY-7 tracer). */
+  interactive?: boolean;
 };
 
 /** Active targeting overlay: a range area around an origin + pickable targets. */
@@ -80,6 +82,8 @@ export type BattleMapProps = {
   onAimCell?: (cell: Cell) => void;
   /** Grid-line layer toggle (PLAY-7); defaults on. */
   showGrid?: boolean;
+  /** Exploration mode: tap a token to inspect / interact. */
+  onSelectToken?: (id: string) => void;
 };
 
 type DragState = {
@@ -389,6 +393,10 @@ export default function BattleMap(props: BattleMapProps) {
       sprite.eventMode = "static";
       sprite.cursor = "crosshair";
       sprite.on("pointertap", () => propsRef.current.onPickTarget?.(token.id));
+    } else if (token.interactive && propsRef.current.onSelectToken) {
+      sprite.eventMode = "static";
+      sprite.cursor = "pointer";
+      sprite.on("pointertap", () => propsRef.current.onSelectToken?.(token.id));
     } else if (token.draggable) {
       sprite.eventMode = "static";
       sprite.cursor = "grab";

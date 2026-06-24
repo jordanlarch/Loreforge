@@ -455,6 +455,10 @@ function LiveBattle({
       const openSheet = pcCharacterId
         ? () => setSheetOpen(true)
         : undefined;
+      function onExploreTokenSelect(entityId: string) {
+        const entity = session.state!.entities[entityId];
+        if (entity?.name) onEntityClick?.(entity.name);
+      }
       return (
         <>
           <PlaySurfaceLayout
@@ -494,6 +498,9 @@ function LiveBattle({
                   tokens={explore.tokens}
                   reachable={[]}
                   onMoveToken={() => {}}
+                  onSelectToken={
+                    onEntityClick ? onExploreTokenSelect : undefined
+                  }
                 />
               </section>
             }

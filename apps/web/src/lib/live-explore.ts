@@ -27,7 +27,7 @@ export type ExploreModel = {
  * nothing to explore (no scene, no map, or an encounter is active — in which
  * case the combat view model owns the board). Tokens are every placed entity in
  * the scene, rendered neutral + static (no hostility, no active turn, not
- * draggable): movement + interaction in exploration are later concerns.
+ * draggable). NPCs and companion tokens are tappable in exploration mode.
  */
 export function buildExploreModel(state: WorldState): ExploreModel | null {
   const sceneId = state.currentSceneId;
@@ -47,6 +47,9 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
       hostile: false,
       isActive: false,
       draggable: false,
+      interactive:
+        e.kind === "npc" ||
+        (e.kind === "character" && e.id.startsWith("npc:")),
     }));
 
   return {

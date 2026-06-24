@@ -79,6 +79,21 @@ describe("buildExploreModel", () => {
     expect(token.hostile).toBe(false);
     expect(token.isActive).toBe(false);
     expect(token.draggable).toBe(false);
+    expect(token.interactive).toBe(false);
+  });
+
+  it("marks npc and companion tokens as tappable in exploration", () => {
+    const model = buildExploreModel(
+      world([
+        entity({ id: "mira", kind: "character" }),
+        entity({ id: "npc:brennar", kind: "character", name: "Old Brennar" }),
+        entity({ id: "npc:tut-barnaby", kind: "npc", name: "Barnaby" }),
+      ]),
+    );
+    const byId = Object.fromEntries(model!.tokens.map((t) => [t.id, t]));
+    expect(byId.mira?.interactive).toBe(false);
+    expect(byId["npc:brennar"]?.interactive).toBe(true);
+    expect(byId["npc:tut-barnaby"]?.interactive).toBe(true);
   });
 
   it("only includes placed entities in the current scene", () => {

@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { Engine } from "../engine";
 import {
+  TUTORIAL_NPC_BARNABY_ID,
+  TUTORIAL_NPC_LILY_ID,
+  TUTORIAL_NPC_TORIC_ID,
+  TUTORIAL_NPC_MARLOWE_ID,
+  createTutorialNpcCommands,
   buildCompanionCommands,
   buildTutorialSeedCommands,
   classifyScene2Topic,
@@ -46,6 +51,18 @@ async function seed(): Promise<Engine> {
   return engine;
 }
 
+/** Enter the scene after `fromSceneId` (or the first scene when undefined). */
+async function enterSceneAfter(
+  engine: Engine,
+  fromSceneId: string | undefined,
+): Promise<void> {
+  const next = nextTutorialScene(fromSceneId);
+  if (!next) return;
+  for (const command of next.enter(TUTORIAL_FALLBACK_PARTY)) {
+    await engine.execute(CAMPAIGN, command);
+  }
+}
+
 describe("tutorial script", () => {
   it("seeds the first scene as exploration: a mapped scene + the PC, no encounter", async () => {
     const engine = await seed();
@@ -77,6 +94,47 @@ describe("tutorial script", () => {
     expect(state.entities[TUTORIAL_FALLBACK_PARTY[0]!.id]?.sceneId).toBe(
       TUTORIAL_SCENE_HEARTH,
     );
+    const barnaby = state.entities[TUTORIAL_NPC_BARNABY_ID];
+    const lily = state.entities[TUTORIAL_NPC_LILY_ID];
+    expect(barnaby?.kind).toBe("npc");
+    expect(barnaby?.name).toBe("Barnaby Bramblefoot");
+    expect(barnaby?.position).toEqual({ x: 2, y: 2 });
+    expect(lily?.kind).toBe("npc");
+    expect(lily?.name).toBe("Lily Lampmaker");
+    expect(lily?.position).toEqual({ x: 8, y: 6 });
+  });
+
+  it("places Toric on the Crooked Lane and Marlowe in the upper spire", async () => {
+    const engine = await seed();
+    await enterSceneAfter(engine, TUTORIAL_SCENE_HOLLOWS_EDGE);
+    await enterSceneAfter(engine, TUTORIAL_SCENE_HEARTH);
+
+    const laneState = await engine.getState(CAMPAIGN);
+    const toric = laneState.entities[TUTORIAL_NPC_TORIC_ID];
+    expect(toric?.name).toBe("Toric Pennywhistle");
+    expect(toric?.sceneId).toBe(TUTORIAL_SCENE_CROOKED_LANE);
+
+    await enterSceneAfter(engine, TUTORIAL_SCENE_CROOKED_LANE);
+    await enterSceneAfter(engine, TUTORIAL_SCENE_SPIRE_LOWER);
+    await enterSceneAfter(engine, TUTORIAL_SCENE_SPIRE_STAIR);
+    await enterSceneAfter(engine, TUTORIAL_SCENE_SPIRE_UPPER);
+
+    const marlowe = (await engine.getState(CAMPAIGN)).entities[
+      TUTORIAL_NPC_MARLOWE_ID
+    ];
+    expect(marlowe?.name).toBe("Marlowe the Lampkeeper");
+    expect(marlowe?.sceneId).toBe(TUTORIAL_SCENE_SPIRE_UPPER);
+  });
+
+  it("createTutorialNpcCommands builds stationary npc entities", () => {
+    const cmds = createTutorialNpcCommands("scene:test", [
+      { id: "npc:test", name: "Test NPC", position: { x: 1, y: 2 } },
+    ]);
+    expect(cmds).toHaveLength(1);
+    expect(cmds[0]?.type).toBe("create_entity");
+    if (cmds[0]?.type !== "create_entity") throw new Error("expected create_entity");
+    expect(cmds[0].entity.kind).toBe("npc");
+    expect(cmds[0].entity.speed).toBe(0);
   });
 
   it("routes free text to a dialogue topic and always reaches Lily's hook", () => {

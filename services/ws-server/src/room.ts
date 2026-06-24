@@ -210,6 +210,7 @@ export function isBattleAction(value: unknown): value is BattleAction {
     target?: unknown;
     attackBonus?: unknown;
     damage?: unknown;
+    rangeFt?: unknown;
     caster?: unknown;
     spellId?: unknown;
     slotLevel?: unknown;

@@ -3,6 +3,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  real,
   text,
   timestamp,
   uuid,
@@ -31,6 +32,37 @@ export const codexSpells = pgTable(
   (t) => [
     index("codex_spells_name_idx").on(t.name),
     index("codex_spells_level_idx").on(t.level),
+  ],
+);
+
+/**
+ * SRD creatures / monsters from Open5e ingest (CODEX-1).
+ * Animals in the Codex UI filter `creature_type = beast` and CR ≤ 1.
+ */
+export const codexMonsters = pgTable(
+  "codex_monsters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    /** Open5e type key, e.g. beast, dragon, aberration. */
+    creatureType: text("creature_type"),
+    /** Open5e size key, e.g. medium, large. */
+    size: text("size"),
+    challengeRating: real("challenge_rating"),
+    armorClass: integer("armor_class"),
+    hitPoints: integer("hit_points"),
+    alignment: text("alignment"),
+    source: text("source").notNull().default("open5e"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_monsters_name_idx").on(t.name),
+    index("codex_monsters_type_idx").on(t.creatureType),
+    index("codex_monsters_cr_idx").on(t.challengeRating),
   ],
 );
 

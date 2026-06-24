@@ -4,10 +4,16 @@
  * is reused by Smithy and Realms. Write paths (Copy to Smithy, etc.) arrive in
  * later phases.
  */
-import { and, asc, count, eq, ilike } from "drizzle-orm";
+import { and, asc, count, eq, gte, ilike, lte } from "drizzle-orm";
 import { z } from "zod";
 
-import { codexClasses, codexSpecies, codexSpells, getDb } from "@app/db";
+import {
+  codexClasses,
+  codexMonsters,
+  codexSpecies,
+  codexSpells,
+  getDb,
+} from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -166,4 +172,98 @@ export const codexRouter = createTRPCRouter({
         .limit(1);
       return row ?? null;
     }),
+
+  /** Filterable, paginated list of SRD creatures (Monsters + Animals tabs). */
+  listMonsters: protectedProcedure
+    .input(
+      z.object({
+        search: z.string().trim().max(100).optional(),
+        /** Open5e type key filter, e.g. beast, dragon. */
+        type: z.string().trim().max(40).optional(),
+        /** Animals tab: beasts with CR ≤ 1. */
+        beastsOnly: z.boolean().optional(),
+        crMin: z.number().min(0).optional(),
+        crMax: z.number().min(0).optional(),
+        limit: z.number().int().min(1).max(100).default(48),
+        offset: z.number().int().min(0).default(0),
+      }),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = [
+        input.search
+          ? ilike(codexMonsters.name, `%${input.search}%`)
+          : undefined,
+        input.type ? eq(codexMonsters.creatureType, input.type) : undefined,
+        input.beastsOnly
+          ? and(
+              eq(codexMonsters.creatureType, "beast"),
+              lte(codexMonsters.challengeRating, 1),
+            )
+          : undefined,
+        input.crMin != null
+          ? gte(codexMonsters.challengeRating, input.crMin)
+          : undefined,
+        input.crMax != null && !input.beastsOnly
+          ? lte(codexMonsters.challengeRating, input.crMax)
+          : undefined,
+      ].filter(Boolean);
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const [rows, [total]] = await Promise.all([
+        db
+          .select({
+            id: codexMonsters.id,
+            slug: codexMonsters.slug,
+            name: codexMonsters.name,
+            creatureType: codexMonsters.creatureType,
+            size: codexMonsters.size,
+            challengeRating: codexMonsters.challengeRating,
+            armorClass: codexMonsters.armorClass,
+            hitPoints: codexMonsters.hitPoints,
+          })
+          .from(codexMonsters)
+          .where(where)
+          .orderBy(asc(codexMonsters.challengeRating), asc(codexMonsters.name))
+          .limit(input.limit)
+          .offset(input.offset),
+        db.select({ value: count() }).from(codexMonsters).where(where),
+      ]);
+
+      return { monsters: rows, total: total?.value ?? 0 };
+    }),
+
+  /** Distinct creature types for filter chips. */
+  monsterFacets: protectedProcedure.query(async () => {
+    const db = getDb();
+    const types = await db
+      .selectDistinct({ value: codexMonsters.creatureType })
+      .from(codexMonsters)
+      .orderBy(asc(codexMonsters.creatureType));
+    return {
+      types: types
+        .map((t) => t.value)
+        .filter((v): v is string => v != null),
+    };
+  }),
+
+  /** Full creature stat block by slug. */
+  getMonster: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexMonsters)
+        .where(eq(codexMonsters.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** Total ingested creature count. */
+  monsterCount: protectedProcedure.query(async () => {
+    const db = getDb();
+    const [row] = await db.select({ value: count() }).from(codexMonsters);
+    return { count: row?.value ?? 0 };
+  }),
 });

@@ -14,6 +14,7 @@ import {
 import { ClassBrowser } from "./class-browser";
 import { CodexBrowser } from "./codex-browser";
 import { CodexComingSoon } from "./codex-coming-soon";
+import { MonsterBrowser } from "./monster-browser";
 import { SpeciesBrowser } from "./species-browser";
 
 export function CodexShell() {
@@ -107,6 +108,20 @@ export function CodexShell() {
       )}
       {category === "Classes" && (
         <ClassBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
+      )}
+      {category === "Animals" && (
+        <MonsterBrowser
+          mode="animals"
+          selectedSlug={selectedSlug}
+          onSelect={selectSlug}
+        />
+      )}
+      {category === "Monsters" && (
+        <MonsterBrowser
+          mode="monsters"
+          selectedSlug={selectedSlug}
+          onSelect={selectSlug}
+        />
       )}
       {!isLiveCodexCategory(category) && (
         <CodexComingSoon category={category} />

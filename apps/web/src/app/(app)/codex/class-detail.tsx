@@ -38,6 +38,12 @@ export function ClassDetail({
             Hit Die d{cls.data.hitDie} · SRD core class
           </p>
 
+          {cls.data.description ? (
+            <p className="mt-4 text-sm leading-relaxed text-lore-text">
+              {cls.data.description}
+            </p>
+          ) : null}
+
           <section className="mt-6">
             <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
               Saving Throw Proficiencies

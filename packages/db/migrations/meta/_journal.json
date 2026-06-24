@@ -169,6 +169,13 @@
       "when": 1782264000000,
       "tag": "0023_character_library_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782307362211,
+      "tag": "0024_codex_descriptions",
+      "breakpoints": true
     }
   ]
 }

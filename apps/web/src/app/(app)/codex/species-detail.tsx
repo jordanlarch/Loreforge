@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 
+import { traitDescription } from "@app/db/traits";
 import { ABILITIES, type AbilityScores } from "@app/engine";
 
 import { SrdHint } from "@/components/srd-hint";
@@ -40,6 +41,12 @@ export function SpeciesDetail({
             {species.data.size} · {species.data.speed} ft speed · SRD
           </p>
 
+          {species.data.description ? (
+            <p className="mt-4 text-sm leading-relaxed text-lore-text">
+              {species.data.description}
+            </p>
+          ) : null}
+
           <section className="mt-6">
             <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
               Ability Score Increase
@@ -66,10 +73,29 @@ export function SpeciesDetail({
             <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
               Traits
             </h3>
-            <ul className="list-inside list-disc space-y-1 text-sm text-lore-text">
-              {species.data.traits.map((trait) => (
-                <li key={trait}>{trait}</li>
-              ))}
+            <ul className="space-y-3">
+              {species.data.traits.map((trait) => {
+                const body = traitDescription(trait);
+                return (
+                  <li
+                    key={trait}
+                    className="rounded-lg border border-lore-border bg-lore-surface p-3"
+                  >
+                    <div className="text-sm font-medium text-lore-text">
+                      {trait}
+                    </div>
+                    {body ? (
+                      <p className="mt-1.5 text-sm leading-relaxed text-lore-muted">
+                        {body}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-sm italic text-lore-muted">
+                        Full rules not yet catalogued.
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
 

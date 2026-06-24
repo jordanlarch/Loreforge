@@ -108,6 +108,7 @@ export const codexRouter = createTRPCRouter({
         .select({
           slug: codexSpecies.slug,
           name: codexSpecies.name,
+          description: codexSpecies.description,
           abilityBonuses: codexSpecies.abilityBonuses,
           speed: codexSpecies.speed,
           size: codexSpecies.size,
@@ -143,6 +144,7 @@ export const codexRouter = createTRPCRouter({
         .select({
           slug: codexClasses.slug,
           name: codexClasses.name,
+          description: codexClasses.description,
           hitDie: codexClasses.hitDie,
           savingThrows: codexClasses.savingThrows,
           skillChoice: codexClasses.skillChoice,

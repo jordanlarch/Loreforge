@@ -97,33 +97,71 @@ export const codexRouter = createTRPCRouter({
   }),
 
   /** SRD species/lineages for the Creation Wizard, alphabetical. */
-  listSpecies: protectedProcedure.query(async () => {
-    const db = getDb();
-    return db
-      .select({
-        slug: codexSpecies.slug,
-        name: codexSpecies.name,
-        abilityBonuses: codexSpecies.abilityBonuses,
-        speed: codexSpecies.speed,
-        size: codexSpecies.size,
-        traits: codexSpecies.traits,
-      })
-      .from(codexSpecies)
-      .orderBy(asc(codexSpecies.name));
-  }),
+  listSpecies: protectedProcedure
+    .input(z.object({ search: z.string().trim().max(100).optional() }).optional())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const where = input?.search
+        ? ilike(codexSpecies.name, `%${input.search}%`)
+        : undefined;
+      return db
+        .select({
+          slug: codexSpecies.slug,
+          name: codexSpecies.name,
+          abilityBonuses: codexSpecies.abilityBonuses,
+          speed: codexSpecies.speed,
+          size: codexSpecies.size,
+          traits: codexSpecies.traits,
+        })
+        .from(codexSpecies)
+        .where(where)
+        .orderBy(asc(codexSpecies.name));
+    }),
+
+  /** Full SRD species record by slug. */
+  getSpecies: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexSpecies)
+        .where(eq(codexSpecies.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
 
   /** SRD classes for the Creation Wizard, alphabetical. */
-  listClasses: protectedProcedure.query(async () => {
-    const db = getDb();
-    return db
-      .select({
-        slug: codexClasses.slug,
-        name: codexClasses.name,
-        hitDie: codexClasses.hitDie,
-        savingThrows: codexClasses.savingThrows,
-        skillChoice: codexClasses.skillChoice,
-      })
-      .from(codexClasses)
-      .orderBy(asc(codexClasses.name));
-  }),
+  listClasses: protectedProcedure
+    .input(z.object({ search: z.string().trim().max(100).optional() }).optional())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const where = input?.search
+        ? ilike(codexClasses.name, `%${input.search}%`)
+        : undefined;
+      return db
+        .select({
+          slug: codexClasses.slug,
+          name: codexClasses.name,
+          hitDie: codexClasses.hitDie,
+          savingThrows: codexClasses.savingThrows,
+          skillChoice: codexClasses.skillChoice,
+        })
+        .from(codexClasses)
+        .where(where)
+        .orderBy(asc(codexClasses.name));
+    }),
+
+  /** Full SRD class record by slug. */
+  getClass: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexClasses)
+        .where(eq(codexClasses.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
 });

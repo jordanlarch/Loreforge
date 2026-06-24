@@ -13,7 +13,13 @@ export const CODEX_CATEGORIES = [
 
 export type CodexCategory = (typeof CODEX_CATEGORIES)[number];
 
-const LIVE: CodexCategory[] = ["Spells", "Species", "Classes"];
+const LIVE: CodexCategory[] = [
+  "Spells",
+  "Species",
+  "Classes",
+  "Animals",
+  "Monsters",
+];
 
 export function isLiveCodexCategory(cat: CodexCategory): boolean {
   return LIVE.includes(cat);
@@ -32,9 +38,9 @@ export const COMING_SOON_COPY: Partial<Record<CodexCategory, string>> = {
   Backgrounds:
     "SRD backgrounds are not ingested yet — the Creation Wizard skips background selection in v1.",
   Animals:
-    "Beasts and mounts will come from the Open5e monster ingest (CR 0–1 filter).",
+    "Beasts with CR 1 or lower from the SRD creature ingest.",
   Monsters:
-    "Monster stat blocks await the normalized creature ingest pipeline.",
+    "Full SRD creature stat blocks from Open5e.",
   Items:
     "Adventuring gear and magic items await structured equipment ingest.",
   Feats:

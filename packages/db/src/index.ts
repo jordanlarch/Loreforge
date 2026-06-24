@@ -8,6 +8,13 @@ export {
   type IngestSpellsResult,
 } from "./ingest/open5e-spells";
 export {
+  creatureToRow,
+  formatChallengeRating,
+  ingestOpen5eCreatures,
+  type IngestCreaturesOptions,
+  type IngestCreaturesResult,
+} from "./ingest/open5e-creatures";
+export {
   seedCharacterOptions,
   SRD_CLASSES,
   SRD_SPECIES,

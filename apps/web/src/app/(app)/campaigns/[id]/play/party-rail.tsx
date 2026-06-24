@@ -45,13 +45,16 @@ export function PartyRail({
   state,
   roster,
   layout = "column",
+  companionExpected = false,
 }: {
   state: WorldState;
   /** DB roster rows backfill chips when the engine entity hasn't synced yet. */
   roster?: readonly PartyRosterRow[];
   layout?: "column" | "row";
+  /** When true, show Old Brennar if the hook was accepted but sync is lagging. */
+  companionExpected?: boolean;
 }) {
-  const members = partyMembersWithRoster(state, roster);
+  const members = partyMembersWithRoster(state, roster, { companionExpected });
   if (members.length === 0) return null;
   const activeId = activeMemberId(state);
 

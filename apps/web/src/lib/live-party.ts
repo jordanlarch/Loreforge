@@ -68,48 +68,79 @@ export function partyMembers(state: WorldState): EntityState[] {
 export function partyMembersWithRoster(
   state: WorldState,
   roster?: readonly PartyRosterRow[],
+  opts?: { companionExpected?: boolean },
 ): EntityState[] {
   const members = partyMembers(state);
-  if (!roster?.length) return members;
-
-  const active = roster.filter(
-    (m) =>
-      m.status === "active" &&
-      (m.role === "pc" || m.role === "companion"),
-  );
-  if (active.length === 0) return members;
-
-  const coveredNames = new Set(members.map((m) => m.name.toLowerCase()));
-  const coveredIds = new Set(members.map((m) => m.id));
   const extras: EntityState[] = [];
 
-  for (const row of active) {
-    const engineId = row.role === "companion" ? TUTORIAL_COMPANION.id : row.id;
-    if (
-      coveredNames.has(row.name.toLowerCase()) ||
-      coveredIds.has(engineId)
-    ) {
-      continue;
+  if (roster?.length) {
+    const active = roster.filter(
+      (m) =>
+        m.status === "active" &&
+        (m.role === "pc" || m.role === "companion"),
+    );
+    const coveredNames = new Set(members.map((m) => m.name.toLowerCase()));
+    const coveredIds = new Set(members.map((m) => m.id));
+
+    for (const row of active) {
+      const engineId = row.role === "companion" ? TUTORIAL_COMPANION.id : row.id;
+      if (
+        coveredNames.has(row.name.toLowerCase()) ||
+        coveredIds.has(engineId)
+      ) {
+        continue;
+      }
+      extras.push({
+        id: engineId,
+        kind: "character",
+        name: row.name,
+        abilityScores: row.abilityScores,
+        hp: { current: row.maxHp, max: row.maxHp, temp: 0 },
+        baseAc: row.baseAc,
+        speed: row.speed,
+        classes: row.classes,
+        proficiencyBonus: 2,
+        alive: true,
+        dead: false,
+        conditions: [],
+        sceneId: state.currentSceneId,
+      });
+      coveredNames.add(row.name.toLowerCase());
+      coveredIds.add(engineId);
     }
-    extras.push({
-      id: engineId,
-      kind: "character",
-      name: row.name,
-      abilityScores: row.abilityScores,
-      hp: { current: row.maxHp, max: row.maxHp, temp: 0 },
-      baseAc: row.baseAc,
-      speed: row.speed,
-      classes: row.classes,
-      proficiencyBonus: 2,
-      alive: true,
-      dead: false,
-      conditions: [],
-      sceneId: state.currentSceneId,
-    });
-    coveredNames.add(row.name.toLowerCase());
-    coveredIds.add(engineId);
   }
 
+  if (opts?.companionExpected) {
+    const all = [...members, ...extras];
+    const hasBrennar = all.some(
+      (m) =>
+        m.id === TUTORIAL_COMPANION.id ||
+        m.name.toLowerCase() === TUTORIAL_COMPANION.name.toLowerCase(),
+    );
+    if (!hasBrennar) {
+      extras.push({
+        id: TUTORIAL_COMPANION.id,
+        kind: "character",
+        name: TUTORIAL_COMPANION.name,
+        abilityScores: TUTORIAL_COMPANION.abilityScores,
+        hp: {
+          current: TUTORIAL_COMPANION.maxHp,
+          max: TUTORIAL_COMPANION.maxHp,
+          temp: 0,
+        },
+        baseAc: TUTORIAL_COMPANION.baseAc,
+        speed: TUTORIAL_COMPANION.speed,
+        classes: TUTORIAL_COMPANION.classes,
+        proficiencyBonus: 2,
+        alive: true,
+        dead: false,
+        conditions: [],
+        sceneId: state.currentSceneId,
+      });
+    }
+  }
+
+  if (extras.length === 0) return members;
   return [...members, ...extras].sort(compareMembers);
 }
 

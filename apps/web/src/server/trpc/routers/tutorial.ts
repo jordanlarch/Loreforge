@@ -416,7 +416,8 @@ export const tutorialRouter = createTRPCRouter({
   /**
    * Activate Old Brennar's party membership (the DB half of "companion joins",
    * D4; the engine entity is created by the `TutorialRoom`). Idempotent: flips
-   * the seeded "reserve" companion row to "active".
+   * the seeded "reserve" companion row to "active", or creates the row when an
+   * older campaign seed is missing it.
    */
   companionJoin: protectedProcedure.mutation(async ({ ctx }) => {
     const campaignId = await tutorialCampaignId(ctx.user.id);
@@ -426,7 +427,8 @@ export const tutorialRouter = createTRPCRouter({
         message: "No tutorial in progress.",
       });
     }
-    await getDb()
+    const db = getDb();
+    const activated = await db
       .update(campaignCharacters)
       .set({ status: "active" })
       .where(
@@ -435,7 +437,44 @@ export const tutorialRouter = createTRPCRouter({
           eq(campaignCharacters.ownerId, ctx.user.id),
           eq(campaignCharacters.role, "companion"),
         ),
-      );
+      )
+      .returning({ id: campaignCharacters.id });
+    if (activated.length > 0) return { ok: true };
+
+    const brennarId =
+      (await findOwnedCharacter(ctx.user.id, STARTER_BRENNAR.name)) ??
+      (
+        await db
+          .insert(characters)
+          .values({
+            ...TUTORIAL_BRENNAR,
+            ownerId: ctx.user.id,
+            libraryVisibility: "campaign_only",
+          })
+          .returning({ id: characters.id })
+      )[0]?.id;
+    if (!brennarId) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Could not seed Old Brennar.",
+      });
+    }
+    await db
+      .insert(campaignCharacters)
+      .values({
+        campaignId,
+        characterId: brennarId,
+        ownerId: ctx.user.id,
+        role: "companion",
+        status: "active",
+      })
+      .onConflictDoUpdate({
+        target: [
+          campaignCharacters.campaignId,
+          campaignCharacters.characterId,
+        ],
+        set: { status: "active", role: "companion" },
+      });
     return { ok: true };
   }),
 

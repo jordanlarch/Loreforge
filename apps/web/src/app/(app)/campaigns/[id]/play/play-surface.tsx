@@ -237,6 +237,7 @@ function LiveBattle({
   pinnedTexts,
   pcCharacterId,
   partyRoster,
+  companionExpected = false,
 }: {
   session: LiveSession;
   title: string;
@@ -263,6 +264,8 @@ function LiveBattle({
   pcCharacterId?: string;
   /** Active campaign roster — backfills the party rail when engine sync lags. */
   partyRoster?: readonly PartyRosterRow[];
+  /** Hook accepted — Brennar should appear even before engine/DB fully sync. */
+  companionExpected?: boolean;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const vm = useMemo(
@@ -511,23 +514,50 @@ function LiveBattle({
         <>
           <PlaySurfaceLayout
             header={
-              <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h1 className="font-display text-xl font-semibold">{title}</h1>
-                  <p className="text-sm text-lore-muted">
-                    {explore.sceneName ?? context}
-                    {session.peers > 1 ? ` · ${session.peers} here` : ""}
-                  </p>
-                </div>
-                {backHref && (
-                  <Link
-                    href={backHref}
-                    className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
-                  >
-                    ← Back
-                  </Link>
+              <>
+                <LivePlayTopBar
+                  title={title}
+                  sceneName={explore.sceneName ?? context}
+                  peers={session.peers}
+                  backHref={backHref}
+                  paused={paused}
+                  onTogglePause={() => setPaused((p) => !p)}
+                  isBusy={session.isBusy}
+                  showTurnActions={false}
+                  onEndTurn={session.endTurn}
+                  onReset={session.reset}
+                  onEndSession={
+                    campaignId
+                      ? () => endSession.mutate({ campaignId })
+                      : undefined
+                  }
+                  endingSession={endSession.isPending}
+                  rejected={session.rejected}
+                  pacing={{
+                    prefs: pacingPrefs,
+                    onUpdate: updatePacing,
+                    holding,
+                    onToggleHold: () => setHolding((h) => !h),
+                    onContinue: () =>
+                      session.sendChat("(Continue the scene.)", "continue"),
+                    onSkip: (duration) =>
+                      session.sendChat(`/skip ${duration}`, "skip"),
+                    disabled: session.isBusy || paused,
+                  }}
+                />
+                {joinPrompt && (
+                  <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
+                    <span>⚡ {joinPrompt}</span>
+                    <button
+                      type="button"
+                      onClick={() => setJoinPrompt(null)}
+                      className="shrink-0 rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 )}
-              </header>
+              </>
             }
             partyRail={
               <div className="h-full" data-coachmark="tut-party">
@@ -535,6 +565,7 @@ function LiveBattle({
                   state={session.state}
                   roster={partyRoster}
                   layout="column"
+                  companionExpected={companionExpected}
                 />
               </div>
             }
@@ -672,6 +703,7 @@ function LiveBattle({
               state={session.state}
               roster={partyRoster}
               layout="column"
+              companionExpected={companionExpected}
             />
           </div>
         }
@@ -1336,17 +1368,47 @@ export function TutorialPlaySurface({
     });
   }
 
-  const companionSummonAttempted = useRef(false);
+  const companionSummonPending = useRef(false);
   useEffect(() => {
-    if (!companionJoined || session.isLoading || !session.state) return;
-    if (session.state.entities[TUTORIAL_COMPANION.id]) {
-      companionSummonAttempted.current = false;
+    const needsCompanion = hookActive || companionJoined;
+    if (!needsCompanion || session.isLoading || !session.state) return;
+    if (session.state.entities[TUTORIAL_COMPANION.id]) return;
+
+    if (!companionJoined && hookActive && !companionJoin.isPending) {
+      companionJoin.mutate(undefined, {
+        onSuccess: () => {
+          session.tutorialCompanion();
+          void utils.campaigns.party.invalidate({ campaignId });
+          void utils.tutorial.world.invalidate();
+        },
+      });
       return;
     }
-    if (companionSummonAttempted.current) return;
-    companionSummonAttempted.current = true;
-    session.tutorialCompanion();
-  }, [companionJoined, session.isLoading, session.state, session]);
+
+    if (companionJoined && !companionSummonPending.current) {
+      companionSummonPending.current = true;
+      session.tutorialCompanion();
+    }
+  }, [
+    hookActive,
+    companionJoined,
+    session.isLoading,
+    session.state,
+    session,
+    companionJoin,
+    campaignId,
+    utils.campaigns.party,
+    utils.tutorial.world,
+  ]);
+
+  useEffect(() => {
+    if (session.state?.entities[TUTORIAL_COMPANION.id]) {
+      companionSummonPending.current = false;
+      return;
+    }
+    // Allow a fresh WS summon attempt on each scene (prior attempt may have raced).
+    companionSummonPending.current = false;
+  }, [session.state?.currentSceneId, session.state?.entities]);
 
   function takeTorricsGift() {
     grantOil.mutate(undefined, {
@@ -1655,6 +1717,7 @@ export function TutorialPlaySurface({
         campaignId={campaignId}
         pcCharacterId={pcCharacterId}
         partyRoster={partyQuery.data}
+        companionExpected={hookActive || companionJoined}
         loadouts={loadouts}
         tutorialControls={tutorialControls}
         hudExtra={hudExtra}

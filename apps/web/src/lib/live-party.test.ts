@@ -127,6 +127,15 @@ describe("partyMembersWithRoster", () => {
     ]);
     expect(merged.map((m) => m.name)).toEqual(["Mira", "Old Brennar"]);
   });
+
+  it("injects Brennar when the hook was accepted but neither DB nor engine has synced", () => {
+    const hero = entity({ id: "hero", name: "Mira" });
+    const w = world([hero], { withEncounter: false });
+    const merged = partyMembersWithRoster(w, undefined, {
+      companionExpected: true,
+    });
+    expect(merged.map((m) => m.name)).toEqual(["Mira", "Old Brennar"]);
+  });
 });
 
 describe("activeMemberId", () => {

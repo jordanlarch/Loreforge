@@ -50,6 +50,7 @@ import {
   type LiveRoom,
   type PartyLoader,
 } from "./room.js";
+import { tutorialCompanionShouldBeActive } from "./db.js";
 
 /** The outcome of a scripted scene advance: the entered scene + its narration. */
 export type AdvanceResult = {
@@ -123,7 +124,9 @@ export class TutorialRoom implements LiveRoom {
     const sceneId = state.currentSceneId;
     if (!sceneId) return;
     const party = await this.party();
-    const companionActive = opts?.forceCompanion ?? party.length > 1;
+    const companionActive =
+      opts?.forceCompanion ??
+      (await tutorialCompanionShouldBeActive(this.campaignId));
     for (const command of buildTutorialSceneRepairCommands(
       sceneId,
       party,

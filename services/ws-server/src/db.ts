@@ -451,6 +451,19 @@ export async function getTutorialHookStatus(
   return row?.status ?? null;
 }
 
+/** True when the tutorial companion should be in the party (hook accepted+). */
+export async function tutorialCompanionShouldBeActive(
+  campaignId: string,
+): Promise<boolean> {
+  try {
+    const hookStatus = await getTutorialHookStatus(campaignId);
+    if (hookStatus === "active" || hookStatus === "resolved") return true;
+    return (await getCampaignParty(campaignId)).length > 1;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Resolve the tutorial's central plot hook (Scene 6, D4): flip its status to
  * "resolved" so it lands in the campaign Hooks tab as done. Returns whether it

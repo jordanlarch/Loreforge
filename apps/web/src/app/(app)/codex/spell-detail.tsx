@@ -1,8 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
+import {
+  open5eRawToSpellDefinition,
+  validateSpellDefinition,
+} from "@app/engine";
+
+import {
+  SpellDefinitionMechanics,
+  SpellDefinitionStats,
+} from "@/components/spell-definition-panel";
 import { trpc } from "@/lib/trpc/client";
 
 type RawSpell = Record<string, unknown>;
@@ -18,10 +27,10 @@ function str(raw: RawSpell, ...keys: string[]): string | null {
 }
 
 /** Open5e desc fields can be a string or an array of paragraphs. */
-function description(raw: RawSpell): string[] {
+function flavorParagraphs(raw: RawSpell): string[] {
   const desc = raw.desc ?? raw.description;
   if (Array.isArray(desc)) return desc.filter((d): d is string => typeof d === "string");
-  if (typeof desc === "string") return desc.split(/\n\n+/);
+  if (typeof desc === "string") return desc.split(/\n\n+/).filter(Boolean);
   return [];
 }
 
@@ -54,7 +63,17 @@ export function SpellDetail({
   }, [onClose]);
 
   const raw = (spell.data?.raw ?? {}) as RawSpell;
-  const meta = (
+
+  const definition = useMemo(() => {
+    if (!spell.data?.raw) return null;
+    const def = open5eRawToSpellDefinition(spell.data.raw, {
+      slug,
+      name: spell.data.name,
+    });
+    return validateSpellDefinition(def).length === 0 ? def : null;
+  }, [spell.data, slug]);
+
+  const fallbackMeta = (
     [
       ["Casting Time", str(raw, "casting_time")],
       ["Range", str(raw, "range_text", "range")],
@@ -62,11 +81,16 @@ export function SpellDetail({
       ["Components", str(raw, "components")],
       ["Concentration", str(raw, "concentration")],
       ["Ritual", str(raw, "ritual")],
-      ["Material", str(raw, "material")],
+      [
+        "Material",
+        typeof raw.material_specified === "string"
+          ? raw.material_specified
+          : str(raw, "material"),
+      ],
     ] as Array<[string, string | null]>
   ).filter(([, v]) => v != null);
 
-  const paragraphs = description(raw);
+  const paragraphs = flavorParagraphs(raw);
   const higher = str(raw, "higher_level");
 
   return (
@@ -123,38 +147,54 @@ export function SpellDetail({
 
         {spell.isLoading && <p className="text-lore-muted">Loading…</p>}
 
-        {meta.length > 0 && (
-          <dl className="mb-5 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-lore-border bg-lore-surface p-4 text-sm">
-            {meta.map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-xs uppercase tracking-wide text-lore-muted">
-                  {label}
-                </dt>
-                <dd className="mt-0.5">{value}</dd>
-              </div>
-            ))}
-          </dl>
+        {definition ? (
+          <>
+            <div className="mb-5 rounded-lg border border-lore-border bg-lore-surface p-4">
+              <SpellDefinitionStats def={definition} />
+            </div>
+            <SpellDefinitionMechanics def={definition} />
+          </>
+        ) : (
+          !spell.isLoading &&
+          fallbackMeta.length > 0 && (
+            <dl className="mb-5 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-lore-border bg-lore-surface p-4 text-sm">
+              {fallbackMeta.map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs uppercase tracking-wide text-lore-muted">
+                    {label}
+                  </dt>
+                  <dd className="mt-0.5">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )
         )}
 
-        <div className="space-y-3 text-sm leading-relaxed">
-          {paragraphs.map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
-          {higher && (
-            <p>
-              <span className="font-semibold">At Higher Levels. </span>
-              {higher}
-            </p>
-          )}
-          {!spell.isLoading && paragraphs.length === 0 && (
-            <p className="text-lore-muted">
-              No description available in the ingested SRD record.
-            </p>
-          )}
-        </div>
+        <section className="mt-6">
+          <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
+            Description
+          </h3>
+          <div className="space-y-3 text-sm leading-relaxed">
+            {paragraphs.map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+            {higher && !definition?.upcastScaling && (
+              <p>
+                <span className="font-semibold">At Higher Levels. </span>
+                {higher}
+              </p>
+            )}
+            {!spell.isLoading && paragraphs.length === 0 && (
+              <p className="text-lore-muted">
+                No description available in the ingested SRD record.
+              </p>
+            )}
+          </div>
+        </section>
 
         <p className="mt-6 border-t border-lore-border pt-4 text-xs text-lore-muted">
-          Source: {spell.data?.source ?? "open5e"} · SRD 5.2 reference
+          Source: {spell.data?.source ?? "open5e"} · SRD reference
+          {definition && " · engine-normalized stats"}
         </p>
       </div>
     </div>

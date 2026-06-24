@@ -133,7 +133,7 @@ no Smithy copy loop, deep links, right pane, or global search.
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| CODEX-1 | Non-spell category browsers (Rules, Species, Backgrounds, Classes, Animals, Monsters, Items, Feats, Advanced) | P3+ / ongoing | doc-only | Missing | Category pills are decorative; `listSpecies`/`listClasses` exist but wizard-only. |
+| CODEX-1 | Non-spell category browsers (Rules, Species, Backgrounds, Classes, Animals, Monsters, Items, Feats, Advanced) | P3+ / ongoing | doc-only | Missing | Category pills are decorative; `listSpecies`/`listClasses` exist but wizard-only. **Spell detail** now shows engine-normalized stats + mechanics via `open5eRawToSpellDefinition` (shared panel with Smithy). |
 | CODEX-2 | "Copy to The Smithy" from spell detail (+ bulk multi-select copy) | P2 (deepen) | doc-only | Partial | **Spell copy shipped:** Codex detail "Copy to The Smithy" + Smithy picker call `smithy.copySpellFromCodex` (Open5e raw → `SpellDefinition`, idempotent per slug). **Still deferred:** bulk multi-select, non-spell categories. |
 | CODEX-3 | Deep links / bookmarkable detail (`/codex/spells/[slug]`, `?search=`, category routes) | P3+ | doc-only | Missing | Detail is client state only. |
 | CODEX-4 | Right pane (Recently Viewed, Quick Copy suggestions, Your Characters) + footer (SRD attribution, export) | P3+ | doc-only | Missing | — |

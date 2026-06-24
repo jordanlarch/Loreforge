@@ -62,6 +62,8 @@ export const codexSpecies = pgTable(
     speed: integer("speed").notNull().default(30),
     size: text("size").notNull().default("Medium"),
     traits: jsonb("traits").notNull().$type<string[]>().default([]),
+    /** SRD flavor / overview paragraph for Codex detail. */
+    description: text("description").notNull().default(""),
     source: text("source").notNull().default("srd"),
     raw: jsonb("raw").notNull().$type<Record<string, unknown>>().default({}),
     ingestedAt: timestamp("ingested_at", { withTimezone: true })
@@ -84,6 +86,8 @@ export const codexClasses = pgTable(
     savingThrows: jsonb("saving_throws").notNull().$type<Ability[]>().default([]),
     /** Level-1 skill proficiency choice (count + eligible skills). */
     skillChoice: jsonb("skill_choice").notNull().$type<SkillChoice>(),
+    /** SRD class overview for Codex detail. */
+    description: text("description").notNull().default(""),
     source: text("source").notNull().default("srd"),
     raw: jsonb("raw").notNull().$type<Record<string, unknown>>().default({}),
     ingestedAt: timestamp("ingested_at", { withTimezone: true })

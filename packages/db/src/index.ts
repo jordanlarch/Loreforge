@@ -15,3 +15,7 @@ export {
   type SeedClass,
   type SeedSpecies,
 } from "./ingest/srd-character-options";
+export {
+  TRAIT_DESCRIPTIONS,
+  traitDescription,
+} from "./ingest/srd-trait-descriptions";

@@ -15,6 +15,13 @@ export {
   type IngestCreaturesResult,
 } from "./ingest/open5e-creatures";
 export {
+  ingestOpen5eItems,
+  itemToRow,
+  OPEN5E_SRD_ITEMS_DOCUMENT_KEY,
+  type IngestItemsOptions,
+  type IngestItemsResult,
+} from "./ingest/open5e-items";
+export {
   seedCharacterOptions,
   SRD_CLASSES,
   SRD_SPECIES,

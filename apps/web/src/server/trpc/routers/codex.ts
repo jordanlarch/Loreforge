@@ -9,11 +9,14 @@ import { z } from "zod";
 
 import {
   codexClasses,
+  codexItems,
   codexMonsters,
   codexSpecies,
   codexSpells,
   getDb,
 } from "@app/db";
+
+import { sortSizes } from "@/lib/codex-monster-filters";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -180,6 +183,8 @@ export const codexRouter = createTRPCRouter({
         search: z.string().trim().max(100).optional(),
         /** Open5e type key filter, e.g. beast, dragon. */
         type: z.string().trim().max(40).optional(),
+        /** Open5e size key filter, e.g. medium, large. */
+        size: z.string().trim().max(20).optional(),
         /** Animals tab: beasts with CR ≤ 1. */
         beastsOnly: z.boolean().optional(),
         crMin: z.number().min(0).optional(),
@@ -195,6 +200,7 @@ export const codexRouter = createTRPCRouter({
           ? ilike(codexMonsters.name, `%${input.search}%`)
           : undefined,
         input.type ? eq(codexMonsters.creatureType, input.type) : undefined,
+        input.size ? eq(codexMonsters.size, input.size) : undefined,
         input.beastsOnly
           ? and(
               eq(codexMonsters.creatureType, "beast"),
@@ -204,7 +210,7 @@ export const codexRouter = createTRPCRouter({
         input.crMin != null
           ? gte(codexMonsters.challengeRating, input.crMin)
           : undefined,
-        input.crMax != null && !input.beastsOnly
+        input.crMax != null
           ? lte(codexMonsters.challengeRating, input.crMax)
           : undefined,
       ].filter(Boolean);
@@ -233,19 +239,40 @@ export const codexRouter = createTRPCRouter({
       return { monsters: rows, total: total?.value ?? 0 };
     }),
 
-  /** Distinct creature types for filter chips. */
-  monsterFacets: protectedProcedure.query(async () => {
-    const db = getDb();
-    const types = await db
-      .selectDistinct({ value: codexMonsters.creatureType })
-      .from(codexMonsters)
-      .orderBy(asc(codexMonsters.creatureType));
-    return {
-      types: types
-        .map((t) => t.value)
-        .filter((v): v is string => v != null),
-    };
-  }),
+  /** Distinct creature types and sizes for filter chips. */
+  monsterFacets: protectedProcedure
+    .input(z.object({ beastsOnly: z.boolean().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const scope = input?.beastsOnly
+        ? and(
+            eq(codexMonsters.creatureType, "beast"),
+            lte(codexMonsters.challengeRating, 1),
+          )
+        : undefined;
+
+      const [types, sizes] = await Promise.all([
+        db
+          .selectDistinct({ value: codexMonsters.creatureType })
+          .from(codexMonsters)
+          .where(scope)
+          .orderBy(asc(codexMonsters.creatureType)),
+        db
+          .selectDistinct({ value: codexMonsters.size })
+          .from(codexMonsters)
+          .where(scope)
+          .orderBy(asc(codexMonsters.size)),
+      ]);
+
+      return {
+        types: types
+          .map((t) => t.value)
+          .filter((v): v is string => v != null),
+        sizes: sortSizes(
+          sizes.map((s) => s.value).filter((v): v is string => v != null),
+        ),
+      };
+    }),
 
   /** Full creature stat block by slug. */
   getMonster: protectedProcedure
@@ -264,6 +291,82 @@ export const codexRouter = createTRPCRouter({
   monsterCount: protectedProcedure.query(async () => {
     const db = getDb();
     const [row] = await db.select({ value: count() }).from(codexMonsters);
+    return { count: row?.value ?? 0 };
+  }),
+
+  /** Filterable, paginated list of SRD items. */
+  listItems: protectedProcedure
+    .input(
+      z.object({
+        search: z.string().trim().max(100).optional(),
+        category: z.string().trim().max(40).optional(),
+        limit: z.number().int().min(1).max(100).default(48),
+        offset: z.number().int().min(0).default(0),
+      }),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = [
+        input.search
+          ? ilike(codexItems.name, `%${input.search}%`)
+          : undefined,
+        input.category ? eq(codexItems.category, input.category) : undefined,
+      ].filter(Boolean);
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const [rows, [total]] = await Promise.all([
+        db
+          .select({
+            id: codexItems.id,
+            slug: codexItems.slug,
+            name: codexItems.name,
+            category: codexItems.category,
+            cost: codexItems.cost,
+            weight: codexItems.weight,
+            weightUnit: codexItems.weightUnit,
+          })
+          .from(codexItems)
+          .where(where)
+          .orderBy(asc(codexItems.name))
+          .limit(input.limit)
+          .offset(input.offset),
+        db.select({ value: count() }).from(codexItems).where(where),
+      ]);
+
+      return { items: rows, total: total?.value ?? 0 };
+    }),
+
+  /** Distinct item categories for filter chips. */
+  itemFacets: protectedProcedure.query(async () => {
+    const db = getDb();
+    const categories = await db
+      .selectDistinct({ value: codexItems.category })
+      .from(codexItems)
+      .orderBy(asc(codexItems.category));
+    return {
+      categories: categories
+        .map((c) => c.value)
+        .filter((v): v is string => v != null),
+    };
+  }),
+
+  /** Full SRD item record by slug. */
+  getItem: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexItems)
+        .where(eq(codexItems.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** Total ingested item count. */
+  itemCount: protectedProcedure.query(async () => {
+    const db = getDb();
+    const [row] = await db.select({ value: count() }).from(codexItems);
     return { count: row?.value ?? 0 };
   }),
 });

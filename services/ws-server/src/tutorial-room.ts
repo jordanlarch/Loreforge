@@ -116,15 +116,19 @@ export class TutorialRoom implements LiveRoom {
   }
 
   /** Backfill missing map tokens for the current exploration scene (idempotent). */
-  private async repairSceneTokens(): Promise<void> {
+  private async repairSceneTokens(opts?: {
+    forceCompanion?: boolean;
+  }): Promise<void> {
     const state = await this.engine.getState(this.campaignId);
     const sceneId = state.currentSceneId;
     if (!sceneId) return;
     const party = await this.party();
+    const companionActive = opts?.forceCompanion ?? party.length > 1;
     for (const command of buildTutorialSceneRepairCommands(
       sceneId,
       party,
       state,
+      { companionActive },
     )) {
       await this.engine.execute(this.campaignId, command);
     }
@@ -386,16 +390,17 @@ export class TutorialRoom implements LiveRoom {
     const state = await this.engine.getState(this.campaignId);
     const sceneId = state.currentSceneId;
     if (!sceneId) return null;
-    if (state.entities[TUTORIAL_COMPANION.id]) {
-      await this.repairSceneTokens();
-      return null;
+    if (!state.entities[TUTORIAL_COMPANION.id]) {
+      const placement = tutorialScenePlacement(sceneId);
+      const position = placement?.companion ?? { x: 6, y: 6 };
+      for (const command of buildCompanionCommands(sceneId, position)) {
+        await this.engine.execute(this.campaignId, command);
+      }
     }
-    const placement = tutorialScenePlacement(sceneId);
-    const position = placement?.companion ?? { x: 6, y: 6 };
-    for (const command of buildCompanionCommands(sceneId, position)) {
-      await this.engine.execute(this.campaignId, command);
-    }
-    await this.repairSceneTokens();
-    return TUTORIAL_COMPANION.name;
+    await this.repairSceneTokens({ forceCompanion: true });
+    const brennar = (await this.engine.getState(this.campaignId)).entities[
+      TUTORIAL_COMPANION.id
+    ];
+    return brennar ? TUTORIAL_COMPANION.name : null;
   }
 }

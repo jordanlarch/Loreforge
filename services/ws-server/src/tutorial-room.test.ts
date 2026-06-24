@@ -193,8 +193,8 @@ describe("TutorialRoom", () => {
     const brennar = (await room.getState()).entities[TUTORIAL_COMPANION.id];
     expect(brennar?.kind).toBe("character");
     expect(brennar?.sceneId).toBe(TUTORIAL_SCENE_HEARTH);
-    // Idempotent: a second summon is a no-op.
-    expect(await room.summonCompanion()).toBeNull();
+    // Idempotent: a second summon repairs placement and still reports Brennar.
+    expect(await room.summonCompanion()).toBe("Old Brennar");
   });
 
   it("resolves the scene's offered check through the engine", async () => {

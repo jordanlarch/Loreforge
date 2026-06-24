@@ -1224,7 +1224,7 @@ async function handleTutorialInner(
     // membership row is written by the tutorial tRPC router, D4).
     const joined = await room.summonCompanion();
     writeProjection(document, await room.getState());
-    if (!joined) return;
+    if (!joined || !room.markOnce("companion:joined")) return;
     await appendAndPersist(document, documentName, [
       gmEntry(
         `An old cleric steps in from the back room, eyes on the door. ` +

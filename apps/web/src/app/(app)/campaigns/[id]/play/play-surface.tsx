@@ -48,6 +48,7 @@ import type { CoachmarkDef } from "@/lib/coachmark";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { buildExploreModel } from "@/lib/live-explore";
 import { joinedSincePrompt } from "@/lib/live-presence";
+import type { PartyRosterRow } from "@/lib/live-party";
 import { usePacingPrefs, useTurnTimer } from "@/lib/live-pacing";
 import { reachableCells, type Cell } from "@/lib/battle-map/geometry";
 import {
@@ -64,12 +65,10 @@ import {
   deriveWeaponAttacks,
   genericStrike,
   preparedSpellNames,
-  quickUseItems,
   sheetCastableSpells,
   type WeaponAttack,
 } from "@/lib/sheet-loadout";
 import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
-import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
@@ -182,6 +181,47 @@ export type SheetData = { equipment: EquipmentItem[]; spells: SpellLoadout };
  * a heading; identical for the sandbox fixture and a persisted campaign. With a
  * `loadouts` map (#98) the HUD + action bar are driven by real weapons + spells.
  */
+/** Compact right-column HUD for the active PC during live play. */
+function CompactCharacterHud({
+  pc,
+  openSheet,
+  hudExtra,
+  coachmark,
+}: {
+  pc: EntityState;
+  openSheet?: () => void;
+  hudExtra?: ReactNode;
+  coachmark?: string;
+}) {
+  return (
+    <div
+      data-coachmark={coachmark}
+      className="rounded-lg border border-lore-border bg-lore-surface p-2.5"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="font-display text-base leading-tight">{pc.name}</div>
+        {openSheet ? (
+          <button
+            type="button"
+            onClick={openSheet}
+            className="shrink-0 text-[11px] text-lore-accent hover:text-lore-text"
+          >
+            Sheet
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-lore-muted">
+        <span>
+          {pc.hp.current}/{pc.hp.max} HP
+        </span>
+        <span>AC {pc.baseAc}</span>
+        <span>{pc.speed}ft</span>
+      </div>
+      {hudExtra}
+    </div>
+  );
+}
+
 function LiveBattle({
   session,
   title,
@@ -196,6 +236,7 @@ function LiveBattle({
   onPin,
   pinnedTexts,
   pcCharacterId,
+  partyRoster,
 }: {
   session: LiveSession;
   title: string;
@@ -220,6 +261,8 @@ function LiveBattle({
   pinnedTexts?: ReadonlySet<string>;
   /** Roster character id for the PC — opens the full sheet overlay. */
   pcCharacterId?: string;
+  /** Active campaign roster — backfills the party rail when engine sync lags. */
+  partyRoster?: readonly PartyRosterRow[];
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const vm = useMemo(
@@ -319,7 +362,6 @@ function LiveBattle({
       ? deriveWeaponAttacks(activeEntity, activeSheet.equipment)
       : [genericStrike(activeEntity)]
     : [];
-  const quickItems = activeSheet ? quickUseItems(activeSheet.equipment) : [];
   const castableSpells: CastableSpell[] = activeEntity
     ? activeSheet
       ? sheetCastableSpells(activeEntity, preparedSpellNames(activeSheet.spells))
@@ -488,8 +530,12 @@ function LiveBattle({
               </header>
             }
             partyRail={
-              <div data-coachmark="tut-party">
-                <PartyRail state={session.state} />
+              <div className="h-full" data-coachmark="tut-party">
+                <PartyRail
+                  state={session.state}
+                  roster={partyRoster}
+                  layout="column"
+                />
               </div>
             }
             map={
@@ -519,36 +565,15 @@ function LiveBattle({
             }
             sidebar={
               <>
-                {pc && (
-                  <div
-                    data-coachmark="tut-scene1-hud"
-                    className="rounded-lg border border-lore-border bg-lore-surface p-4"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-display text-lg leading-tight">
-                        {pc.name}
-                      </div>
-                      {openSheet ? (
-                        <button
-                          type="button"
-                          onClick={openSheet}
-                          className="shrink-0 text-xs text-lore-accent hover:text-lore-text"
-                        >
-                          Full sheet
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-lore-muted">
-                      <span>
-                        {pc.hp.current}/{pc.hp.max} HP
-                      </span>
-                      <span>AC {pc.baseAc}</span>
-                      <span>Speed {pc.speed}ft</span>
-                    </div>
-                    {hudExtra}
-                  </div>
-                )}
                 {tutorialControls}
+                {pc && (
+                  <CompactCharacterHud
+                    pc={pc}
+                    openSheet={openSheet}
+                    hudExtra={hudExtra}
+                    coachmark="tut-scene1-hud"
+                  />
+                )}
               </>
             }
             chat={
@@ -642,48 +667,16 @@ function LiveBattle({
           </>
         }
         partyRail={
-          <div data-coachmark="tut-party">
-            <PartyRail state={session.state} />
+          <div className="h-full" data-coachmark="tut-party">
+            <PartyRail
+              state={session.state}
+              roster={partyRoster}
+              layout="column"
+            />
           </div>
         }
         map={
-          <section className="flex min-h-0 flex-1 flex-col">
-            <div className="shrink-0 space-y-2">
-              <div data-coachmark="tut-combat">
-                <CombatOverlay
-                  round={vm.round}
-                  activeName={vm.activeName}
-                  order={vm.order}
-                />
-              </div>
-
-              {controllableTurn && !paused && (
-                <CombatActionBar
-                  weapons={weapons}
-                  spells={castableSpells}
-                  armed={armed}
-                  disabled={session.isBusy}
-                  aimReady={aimCell !== null}
-                  readiedNote={readiedNote}
-                  canAttack={canAttack}
-                  canAct={canAct}
-                  attacksLeft={attacksLeft}
-                  onAttack={(attack) => setArmed({ kind: "attack", attack })}
-                  onCast={(spell) => setArmed({ kind: "cast", spell })}
-                  onReady={(attack) => setArmed({ kind: "ready", attack })}
-                  onConfirm={onConfirmAim}
-                  onCancel={() => setArmed(null)}
-                />
-              )}
-
-              {paused && (
-                <div className="rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
-                  ⏸ Session paused — turn actions are frozen. Press Resume to
-                  continue.
-                </div>
-              )}
-            </div>
-
+          <section className="flex min-h-0 flex-1 flex-col" data-coachmark="tut-scene1-map">
             <MapViewport
               fill
               sceneBanner={sceneBanner}
@@ -702,18 +695,54 @@ function LiveBattle({
           </section>
         }
         mapFooter={
-          <p className="text-xs text-lore-muted">
+          <p className="text-[11px] text-lore-muted">
             {isAreaCast
               ? "Tap a cell to place the blast — the highlighted area shows who's caught — then Confirm. The engine resolves saves + damage."
               : armed?.kind === "ready"
                 ? "Tap a foe to hold your strike for — the engine fires it automatically when they enter range on their turn."
                 : armed
                   ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
-                  : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready above. The engine validates everything."}
+                  : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready in the panel. The engine validates everything."}
           </p>
         }
         sidebar={
           <>
+            {tutorialControls}
+
+            <div data-coachmark="tut-combat">
+              <CombatOverlay
+                round={vm.round}
+                activeName={vm.activeName}
+                order={vm.order}
+              />
+            </div>
+
+            {controllableTurn && !paused && (
+              <CombatActionBar
+                weapons={weapons}
+                spells={castableSpells}
+                armed={armed}
+                disabled={session.isBusy}
+                aimReady={aimCell !== null}
+                readiedNote={readiedNote}
+                canAttack={canAttack}
+                canAct={canAct}
+                attacksLeft={attacksLeft}
+                onAttack={(attack) => setArmed({ kind: "attack", attack })}
+                onCast={(spell) => setArmed({ kind: "cast", spell })}
+                onReady={(attack) => setArmed({ kind: "ready", attack })}
+                onConfirm={onConfirmAim}
+                onCancel={() => setArmed(null)}
+              />
+            )}
+
+            {paused && (
+              <div className="rounded-lg border border-lore-accent bg-lore-accent-dim px-2.5 py-2 text-xs text-lore-text">
+                ⏸ Session paused — turn actions are frozen. Press Resume to
+                continue.
+              </div>
+            )}
+
             {showReaction && reaction && (
               <ReactionPrompt
                 reactorName={reaction.reactor.name}
@@ -741,14 +770,13 @@ function LiveBattle({
               />
             )}
 
-            <CharacterHud
-              session={session}
-              weapons={weapons}
-              items={quickItems}
-              onViewSheet={openSheet}
-            />
-
-            {tutorialControls}
+            {activeEntity ? (
+              <CompactCharacterHud
+                pc={activeEntity}
+                openSheet={openSheet}
+                hudExtra={hudExtra}
+              />
+            ) : null}
           </>
         }
         chat={
@@ -1299,6 +1327,7 @@ export function TutorialPlaySurface({
         companionJoin.mutate(undefined, {
           onSuccess: () => {
             session.tutorialCompanion();
+            void utils.campaigns.party.invalidate({ campaignId });
           },
           onSettled: () => void utils.tutorial.world.invalidate(),
         });
@@ -1306,6 +1335,18 @@ export function TutorialPlaySurface({
       },
     });
   }
+
+  const companionSummonAttempted = useRef(false);
+  useEffect(() => {
+    if (!companionJoined || session.isLoading || !session.state) return;
+    if (session.state.entities[TUTORIAL_COMPANION.id]) {
+      companionSummonAttempted.current = false;
+      return;
+    }
+    if (companionSummonAttempted.current) return;
+    companionSummonAttempted.current = true;
+    session.tutorialCompanion();
+  }, [companionJoined, session.isLoading, session.state, session]);
 
   function takeTorricsGift() {
     grantOil.mutate(undefined, {
@@ -1613,6 +1654,7 @@ export function TutorialPlaySurface({
         backHref="/"
         campaignId={campaignId}
         pcCharacterId={pcCharacterId}
+        partyRoster={partyQuery.data}
         loadouts={loadouts}
         tutorialControls={tutorialControls}
         hudExtra={hudExtra}

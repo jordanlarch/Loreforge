@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 
 /**
- * Viewport-fit shell for live play: map (+ optional sidebar controls) on top,
- * narrative chat spanning the full width of the lower pane so combat HUD rows
- * cannot squeeze the log to a few lines.
+ * Viewport-fit shell for live play: party rail on the left, map centered in the
+ * middle, tutorial/HUD controls on the right, and chat spanning the full lower
+ * pane.
  */
 export function PlaySurfaceLayout({
   header,
@@ -23,20 +23,24 @@ export function PlaySurfaceLayout({
   chat: ReactNode;
 }) {
   return (
-    <div className="mx-auto flex h-[calc(100dvh-6.5rem)] max-w-6xl flex-col overflow-hidden px-4 py-2">
+    <div className="mx-auto flex h-[calc(100dvh-5.25rem)] w-full max-w-[96rem] flex-col overflow-hidden px-2 py-1 sm:px-3">
       <div className="shrink-0">{header}</div>
-      {partyRail ? <div className="mb-2 shrink-0">{partyRail}</div> : null}
-      <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <div className="flex min-h-0 flex-[1.05] flex-col gap-3 lg:min-h-0 lg:flex-row lg:gap-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-h-0 flex-[1.08] gap-2 lg:gap-3">
+          {partyRail ? (
+            <aside className="w-[8.25rem] shrink-0 sm:w-[9.5rem] lg:w-40">
+              {partyRail}
+            </aside>
+          ) : null}
           <section className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="flex min-h-0 flex-1 flex-col">{map}</div>
-            {mapFooter ? <div className="mt-1 shrink-0">{mapFooter}</div> : null}
+            {mapFooter ? <div className="mt-0.5 shrink-0">{mapFooter}</div> : null}
           </section>
-          <aside className="flex min-h-0 max-h-[38vh] min-w-0 shrink-0 flex-col gap-2 overflow-y-auto lg:max-h-none lg:w-80">
+          <aside className="flex w-52 shrink-0 flex-col gap-1.5 overflow-y-auto lg:w-60">
             {sidebar}
           </aside>
         </div>
-        <div className="flex min-h-0 min-h-[34vh] flex-1 flex-col lg:min-h-[30vh]">
+        <div className="flex min-h-0 min-h-[30vh] flex-1 flex-col">
           {chat}
         </div>
       </div>

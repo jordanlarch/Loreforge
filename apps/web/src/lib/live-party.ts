@@ -11,9 +11,25 @@
 import {
   areHostile,
   FIXTURE_BATTLE_PARTY_SIDE,
+  TUTORIAL_COMPANION,
+  type AbilityScores,
+  type ClassLevel,
   type EntityState,
   type WorldState,
 } from "@app/engine";
+
+/** Active campaign roster row used to backfill the rail when the engine entity lags. */
+export type PartyRosterRow = {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+  maxHp: number;
+  baseAc: number;
+  speed: number;
+  abilityScores: AbilityScores;
+  classes: ClassLevel[];
+};
 
 /** Stable ordering: PCs first, then allies, alphabetical within each group. */
 function compareMembers(a: EntityState, b: EntityState): number {
@@ -39,8 +55,62 @@ export function partyMembers(state: WorldState): EntityState[] {
     ? inScene.filter(
         (e) => !areHostile(FIXTURE_BATTLE_PARTY_SIDE, encounter.sides[e.id]),
       )
-    : inScene.filter((e) => e.kind === "character");
+    : inScene.filter(
+        (e) => e.kind === "character" || e.id === TUTORIAL_COMPANION.id,
+      );
   return members.sort(compareMembers);
+}
+
+/**
+ * Merge engine party members with active DB roster rows so the rail shows
+ * Brennar immediately after hook accept even if the WS summon is still catching up.
+ */
+export function partyMembersWithRoster(
+  state: WorldState,
+  roster?: readonly PartyRosterRow[],
+): EntityState[] {
+  const members = partyMembers(state);
+  if (!roster?.length) return members;
+
+  const active = roster.filter(
+    (m) =>
+      m.status === "active" &&
+      (m.role === "pc" || m.role === "companion"),
+  );
+  if (active.length === 0) return members;
+
+  const coveredNames = new Set(members.map((m) => m.name.toLowerCase()));
+  const coveredIds = new Set(members.map((m) => m.id));
+  const extras: EntityState[] = [];
+
+  for (const row of active) {
+    const engineId = row.role === "companion" ? TUTORIAL_COMPANION.id : row.id;
+    if (
+      coveredNames.has(row.name.toLowerCase()) ||
+      coveredIds.has(engineId)
+    ) {
+      continue;
+    }
+    extras.push({
+      id: engineId,
+      kind: "character",
+      name: row.name,
+      abilityScores: row.abilityScores,
+      hp: { current: row.maxHp, max: row.maxHp, temp: 0 },
+      baseAc: row.baseAc,
+      speed: row.speed,
+      classes: row.classes,
+      proficiencyBonus: 2,
+      alive: true,
+      dead: false,
+      conditions: [],
+      sceneId: state.currentSceneId,
+    });
+    coveredNames.add(row.name.toLowerCase());
+    coveredIds.add(engineId);
+  }
+
+  return [...members, ...extras].sort(compareMembers);
 }
 
 /** The id of the combatant whose turn it is, if an encounter is running. */

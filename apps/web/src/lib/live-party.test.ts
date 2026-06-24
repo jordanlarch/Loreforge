@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { EntityState, WorldState } from "@app/engine";
 
-import { activeMemberId, hpPercent, partyMembers } from "./live-party";
+import { activeMemberId, hpPercent, partyMembers, partyMembersWithRoster } from "./live-party";
 
 function entity(over: Partial<EntityState> & { id: string }): EntityState {
   return {
@@ -105,6 +105,27 @@ describe("partyMembers", () => {
     const hero = entity({ id: "hero" });
     const w = { ...world([hero]), currentSceneId: undefined } as WorldState;
     expect(partyMembers(w)).toEqual([]);
+  });
+});
+
+describe("partyMembersWithRoster", () => {
+  it("backfills an active companion from the DB roster when the engine entity is missing", () => {
+    const hero = entity({ id: "hero", name: "Mira" });
+    const w = world([hero], { withEncounter: false });
+    const merged = partyMembersWithRoster(w, [
+      {
+        id: "char-brennar",
+        name: "Old Brennar",
+        role: "companion",
+        status: "active",
+        maxHp: 17,
+        baseAc: 13,
+        speed: 30,
+        abilityScores: hero.abilityScores,
+        classes: [{ class: "Cleric", level: 2 }],
+      },
+    ]);
+    expect(merged.map((m) => m.name)).toEqual(["Mira", "Old Brennar"]);
   });
 });
 

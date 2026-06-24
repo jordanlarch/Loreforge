@@ -244,23 +244,27 @@ export function MapViewport({
         onAuxClick={(e) => e.button === 1 && e.preventDefault()}
         className={`overflow-auto overscroll-contain rounded-lg border border-lore-border bg-lore-bg ${
           fill
-            ? "min-h-0 flex-1"
+            ? "flex min-h-0 flex-1 items-center justify-center"
             : "max-h-[560px] max-w-full"
         } ${panning ? "cursor-grabbing select-none" : "cursor-default"}`}
         title="Scroll to zoom · middle-mouse drag to pan"
       >
-        <div style={{ width: baseW * zoom, height: baseH * zoom }}>
-          <div
-            className={`transition-opacity duration-700 ${
-              transitioning ? "opacity-40" : "opacity-100"
-            }`}
-            style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
-          >
-            <BattleMap
-              {...mapProps}
-              reachable={showReach ? reachable : []}
-              showGrid={showGrid}
-            />
+        <div
+          className={fill ? "flex min-h-full min-w-full items-center justify-center p-1" : undefined}
+        >
+          <div style={{ width: baseW * zoom, height: baseH * zoom, flexShrink: 0 }}>
+            <div
+              className={`transition-opacity duration-700 ${
+                transitioning ? "opacity-40" : "opacity-100"
+              }`}
+              style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
+            >
+              <BattleMap
+                {...mapProps}
+                reachable={showReach ? reachable : []}
+                showGrid={showGrid}
+              />
+            </div>
           </div>
         </div>
       </div>

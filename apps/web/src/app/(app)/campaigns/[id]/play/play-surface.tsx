@@ -26,12 +26,19 @@ import {
   TUTORIAL_SCENE_HOLLOWS_EDGE,
   TUTORIAL_SCENE_SPIRE_LOWER,
   TUTORIAL_SCENE_SPIRE_UPPER,
+  tutorialHintForScene,
   type EntityState,
   type WorldState,
 } from "@app/engine";
 
 import { CoachmarkHost } from "@/components/coachmark";
+import { TutorialHintChip } from "@/components/tutorial-hint-chip";
 import { trpc } from "@/lib/trpc/client";
+import { trackTutorialEvent } from "@/lib/observability/tutorial-telemetry";
+import {
+  shouldAutoProgressScene,
+  shouldShowTutorialHint,
+} from "@/lib/tutorial-hint";
 import type { CoachmarkDef } from "@/lib/coachmark";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { buildExploreModel } from "@/lib/live-explore";
@@ -894,7 +901,15 @@ const TUTORIAL_COACHMARKS: readonly CoachmarkDef[] = [
   ...TUTORIAL_SCENE6_COACHMARKS,
 ];
 
-export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
+export function TutorialPlaySurface({
+  campaignId,
+  replayFromStart = false,
+}: {
+  campaignId: string;
+  /** When true, truncate the engine log on first sync (replay-from-start, #178). */
+  replayFromStart?: boolean;
+}) {
+  const router = useRouter();
   const session = useLiveSession({ campaignId });
   const [drawerName, setDrawerName] = useState<string | null>(null);
   const [lilySpoken, setLilySpoken] = useState(false);
@@ -907,6 +922,24 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     () => new Set(),
   );
   const [advancing, setAdvancing] = useState(false);
+
+  const replay = trpc.tutorial.replay.useMutation({
+    onSuccess: () => router.push("/tutorial/play?replay=1"),
+  });
+
+  // Replay-from-start (#178): once the live channel syncs, truncate the engine log.
+  const replayPending = useRef(replayFromStart);
+
+  // Idle hint system (#178): track activity + per-scene dismissals.
+  const lastActivity = useRef(Date.now());
+  const [hintDismissals, setHintDismissals] = useState(0);
+  const [hintVisible, setHintVisible] = useState(false);
+  const prevSceneForTelemetry = useRef<string | undefined>(undefined);
+
+  function bumpActivity() {
+    lastActivity.current = Date.now();
+    setHintVisible(false);
+  }
 
   const [pinnedTexts, setPinnedTexts] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -945,6 +978,46 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   }, [sceneId]);
   // The lantern is lit once the central hook is resolved (Scene 6 finale).
   const lanternLit = hookStatus === "resolved";
+
+  useEffect(() => {
+    if (!replayPending.current || session.isLoading) return;
+    replayPending.current = false;
+    session.reset();
+    setGraduated(false);
+  }, [session.isLoading, session]);
+
+  useEffect(() => {
+    setHintDismissals(0);
+    setHintVisible(false);
+    lastActivity.current = Date.now();
+  }, [sceneId]);
+
+  useEffect(() => {
+    if (graduated || lanternLit) return;
+    const hint = tutorialHintForScene(sceneId);
+    if (!hint) return;
+
+    const timer = window.setInterval(() => {
+      const idleMs = Date.now() - lastActivity.current;
+      if (shouldShowTutorialHint(idleMs, hintDismissals)) {
+        setHintVisible(true);
+      }
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, [sceneId, hintDismissals, graduated, lanternLit, session]);
+
+  useEffect(() => {
+    if (!sceneId || sceneId === prevSceneForTelemetry.current) return;
+    if (prevSceneForTelemetry.current) {
+      trackTutorialEvent({
+        name: "tutorial_scene_complete",
+        sceneId: prevSceneForTelemetry.current,
+      });
+    }
+    prevSceneForTelemetry.current = sceneId;
+  }, [sceneId]);
+
+  const sceneHint = tutorialHintForScene(sceneId);
 
   const items = inventory.data?.items ?? [];
   const oilGranted = items.some((i) => i.name === TUTORIAL_SHOP.listings[0]?.name);
@@ -1029,6 +1102,7 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   }
 
   function speak(topic: "barnaby" | "lily") {
+    bumpActivity();
     if (spokenTopics.has(topic)) return;
     setSpokenTopics((prev) => new Set(prev).add(topic));
     session.tutorialSay(topic);
@@ -1038,6 +1112,7 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
   // Advance with a one-click latch: the button stays disabled until the scene id
   // changes, so a double-click can't skip a scene (#bug2).
   function advance() {
+    bumpActivity();
     if (advancing) return;
     setAdvancing(true);
     session.tutorialAdvance();
@@ -1396,7 +1471,24 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         open={graduated}
         unlockedAchievementIds={unlockedAchievements}
         onClose={() => setGraduated(false)}
+        onReplay={() => replay.mutate()}
+        replayBusy={replay.isPending}
       />
+      {hintVisible && sceneHint && !graduated && (
+        <TutorialHintChip
+          hint={sceneHint}
+          onDismiss={() => {
+            const next = hintDismissals + 1;
+            setHintDismissals(next);
+            setHintVisible(false);
+            lastActivity.current = Date.now();
+            if (shouldAutoProgressScene(next)) {
+              setHintDismissals(0);
+              session.tutorialAutoHint();
+            }
+          }}
+        />
+      )}
     </>
   );
 }

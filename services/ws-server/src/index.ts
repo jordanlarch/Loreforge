@@ -26,8 +26,17 @@ import {
 } from "./auth.js";
 import {
   checkAction,
+  classifyScene2Topic,
+  classifyTutorialLeaveIntent,
+  isTutorialFriendlyFireTarget,
   opportunityAttackAction,
   triggerReadiedAction,
+  TUTORIAL_ATTACK_ALLY_DEFLECT,
+  TUTORIAL_LEAVE_VILLAGE_RAIL,
+  TUTORIAL_SCENE_HEARTH,
+  TUTORIAL_SCENE_HOLLOWS_EDGE,
+  tutorialChatFallback,
+  tutorialHintForScene,
   tutorialRelightPath,
   tutorialScene,
   TUTORIAL_SHADE_ID,
@@ -127,7 +136,8 @@ type TutorialAction =
   | "companion"
   | "resume"
   | "relight"
-  | "wrap";
+  | "wrap"
+  | "auto-hint";
 
 /** Stateless message protocol (client → server). */
 type ClientMessage =
@@ -166,7 +176,8 @@ function parseMessage(payload: string): ClientMessage | null {
       action === "companion" ||
       action === "resume" ||
       action === "relight" ||
-      action === "wrap"
+      action === "wrap" ||
+      action === "auto-hint"
     ) {
       return {
         t: "tutorial",
@@ -326,6 +337,10 @@ async function composeGmReply(
     });
     return gmEntry(result.text, chatDeps, { mentions: result.mentions });
   } catch {
+    if (room instanceof TutorialRoom) {
+      const sceneId = (await room.getState()).currentSceneId;
+      return gmEntry(tutorialChatFallback(sceneId, message.text), chatDeps);
+    }
     return gmEntry(gmEcho(message.mode, message.text), chatDeps);
   }
 }
@@ -1147,6 +1162,34 @@ async function handleTutorialInner(
     return;
   }
 
+  if (action === "auto-hint") {
+    // Idle-hint auto-progress (#178): post the scene's nudge copy, then advance
+    // when not mid-combat (combat scenes only get the narration nudge).
+    const state = await room.getState();
+    const hint = tutorialHintForScene(state.currentSceneId);
+    if (!hint) return;
+    if (!room.markOnce(`auto-hint:${state.currentSceneId}`)) return;
+    await appendAndPersist(document, documentName, [
+      gmEntry(hint.autoProgressNarration, chatDeps),
+    ]);
+    if (state.encounter) return;
+    const result = await room.advance();
+    writeProjection(document, await room.getState());
+    if (!result) return;
+    const parsed = parseRoom(documentName);
+    if (parsed?.kind === "campaign") {
+      await setTutorialScene(parsed.campaignId, result.sceneId);
+    }
+    await appendAndPersist(document, documentName, [
+      gmEntry(result.narration, chatDeps, { mentions: result.mentions }),
+    ]);
+    if (result.combat) {
+      tutorialSignal(document, "combat");
+      await runTutorialCombat(room, document, documentName, getNarrationClient());
+    }
+    return;
+  }
+
   if (action === "companion") {
     // Old Brennar steps in and joins the party (the engine entity; the DB
     // membership row is written by the tutorial tRPC router, D4).
@@ -1210,6 +1253,45 @@ async function handleTutorialInner(
       }
     }
   }
+}
+
+/**
+ * Tutorial free-text chat rails (#178): classify into scripted beats before the
+ * LLM runs. Returns true when the line was handled (caller should skip LLM).
+ */
+async function handleTutorialChat(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0],
+  documentName: string,
+  message: { text: string },
+): Promise<boolean> {
+  const state = await room.getState();
+  const sceneId = state.currentSceneId;
+
+  if (sceneId === TUTORIAL_SCENE_HEARTH) {
+    const topic = classifyScene2Topic(message.text);
+    const beat = room.say(topic);
+    if (beat && room.markOnce(`chat:say:${topic}`)) {
+      await appendAndPersist(document, documentName, [
+        gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
+      ]);
+      return true;
+    }
+  }
+
+  if (
+    sceneId === TUTORIAL_SCENE_HOLLOWS_EDGE &&
+    classifyTutorialLeaveIntent(message.text)
+  ) {
+    if (room.markOnce("chat:leave-rail")) {
+      await appendAndPersist(document, documentName, [
+        gmEntry(TUTORIAL_LEAVE_VILLAGE_RAIL, chatDeps),
+      ]);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 const server = new Hocuspocus({
@@ -1293,6 +1375,19 @@ const server = new Hocuspocus({
         connection.sendStateless(REJECTED);
         return;
       }
+      if (room instanceof TutorialRoom && message.action.type === "attack") {
+        const state = await room.getState();
+        const target = state.entities[message.action.target];
+        if (
+          target &&
+          isTutorialFriendlyFireTarget(target, message.action.attacker)
+        ) {
+          await appendAndPersist(document, documentName, [
+            gmEntry(TUTORIAL_ATTACK_ALLY_DEFLECT, chatDeps),
+          ]);
+          return;
+        }
+      }
       const { accepted, summary } = await room.apply(message.action);
       if (accepted) {
         const state = await room.getState();
@@ -1335,11 +1430,24 @@ const server = new Hocuspocus({
       const priorChat = chatArray(document).toArray();
       await appendAndPersist(document, documentName, entries);
 
+      if (room instanceof TutorialRoom) {
+        if (await handleTutorialChat(room, document, documentName, message)) {
+          return;
+        }
+      }
+
       if (!respond) return;
 
       const client = getNarrationClient();
       if (!client) {
-        // Unconfigured: the instant stub, no "thinking" indicator needed.
+        // Unconfigured: canned tutorial fallback or the instant stub.
+        if (room instanceof TutorialRoom) {
+          const sceneId = (await room.getState()).currentSceneId;
+          await appendAndPersist(document, documentName, [
+            gmEntry(tutorialChatFallback(sceneId, message.text), chatDeps),
+          ]);
+          return;
+        }
         await appendAndPersist(document, documentName, [
           gmEntry(gmEcho(message.mode, message.text), chatDeps),
         ]);

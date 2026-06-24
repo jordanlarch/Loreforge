@@ -27,6 +27,11 @@ import {
   TUTORIAL_SCENE_SPIRE_UPPER,
   TUTORIAL_SHADE_ID,
   TUTORIAL_WRAP,
+  classifyTutorialLeaveIntent,
+  isTutorialFriendlyFireTarget,
+  tutorialChatFallback,
+  tutorialHintForScene,
+  TUTORIAL_SCENE_HINTS,
 } from "./tutorial";
 
 const CAMPAIGN = "tut:fixture-test";
@@ -328,5 +333,38 @@ describe("tutorial script", () => {
     expect(TUTORIAL_WRAP.used.length).toBeGreaterThan(0);
     expect(TUTORIAL_WRAP.used).toContain("Tier-4 combat with reactions");
     expect(TUTORIAL_WRAP.closing.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Tutorial hints + fail-forward (#178)", () => {
+  it("provides scripted hints for every playable scene", () => {
+    expect(Object.keys(TUTORIAL_SCENE_HINTS).length).toBe(6);
+    expect(tutorialHintForScene(TUTORIAL_SCENE_HEARTH)?.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it("classifies leave intent for the village soft rail", () => {
+    expect(classifyTutorialLeaveIntent("I turn back for the road")).toBe(true);
+    expect(classifyTutorialLeaveIntent("I look for tracks")).toBe(false);
+  });
+
+  it("blocks friendly-fire targets but not the Shade", () => {
+    expect(
+      isTutorialFriendlyFireTarget(
+        { id: TUTORIAL_COMPANION.id, kind: "character" },
+        "pc:mira",
+      ),
+    ).toBe(true);
+    expect(
+      isTutorialFriendlyFireTarget(
+        { id: TUTORIAL_SHADE_ID, kind: "monster" },
+        "pc:mira",
+      ),
+    ).toBe(false);
+  });
+
+  it("falls back to scene-2 beats from free text when the LLM is offline", () => {
+    expect(tutorialChatFallback(TUTORIAL_SCENE_HEARTH, "I'll talk to Barnaby")).toMatch(
+      /Barnaby/i,
+    );
   });
 });

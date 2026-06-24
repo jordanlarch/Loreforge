@@ -38,6 +38,7 @@ import {
   STARTER_BRENNAR,
   STARTER_MIRA,
 } from "@/lib/tutorial-starter";
+import { trackTutorialEvent } from "@/lib/observability/tutorial-telemetry";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -122,6 +123,7 @@ export const tutorialRouter = createTRPCRouter({
       .where(and(eq(campaigns.ownerId, ownerId), eq(campaigns.isTutorial, true)))
       .limit(1);
     if (existing) {
+      trackTutorialEvent({ name: "tutorial_continue" });
       return { campaignId: existing.id };
     }
 
@@ -229,7 +231,40 @@ export const tutorialRouter = createTRPCRouter({
         },
       });
 
+    trackTutorialEvent({ name: "tutorial_start" });
     return { campaignId: campaign.id };
+  }),
+
+  /**
+   * Replay from the beginning (TUT-1, #178, D6): reset the resume pointer to Scene 1
+   * and mark the run in-progress. Does **not** clear `tutorial_seen_features` — coachmarks
+   * stay dismissed. The client must send `{ t: "reset" }` over the live channel to
+   * truncate the engine log + re-seed DB-side state.
+   */
+  replay: protectedProcedure.mutation(async ({ ctx }) => {
+    const ownerId = ctx.user.id;
+    const campaignId = await tutorialCampaignId(ownerId);
+
+    if (!campaignId) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "No tutorial campaign to replay. Start the tutorial first.",
+      });
+    }
+
+    const now = new Date();
+    await getDb()
+      .update(tutorialProgress)
+      .set({
+        currentSceneId: TUTORIAL_FIRST_SCENE_ID,
+        status: "in_progress",
+        completedAt: null,
+        updatedAt: now,
+      })
+      .where(eq(tutorialProgress.ownerId, ownerId));
+
+    trackTutorialEvent({ name: "tutorial_replay" });
+    return { campaignId, resetEngine: true as const };
   }),
 
   /**
@@ -265,6 +300,7 @@ export const tutorialRouter = createTRPCRouter({
       });
     }
 
+    trackTutorialEvent({ name: "tutorial_skip" });
     return { ok: true };
   }),
 
@@ -445,6 +481,7 @@ export const tutorialRouter = createTRPCRouter({
       .set({ status: "completed", completedAt: now, updatedAt: now })
       .where(eq(tutorialProgress.ownerId, ctx.user.id));
     await unlockAchievement(ctx.user.id, TUTORIAL_ACHIEVEMENT_FIRST_LIGHT);
+    trackTutorialEvent({ name: "tutorial_complete" });
     const rows = await db
       .select({ achievementId: tutorialAchievements.achievementId })
       .from(tutorialAchievements)

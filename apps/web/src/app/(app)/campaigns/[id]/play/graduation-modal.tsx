@@ -55,11 +55,16 @@ export function GraduationModal({
   open,
   unlockedAchievementIds,
   onClose,
+  onReplay,
+  replayBusy = false,
 }: {
   open: boolean;
   /** Achievement ids the user has unlocked (badges render lit vs. dimmed). */
   unlockedAchievementIds: readonly string[];
   onClose: () => void;
+  /** Replay-from-start handler (#178); falls back to splash link when omitted. */
+  onReplay?: () => void;
+  replayBusy?: boolean;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -181,13 +186,27 @@ export function GraduationModal({
         </section>
 
         <footer className="flex items-center justify-between gap-3">
-          <Link
-            href="/tutorial"
-            onClick={onClose}
-            className="rounded-lg border border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:text-lore-text"
-          >
-            ↻ Replay the tutorial
-          </Link>
+          {onReplay ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onReplay();
+              }}
+              disabled={replayBusy}
+              className="rounded-lg border border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:text-lore-text disabled:opacity-50"
+            >
+              {replayBusy ? "Resetting…" : "↻ Replay the tutorial"}
+            </button>
+          ) : (
+            <Link
+              href="/tutorial"
+              onClick={onClose}
+              className="rounded-lg border border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:text-lore-text"
+            >
+              ↻ Replay the tutorial
+            </Link>
+          )}
           <button
             type="button"
             onClick={onClose}

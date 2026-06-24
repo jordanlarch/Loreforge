@@ -3,10 +3,8 @@
 /**
  * Tutorial splash (TUT-1, M6) — the entry point to "The Lantern's Last Flicker".
  *
- * Offers the three doors from the onboarding spec: Play (seed + enter the
- * guided adventure), Skip (bail to the app), and Browse (poke around first).
- * The launch gate that *forces* this splash for first-run users is a later
- * slice; here it's a normal reachable route.
+ * Offers Play / Continue / Replay / Skip / Browse. Continue resumes an in-progress
+ * run; Replay truncates engine + progress (coachmarks stay seen, #178).
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,14 +13,27 @@ import { trpc } from "@/lib/trpc/client";
 
 export default function TutorialSplashPage() {
   const router = useRouter();
+  const progress = trpc.tutorial.get.useQuery();
+
   const start = trpc.tutorial.start.useMutation({
     onSuccess: () => router.push("/tutorial/play"),
+  });
+  const replay = trpc.tutorial.replay.useMutation({
+    onSuccess: () => router.push("/tutorial/play?replay=1"),
   });
   const skip = trpc.tutorial.skip.useMutation({
     onSettled: () => router.push("/"),
   });
 
-  const busy = start.isPending || skip.isPending;
+  const busy = start.isPending || replay.isPending || skip.isPending;
+  const status = progress.data?.status;
+  const hasCampaign = Boolean(progress.data?.campaignId);
+  const inProgress = status === "in_progress" && hasCampaign;
+  const canReplay = hasCampaign && (status === "completed" || status === "in_progress");
+
+  function continueRun() {
+    router.push("/tutorial/play");
+  }
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
@@ -39,14 +50,35 @@ export default function TutorialSplashPage() {
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={() => start.mutate()}
-          disabled={busy}
-          className="rounded-lg border border-lore-accent bg-lore-accent-dim px-5 py-2.5 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
-        >
-          {start.isPending ? "Lighting the lantern…" : "Begin the adventure"}
-        </button>
+        {inProgress ? (
+          <button
+            type="button"
+            onClick={continueRun}
+            disabled={busy}
+            className="rounded-lg border border-lore-accent bg-lore-accent-dim px-5 py-2.5 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+          >
+            Continue from save
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => start.mutate()}
+            disabled={busy}
+            className="rounded-lg border border-lore-accent bg-lore-accent-dim px-5 py-2.5 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+          >
+            {start.isPending ? "Lighting the lantern…" : "Begin the adventure"}
+          </button>
+        )}
+        {canReplay && (
+          <button
+            type="button"
+            onClick={() => replay.mutate()}
+            disabled={busy}
+            className="rounded-lg border border-lore-border px-5 py-2.5 text-sm text-lore-muted transition-colors hover:text-lore-text disabled:opacity-50"
+          >
+            {replay.isPending ? "Resetting…" : "Replay from start"}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => skip.mutate()}
@@ -63,7 +95,7 @@ export default function TutorialSplashPage() {
         </Link>
       </div>
 
-      {start.isError && (
+      {(start.isError || replay.isError) && (
         <p className="mt-4 text-sm text-red-400">
           Couldn&apos;t start the tutorial. Please try again.
         </p>

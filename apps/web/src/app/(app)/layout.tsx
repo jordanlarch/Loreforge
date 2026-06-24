@@ -1,12 +1,15 @@
 import { AppNav } from "@/components/app-nav";
 import { SignOutButton } from "@/components/sign-out-button";
 import { createClient } from "@/lib/supabase/server";
+import { enforceTutorialGate } from "@/server/tutorial-gate-enforce";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await enforceTutorialGate();
+
   const supabase = await createClient();
   const {
     data: { user },

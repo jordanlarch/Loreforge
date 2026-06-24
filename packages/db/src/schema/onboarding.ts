@@ -28,8 +28,8 @@ export const tutorialProgress = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     ownerId: uuid("owner_id").notNull(),
-    /** The seeded tutorial campaign this run plays through. */
-    campaignId: uuid("campaign_id").notNull(),
+    /** The seeded tutorial campaign; null when the user skipped without starting. */
+    campaignId: uuid("campaign_id"),
     /** Engine scene id the user is currently on (scene-granularity resume, D6). */
     currentSceneId: text("current_scene_id").notNull().default(""),
     /** in_progress | completed | skipped */

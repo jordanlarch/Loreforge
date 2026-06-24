@@ -19,6 +19,8 @@ const serverSchema = z.object({
   // tests run offline (`docs/data-sources.md` §6).
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().optional(),
+  /** Tutorial launch gate (TUT-1, #177): `off` (default) | `first_run`. */
+  TUTORIAL_GATE: z.enum(["off", "first_run"]).default("off"),
 });
 
 const clientSchema = z.object({

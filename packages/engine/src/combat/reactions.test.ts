@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { areHostile, provokesOpportunityAttack, REACH_FEET } from "./reactions";
+import { areHostile, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "./reactions";
 
 describe("provokesOpportunityAttack", () => {
   const threatener = { x: 0, y: 0 };
@@ -43,6 +43,17 @@ describe("provokesOpportunityAttack", () => {
 
   it("defaults reach to 5 ft", () => {
     expect(REACH_FEET).toBe(5);
+  });
+});
+
+describe("readyTriggerRangeFeet", () => {
+  it("parses in_range triggers", () => {
+    expect(readyTriggerRangeFeet("in_range:80")).toBe(80);
+    expect(readyTriggerRangeFeet("in_range:10")).toBe(10);
+  });
+
+  it("falls back to melee reach for unknown triggers", () => {
+    expect(readyTriggerRangeFeet("when the foe enters reach")).toBe(5);
   });
 });
 

@@ -123,6 +123,8 @@ export type AttackCommand = {
   target: EntityRef;
   attackBonus: number;
   damage: { notation: string; type: string };
+  /** Effective reach/range in feet; defaults to melee (5 ft) on a mapped scene. */
+  rangeFt?: number;
   mode?: RollMode;
 };
 
@@ -215,10 +217,10 @@ export type OpportunityAttackCommand = {
   target: EntityRef;
   attackBonus: number;
   damage: { notation: string; type: string };
+  /** Weapon reach for the OA strike; defaults to melee (5 ft). */
+  rangeFt?: number;
   mode?: RollMode;
 };
-
-/** Ready an action: spend your action to queue a triggered response. */
 export type ReadyActionCommand = {
   type: "ready_action";
   entity: EntityRef;

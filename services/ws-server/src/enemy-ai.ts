@@ -23,6 +23,7 @@ import {
   FIXTURE_BATTLE_PARTY_SIDE,
   moveAction,
   REACH_FEET,
+  readyTriggerRangeFeet,
   type BattleAction,
   type EntityState,
   type GridPosition,
@@ -83,8 +84,7 @@ export function aiOpportunityAttacks(
  * the foe enters bow range, a sword when it's adjacent.
  */
 export function readyTriggerRange(trigger: string): number {
-  const match = /^in_range:(\d{1,3})$/.exec(trigger);
-  return match ? Number.parseInt(match[1]!, 10) : REACH_FEET;
+  return readyTriggerRangeFeet(trigger);
 }
 
 /**
@@ -282,7 +282,13 @@ export function planMonsterTurn(
   if (inReach.length > 0) {
     const victim = lowestHp(inReach);
     return [
-      attackAction(monster.id, victim.id, profile.attackBonus, profile.damage),
+      attackAction(
+        monster.id,
+        victim.id,
+        profile.attackBonus,
+        profile.damage,
+        REACH_FEET,
+      ),
       endTurn,
     ];
   }
@@ -294,7 +300,13 @@ export function planMonsterTurn(
     const actions: BattleAction[] = [moveAction(monster.id, step)];
     if (distanceFeet(step, target.position!) <= REACH_FEET) {
       actions.push(
-        attackAction(monster.id, target.id, profile.attackBonus, profile.damage),
+        attackAction(
+          monster.id,
+          target.id,
+          profile.attackBonus,
+          profile.damage,
+          REACH_FEET,
+        ),
       );
     }
     actions.push(endTurn);

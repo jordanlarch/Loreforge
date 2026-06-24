@@ -105,7 +105,8 @@ export function castableSpellsFor(entity: EntityState): CastableSpell[] {
 
 /**
  * Placed, alive enemies of `attackerId` within `rangeFt` in the same scene.
- * Line of sight is left to the engine (which rejects blocked casts/attacks).
+ * Line of sight is left to the engine (which rejects blocked attacks/casts).
+ * Range is also enforced authoritatively when `rangeFt` is supplied on the command.
  */
 export function targetsInRange(
   state: WorldState,

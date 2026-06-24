@@ -195,6 +195,8 @@ export type ReactionWindowOpenedPayload = {
   mover: EntityRef;
   /** Combatants who threatened the mover and still have a reaction available. */
   eligible: EntityRef[];
+  /** Mover's last square still within reach — used for OA range/LOS. */
+  moverAtProvocation: GridPosition;
 };
 
 export type ReactionTakenPayload = {

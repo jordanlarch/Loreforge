@@ -37,7 +37,7 @@ import {
   type RollAdjust,
 } from "../combat/conditions";
 import { concentrationDC, resolveDeathSave } from "../combat/death";
-import { areHostile, provokesOpportunityAttack } from "../combat/reactions";
+import { areHostile, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
   Ability,
   EntityRef,
@@ -431,7 +431,12 @@ function handleMoveEntity(
       events.push({
         type: "ReactionWindowOpened",
         ...meta(ctx, "system"),
-        payload: { trigger: "leave_reach", mover: cmd.entity, eligible },
+        payload: {
+          trigger: "leave_reach",
+          mover: cmd.entity,
+          eligible,
+          moverAtProvocation: from,
+        },
       });
     }
   }
@@ -671,7 +676,7 @@ function handleAttack(
   ctx: ExecutionContext,
   /** Internal: reaction-driven attacks (opportunity / readied) cost the
    * reaction, not the Attack action, so they bypass the action-economy gate. */
-  opts?: { viaReaction?: boolean },
+  opts?: { viaReaction?: boolean; targetPosition?: GridPosition },
 ): CommandResult {
   const attacker = ctx.world.entities[cmd.attacker];
   if (!attacker) {
@@ -718,21 +723,30 @@ function handleAttack(
     spendsAction = startingAttack;
   }
 
-  // Line of sight is enforced only when both combatants are placed in the same
-  // mapped scene; mapless / unplaced combat (narrative, tests) is unaffected.
+  const targetPosition = opts?.targetPosition ?? target.position;
+
+  // Line of sight and range are enforced only when both combatants are placed in
+  // the same mapped scene; mapless / unplaced combat (narrative, tests) is unaffected.
   if (
     attacker.position &&
-    target.position &&
+    targetPosition &&
     attacker.sceneId &&
     attacker.sceneId === target.sceneId
   ) {
+    const maxRange = cmd.rangeFt ?? REACH_FEET;
+    if (distanceFeet(attacker.position, targetPosition) > maxRange) {
+      return reject(
+        "OUT_OF_RANGE",
+        `${target.name} is beyond attack range (${maxRange} ft).`,
+      );
+    }
     const map = ctx.world.scenes[attacker.sceneId]?.map;
     if (map) {
       const exclude = new Set([attacker.id, target.id]);
       const blocked = (cell: GridPosition): boolean =>
         map.blockedCells.some((c) => sameCell(c, cell)) ||
         occupantAt(ctx.world, attacker.sceneId, cell, exclude) !== undefined;
-      if (!hasLineOfSight(attacker.position, target.position, blocked)) {
+      if (!hasLineOfSight(attacker.position, targetPosition, blocked)) {
         return reject(
           "NO_LINE_OF_SIGHT",
           `${attacker.name} has no line of sight to ${target.name}.`,
@@ -744,8 +758,8 @@ function handleAttack(
   // Adjacency (<= 5 ft) decides prone advantage/disadvantage, the adjacent-crit
   // rule, and is only known when both combatants are positioned.
   const adjacent =
-    attacker.position && target.position
-      ? distanceFeet(attacker.position, target.position) <= 5
+    attacker.position && targetPosition
+      ? distanceFeet(attacker.position, targetPosition) <= 5
       : undefined;
   const targetProne = target.conditions.some((c) => c.condition === "prone");
   const proneMode: RollAdjust =
@@ -1256,6 +1270,10 @@ function handleOpportunityAttack(
     );
   }
 
+  const target = ctx.world.entities[cmd.target];
+  const targetPosition =
+    window.moverAtProvocation ?? target?.position;
+
   const result = handleAttack(
     {
       type: "attack",
@@ -1263,10 +1281,14 @@ function handleOpportunityAttack(
       target: cmd.target,
       attackBonus: cmd.attackBonus,
       damage: cmd.damage,
+      rangeFt: cmd.rangeFt ?? REACH_FEET,
       ...(cmd.mode ? { mode: cmd.mode } : {}),
     },
     ctx,
-    { viaReaction: true },
+    {
+      viaReaction: true,
+      ...(targetPosition ? { targetPosition } : {}),
+    },
   );
   if (!result.accepted) return result;
 
@@ -1349,6 +1371,7 @@ function handleTriggerReadied(
       target: action.target,
       attackBonus: action.attackBonus,
       damage: action.damage,
+      rangeFt: action.rangeFt ?? readyTriggerRangeFeet(entity.readied.trigger),
     },
     ctx,
     { viaReaction: true },

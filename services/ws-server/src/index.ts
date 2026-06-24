@@ -31,6 +31,7 @@ import {
   classifyTutorialRelightIntent,
   isTutorialFriendlyFireTarget,
   opportunityAttackAction,
+  REACH_FEET,
   triggerReadiedAction,
   TUTORIAL_ATTACK_ALLY_DEFLECT,
   TUTORIAL_LEAVE_VILLAGE_RAIL,
@@ -512,6 +513,7 @@ async function runEnemyReactions(
         mover.id,
         profile.attackBonus,
         profile.damage,
+        REACH_FEET,
       );
       const { accepted, summary } = await room.apply(action);
       if (!accepted) break; // shouldn't happen; guards against a stuck loop

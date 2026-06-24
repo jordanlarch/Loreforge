@@ -170,6 +170,8 @@ export type ReadiedAction = {
   target: EntityRef;
   attackBonus: number;
   damage: { notation: string; type: string };
+  /** Weapon range encoded in the ready trigger; used when the strike fires. */
+  rangeFt?: number;
 };
 
 export type ReadyState = { trigger: string; action: ReadiedAction };

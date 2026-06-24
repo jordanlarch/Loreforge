@@ -13,6 +13,7 @@ import { attacksPerAction, createEntityState } from "../entities/abilities";
 import type {
   EntityRef,
   EntityState,
+  GridPosition,
   ResourceState,
   SceneId,
   SceneState,
@@ -34,7 +35,11 @@ export type EncounterState = {
   /** Index into `order` of the active combatant. */
   activeIndex: number;
   /** The most recent open opportunity-attack window, if any. */
-  reactionWindow?: { mover: EntityRef; eligible: EntityRef[] };
+  reactionWindow?: {
+    mover: EntityRef;
+    eligible: EntityRef[];
+    moverAtProvocation: GridPosition;
+  };
 };
 
 export type WorldState = {
@@ -377,6 +382,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           reactionWindow: {
             mover: event.payload.mover,
             eligible: [...event.payload.eligible],
+            moverAtProvocation: event.payload.moverAtProvocation,
           },
         };
       }

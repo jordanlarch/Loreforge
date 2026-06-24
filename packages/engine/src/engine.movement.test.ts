@@ -170,12 +170,13 @@ describe("Combat: line of sight on attacks", () => {
       target: "npc:orc",
       attackBonus: 5,
       damage: { notation: "1d8", type: "piercing" },
+      rangeFt: 20,
     });
     expect(r.accepted).toBe(false);
     if (!r.accepted) expect(r.reason.code).toBe("NO_LINE_OF_SIGHT");
   });
 
-  it("permits an attack with a clear line of sight", async () => {
+  it("rejects a melee attack beyond 5 ft on a mapped scene", async () => {
     const engine = await arena([]);
     const r = await engine.execute(CAMPAIGN, {
       type: "attack",
@@ -183,6 +184,20 @@ describe("Combat: line of sight on attacks", () => {
       target: "npc:orc",
       attackBonus: 5,
       damage: { notation: "1d8", type: "piercing" },
+    });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason.code).toBe("OUT_OF_RANGE");
+  });
+
+  it("permits a ranged attack within declared range and clear line of sight", async () => {
+    const engine = await arena([]);
+    const r = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:archer",
+      target: "npc:orc",
+      attackBonus: 5,
+      damage: { notation: "1d8", type: "piercing" },
+      rangeFt: 20,
     });
     expect(r.accepted).toBe(true);
   });

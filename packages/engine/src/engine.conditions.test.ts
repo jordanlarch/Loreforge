@@ -42,13 +42,19 @@ async function setup(engine: Engine) {
   await place(engine, "npc:foe", { x: 1, y: 0 }); // adjacent (5 ft)
 }
 
-async function attack(engine: Engine, attacker = "pc:hero", target = "npc:foe") {
+async function attack(
+  engine: Engine,
+  attacker = "pc:hero",
+  target = "npc:foe",
+  rangeFt?: number,
+) {
   const r = await engine.execute(CAMPAIGN, {
     type: "attack",
     attacker,
     target,
     attackBonus: 50, // guarantees a hit except on a natural 1
     damage: { notation: "1d6", type: "slashing" },
+    ...(rangeFt !== undefined ? { rangeFt } : {}),
   });
   return r;
 }
@@ -167,7 +173,7 @@ describe("Conditions: attack-roll modes", () => {
   it("a prone target gives a distant attacker disadvantage", async () => {
     await place(engine, "pc:archer", { x: 6, y: 0 }); // 30 ft away
     await applyTo("npc:foe", "prone");
-    const r = await attack(engine, "pc:archer", "npc:foe");
+    const r = await attack(engine, "pc:archer", "npc:foe", 30);
     expect(attackPayload(r).attackRoll.mode).toBe("disadvantage");
   });
 });

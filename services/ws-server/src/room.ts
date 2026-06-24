@@ -221,7 +221,13 @@ export function isBattleAction(value: unknown): value is BattleAction {
   if (action.type === "end_turn") return true;
   if (action.type === "ready_action") {
     const inner = action.action as
-      | { kind?: unknown; target?: unknown; attackBonus?: unknown; damage?: unknown }
+      | {
+          kind?: unknown;
+          target?: unknown;
+          attackBonus?: unknown;
+          damage?: unknown;
+          rangeFt?: unknown;
+        }
       | undefined;
     return (
       typeof action.entity === "string" &&
@@ -230,7 +236,8 @@ export function isBattleAction(value: unknown): value is BattleAction {
       inner.kind === "attack" &&
       typeof inner.target === "string" &&
       typeof inner.attackBonus === "number" &&
-      isDamage(inner.damage)
+      isDamage(inner.damage) &&
+      (inner.rangeFt === undefined || typeof inner.rangeFt === "number")
     );
   }
   if (action.type === "trigger_readied") {
@@ -244,7 +251,8 @@ export function isBattleAction(value: unknown): value is BattleAction {
       typeof action.attacker === "string" &&
       typeof action.target === "string" &&
       typeof action.attackBonus === "number" &&
-      isDamage(action.damage)
+      isDamage(action.damage) &&
+      (action.rangeFt === undefined || typeof action.rangeFt === "number")
     );
   }
   if (action.type === "opportunity_attack") {
@@ -252,7 +260,8 @@ export function isBattleAction(value: unknown): value is BattleAction {
       typeof action.reactor === "string" &&
       typeof action.target === "string" &&
       typeof action.attackBonus === "number" &&
-      isDamage(action.damage)
+      isDamage(action.damage) &&
+      (action.rangeFt === undefined || typeof action.rangeFt === "number")
     );
   }
   if (action.type === "cast_spell") {

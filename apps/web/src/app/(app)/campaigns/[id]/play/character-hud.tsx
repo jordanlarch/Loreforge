@@ -107,7 +107,13 @@ export function CharacterHud({
 
   function onStrike() {
     if (!chosenTarget) return;
-    session.attack(entity.id, chosenTarget, strike.attackBonus, strike.damage);
+    session.attack(
+      entity.id,
+      chosenTarget,
+      strike.attackBonus,
+      strike.damage,
+      strike.rangeFt,
+    );
   }
 
   const borderClass = yourTurn

@@ -314,10 +314,18 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
       target: string,
       attackBonus: number,
       damage: { notation: string; type: string },
+      rangeFt?: number,
     ) =>
       send({
         t: "cmd",
-        action: { type: "attack", attacker, target, attackBonus, damage },
+        action: {
+          type: "attack",
+          attacker,
+          target,
+          attackBonus,
+          damage,
+          ...(rangeFt !== undefined ? { rangeFt } : {}),
+        },
       }),
     castSpell: (
       caster: string,
@@ -342,10 +350,18 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
       target: string,
       attackBonus: number,
       damage: { notation: string; type: string },
+      rangeFt?: number,
     ) =>
       send({
         t: "cmd",
-        action: { type: "opportunity_attack", reactor, target, attackBonus, damage },
+        action: {
+          type: "opportunity_attack",
+          reactor,
+          target,
+          attackBonus,
+          damage,
+          ...(rangeFt !== undefined ? { rangeFt } : {}),
+        },
       }),
     readyAction: (
       entity: string,
@@ -353,6 +369,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
       target: string,
       attackBonus: number,
       damage: { notation: string; type: string },
+      rangeFt?: number,
     ) =>
       send({
         t: "cmd",
@@ -360,7 +377,13 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
           type: "ready_action",
           entity,
           trigger,
-          action: { kind: "attack", target, attackBonus, damage },
+          action: {
+            kind: "attack",
+            target,
+            attackBonus,
+            damage,
+            ...(rangeFt !== undefined ? { rangeFt } : {}),
+          },
         },
       }),
     reset: () => send({ t: "reset" }),

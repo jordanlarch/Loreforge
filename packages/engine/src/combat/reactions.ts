@@ -11,6 +11,12 @@ import { distanceFeet } from "./grid";
 /** Default melee reach in feet. */
 export const REACH_FEET = 5 as const;
 
+/** Parse `in_range:<ft>` from a readied-action trigger string. */
+export function readyTriggerRangeFeet(trigger: string): number {
+  const match = /^in_range:(\d{1,3})$/.exec(trigger);
+  return match ? Number.parseInt(match[1]!, 10) : REACH_FEET;
+}
+
 /**
  * Two combatants are hostile when both belong to a side and the sides differ
  * (team-id model: party vs goblins, or goblins vs cult in a three-way fight).

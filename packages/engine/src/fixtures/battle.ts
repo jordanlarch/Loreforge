@@ -310,8 +310,16 @@ export function attackAction(
   target: EntityRef,
   attackBonus: number,
   damage: { notation: string; type: string },
+  rangeFt?: number,
 ): AttackCommand {
-  return { type: "attack", attacker, target, attackBonus, damage };
+  return {
+    type: "attack",
+    attacker,
+    target,
+    attackBonus,
+    damage,
+    ...(rangeFt !== undefined ? { rangeFt } : {}),
+  };
 }
 
 /** Convenience constructor for a single-target spell cast (#58). */
@@ -362,8 +370,16 @@ export function opportunityAttackAction(
   target: EntityRef,
   attackBonus: number,
   damage: { notation: string; type: string },
+  rangeFt?: number,
 ): OpportunityAttackCommand {
-  return { type: "opportunity_attack", reactor, target, attackBonus, damage };
+  return {
+    type: "opportunity_attack",
+    reactor,
+    target,
+    attackBonus,
+    damage,
+    ...(rangeFt !== undefined ? { rangeFt } : {}),
+  };
 }
 
 /**

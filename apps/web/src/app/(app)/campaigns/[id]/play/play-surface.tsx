@@ -443,6 +443,7 @@ function LiveBattle({
         targetId,
         armed.attack.attackBonus,
         armed.attack.damage,
+        armed.attack.rangeFt,
       );
     } else if (armed.kind === "ready") {
       // Hold the strike; the server fires it when the foe enters this range.
@@ -452,6 +453,7 @@ function LiveBattle({
         targetId,
         armed.attack.attackBonus,
         armed.attack.damage,
+        armed.attack.rangeFt,
       );
     } else {
       // Single-target spell (AoE casts confirm via the aim picker, not here).
@@ -794,6 +796,7 @@ function LiveBattle({
                     reaction.mover.id,
                     strike.attackBonus,
                     strike.damage,
+                    strike.rangeFt,
                   );
                   if (reactionKey) setDismissedReaction(reactionKey);
                 }}

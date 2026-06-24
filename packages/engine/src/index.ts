@@ -122,7 +122,7 @@ export {
   type DeathSaveResolution,
   type DeathSaveTally as DeathSaveTallyInput,
 } from "./combat/death";
-export { areHostile, provokesOpportunityAttack, REACH_FEET } from "./combat/reactions";
+  export { areHostile, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "./combat/reactions";
 export {
   ENCOUNTER_XP_THRESHOLDS,
   encounterMultiplier,

@@ -397,6 +397,115 @@ export function tutorialRelightPath(
   return TUTORIAL_RESOLUTION.paths.find((p) => p.id === id);
 }
 
+/* ------------------------------------------------------------------------- *
+ *  Scene 7 — wrap & handoff: graduation + achievements (TUT-1, #176)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Stable ids for the two tutorial achievements (TUT-1, D8 — the only two kept;
+ * the full achievement system is out of v1 scope). Persisted per user as a
+ * `tutorial_achievements` row and surfaced in the graduation modal.
+ */
+export const TUTORIAL_ACHIEVEMENT_FIRST_STEPS = "first-steps";
+export const TUTORIAL_ACHIEVEMENT_FIRST_LIGHT = "first-light";
+
+/** A tutorial achievement badge — display copy shared by the unlock + the modal. */
+export type TutorialAchievement = {
+  /** Stable id persisted per user (the `achievement_id` row value). */
+  id: string;
+  /** Badge title shown in the graduation modal. */
+  title: string;
+  /** One-line "what you did" description. */
+  description: string;
+  /** When this badge unlocks (the trigger, for copy). */
+  unlockedWhen: string;
+  /** Decorative glyph. */
+  icon: string;
+};
+
+/**
+ * The two tutorial achievements (TUT-1, §10): **First Steps** unlocks when the
+ * player accepts the central plot hook in Scene 2; **First Light** unlocks on
+ * tutorial completion (Scene 7). Both appear in the graduation modal.
+ */
+export const TUTORIAL_ACHIEVEMENTS: readonly TutorialAchievement[] = [
+  {
+    id: TUTORIAL_ACHIEVEMENT_FIRST_STEPS,
+    title: "First Steps",
+    description:
+      "You took up the lantern's cause and set out into the Hollow.",
+    unlockedWhen: "Accepted your first plot hook (Scene 2)",
+    icon: "🥾",
+  },
+  {
+    id: TUTORIAL_ACHIEVEMENT_FIRST_LIGHT,
+    title: "First Light",
+    description:
+      "You relit the great lantern and finished The Lantern's Last Flicker.",
+    unlockedWhen: "Completed the tutorial",
+    icon: "🪔",
+  },
+];
+
+/** A tutorial achievement by id, or undefined if it isn't one of the two. */
+export function tutorialAchievement(
+  id: string,
+): TutorialAchievement | undefined {
+  return TUTORIAL_ACHIEVEMENTS.find((a) => a.id === id);
+}
+
+/**
+ * The Scene 7 wrap (TUT-1, #176). Not an engine scene (no map / no encounter) —
+ * it is the closing GM beat posted to chat plus the *static* graduation recap
+ * (D8: no social-share generator in v1). Single source of truth shared by the
+ * ws-server (the closing narration) and the web graduation modal (the recap).
+ */
+export type TutorialWrap = {
+  /** The closing GM narration (the walk home at dawn). */
+  narration: string;
+  /** The engine-style "session complete" summary line posted under it. */
+  sessionComplete: string;
+  /** Graduation modal heading. */
+  title: string;
+  /** Graduation modal sub-heading (the "complete" stamp copy). */
+  subtitle: string;
+  /** The "in this session you used:" feature checklist (the static recap). */
+  used: readonly string[];
+  /** Closing paragraph in the modal (where the played content now lives). */
+  closing: string;
+};
+
+/** The Scene 7 wrap copy (TUT-1, #176; `tutorial-adventure.md` §3 Scene 7). */
+export const TUTORIAL_WRAP: TutorialWrap = {
+  narration:
+    "The forest is dark, but it is only dark. Brennar walks beside you, his " +
+    "staff tapping the wet road, and he won't say goodbye — he's only walking " +
+    "slower than he should. In the east, you can almost see morning. The " +
+    "Lantern's Last Flicker is over; the lantern burns again behind you.",
+  sessionComplete:
+    "Session 1 complete — the lantern burns again, the hook is resolved, and " +
+    "Mira has grown stronger.",
+  title: "The Lantern's Last Flicker",
+  subtitle: "Complete",
+  used: [
+    "Live AI-GM narration",
+    "Skill checks with real dice",
+    "Inline chips for people, places & items",
+    "Always-on map with tokens",
+    "A companion who plays themselves",
+    "A shop and a granted item",
+    "Inventory and item use",
+    "Tier-4 combat with reactions",
+    "The plot-hook lifecycle",
+    "Leveling up",
+    "Pinning facts to memory",
+    "Multiple outcome paths",
+  ],
+  closing:
+    "Everything you just played is now in your Campaigns list and Realms " +
+    "library — you can re-explore it anytime. Where would you like to go next?",
+};
+
 /**
  * The ordered tutorial scene graph. Index order *is* the progression order:
  * the driver advances from the scene matching the current `currentSceneId` to

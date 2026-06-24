@@ -61,6 +61,7 @@ import { CharacterHud } from "./character-hud";
 import { ChatZone } from "./chat-zone";
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
+import { GraduationModal } from "./graduation-modal";
 import { LivePlayTopBar } from "./live-top-bar";
 import { MapViewport } from "./map-viewport";
 import { PartyRail } from "./party-rail";
@@ -913,11 +914,18 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
 
   const world = trpc.tutorial.world.useQuery();
   const inventory = trpc.tutorial.inventory.useQuery();
+  const progress = trpc.tutorial.get.useQuery();
+  const achievements = trpc.tutorial.achievements.useQuery();
   const utils = trpc.useUtils();
   const acceptHook = trpc.tutorial.acceptHook.useMutation();
   const companionJoin = trpc.tutorial.companionJoin.useMutation();
   const grantOil = trpc.tutorial.grantOil.useMutation();
+  const completeTutorial = trpc.tutorial.complete.useMutation();
   const createPin = trpc.pins.create.useMutation();
+
+  // Graduation (Scene 7, #176): open the modal when the player finishes, or when
+  // the run is already completed on load (D7, graduation always).
+  const [graduated, setGraduated] = useState(false);
 
   const hookStatus = world.data?.hookStatus ?? null;
   const companionJoined = world.data?.companionJoined ?? false;
@@ -1060,6 +1068,32 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
     setRelightSent(true);
     session.tutorialRelight(path);
   }
+
+  function finishTutorial() {
+    // Post the closing GM beat over chat, then mark the run complete + unlock
+    // First Light; the modal opens on the completion write.
+    session.tutorialWrap();
+    completeTutorial.mutate(undefined, {
+      onSuccess: () => {
+        void utils.tutorial.get.invalidate();
+        void utils.tutorial.achievements.invalidate();
+        setGraduated(true);
+      },
+    });
+  }
+
+  // Open the graduation modal when the server broadcasts the wrap (covers a
+  // second tab) or when the run is already completed on load.
+  const sawGraduated = signals.includes("graduated");
+  const alreadyCompleted = progress.data?.status === "completed";
+  useEffect(() => {
+    if (sawGraduated || alreadyCompleted) setGraduated(true);
+  }, [sawGraduated, alreadyCompleted]);
+
+  // The achievement ids to light up in the modal: the completion mutation's
+  // fresh set when present, else the query.
+  const unlockedAchievements =
+    completeTutorial.data?.achievements ?? achievements.data ?? [];
 
   const accepting = acceptHook.isPending || companionJoin.isPending;
 
@@ -1223,9 +1257,21 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
             The great lantern
           </div>
           {lanternLit ? (
-            <div className="text-xs font-medium text-lore-accent">
-              ✓ The lantern burns again — the Hungering Forest pulls back from the
-              village. Pin a memory below, then press Continue to finish.
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-lore-accent">
+                ✓ The lantern burns again — the Hungering Forest pulls back from
+                the village. Pin a memory below, then finish your adventure.
+              </div>
+              <button
+                type="button"
+                onClick={finishTutorial}
+                disabled={completeTutorial.isPending}
+                className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+              >
+                {completeTutorial.isPending
+                  ? "Finishing…"
+                  : "Finish the adventure ▶"}
+              </button>
             </div>
           ) : (
             <>
@@ -1346,6 +1392,11 @@ export function TutorialPlaySurface({ campaignId }: { campaignId: string }) {
         onClose={() => setInvOpen(false)}
       />
       <CoachmarkHost defs={TUTORIAL_COACHMARKS} firedActions={firedActions} />
+      <GraduationModal
+        open={graduated}
+        unlockedAchievementIds={unlockedAchievements}
+        onClose={() => setGraduated(false)}
+      />
     </>
   );
 }

@@ -265,6 +265,17 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     );
   }
 
+  /**
+   * Wrap the tutorial (Scene 7, #176): ask the server to post the closing GM
+   * narration + session-complete summary and broadcast the `graduated` signal.
+   * Fire-and-forget like `tutorialRelight` — it only posts chat, no projection.
+   */
+  function tutorialWrap() {
+    const provider = providerRef.current;
+    if (!provider) return;
+    provider.sendStateless(JSON.stringify({ t: "tutorial", action: "wrap" }));
+  }
+
   return {
     state,
     isLoading: status === "connecting" && state === undefined,
@@ -282,6 +293,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     tutorialCheck,
     tutorialSay,
     tutorialRelight,
+    tutorialWrap,
     /** Bring the companion (Brennar) into the scene as a party entity. */
     tutorialCompanion: () => send({ t: "tutorial", action: "companion" }),
     /** Resume the paused Scene 5 loop after a passed/timed-out OA reaction. */

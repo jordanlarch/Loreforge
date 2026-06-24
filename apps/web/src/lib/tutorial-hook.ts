@@ -6,6 +6,9 @@
 
 type ChatLike = { kind: string; text: string };
 
+/** Distinctive phrase from Lily's hook beat in {@link TUTORIAL_SCENE2_BEATS}. */
+const LILY_HOOK_MARKER = "slides a small iron key";
+
 /** True when Lily's hook-offer narration already appears in chat. */
 export function tutorialLilyHookOfferedInChat(
   chat: readonly ChatLike[],

@@ -19,7 +19,10 @@ export default function TutorialSplashPage() {
     onSuccess: () => router.push("/tutorial/play"),
   });
   const replay = trpc.tutorial.replay.useMutation({
-    onSuccess: () => router.push("/tutorial/play?replay=1"),
+    onSuccess: () => {
+      sessionStorage.setItem("loreforge:tutorial-replay", "1");
+      router.push("/tutorial/play?replay=1");
+    },
   });
   const skip = trpc.tutorial.skip.useMutation({
     onSettled: () => router.push("/"),

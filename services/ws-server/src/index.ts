@@ -721,6 +721,15 @@ function tutorialSignal(
   }
 }
 
+/** Clear the client's `isBusy` latch when a tutorial action no-ops (#bug2). */
+function clearClientBusy(document: { broadcastStateless(payload: string): void }): void {
+  try {
+    document.broadcastStateless(JSON.stringify({ t: "busy", on: false }));
+  } catch {
+    // Best-effort; the client also clears on projection updates.
+  }
+}
+
 /**
  * Whether the Shade should run its scripted disengage now: past the opening
  * round, not already fled, and currently biting the lead (adjacent) so that
@@ -1099,11 +1108,17 @@ async function handleTutorial(
   // Serialize tutorial actions per room so a double-click can't double-process
   // (advance twice, re-roll a check, repeat a dialogue beat). The duplicate is
   // simply dropped (#bug2).
-  if (!room.acquireAction()) return;
+  if (!room.acquireAction()) {
+    clearClientBusy(document);
+    return;
+  }
   try {
     await handleTutorialInner(room, document, documentName, action, topic, help);
   } finally {
     room.releaseAction();
+    // Inner handlers may return early (one-shot guard, duplicate click) without
+    // writing a new projection — still release the client's busy latch.
+    clearClientBusy(document);
   }
 }
 

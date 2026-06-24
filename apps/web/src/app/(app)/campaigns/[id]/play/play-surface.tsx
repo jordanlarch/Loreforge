@@ -29,6 +29,7 @@ import {
   TUTORIAL_SCENE_SPIRE_LOWER,
   TUTORIAL_SCENE_SPIRE_UPPER,
   tutorialHintForScene,
+  tutorialScene,
   type EntityState,
   type WorldState,
 } from "@app/engine";
@@ -83,6 +84,7 @@ import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
 import { useSceneTransition, useCombatTransition } from "./use-scene-transition";
 import { useLiveSession } from "./use-live-session";
 import { mergeChatEntries } from "@/lib/scene-transition-chat";
+import type { ChatEntry } from "@/lib/live-chat";
 import { TUTORIAL_SHOP } from "@/lib/tutorial-shop";
 import { TUTORIAL_TAVERN } from "@/lib/tutorial-tavern";
 
@@ -991,6 +993,25 @@ const TUTORIAL_COACHMARKS: readonly CoachmarkDef[] = [
   ...TUTORIAL_SCENE6_COACHMARKS,
 ];
 
+const TUTORIAL_REPLAY_KEY = "loreforge:tutorial-replay";
+
+/** Whether the engine already logged this scene's scripted check in chat. */
+function tutorialCheckDoneInChat(
+  chat: readonly ChatEntry[],
+  sceneId: string | undefined,
+): boolean {
+  if (!sceneId) return false;
+  const skill = tutorialScene(sceneId)?.check?.skill;
+  if (!skill) return false;
+  return chat.some(
+    (e) =>
+      e.kind === "event" &&
+      e.author === "Engine" &&
+      e.text.includes(skill) &&
+      e.text.includes(" check:"),
+  );
+}
+
 export function TutorialPlaySurface({
   campaignId,
   replayFromStart = false,
@@ -1030,10 +1051,7 @@ export function TutorialPlaySurface({
   const [invOpen, setInvOpen] = useState(false);
   const [helpUsed, setHelpUsed] = useState(false);
   const [relightSent, setRelightSent] = useState(false);
-  const [checkUsed, setCheckUsed] = useState(false);
   const [finishSent, setFinishSent] = useState(false);
-  /** Scene id for which Continue was already pressed (fire-once per scene, #bug2). */
-  const [continuedSceneId, setContinuedSceneId] = useState<string | null>(null);
   // Fire-once guards so a re-click can't repeat a scripted beat (#bug2): the set
   // of dialogue topics already requested, and an in-flight "advancing" latch.
   const [spokenTopics, setSpokenTopics] = useState<ReadonlySet<string>>(
@@ -1042,11 +1060,22 @@ export function TutorialPlaySurface({
   const [advancing, setAdvancing] = useState(false);
 
   const replay = trpc.tutorial.replay.useMutation({
-    onSuccess: () => router.push("/tutorial/play?replay=1"),
+    onSuccess: () => {
+      sessionStorage.setItem(TUTORIAL_REPLAY_KEY, "1");
+      router.push("/tutorial/play?replay=1");
+    },
   });
 
   // Replay-from-start (#178): once the live channel syncs, truncate the engine log.
   const replayPending = useRef(replayFromStart);
+
+  useEffect(() => {
+    if (replayFromStart) {
+      sessionStorage.setItem(TUTORIAL_REPLAY_KEY, "1");
+    } else if (sessionStorage.getItem(TUTORIAL_REPLAY_KEY) === "1") {
+      replayPending.current = true;
+    }
+  }, [replayFromStart]);
 
   // Idle hint system (#178): track activity + per-scene dismissals.
   const lastActivity = useRef(Date.now());
@@ -1089,17 +1118,27 @@ export function TutorialPlaySurface({
   const hookActive = hookStatus === "active";
   const hookOffered = lilySpoken || hookStatus === "active";
 
-  // Release the Continue latch once the scene actually changes (the advance
-  // landed) so the next scene's Continue is clickable again (#bug2).
+  const checkUsed = useMemo(
+    () => tutorialCheckDoneInChat(session.chat, sceneId),
+    [session.chat, sceneId],
+  );
+
+  // Release the advancing latch once the scene changes or the server clears busy
+  // without advancing (duplicate click / stale one-shot after refresh, #bug2).
   useEffect(() => {
     setAdvancing(false);
   }, [sceneId]);
+  useEffect(() => {
+    if (!advancing || session.isBusy) return;
+    setAdvancing(false);
+  }, [advancing, session.isBusy]);
   // The lantern is lit once the central hook is resolved (Scene 6 finale).
   const lanternLit = hookStatus === "resolved";
 
   useEffect(() => {
     if (!replayPending.current || session.isLoading) return;
     replayPending.current = false;
+    sessionStorage.removeItem(TUTORIAL_REPLAY_KEY);
     session.reset();
     setGraduated(false);
   }, [session.isLoading, session]);
@@ -1107,7 +1146,6 @@ export function TutorialPlaySurface({
   useEffect(() => {
     setHintDismissals(0);
     setHintVisible(false);
-    setCheckUsed(false);
     lastActivity.current = Date.now();
   }, [sceneId]);
 
@@ -1172,11 +1210,10 @@ export function TutorialPlaySurface({
     setLilySpoken(false);
     setHelpUsed(false);
     setRelightSent(false);
-    setCheckUsed(false);
     setFinishSent(false);
-    setContinuedSceneId(null);
     setAdvancing(false);
     setPinnedTexts(new Set());
+    sessionStorage.removeItem(TUTORIAL_REPLAY_KEY);
     void utils.tutorial.world.invalidate();
     void utils.tutorial.inventory.invalidate();
   }, [resetNonce, utils]);
@@ -1219,9 +1256,8 @@ export function TutorialPlaySurface({
   const leveledUp = signals.includes("leveled-up");
 
   function runCheck(help = false) {
-    if (checkUsed) return;
+    if (checkUsed || session.isBusy) return;
     bumpActivity();
-    setCheckUsed(true);
     if (help) setHelpUsed(true);
     session.tutorialCheck(help);
   }
@@ -1238,13 +1274,11 @@ export function TutorialPlaySurface({
     if (topic === "lily") setLilySpoken(true);
   }
 
-  // Advance with a one-click latch: the button stays disabled until the scene id
-  // changes, so a double-click can't skip a scene (#bug2).
+  // Advance with an in-flight latch only while the server is processing (#bug2).
   function advance() {
     bumpActivity();
-    if (advancing || !sceneId || continuedSceneId === sceneId) return;
+    if (advancing || session.isBusy || !sceneId) return;
     setAdvancing(true);
-    setContinuedSceneId(sceneId);
     session.tutorialAdvance();
   }
 
@@ -1353,14 +1387,10 @@ export function TutorialPlaySurface({
           <button
             type="button"
             onClick={advance}
-            disabled={
-              session.isBusy ||
-              advancing ||
-              (sceneId !== null && continuedSceneId === sceneId)
-            }
+            disabled={session.isBusy || advancing}
             className="rounded border border-lore-accent bg-lore-bg px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
           >
-            {sceneId && continuedSceneId === sceneId ? "Continued ✓" : "Continue ▶"}
+            {advancing && session.isBusy ? "Continuing…" : "Continue ▶"}
           </button>
         </div>
       </div>

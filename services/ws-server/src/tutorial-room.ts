@@ -153,6 +153,7 @@ export class TutorialRoom implements LiveRoom {
     this.graduated = false;
     this.inFlight = false;
     this.oneShots.clear();
+    await this.repairSceneTokens();
   }
 
   /**

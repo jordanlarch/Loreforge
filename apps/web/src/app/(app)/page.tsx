@@ -9,6 +9,12 @@ import { createClient } from "@/lib/supabase/server";
 
 const SURFACES = [
   {
+    href: "/tutorial",
+    title: "Tutorial",
+    body: "Play \"The Lantern's Last Flicker\" — a guided intro to Loreforge.",
+    ready: true,
+  },
+  {
     href: "/characters",
     title: "Characters",
     body: "Read-only sheets on fixture data. Creation in P2.",

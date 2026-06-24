@@ -144,6 +144,8 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
             if (message?.t === "rejected") {
               setBusy(false);
               setRejected(true);
+            } else if (message?.t === "busy" && message.on === false) {
+              setBusy(false);
             } else if (message?.t === "thinking") {
               // Server signal that the AI-GM is composing a reply (#97).
               setGmThinking(Boolean(message.on));

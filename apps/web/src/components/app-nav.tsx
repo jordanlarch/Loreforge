@@ -42,6 +42,16 @@ export function AppNav() {
             );
           })}
         </nav>
+        <Link
+          href="/tutorial"
+          className={`ml-auto rounded px-3 py-1.5 text-sm transition-colors md:ml-0 ${
+            pathname.startsWith("/tutorial")
+              ? "bg-lore-surface text-lore-text"
+              : "text-lore-muted hover:text-lore-text"
+          }`}
+        >
+          Tutorial
+        </Link>
       </div>
     </header>
   );

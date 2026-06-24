@@ -2,12 +2,13 @@
 
 import { useEffect } from "react";
 
+import { ItemPropertyRow } from "@/components/item-property-hint";
 import {
   armorSummary,
   formatItemCategory,
   formatItemCost,
   formatItemWeight,
-  weaponProperties,
+  weaponPropertyEntries,
   weaponSummary,
 } from "@/lib/codex-item-display";
 import { trpc } from "@/lib/trpc/client";
@@ -32,7 +33,7 @@ export function ItemDetail({
   const raw = (item.data?.raw ?? {}) as Record<string, unknown>;
   const weaponLine = weaponSummary(raw);
   const armorLine = armorSummary(raw);
-  const properties = weaponProperties(raw);
+  const properties = weaponPropertyEntries(raw);
 
   return (
     <div
@@ -93,9 +94,9 @@ export function ItemDetail({
 
               {properties.length > 0 && (
                 <DetailBlock title="Properties">
-                  <ul className="list-inside list-disc space-y-1">
+                  <ul className="space-y-2">
                     {properties.map((prop) => (
-                      <li key={prop}>{prop}</li>
+                      <ItemPropertyRow key={prop.name} entry={prop} />
                     ))}
                   </ul>
                 </DetailBlock>

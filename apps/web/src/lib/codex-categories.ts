@@ -17,9 +17,11 @@ const LIVE: CodexCategory[] = [
   "Spells",
   "Species",
   "Classes",
+  "Backgrounds",
   "Animals",
   "Monsters",
   "Items",
+  "Feats",
 ];
 
 export function isLiveCodexCategory(cat: CodexCategory): boolean {
@@ -37,7 +39,7 @@ export const COMING_SOON_COPY: Partial<Record<CodexCategory, string>> = {
   Rules:
     "Core SRD rules chapters (combat, spellcasting, equipment) will land when the rules ingest pipeline is built.",
   Backgrounds:
-    "SRD backgrounds are not ingested yet — the Creation Wizard skips background selection in v1.",
+    "SRD 2024 backgrounds from Open5e — ability scores, proficiencies, equipment, and origin feats.",
   Animals:
     "Beasts with CR 1 or lower from the SRD creature ingest.",
   Monsters:
@@ -45,5 +47,5 @@ export const COMING_SOON_COPY: Partial<Record<CodexCategory, string>> = {
   Items:
     "Adventuring gear, weapons, armor, and wondrous items from the Open5e SRD item ingest.",
   Feats:
-    "SRD feats will ship with the feats ingest pass.",
+    "SRD 2024 feats from Open5e — general, origin, fighting style, and epic boons.",
 };

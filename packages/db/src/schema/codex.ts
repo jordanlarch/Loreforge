@@ -94,6 +94,52 @@ export const codexItems = pgTable(
   ],
 );
 
+/**
+ * SRD backgrounds from Open5e ingest (CODEX-1).
+ * Open5e v2 backgrounds corpus is scoped to the 2024 SRD document (`srd-2024`).
+ */
+export const codexBackgrounds = pgTable(
+  "codex_backgrounds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    source: text("source").notNull().default("open5e"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("codex_backgrounds_name_idx").on(t.name)],
+);
+
+/**
+ * SRD feats from Open5e ingest (CODEX-1).
+ * Open5e v2 feats corpus is scoped to the 2024 SRD document (`srd-2024`).
+ */
+export const codexFeats = pgTable(
+  "codex_feats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    prerequisite: text("prerequisite"),
+    /** Open5e feat type key, e.g. General, Origin, Fighting Style. */
+    featType: text("feat_type"),
+    source: text("source").notNull().default("open5e"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_feats_name_idx").on(t.name),
+    index("codex_feats_type_idx").on(t.featType),
+  ],
+);
+
 /** How many skills a class lets you pick at level 1, and from which list. */
 export type SkillChoice = {
   choose: number;

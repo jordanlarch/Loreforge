@@ -1,7 +1,9 @@
 import {
   closeDb,
   getDb,
+  ingestOpen5eBackgrounds,
   ingestOpen5eCreatures,
+  ingestOpen5eFeats,
   ingestOpen5eItems,
   ingestOpen5eSpells,
   seedCharacterOptions,
@@ -60,10 +62,22 @@ export const ingestSpellsNightly = schedules.task({
       });
       logger.info("Nightly Open5e item ingest complete", { ...items });
 
+      const backgrounds = await ingestOpen5eBackgrounds({
+        db,
+        logger: (message) => logger.info(message),
+      });
+      logger.info("Nightly Open5e background ingest complete", { ...backgrounds });
+
+      const feats = await ingestOpen5eFeats({
+        db,
+        logger: (message) => logger.info(message),
+      });
+      logger.info("Nightly Open5e feat ingest complete", { ...feats });
+
       const options = await seedCharacterOptions(db);
       logger.info("Nightly SRD character-options seed complete", { ...options });
 
-      return { ...result, ...creatures, ...items, ...options };
+      return { ...result, ...creatures, ...items, ...backgrounds, ...feats, ...options };
     } finally {
       await closeDb();
     }

@@ -32,6 +32,7 @@ import {
 } from "@app/engine";
 
 import { CoachmarkHost } from "@/components/coachmark";
+import { CharacterSheetOverlay } from "@/components/character-sheet-overlay";
 import { TutorialHintChip } from "@/components/tutorial-hint-chip";
 import { trpc } from "@/lib/trpc/client";
 import { trackTutorialEvent } from "@/lib/observability/tutorial-telemetry";
@@ -72,6 +73,7 @@ import { GraduationModal } from "./graduation-modal";
 import { LivePlayTopBar } from "./live-top-bar";
 import { MapViewport } from "./map-viewport";
 import { PartyRail } from "./party-rail";
+import { PlaySurfaceLayout } from "./play-surface-layout";
 import { ReactionPrompt } from "./reaction-prompt";
 import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
@@ -187,6 +189,7 @@ function LiveBattle({
   onReactionPass,
   onPin,
   pinnedTexts,
+  pcCharacterId,
 }: {
   session: LiveSession;
   title: string;
@@ -209,7 +212,10 @@ function LiveBattle({
   onPin?: (text: string) => void;
   /** Texts already pinned, so the pin affordance reflects state (#175). */
   pinnedTexts?: ReadonlySet<string>;
+  /** Roster character id for the PC — opens the full sheet overlay. */
+  pcCharacterId?: string;
 }) {
+  const [sheetOpen, setSheetOpen] = useState(false);
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
     [session.state],
@@ -446,73 +452,96 @@ function LiveBattle({
       const pc = Object.values(session.state.entities).find(
         (e) => e.kind === "character",
       );
+      const openSheet = pcCharacterId
+        ? () => setSheetOpen(true)
+        : undefined;
       return (
-        <div className="mx-auto max-w-6xl px-4 py-6">
-          <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h1 className="font-display text-xl font-semibold">{title}</h1>
-              <p className="text-sm text-lore-muted">
-                {explore.sceneName ?? context}
-                {session.peers > 1 ? ` · ${session.peers} here` : ""}
-              </p>
-            </div>
-            {backHref && (
-              <Link
-                href={backHref}
-                className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
-              >
-                ← Back
-              </Link>
-            )}
-          </header>
-
-          <div className="mb-4" data-coachmark="tut-party">
-            <PartyRail state={session.state} />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
-            <section data-coachmark="tut-scene1-map">
-              <MapViewport
-                sceneBanner={sceneBanner}
-                transitioning={transitioning}
-                cols={explore.cols}
-                rows={explore.rows}
-                walls={explore.walls}
-                tokens={explore.tokens}
-                reachable={[]}
-                onMoveToken={() => {}}
-              />
-              {explore.sceneDescription && (
-                <p className="mt-2 max-w-[33rem] text-xs text-lore-muted">
+        <>
+          <PlaySurfaceLayout
+            header={
+              <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h1 className="font-display text-xl font-semibold">{title}</h1>
+                  <p className="text-sm text-lore-muted">
+                    {explore.sceneName ?? context}
+                    {session.peers > 1 ? ` · ${session.peers} here` : ""}
+                  </p>
+                </div>
+                {backHref && (
+                  <Link
+                    href={backHref}
+                    className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
+                  >
+                    ← Back
+                  </Link>
+                )}
+              </header>
+            }
+            partyRail={
+              <div data-coachmark="tut-party">
+                <PartyRail state={session.state} />
+              </div>
+            }
+            map={
+              <section className="flex min-h-0 flex-1 flex-col" data-coachmark="tut-scene1-map">
+                <MapViewport
+                  fill
+                  sceneBanner={sceneBanner}
+                  transitioning={transitioning}
+                  cols={explore.cols}
+                  rows={explore.rows}
+                  walls={explore.walls}
+                  tokens={explore.tokens}
+                  reachable={[]}
+                  onMoveToken={() => {}}
+                />
+              </section>
+            }
+            mapFooter={
+              explore.sceneDescription ? (
+                <p className="max-w-[33rem] text-xs text-lore-muted">
                   {explore.sceneDescription}
                 </p>
-              )}
-            </section>
-
-            <aside className="space-y-4">
-              {pc && (
-                <div
-                  data-coachmark="tut-scene1-hud"
-                  className="rounded-lg border border-lore-border bg-lore-surface p-4"
-                >
-                  <div className="font-display text-lg leading-tight">
-                    {pc.name}
+              ) : undefined
+            }
+            sidebar={
+              <>
+                {pc && (
+                  <div
+                    data-coachmark="tut-scene1-hud"
+                    className="rounded-lg border border-lore-border bg-lore-surface p-4"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="font-display text-lg leading-tight">
+                        {pc.name}
+                      </div>
+                      {openSheet ? (
+                        <button
+                          type="button"
+                          onClick={openSheet}
+                          className="shrink-0 text-xs text-lore-accent hover:text-lore-text"
+                        >
+                          Full sheet
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-lore-muted">
+                      <span>
+                        {pc.hp.current}/{pc.hp.max} HP
+                      </span>
+                      <span>AC {pc.baseAc}</span>
+                      <span>Speed {pc.speed}ft</span>
+                    </div>
+                    {hudExtra}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-lore-muted">
-                    <span>
-                      {pc.hp.current}/{pc.hp.max} HP
-                    </span>
-                    <span>AC {pc.baseAc}</span>
-                    <span>Speed {pc.speed}ft</span>
-                  </div>
-                  {hudExtra}
-                </div>
-              )}
-
-              {tutorialControls}
-
-              <div data-coachmark="tut-scene1-chat">
+                )}
+                {tutorialControls}
+              </>
+            }
+            chat={
+              <div className="flex min-h-0 flex-1 flex-col" data-coachmark="tut-scene1-chat">
                 <ChatZone
+                  fill
                   entries={chatEntries}
                   onSend={session.sendChat}
                   thinking={session.gmThinking}
@@ -521,9 +550,15 @@ function LiveBattle({
                   pinnedTexts={pinnedTexts}
                 />
               </div>
-            </aside>
-          </div>
-        </div>
+            }
+          />
+          {sheetOpen && pcCharacterId ? (
+            <CharacterSheetOverlay
+              characterId={pcCharacterId}
+              onClose={() => setSheetOpen(false)}
+            />
+          ) : null}
+        </>
       );
     }
 
@@ -538,108 +573,123 @@ function LiveBattle({
     ? session.state.scenes[session.state.currentSceneId]?.name
     : undefined;
 
+  const openSheet = pcCharacterId ? () => setSheetOpen(true) : undefined;
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <LivePlayTopBar
-        title={title}
-        sceneName={sceneName ?? context}
-        peers={session.peers}
-        round={vm.round}
-        activeName={vm.activeName}
-        movementLeft={vm.movement ? vm.movement.total - vm.movement.used : undefined}
-        movementTotal={vm.movement?.total}
-        backHref={backHref}
-        paused={paused}
-        onTogglePause={() => setPaused((p) => !p)}
-        isBusy={session.isBusy}
-        showTurnActions={controllableTurn}
-        onEndTurn={session.endTurn}
-        onReset={session.reset}
-        onEndSession={
-          campaignId ? () => endSession.mutate({ campaignId }) : undefined
-        }
-        endingSession={endSession.isPending}
-        rejected={session.rejected}
-        pacing={{
-          prefs: pacingPrefs,
-          onUpdate: updatePacing,
-          holding,
-          onToggleHold: () => setHolding((h) => !h),
-          onContinue: () => session.sendChat("(Continue the scene.)", "continue"),
-          onSkip: (duration) => session.sendChat(`/skip ${duration}`, "skip"),
-          turnElapsedSec: inCombat ? turnElapsed : undefined,
-          disabled: session.isBusy || paused,
-        }}
-      />
-
-      {joinPrompt && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
-          <span>⚡ {joinPrompt}</span>
-          <button
-            type="button"
-            onClick={() => setJoinPrompt(null)}
-            className="shrink-0 rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      <div className="mb-4" data-coachmark="tut-party">
-        <PartyRail state={session.state} />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
-        {/* Map zone */}
-        <section>
-          <div data-coachmark="tut-combat">
-            <CombatOverlay
+    <>
+      <PlaySurfaceLayout
+        header={
+          <>
+            <LivePlayTopBar
+              title={title}
+              sceneName={sceneName ?? context}
+              peers={session.peers}
               round={vm.round}
               activeName={vm.activeName}
-              order={vm.order}
+              movementLeft={
+                vm.movement ? vm.movement.total - vm.movement.used : undefined
+              }
+              movementTotal={vm.movement?.total}
+              backHref={backHref}
+              paused={paused}
+              onTogglePause={() => setPaused((p) => !p)}
+              isBusy={session.isBusy}
+              showTurnActions={controllableTurn}
+              onEndTurn={session.endTurn}
+              onReset={session.reset}
+              onEndSession={
+                campaignId ? () => endSession.mutate({ campaignId }) : undefined
+              }
+              endingSession={endSession.isPending}
+              rejected={session.rejected}
+              pacing={{
+                prefs: pacingPrefs,
+                onUpdate: updatePacing,
+                holding,
+                onToggleHold: () => setHolding((h) => !h),
+                onContinue: () =>
+                  session.sendChat("(Continue the scene.)", "continue"),
+                onSkip: (duration) => session.sendChat(`/skip ${duration}`, "skip"),
+                turnElapsedSec: inCombat ? turnElapsed : undefined,
+                disabled: session.isBusy || paused,
+              }}
             />
+            {joinPrompt && (
+              <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
+                <span>⚡ {joinPrompt}</span>
+                <button
+                  type="button"
+                  onClick={() => setJoinPrompt(null)}
+                  className="shrink-0 rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:text-lore-text"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+          </>
+        }
+        partyRail={
+          <div data-coachmark="tut-party">
+            <PartyRail state={session.state} />
           </div>
+        }
+        map={
+          <section className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 space-y-2">
+              <div data-coachmark="tut-combat">
+                <CombatOverlay
+                  round={vm.round}
+                  activeName={vm.activeName}
+                  order={vm.order}
+                />
+              </div>
 
-          {controllableTurn && !paused && (
-            <CombatActionBar
-              weapons={weapons}
-              spells={castableSpells}
-              armed={armed}
-              disabled={session.isBusy}
-              aimReady={aimCell !== null}
-              readiedNote={readiedNote}
-              canAttack={canAttack}
-              canAct={canAct}
-              attacksLeft={attacksLeft}
-              onAttack={(attack) => setArmed({ kind: "attack", attack })}
-              onCast={(spell) => setArmed({ kind: "cast", spell })}
-              onReady={(attack) => setArmed({ kind: "ready", attack })}
-              onConfirm={onConfirmAim}
-              onCancel={() => setArmed(null)}
-            />
-          )}
+              {controllableTurn && !paused && (
+                <CombatActionBar
+                  weapons={weapons}
+                  spells={castableSpells}
+                  armed={armed}
+                  disabled={session.isBusy}
+                  aimReady={aimCell !== null}
+                  readiedNote={readiedNote}
+                  canAttack={canAttack}
+                  canAct={canAct}
+                  attacksLeft={attacksLeft}
+                  onAttack={(attack) => setArmed({ kind: "attack", attack })}
+                  onCast={(spell) => setArmed({ kind: "cast", spell })}
+                  onReady={(attack) => setArmed({ kind: "ready", attack })}
+                  onConfirm={onConfirmAim}
+                  onCancel={() => setArmed(null)}
+                />
+              )}
 
-          {paused && (
-            <div className="mb-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
-              ⏸ Session paused — turn actions are frozen. Press Resume to continue.
+              {paused && (
+                <div className="rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
+                  ⏸ Session paused — turn actions are frozen. Press Resume to
+                  continue.
+                </div>
+              )}
             </div>
-          )}
 
-          <MapViewport
-            sceneBanner={sceneBanner}
-            transitioning={transitioning}
-            cols={vm.cols}
-            rows={vm.rows}
-            walls={vm.walls}
-            tokens={vm.tokens}
-            reachable={paused || armed ? [] : vm.reachable}
-            onMoveToken={paused ? () => {} : session.moveToken}
-            targeting={paused ? undefined : targeting}
-            onPickTarget={paused ? () => {} : onPickTarget}
-            aiming={paused ? undefined : aiming}
-            onAimCell={paused ? () => {} : setAimCell}
-          />
-          <p className="mt-2 text-xs text-lore-muted">
+            <MapViewport
+              fill
+              sceneBanner={sceneBanner}
+              transitioning={transitioning}
+              cols={vm.cols}
+              rows={vm.rows}
+              walls={vm.walls}
+              tokens={vm.tokens}
+              reachable={paused || armed ? [] : vm.reachable}
+              onMoveToken={paused ? () => {} : session.moveToken}
+              targeting={paused ? undefined : targeting}
+              onPickTarget={paused ? () => {} : onPickTarget}
+              aiming={paused ? undefined : aiming}
+              onAimCell={paused ? () => {} : setAimCell}
+            />
+          </section>
+        }
+        mapFooter={
+          <p className="text-xs text-lore-muted">
             {isAreaCast
               ? "Tap a cell to place the blast — the highlighted area shows who's caught — then Confirm. The engine resolves saves + damage."
               : armed?.kind === "ready"
@@ -648,49 +698,65 @@ function LiveBattle({
                   ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
                   : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready above. The engine validates everything."}
           </p>
-        </section>
+        }
+        sidebar={
+          <>
+            {showReaction && reaction && (
+              <ReactionPrompt
+                reactorName={reaction.reactor.name}
+                moverName={reaction.mover.name}
+                onTake={() => {
+                  const reactorSheet = loadouts?.[reaction.reactor.id];
+                  const strike = reactorSheet
+                    ? (deriveWeaponAttacks(
+                        reaction.reactor,
+                        reactorSheet.equipment,
+                      )[0] ?? genericStrike(reaction.reactor))
+                    : genericStrike(reaction.reactor);
+                  session.opportunityAttack(
+                    reaction.reactor.id,
+                    reaction.mover.id,
+                    strike.attackBonus,
+                    strike.damage,
+                  );
+                  if (reactionKey) setDismissedReaction(reactionKey);
+                }}
+                onPass={() => {
+                  if (reactionKey) setDismissedReaction(reactionKey);
+                  onReactionPass?.();
+                }}
+              />
+            )}
 
-        {/* HUD + initiative rail */}
-        <aside className="space-y-4">
-          {showReaction && reaction && (
-            <ReactionPrompt
-              reactorName={reaction.reactor.name}
-              moverName={reaction.mover.name}
-              onTake={() => {
-                const reactorSheet = loadouts?.[reaction.reactor.id];
-                const strike = reactorSheet
-                  ? (deriveWeaponAttacks(
-                      reaction.reactor,
-                      reactorSheet.equipment,
-                    )[0] ?? genericStrike(reaction.reactor))
-                  : genericStrike(reaction.reactor);
-                session.opportunityAttack(
-                  reaction.reactor.id,
-                  reaction.mover.id,
-                  strike.attackBonus,
-                  strike.damage,
-                );
-                if (reactionKey) setDismissedReaction(reactionKey);
-              }}
-              onPass={() => {
-                if (reactionKey) setDismissedReaction(reactionKey);
-                // Tutorial Scene 5: a passed/timed-out OA must resume the paused
-                // server loop (the Shade's turn) so the fight plays on.
-                onReactionPass?.();
-              }}
+            <CharacterHud
+              session={session}
+              weapons={weapons}
+              items={quickItems}
+              onViewSheet={openSheet}
             />
-          )}
 
-          <CharacterHud session={session} weapons={weapons} items={quickItems} />
-
+            {tutorialControls}
+          </>
+        }
+        chat={
           <ChatZone
+            fill
             entries={chatEntries}
             onSend={session.sendChat}
             thinking={session.gmThinking}
+            onEntityClick={onEntityClick}
+            onPin={onPin}
+            pinnedTexts={pinnedTexts}
           />
-        </aside>
-      </div>
-    </div>
+        }
+      />
+      {sheetOpen && pcCharacterId ? (
+        <CharacterSheetOverlay
+          characterId={pcCharacterId}
+          onClose={() => setSheetOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -716,6 +782,8 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
   // the live entity id the WS server seeds), so the HUD + action bar are driven
   // by real loadouts. Absent rows simply fall back to the generic behavior.
   const loadoutQuery = trpc.campaigns.partyLoadout.useQuery({ campaignId });
+  const partyQuery = trpc.campaigns.party.useQuery({ campaignId });
+  const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
   const loadouts = useMemo(() => {
     const map: Record<string, SheetData> = {};
     for (const row of loadoutQuery.data ?? []) {
@@ -753,6 +821,7 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
       backHref={`/campaigns/${campaignId}`}
       loadouts={loadouts}
       campaignId={campaignId}
+      pcCharacterId={pcCharacterId}
     />
   );
 }
@@ -921,6 +990,8 @@ export function TutorialPlaySurface({
 }) {
   const router = useRouter();
   const session = useLiveSession({ campaignId });
+  const partyQuery = trpc.campaigns.party.useQuery({ campaignId });
+  const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
   const [drawerName, setDrawerName] = useState<string | null>(null);
   const [lilySpoken, setLilySpoken] = useState(false);
   const [invOpen, setInvOpen] = useState(false);
@@ -1485,6 +1556,7 @@ export function TutorialPlaySurface({
         context="Tutorial"
         backHref="/"
         campaignId={campaignId}
+        pcCharacterId={pcCharacterId}
         tutorialControls={tutorialControls}
         hudExtra={hudExtra}
         onEntityClick={setDrawerName}

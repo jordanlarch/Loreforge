@@ -24,6 +24,7 @@ export function ChatZone({
   onEntityClick,
   onPin,
   pinnedTexts,
+  fill = false,
 }: {
   entries: ChatEntry[];
   onSend: (text: string, mode?: string) => void;
@@ -35,6 +36,8 @@ export function ChatZone({
   onPin?: (text: string) => void;
   /** Texts already pinned, so the affordance reflects a pinned state (#175). */
   pinnedTexts?: ReadonlySet<string>;
+  /** Fill the parent flex column (live play sidebar). */
+  fill?: boolean;
 }) {
   const [mode, setMode] = useState<InputModeId>(DEFAULT_INPUT_MODE);
   const [text, setText] = useState("");
@@ -55,14 +58,18 @@ export function ChatZone({
   }
 
   return (
-    <div className="flex h-full min-h-[24rem] flex-col rounded-lg border border-lore-border bg-lore-surface">
-      <h2 className="border-b border-lore-border px-4 py-2 text-xs uppercase tracking-wide text-lore-muted">
+    <div
+      className={`flex flex-col rounded-lg border border-lore-border bg-lore-surface ${
+        fill ? "min-h-0 flex-1" : "h-full min-h-[24rem]"
+      }`}
+    >
+      <h2 className="shrink-0 border-b border-lore-border px-4 py-2 text-xs uppercase tracking-wide text-lore-muted">
         Narrative
       </h2>
 
       <div
         ref={logRef}
-        className="flex-1 space-y-2 overflow-y-auto px-4 py-3"
+        className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-4 py-3"
         aria-live="polite"
       >
         {entries.length === 0 ? (
@@ -96,6 +103,10 @@ export function ChatZone({
   );
 }
 
+function chatMessageClass(isGm: boolean): string {
+  return isGm ? "text-lore-muted" : "text-lore-text";
+}
+
 function ChatRow({
   entry,
   onEntityClick,
@@ -109,17 +120,17 @@ function ChatRow({
 }) {
   if (entry.kind === "roll" && entry.dice) {
     return (
-      <div className="flex items-center gap-2 rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm">
         <span aria-hidden>🎲</span>
         <span className="text-lore-muted">{entry.author} rolls</span>
-        <span className="font-mono text-lore-text">{entry.dice.notation}</span>
-        <span className="text-lore-muted">
+        <span className="break-all font-mono text-lore-text">{entry.dice.notation}</span>
+        <span className="break-all text-lore-muted">
           [{entry.dice.rolls.join(", ")}]
           {entry.dice.modifier ? (
             <> {entry.dice.modifier > 0 ? "+" : ""}{entry.dice.modifier}</>
           ) : null}
         </span>
-        <span className="ml-auto rounded bg-lore-accent-dim px-2 py-0.5 font-semibold text-lore-text">
+        <span className="ml-auto shrink-0 rounded bg-lore-accent-dim px-2 py-0.5 font-semibold text-lore-text">
           {entry.dice.total}
         </span>
       </div>
@@ -144,7 +155,7 @@ function ChatRow({
 
   if (entry.kind === "ooc") {
     return (
-      <p className="text-sm text-lore-muted">
+      <p className="break-words text-sm text-lore-muted">
         <span className="text-xs uppercase tracking-wide">OOC</span> ({entry.text}
         )
       </p>
@@ -154,41 +165,43 @@ function ChatRow({
   const isGm = entry.kind === "gm";
   const label = modeLabel(entry.mode);
   return (
-    <div className="text-sm">
-      <span
-        className={`mr-2 font-semibold ${isGm ? "text-lore-accent" : "text-lore-text"}`}
-      >
-        {entry.author}
-        {label ? (
-          <span className="ml-1 text-xs font-normal text-lore-muted">
-            · {label}
-          </span>
+    <div className="min-w-0 break-words text-sm">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span
+          className={`font-semibold ${isGm ? "text-lore-accent" : "text-lore-text"}`}
+        >
+          {entry.author}
+          {label ? (
+            <span className="ml-1 text-xs font-normal text-lore-muted">
+              · {label}
+            </span>
+          ) : null}
+        </span>
+        {isGm && onPin ? (
+          <button
+            type="button"
+            data-coachmark="tut-pin"
+            onClick={() => onPin(entry.text)}
+            disabled={pinned}
+            className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] transition-colors ${
+              pinned
+                ? "border-lore-accent text-lore-accent"
+                : "border-lore-border text-lore-muted hover:border-lore-accent hover:text-lore-text"
+            }`}
+          >
+            📌 {pinned ? "Pinned" : "Pin to memory"}
+          </button>
         ) : null}
-      </span>
-      <span className={isGm ? "text-lore-muted" : "text-lore-text"}>
+      </div>
+      <p className={`mt-0.5 whitespace-pre-wrap break-words ${chatMessageClass(isGm)}`}>
         {entry.text}
-      </span>
+      </p>
       {entry.mentions && entry.mentions.length > 0 ? (
-        <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
+        <div className="mt-1 flex flex-wrap gap-1">
           {entry.mentions.map((name) => (
             <EntityChip key={name} name={name} onClick={onEntityClick} />
           ))}
-        </span>
-      ) : null}
-      {isGm && onPin ? (
-        <button
-          type="button"
-          data-coachmark="tut-pin"
-          onClick={() => onPin(entry.text)}
-          disabled={pinned}
-          className={`ml-2 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 align-middle text-[11px] transition-colors ${
-            pinned
-              ? "border-lore-accent text-lore-accent"
-              : "border-lore-border text-lore-muted hover:border-lore-accent hover:text-lore-text"
-          }`}
-        >
-          📌 {pinned ? "Pinned" : "Pin to memory"}
-        </button>
+        </div>
       ) : null}
     </div>
   );
@@ -253,7 +266,7 @@ function Composer({
 }) {
   const modeDisabled = intent === "slash" || intent === "ooc";
   return (
-    <div className="border-t border-lore-border p-3">
+    <div className="shrink-0 border-t border-lore-border p-3">
       <div className="mb-2 flex flex-wrap gap-1">
         {INPUT_MODES.map((m) => (
           <button
@@ -289,7 +302,7 @@ function Composer({
                 : "Out-of-character aside…"
               : `${modeLabel(mode)}…  (Enter to send, Shift+Enter for a new line)`
           }
-          className="min-h-[2.5rem] flex-1 resize-none rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
+          className="min-h-[2.5rem] min-w-0 flex-1 resize-none rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
         />
         <button
           type="button"

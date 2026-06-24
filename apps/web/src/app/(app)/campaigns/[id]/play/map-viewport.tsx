@@ -64,10 +64,13 @@ export function MapViewport({
   sceneBanner,
   transitioning,
   reachable,
+  fill = false,
   ...mapProps
 }: BattleMapProps & {
   sceneBanner: SceneBannerInfo | null;
   transitioning: boolean;
+  /** Expand to fill the play-surface map column (wheel zoom stays contained). */
+  fill?: boolean;
 }) {
   const [zoom, setZoom] = useState(1);
   const [showGrid, setShowGrid] = useState(true);
@@ -75,6 +78,8 @@ export function MapViewport({
   const [panning, setPanning] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   const panRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(
     null,
   );
@@ -111,16 +116,24 @@ export function MapViewport({
   );
 
   const onWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
+    (e: WheelEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
       applyZoom(
-        clampZoom(zoom + delta),
+        clampZoom(zoomRef.current + delta),
         { clientX: e.clientX, clientY: e.clientY },
       );
     },
-    [applyZoom, zoom],
+    [applyZoom],
   );
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onWheel]);
 
   const onMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 1) return;
@@ -163,7 +176,13 @@ export function MapViewport({
   }, [panning]);
 
   return (
-    <div className="relative inline-block">
+    <div
+      className={
+        fill
+          ? "relative flex min-h-0 min-w-0 flex-1 flex-col"
+          : "relative inline-block"
+      }
+    >
       <SceneBanner banner={sceneBanner} />
 
       <div className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1.5">
@@ -221,12 +240,13 @@ export function MapViewport({
 
       <div
         ref={scrollRef}
-        onWheel={onWheel}
         onMouseDown={onMouseDown}
         onAuxClick={(e) => e.button === 1 && e.preventDefault()}
-        className={`max-h-[560px] max-w-full overflow-auto rounded-lg border border-lore-border bg-lore-bg ${
-          panning ? "cursor-grabbing select-none" : "cursor-default"
-        }`}
+        className={`overflow-auto overscroll-contain rounded-lg border border-lore-border bg-lore-bg ${
+          fill
+            ? "min-h-0 flex-1"
+            : "max-h-[560px] max-w-full"
+        } ${panning ? "cursor-grabbing select-none" : "cursor-default"}`}
         title="Scroll to zoom · middle-mouse drag to pan"
       >
         <div style={{ width: baseW * zoom, height: baseH * zoom }}>

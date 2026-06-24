@@ -24,7 +24,14 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
-export function CharacterSheetView({ id }: { id: string }) {
+export function CharacterSheetView({
+  id,
+  embedded = false,
+}: {
+  id: string;
+  /** When true, omit page chrome for modal/overlay embedding. */
+  embedded?: boolean;
+}) {
   const utils = trpc.useUtils();
   const query = trpc.characters.get.useQuery({ id });
   const [levelingUp, setLevelingUp] = useState(false);
@@ -55,7 +62,11 @@ export function CharacterSheetView({ id }: { id: string }) {
 
   if (query.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-10 text-lore-muted">
+      <div
+        className={
+          embedded ? "py-6 text-lore-muted" : "mx-auto max-w-5xl px-4 py-10 text-lore-muted"
+        }
+      >
         Loading…
       </div>
     );
@@ -64,14 +75,20 @@ export function CharacterSheetView({ id }: { id: string }) {
   const character = query.data;
   if (!character) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <Link
-          href="/characters"
-          className="text-sm text-lore-muted hover:text-lore-text"
+      <div className={embedded ? "py-6" : "mx-auto max-w-6xl px-4 py-10"}>
+        {!embedded && (
+          <Link
+            href="/characters"
+            className="text-sm text-lore-muted hover:text-lore-text"
+          >
+            ← Characters
+          </Link>
+        )}
+        <div
+          className={`rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted ${
+            embedded ? "" : "mt-6"
+          }`}
         >
-          ← Characters
-        </Link>
-        <div className="mt-6 rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
           Character not found.
         </div>
       </div>
@@ -83,29 +100,39 @@ export function CharacterSheetView({ id }: { id: string }) {
   const atCap = sheet.level >= MAX_CHARACTER_LEVEL;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <Link
-        href="/characters"
-        className="text-sm text-lore-muted hover:text-lore-text"
-      >
-        ← Characters
-      </Link>
+    <div className={embedded ? "py-4" : "mx-auto max-w-6xl px-4 py-10"}>
+      {!embedded && (
+        <Link
+          href="/characters"
+          className="text-sm text-lore-muted hover:text-lore-text"
+        >
+          ← Characters
+        </Link>
+      )}
 
       {update.error && (
         <p
           role="alert"
-          className="mt-4 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400"
+          className={`rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400 ${
+            embedded ? "mt-2" : "mt-4"
+          }`}
         >
           {update.error.message}
         </p>
       )}
 
-      <header className="mt-3 flex flex-wrap items-end justify-between gap-4 border-b border-lore-border pb-6">
+      <header
+        className={`flex flex-wrap items-end justify-between gap-4 border-b border-lore-border pb-6 ${
+          embedded ? "mt-1" : "mt-3"
+        }`}
+      >
         <div>
           <EditableText
             value={character.name}
             onCommit={(name) => update.mutate({ id, name })}
-            className="font-display text-4xl font-semibold tracking-tight"
+            className={`font-display font-semibold tracking-tight ${
+              embedded ? "text-2xl" : "text-4xl"
+            }`}
             ariaLabel="Character name"
           />
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-lore-muted">

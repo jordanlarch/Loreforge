@@ -73,12 +73,15 @@ export function CharacterHud({
   session,
   weapons,
   items,
+  onViewSheet,
 }: {
   session: HudSession;
   /** Sheet-derived weapons for the active entity (#98); generic Strike if absent. */
   weapons?: WeaponAttack[];
   /** Sheet-derived quick-use consumables (#98). */
   items?: { name: string; quantity: number }[];
+  /** Open the full character sheet overlay when the roster id is known. */
+  onViewSheet?: () => void;
 }) {
   const [compact, setCompact] = useState(false);
   const [targetId, setTargetId] = useState("");
@@ -144,13 +147,24 @@ export function CharacterHud({
             {classLine ? ` · ${classLine}` : ""}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setCompact(true)}
-          className="text-xs text-lore-muted hover:text-lore-text"
-        >
-          Compact ↑
-        </button>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {onViewSheet ? (
+            <button
+              type="button"
+              onClick={onViewSheet}
+              className="text-xs text-lore-accent hover:text-lore-text"
+            >
+              Full sheet
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setCompact(true)}
+            className="text-xs text-lore-muted hover:text-lore-text"
+          >
+            Compact ↑
+          </button>
+        </div>
       </div>
 
       {/* Abilities */}

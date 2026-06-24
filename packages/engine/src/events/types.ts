@@ -207,6 +207,19 @@ export type ReadiedActionTriggeredPayload = {
   entity: EntityRef;
 };
 
+/**
+ * A turn resource was spent by the active combatant (arch §5.1). Emitted by the
+ * Attack action and action-cost spells so the projection debits the economy.
+ * `action` marks the single action spent; `attack` increments the Attack
+ * action's attack budget (one per weapon attack, including Extra Attack /
+ * Multiattack continuations).
+ */
+export type ActionSpentPayload = {
+  entity: EntityRef;
+  action?: boolean;
+  attack?: boolean;
+};
+
 export type SpellCastPayload = {
   caster: EntityRef;
   spellId: string;
@@ -267,6 +280,7 @@ export type EngineEvent =
     })
   | (EventMeta & { type: "ReactionTaken"; payload: ReactionTakenPayload })
   | (EventMeta & { type: "ActionReadied"; payload: ActionReadiedPayload })
+  | (EventMeta & { type: "ActionSpent"; payload: ActionSpentPayload })
   | (EventMeta & {
       type: "ReadiedActionTriggered";
       payload: ReadiedActionTriggeredPayload;

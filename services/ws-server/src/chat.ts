@@ -68,6 +68,13 @@ export function appendChat(doc: Y.Doc, entries: ChatEntry[]): void {
   doc.transact(() => chatArray(doc).push(entries));
 }
 
+/** Empty the shared chat log (backs the tutorial "Reset" clearing the window). */
+export function clearChat(doc: Y.Doc): void {
+  const arr = chatArray(doc);
+  if (arr.length === 0) return;
+  doc.transact(() => arr.delete(0, arr.length));
+}
+
 const DICE_RE = /^(\d{1,3})?d(\d{1,3})([+-]\d{1,4})?$/i;
 
 /**

@@ -94,6 +94,9 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
   // Bumped whenever the server signals scripted tutorial loot was claimed, so
   // the surface can refresh the inventory drawer (TUT-1 Scene 4, #173).
   const [lootNonce, setLootNonce] = useState(0);
+  // Bumped when the server signals a tutorial reset, so the surface can refetch
+  // DB-backed state + clear local fire-once guards (#bug3).
+  const [resetNonce, setResetNonce] = useState(0);
   // Tutorial combat UI signals seen so far ("combat" | "reaction" | "npc-turn"
   // | "rescue"), driving the Scene 5 coachmarks (TUT-1, #174).
   const [tutorialSignals, setTutorialSignals] = useState<string[]>([]);
@@ -147,6 +150,11 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
             } else if (message?.t === "tutorial" && message.event === "loot") {
               // Scripted loot landed in the DB — nudge the surface to refetch.
               setLootNonce((n) => n + 1);
+            } else if (message?.t === "tutorial" && message.event === "reset") {
+              // Full reset (#bug3): drop accumulated combat signals and bump the
+              // reset nonce so the surface refetches + clears its local guards.
+              setTutorialSignals([]);
+              setResetNonce((n) => n + 1);
             } else if (message?.t === "tutorial" && message.event) {
               // Scene 5 combat UX signals (combat start / OA reaction / NPC turn
               // / rescue) — record each once for the matching coachmark.
@@ -267,6 +275,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     chat,
     gmThinking,
     lootNonce,
+    resetNonce,
     tutorialSignals,
     sendChat,
     tutorialAdvance: () => tutorialAction("advance"),

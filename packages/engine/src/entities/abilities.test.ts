@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   abilityModifier,
+  attacksPerAction,
   createEntityState,
+  extraAttackCount,
   proficiencyBonusForLevel,
   totalLevel,
 } from "./abilities";
@@ -75,5 +77,68 @@ describe("createEntityState", () => {
       baseAc: 10,
     });
     expect(entity.alive).toBe(false);
+  });
+
+  it("carries an explicit attacksPerAction override (Multiattack)", () => {
+    const ogre = createEntityState({
+      id: "m:ogre",
+      kind: "monster",
+      name: "Ogre",
+      abilityScores: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
+      maxHp: 59,
+      baseAc: 11,
+      attacksPerAction: 2,
+    });
+    expect(ogre.attacksPerAction).toBe(2);
+    expect(attacksPerAction(ogre)).toBe(2);
+  });
+});
+
+describe("extraAttackCount", () => {
+  it("is 1 with no Extra Attack feature", () => {
+    expect(extraAttackCount([])).toBe(1);
+    expect(extraAttackCount([{ class: "wizard", level: 20 }])).toBe(1);
+    expect(extraAttackCount([{ class: "fighter", level: 4 }])).toBe(1);
+  });
+
+  it("grants 2 attacks to martial classes at level 5", () => {
+    for (const cls of ["barbarian", "paladin", "ranger", "monk", "fighter"]) {
+      expect(extraAttackCount([{ class: cls, level: 5 }])).toBe(2);
+    }
+  });
+
+  it("scales the fighter to 3 at 11 and 4 at 20", () => {
+    expect(extraAttackCount([{ class: "fighter", level: 11 }])).toBe(3);
+    expect(extraAttackCount([{ class: "Fighter", level: 20 }])).toBe(4);
+  });
+
+  it("does not stack Extra Attack across classes (best wins)", () => {
+    expect(
+      extraAttackCount([
+        { class: "fighter", level: 5 },
+        { class: "ranger", level: 5 },
+      ]),
+    ).toBe(2);
+  });
+});
+
+describe("attacksPerAction", () => {
+  it("prefers an explicit override over class derivation", () => {
+    expect(
+      attacksPerAction({
+        attacksPerAction: 3,
+        classes: [{ class: "fighter", level: 1 }],
+      }),
+    ).toBe(3);
+  });
+
+  it("falls back to Extra Attack from classes", () => {
+    expect(
+      attacksPerAction({ classes: [{ class: "fighter", level: 11 }] }),
+    ).toBe(3);
+  });
+
+  it("never returns less than 1", () => {
+    expect(attacksPerAction({ attacksPerAction: 0, classes: [] })).toBe(1);
   });
 });

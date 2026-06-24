@@ -4,6 +4,7 @@ import * as Y from "yjs";
 import {
   appendChat,
   chatArray,
+  clearChat,
   composePlayerInput,
   eventEntry,
   gmEntry,
@@ -340,5 +341,25 @@ describe("appendChat", () => {
     );
     expect(chatArray(doc).toArray()).toHaveLength(1);
     expect(chatArray(doc).get(0).kind).toBe("ooc");
+  });
+});
+
+describe("clearChat", () => {
+  it("empties the shared chat array (tutorial reset)", () => {
+    const doc = new Y.Doc();
+    appendChat(
+      doc,
+      composePlayerInput({ author: "Player", text: "hello" }, deps()).entries,
+    );
+    expect(chatArray(doc).length).toBeGreaterThan(0);
+
+    clearChat(doc);
+    expect(chatArray(doc).toArray()).toHaveLength(0);
+  });
+
+  it("is a no-op on an already-empty log", () => {
+    const doc = new Y.Doc();
+    expect(() => clearChat(doc)).not.toThrow();
+    expect(chatArray(doc).toArray()).toHaveLength(0);
   });
 });

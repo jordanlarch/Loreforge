@@ -644,6 +644,9 @@ function handleEndTurn(
 function handleAttack(
   cmd: AttackCommand,
   ctx: ExecutionContext,
+  /** Internal: reaction-driven attacks (opportunity / readied) cost the
+   * reaction, not the Attack action, so they bypass the action-economy gate. */
+  opts?: { viaReaction?: boolean },
 ): CommandResult {
   const attacker = ctx.world.entities[cmd.attacker];
   if (!attacker) {
@@ -667,6 +670,27 @@ function handleAttack(
       "INVALID_TARGET",
       `${attacker.name} is charmed by ${target.name} and cannot attack them.`,
     );
+  }
+
+  // Action economy: a weapon attack is the Attack action. The first attack of
+  // the turn spends the single action; further attacks ride the Attack action's
+  // budget (Extra Attack / Multiattack). Only enforced on the owner's turn
+  // (economy present); outside combat attacks are unbudgeted.
+  const econ = opts?.viaReaction ? undefined : attacker.actionEconomy;
+  let spendsAction = false;
+  if (econ) {
+    const startingAttack = econ.action === "available";
+    const continuingAttack =
+      !startingAttack &&
+      econ.attacks.used > 0 &&
+      econ.attacks.used < econ.attacks.total;
+    if (!startingAttack && !continuingAttack) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        `${attacker.name} has already used its action this turn.`,
+      );
+    }
+    spendsAction = startingAttack;
   }
 
   // Line of sight is enforced only when both combatants are placed in the same
@@ -771,6 +795,18 @@ function handleAttack(
     events.push(...concentrationCheckEvents(ctx, target, damage, hpAfter));
   }
 
+  // Debit the turn economy (own turn only): spend the action on the first attack
+  // and tick the Attack action's attack budget.
+  let attacksLeft: number | undefined;
+  if (econ) {
+    events.push({
+      type: "ActionSpent",
+      ...meta(ctx, cmd.attacker),
+      payload: { entity: cmd.attacker, action: spendsAction, attack: true },
+    });
+    attacksLeft = Math.max(0, econ.attacks.total - (econ.attacks.used + 1));
+  }
+
   return {
     accepted: true,
     events,
@@ -786,6 +822,7 @@ function handleAttack(
       damage: damage ?? 0,
       hpAfter,
       downed: hit && hpAfter <= 0,
+      ...(attacksLeft !== undefined ? { attacksLeft } : {}),
     },
   };
 }
@@ -1204,6 +1241,7 @@ function handleOpportunityAttack(
       ...(cmd.mode ? { mode: cmd.mode } : {}),
     },
     ctx,
+    { viaReaction: true },
   );
   if (!result.accepted) return result;
 
@@ -1288,6 +1326,7 @@ function handleTriggerReadied(
       damage: action.damage,
     },
     ctx,
+    { viaReaction: true },
   );
   if (!result.accepted) return result;
 
@@ -1542,6 +1581,21 @@ function handleCastSpell(
     );
   }
 
+  // Action-cost spells spend the single action. Gate it on the owner's turn so
+  // you can't both attack and cast (or cast twice) in one turn; out of combat
+  // (no economy) casting is unbudgeted. Reaction/longer cast times are exempt.
+  const usesAction = spell.castingTime.unit === "action";
+  if (
+    usesAction &&
+    caster.actionEconomy &&
+    caster.actionEconomy.action !== "available"
+  ) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${caster.name} has already used its action this turn.`,
+    );
+  }
+
   // Slot accounting. Cantrips (level 0) consume no slot; leveled spells must be
   // cast with a slot at or above their level, and that slot must be available.
   const isCantrip = spell.level === 0;
@@ -1731,6 +1785,15 @@ function handleCastSpell(
       type: "SpellSlotExpended",
       ...meta(ctx, cmd.caster),
       payload: { entity: cmd.caster, slotLevel },
+    });
+  }
+  // Spend the action for an action-cost cast (own turn only). Bonus-action casts
+  // already debit the bonus action via the SpellCast payload flag below.
+  if (usesAction && caster.actionEconomy) {
+    events.push({
+      type: "ActionSpent",
+      ...meta(ctx, cmd.caster),
+      payload: { entity: cmd.caster, action: true },
     });
   }
   if (spell.concentration) {

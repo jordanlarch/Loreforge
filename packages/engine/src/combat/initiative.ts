@@ -41,12 +41,20 @@ export function sortInitiative(
     .map((e) => ({ entity: e.entity, initiative: e.initiative }));
 }
 
-/** A fresh, fully-available action economy for the start of a combatant's turn. */
-export function freshActionEconomy(speed: number): ActionEconomyState {
+/**
+ * A fresh, fully-available action economy for the start of a combatant's turn.
+ * `attacks` is the creature's attacks-per-Attack-action (Extra Attack /
+ * Multiattack; see `attacksPerAction`), defaulting to 1.
+ */
+export function freshActionEconomy(
+  speed: number,
+  attacks = 1,
+): ActionEconomyState {
   return {
     action: "available",
     bonusAction: "available",
     movement: { used: 0, total: Math.max(0, speed) },
+    attacks: { used: 0, total: Math.max(1, Math.floor(attacks)) },
     freeInteractionUsed: false,
   };
 }

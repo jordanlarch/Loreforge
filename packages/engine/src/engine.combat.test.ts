@@ -97,6 +97,7 @@ describe("Combat: encounter + initiative", () => {
       action: "available",
       bonusAction: "available",
       movement: { used: 0, total: state.entities[active]!.speed },
+      attacks: { used: 0, total: 1 },
       freeInteractionUsed: false,
     });
     // The reaction is round-spanning and lives on the entity, not the economy.

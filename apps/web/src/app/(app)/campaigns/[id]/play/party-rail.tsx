@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Party rail (PLAY-4, #100) — the slim bottom strip showing every party-side
+ * Party rail (PLAY-4, #100) — the slim top strip showing every party-side
  * member at a glance. Each chip carries name + HP + (in combat) action-economy
  * ticks; hovering a chip reveals a mini-HUD with abilities, conditions,
  * concentration, and spell slots. The active combatant's chip gets the gold
@@ -44,7 +44,7 @@ export function PartyRail({ state }: { state: WorldState }) {
   return (
     <section
       aria-label="Party"
-      className="mt-6 rounded-lg border border-lore-border bg-lore-surface px-3 py-2"
+      className="mb-4 rounded-lg border border-lore-border bg-lore-surface px-3 py-2"
     >
       <div className="mb-1.5 text-[10px] uppercase tracking-widest text-lore-muted">
         Party

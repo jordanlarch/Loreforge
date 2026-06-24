@@ -90,7 +90,11 @@ export async function seedStarterCharacter(
 
   const [row] = await db
     .insert(characters)
-    .values({ ...STARTER_MIRA, ownerId })
+    .values({
+      ...STARTER_MIRA,
+      ownerId,
+      libraryVisibility: "campaign_only",
+    })
     .returning({ id: characters.id });
   return { characterId: row?.id ?? null, created: Boolean(row) };
 }

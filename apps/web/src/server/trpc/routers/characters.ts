@@ -134,13 +134,18 @@ const updateInput = z
   });
 
 export const charactersRouter = createTRPCRouter({
-  /** Characters owned by the current user, newest first. */
+  /** Characters in the owner's library (My Characters tab), newest first. */
   list: protectedProcedure.query(async ({ ctx }) => {
     const db = getDb();
     return db
       .select()
       .from(characters)
-      .where(eq(characters.ownerId, ctx.user.id))
+      .where(
+        and(
+          eq(characters.ownerId, ctx.user.id),
+          eq(characters.libraryVisibility, "library"),
+        ),
+      )
       .orderBy(desc(characters.createdAt), asc(characters.name));
   }),
 
@@ -419,5 +424,33 @@ export const charactersRouter = createTRPCRouter({
           ),
         );
       return { ok: true };
+    }),
+
+  /**
+   * Promote a campaign-only character into the owner's library (My Characters).
+   * Player-created characters default to `library`; tutorial/campaign pregens
+   * stay `campaign_only` until the player imports them voluntarily.
+   */
+  addToLibrary: protectedProcedure
+    .input(z.object({ characterId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .update(characters)
+        .set({ libraryVisibility: "library", updatedAt: new Date() })
+        .where(
+          and(
+            eq(characters.id, input.characterId),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .returning({ id: characters.id });
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+      return row;
     }),
 });

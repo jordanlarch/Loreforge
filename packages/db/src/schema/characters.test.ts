@@ -44,6 +44,7 @@ const DDL = `
     notes text NOT NULL DEFAULT '',
     equipment jsonb NOT NULL DEFAULT '[]'::jsonb,
     spells jsonb NOT NULL DEFAULT '{"spells":[],"slots":{}}'::jsonb,
+    library_visibility text NOT NULL DEFAULT 'library',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   );
@@ -135,6 +136,37 @@ describe("characters schema (#56 extension)", () => {
     expect(row!.xp).toBe(0);
     expect(row!.equipment).toEqual([]);
     expect(row!.spells).toEqual({ spells: [], slots: {} });
+  });
+});
+
+describe("characters library visibility", () => {
+  it("defaults new rows to library", async () => {
+    const [row] = await db
+      .insert(characters)
+      .values({
+        ownerId: OWNER,
+        name: "Visible Hero",
+        abilityScores: SCORES,
+        maxHp: 10,
+        baseAc: 10,
+      })
+      .returning({ libraryVisibility: characters.libraryVisibility });
+    expect(row?.libraryVisibility).toBe("library");
+  });
+
+  it("stores campaign_only for tutorial pregens", async () => {
+    const [row] = await db
+      .insert(characters)
+      .values({
+        ownerId: OWNER,
+        name: "Mira Thornwood",
+        abilityScores: SCORES,
+        maxHp: 10,
+        baseAc: 10,
+        libraryVisibility: "campaign_only",
+      })
+      .returning({ libraryVisibility: characters.libraryVisibility });
+    expect(row?.libraryVisibility).toBe("campaign_only");
   });
 });
 

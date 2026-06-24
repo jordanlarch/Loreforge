@@ -1272,7 +1272,9 @@ async function handleTutorialInner(
  */
 async function handleTutorialChat(
   room: TutorialRoom,
-  document: Parameters<typeof appendChat>[0],
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
   documentName: string,
   message: { text: string },
 ): Promise<boolean> {

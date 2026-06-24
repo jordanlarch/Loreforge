@@ -7,12 +7,15 @@
  * per-campaign command/state surface.
  */
 import { and, asc, desc, eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import {
   campaignCharacters,
+  campaignInvites,
   campaignNotes,
+  campaignReputation,
   campaignWorldEntities,
   campaigns,
   characters,
@@ -770,5 +773,155 @@ export const campaignsRouter = createTRPCRouter({
         );
       await resetCampaignLog(input.campaignId);
       return { ok: true };
+    }),
+
+  /** Mint a shareable invite link for a player seat (CAMP-14). */
+  createInvite: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        characterId: z.string().uuid().optional(),
+        label: z.string().trim().min(1).max(40).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const token = randomBytes(18).toString("base64url");
+      const db = getDb();
+      const [row] = await db
+        .insert(campaignInvites)
+        .values({
+          campaignId: input.campaignId,
+          ownerId: ctx.user.id,
+          token,
+          characterId: input.characterId ?? null,
+          label: input.label ?? "Player",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        })
+        .returning({ token: campaignInvites.token });
+      return { token: row!.token };
+    }),
+
+  /** List active invite links for a campaign (owner). */
+  listInvites: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      return getDb()
+        .select({
+          id: campaignInvites.id,
+          token: campaignInvites.token,
+          label: campaignInvites.label,
+          characterId: campaignInvites.characterId,
+          redeemedByUserId: campaignInvites.redeemedByUserId,
+          redeemedAt: campaignInvites.redeemedAt,
+          expiresAt: campaignInvites.expiresAt,
+          createdAt: campaignInvites.createdAt,
+        })
+        .from(campaignInvites)
+        .where(eq(campaignInvites.campaignId, input.campaignId))
+        .orderBy(desc(campaignInvites.createdAt));
+    }),
+
+  /** Revoke an unredeemed invite (owner). */
+  revokeInvite: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid(), inviteId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      await getDb()
+        .delete(campaignInvites)
+        .where(
+          and(
+            eq(campaignInvites.id, input.inviteId),
+            eq(campaignInvites.campaignId, input.campaignId),
+            eq(campaignInvites.ownerId, ctx.user.id),
+          ),
+        );
+      return { ok: true };
+    }),
+
+  /** Preview an invite (any logged-in user). */
+  getInvite: protectedProcedure
+    .input(z.object({ token: z.string().min(8) }))
+    .query(async ({ input }) => {
+      const [invite] = await getDb()
+        .select({
+          token: campaignInvites.token,
+          campaignId: campaignInvites.campaignId,
+          label: campaignInvites.label,
+          characterId: campaignInvites.characterId,
+          redeemedByUserId: campaignInvites.redeemedByUserId,
+          expiresAt: campaignInvites.expiresAt,
+        })
+        .from(campaignInvites)
+        .where(eq(campaignInvites.token, input.token))
+        .limit(1);
+      if (!invite) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invite not found." });
+      }
+      const [campaign] = await getDb()
+        .select({ name: campaigns.name })
+        .from(campaigns)
+        .where(eq(campaigns.id, invite.campaignId))
+        .limit(1);
+      return { ...invite, campaignName: campaign?.name ?? "Campaign" };
+    }),
+
+  /** Redeem an invite and bind the caller to a party seat (CAMP-14). */
+  redeemInvite: protectedProcedure
+    .input(z.object({ token: z.string().min(8) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [invite] = await db
+        .select()
+        .from(campaignInvites)
+        .where(eq(campaignInvites.token, input.token))
+        .limit(1);
+      if (!invite) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invite not found." });
+      }
+      if (invite.redeemedByUserId) {
+        throw new TRPCError({ code: "CONFLICT", message: "Invite already used." });
+      }
+      if (invite.expiresAt && invite.expiresAt.getTime() < Date.now()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invite expired." });
+      }
+      if (invite.characterId) {
+        await db
+          .update(campaignCharacters)
+          .set({ playerUserId: ctx.user.id })
+          .where(
+            and(
+              eq(campaignCharacters.campaignId, invite.campaignId),
+              eq(campaignCharacters.characterId, invite.characterId),
+            ),
+          );
+      }
+      await db
+        .update(campaignInvites)
+        .set({
+          redeemedByUserId: ctx.user.id,
+          redeemedAt: new Date(),
+        })
+        .where(eq(campaignInvites.id, invite.id));
+      return { campaignId: invite.campaignId };
+    }),
+
+  /** List reputation standings for a campaign (REP-1). */
+  reputation: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      return getDb()
+        .select({
+          subjectKey: campaignReputation.subjectKey,
+          subjectName: campaignReputation.subjectName,
+          standing: campaignReputation.standing,
+          note: campaignReputation.note,
+          updatedAt: campaignReputation.updatedAt,
+        })
+        .from(campaignReputation)
+        .where(eq(campaignReputation.campaignId, input.campaignId))
+        .orderBy(asc(campaignReputation.subjectName));
     }),
 });

@@ -14,6 +14,7 @@ import {
   getDb,
   PgEventStore,
   campaignCharacters,
+  campaignReputation,
   campaigns,
   characters,
   chatMessages,
@@ -26,6 +27,7 @@ import {
 } from "@app/db";
 import {
   expandEncounterFoes,
+  meleeReachFromEquipment,
   monsterTemplate,
   totalLevel,
   xpForLevel,
@@ -98,6 +100,7 @@ export async function getCampaignParty(
       speed: characters.speed,
       classes: characters.classes,
       spells: characters.spells,
+      equipment: characters.equipment,
     })
     .from(campaignCharacters)
     .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
@@ -112,6 +115,9 @@ export async function getCampaignParty(
 
   return rows.map((row) => {
     const isCaster = (row.spells?.spells?.length ?? 0) > 0;
+    const meleeReachFt = meleeReachFromEquipment(
+      Array.isArray(row.equipment) ? row.equipment : [],
+    );
     return {
       id: row.id,
       name: row.name,
@@ -120,6 +126,7 @@ export async function getCampaignParty(
       baseAc: row.baseAc,
       speed: row.speed,
       classes: row.classes,
+      ...(meleeReachFt !== undefined ? { meleeReachFt } : {}),
       ...(isCaster
         ? {
             spellcasting: {
@@ -710,4 +717,58 @@ export async function isCampaignOwner(
     .where(and(eq(campaigns.id, campaignId), eq(campaigns.ownerId, userId)))
     .limit(1);
   return Boolean(row);
+}
+
+/**
+ * Whether a user may join a campaign's live room (CAMP-14): owner or a seated
+ * player with `campaign_characters.player_user_id` set via invite redemption.
+ */
+export async function canAccessCampaign(
+  campaignId: string,
+  userId: string,
+): Promise<boolean> {
+  if (await isCampaignOwner(campaignId, userId)) return true;
+  const [seat] = await getDb()
+    .select({ id: campaignCharacters.id })
+    .from(campaignCharacters)
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.playerUserId, userId),
+        eq(campaignCharacters.status, "active"),
+      ),
+    )
+    .limit(1);
+  return Boolean(seat);
+}
+
+/** Tutorial finale reputation grant (REP-1). Idempotent upsert. */
+export async function awardTutorialReputation(campaignId: string): Promise<void> {
+  const db = getDb();
+  const [campaign] = await db
+    .select({ ownerId: campaigns.ownerId })
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .limit(1);
+  if (!campaign) return;
+  const subjectKey = "settlement:last-light-hollow";
+  const [existing] = await db
+    .select({ id: campaignReputation.id })
+    .from(campaignReputation)
+    .where(
+      and(
+        eq(campaignReputation.campaignId, campaignId),
+        eq(campaignReputation.subjectKey, subjectKey),
+      ),
+    )
+    .limit(1);
+  if (existing) return;
+  await db.insert(campaignReputation).values({
+    campaignId,
+    ownerId: campaign.ownerId,
+    subjectKey,
+    subjectName: "Last Light Hollow",
+    standing: "honored",
+    note: "The village is in your debt after relighting the beacon.",
+  });
 }

@@ -204,6 +204,71 @@ describe("Reactions: opportunity attacks", () => {
   });
 });
 
+describe("Reactions: reach-weapon provoke (ENG-10)", () => {
+  it("provokes when leaving a reach weapon's 10 ft threat", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: {
+        id: "s:map",
+        name: "Hall",
+        map: { width: 10, height: 10, blockedCells: [] },
+      },
+    });
+    await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:map" });
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:polearm",
+        kind: "character",
+        name: "Halberdier",
+        abilityScores: ABILITIES,
+        maxHp: 100_000,
+        baseAc: 12,
+        speed: 30,
+        meleeReachFt: 10,
+        sceneId: "s:map",
+        position: { x: 0, y: 0 },
+      },
+    });
+    await place(engine, "npc:runner", { x: 2, y: 0 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:polearm", "npc:runner"],
+      sides: { "pc:polearm": "party", "npc:runner": "enemies" },
+    });
+    await engine.execute(CAMPAIGN, { type: "roll_initiative" });
+
+    const withinReach = await engine.execute(CAMPAIGN, {
+      type: "move_entity",
+      entity: "npc:runner",
+      to: { x: 1, y: 0 },
+    });
+    expect(withinReach.accepted).toBe(true);
+    if (withinReach.accepted) {
+      expect(
+        withinReach.events.find((e) => e.type === "ReactionWindowOpened"),
+      ).toBeUndefined();
+    }
+
+    const leaveReach = await engine.execute(CAMPAIGN, {
+      type: "move_entity",
+      entity: "npc:runner",
+      to: { x: 3, y: 0 },
+    });
+    expect(leaveReach.accepted).toBe(true);
+    if (leaveReach.accepted) {
+      const opened = leaveReach.events.find(
+        (e) => e.type === "ReactionWindowOpened",
+      );
+      expect(opened).toBeDefined();
+      const payload = (opened as { payload: ReactionWindowOpenedPayload })
+        .payload;
+      expect(payload.eligible).toContain("pc:polearm");
+    }
+  });
+});
+
 describe("Reactions: side / hostility filtering", () => {
   let engine: Engine;
 

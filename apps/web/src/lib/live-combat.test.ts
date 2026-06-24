@@ -192,7 +192,11 @@ describe("reaction window helpers", () => {
     ...base,
     encounter: {
       ...base.encounter!,
-      reactionWindow: { mover: "goblin", eligible: ["hero"] },
+      reactionWindow: {
+        mover: "goblin",
+        eligible: ["hero"],
+        moverAtProvocation: { x: 5, y: 5 },
+      },
     },
   };
 

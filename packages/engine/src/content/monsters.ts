@@ -25,6 +25,8 @@ export type MonsterTemplate = {
   cr: string;
   /** Experience-point value used for encounter difficulty budgeting (DMG). */
   xp: number;
+  /** Attacks per Attack action (Multiattack). Defaults to 1 when omitted. */
+  attacksPerAction?: number;
 };
 
 /** The curated foe templates, keyed by slug. */
@@ -88,6 +90,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     speed: 40,
     cr: "2",
     xp: 450,
+    attacksPerAction: 2,
   },
   "hungering-shade": {
     slug: "hungering-shade",

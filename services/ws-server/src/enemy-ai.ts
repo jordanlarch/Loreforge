@@ -10,14 +10,16 @@
  * only *refines* the deterministic plan, mirroring the #97 check orchestrator:
  * the model proposes, the engine disposes.
  *
- * Tracer scope: basic melee. A monster moves toward the nearest hostile PC within
- * its movement budget and strikes when in reach; otherwise it ends its turn.
- * Spells/abilities, the encounter `AI tactics hint`, and multiattack are deferred.
+ * Tracer scope: basic melee + Multiattack budget. A monster moves toward the
+ * nearest hostile PC within its movement budget and strikes when in reach,
+ * spending its full attacks-per-action budget; otherwise it ends its turn.
+ * Spells/abilities and the encounter `AI tactics hint` are deferred.
  */
 import {
   abilityModifier,
   areHostile,
   attackAction,
+  attacksPerAction,
   distanceFeet,
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
@@ -254,6 +256,45 @@ function lowestHp(entities: EntityState[]): EntityState {
   return entities.reduce((a, b) => (b.hp.current < a.hp.current ? b : a));
 }
 
+/** Attacks remaining on the monster's current-turn action economy budget. */
+function attacksRemaining(monster: EntityState): number {
+  const budget = monster.actionEconomy?.attacks;
+  if (budget) return Math.max(0, budget.total - budget.used);
+  return attacksPerAction(monster);
+}
+
+/** Hostile targets within melee reach of `position`. */
+function targetsInMeleeReach(
+  targets: EntityState[],
+  position: GridPosition,
+): EntityState[] {
+  return targets.filter(
+    (t) => distanceFeet(position, t.position!) <= REACH_FEET,
+  );
+}
+
+/** Plan repeated melee strikes against the weakest foe in reach. */
+function planMeleeAttacks(
+  monsterId: string,
+  profile: ReturnType<typeof monsterAttackProfile>,
+  victim: EntityState,
+  count: number,
+): BattleAction[] {
+  const actions: BattleAction[] = [];
+  for (let i = 0; i < count; i += 1) {
+    actions.push(
+      attackAction(
+        monsterId,
+        victim.id,
+        profile.attackBonus,
+        profile.damage,
+        REACH_FEET,
+      ),
+    );
+  }
+  return actions;
+}
+
 /**
  * Plan one non-player combatant's turn as an ordered list of engine actions
  * (always ending with `end_turn`). The engine still validates every step, so a
@@ -274,21 +315,14 @@ export function planMonsterTurn(
   if (targets.length === 0) return [endTurn];
 
   const profile = monsterAttackProfile(monster);
+  const budget = attacksRemaining(monster);
 
-  // Already adjacent to one or more foes → strike the weakest, then end.
-  const inReach = targets.filter(
-    (t) => distanceFeet(monster.position!, t.position!) <= REACH_FEET,
-  );
-  if (inReach.length > 0) {
+  // Already adjacent to one or more foes → spend the full attack budget, then end.
+  const inReach = targetsInMeleeReach(targets, monster.position);
+  if (inReach.length > 0 && budget > 0) {
     const victim = lowestHp(inReach);
     return [
-      attackAction(
-        monster.id,
-        victim.id,
-        profile.attackBonus,
-        profile.damage,
-        REACH_FEET,
-      ),
+      ...planMeleeAttacks(monster.id, profile, victim, budget),
       endTurn,
     ];
   }
@@ -298,15 +332,9 @@ export function planMonsterTurn(
   const step = bestStepToward(state, monster, target);
   if (step) {
     const actions: BattleAction[] = [moveAction(monster.id, step)];
-    if (distanceFeet(step, target.position!) <= REACH_FEET) {
+    if (distanceFeet(step, target.position!) <= REACH_FEET && budget > 0) {
       actions.push(
-        attackAction(
-          monster.id,
-          target.id,
-          profile.attackBonus,
-          profile.damage,
-          REACH_FEET,
-        ),
+        ...planMeleeAttacks(monster.id, profile, target, budget),
       );
     }
     actions.push(endTurn);

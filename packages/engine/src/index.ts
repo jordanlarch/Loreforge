@@ -122,7 +122,7 @@ export {
   type DeathSaveResolution,
   type DeathSaveTally as DeathSaveTallyInput,
 } from "./combat/death";
-  export { areHostile, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "./combat/reactions";
+  export { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "./combat/reactions";
 export {
   ENCOUNTER_XP_THRESHOLDS,
   encounterMultiplier,
@@ -212,6 +212,10 @@ export {
   monsterTemplate,
   type MonsterTemplate,
 } from "./content/monsters";
+export {
+  meleeReachFromEquipment,
+  meleeReachFromWeaponName,
+} from "./content/weapons";
 export { fullCasterSlots } from "./content/spell-slots";
 export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
 export {

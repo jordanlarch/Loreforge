@@ -288,3 +288,74 @@ export const chatMessages = pgTable(
     index("chat_messages_campaign_idx").on(t.campaignId),
   ],
 );
+
+/** Invite link role for multiplayer seats (CAMP-14). */
+export type CampaignInviteRole = "player";
+
+/**
+ * Shareable invite links for multiplayer live play (CAMP-14). An owner mints a
+ * token tied to an optional character seat; redeeming binds the player's Supabase
+ * user id to that seat via `campaign_characters.player_user_id`.
+ */
+export const campaignInvites = pgTable(
+  "campaign_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    /** URL-safe token embedded in `/campaigns/join/[token]`. */
+    token: text("token").notNull(),
+    /** Optional reserved character seat (campaign_characters.character_id). */
+    characterId: uuid("character_id"),
+    label: text("label").notNull().default("Player"),
+    redeemedByUserId: uuid("redeemed_by_user_id"),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("campaign_invites_token_unique").on(t.token),
+    index("campaign_invites_campaign_idx").on(t.campaignId),
+    index("campaign_invites_owner_idx").on(t.ownerId),
+  ],
+);
+
+/** Reputation standing tiers (REP-1). */
+export type ReputationStanding =
+  | "hostile"
+  | "unfriendly"
+  | "neutral"
+  | "friendly"
+  | "honored"
+  | "revered";
+
+/**
+ * Per-campaign standing with factions/settlements (REP-1). `subjectKey` is a stable
+ * slug (e.g. `faction:last-light-hollow` or a Realms entity id). Events adjust
+ * standing over time; the tutorial finale seeds Last Light Hollow as Honored.
+ */
+export const campaignReputation = pgTable(
+  "campaign_reputation",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    subjectKey: text("subject_key").notNull(),
+    subjectName: text("subject_name").notNull(),
+    standing: text("standing")
+      .notNull()
+      .$type<ReputationStanding>()
+      .default("neutral"),
+    note: text("note").notNull().default(""),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("campaign_reputation_unique_idx").on(t.campaignId, t.subjectKey),
+    index("campaign_reputation_campaign_idx").on(t.campaignId),
+    index("campaign_reputation_owner_idx").on(t.ownerId),
+  ],
+);

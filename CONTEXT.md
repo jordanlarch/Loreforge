@@ -4,16 +4,19 @@
 
 ## Status
 
-**Design phase complete (19 architectural decisions locked).** Roadmap locked (May 2026). Engineering start: M0 = May 2026 (solo engineer).
+**Design phase complete (19 architectural decisions locked).** Roadmap locked (May 2026). Engineering started May 2026 (solo engineer).
 
-**Code progress (Jun 2026): P0–P3 complete; P4 / M5 "First Campaign" started (~30%).** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World** — the last three at vertical-slice / tracer depth (each surface ships its happy path; the production-complete flows in `docs/ui-flows/*` are largely backlog). **`docs/deferrals.md` is the single source of truth for everything deferred** (per-surface gaps, unbuilt generators, engine/infra items).
+**Code progress (Jun 2026): P0–P4 substantially complete; P5 (Tutorial + Memory) largely shipped early.** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World, M5 First Campaign (~complete at tracer depth), M6 Tutorial E2E (shipped).** Memory tier (MEM-1–MEM-8) is Done. **`docs/deferrals.md` is the single source of truth for everything deferred** (per-surface gaps, unbuilt generators, engine/infra items).
 
 Highlights of what's built:
-- **Engine (`packages/engine`, E1–E3):** seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, typed Command API + serialized per-campaign queue, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions), and a spell-cast pipeline with several spell families. **Per-campaign events persist to Postgres** (`engine_events` + `PgEventStore`; `engine.submit`/`state`). ~295 engine + 33 ws-server tests.
-- **Tier 4 multiplayer:** `@app/ws-server` Hocuspocus Yjs sync server (authoritative engine host) + PixiJS battle map with token drag/movement; persisted per-campaign live play.
-- **Product surfaces:** Home shell, Codex (SRD spells, species/classes, backgrounds/feats, monsters/animals with preset filters, items), Characters (create/view/inline-edit/level-up slices), Smithy MVP (homebrew items + declarative spells), Realms (Grid/List/Graph + relationship panels), Campaigns browser + live play.
-- **Realms AI generator pipeline (tracer depth):** `@app/llm` package (Anthropic client + zod→tool-schema + validate-and-retry), `generation_events` audit table, `realms.generate`/`expandStub`/`regenerate` (field-subset) + synchronous tRPC cascade + durable Trigger.dev cascade, Advanced Form at `/realms/generate/[type]`. NPC/Region/Settlement at tracer depth on **thin** `REALM_FIELDS` schemas (rich per-type schemas deferred — see `docs/deferrals.md` GEN-1).
-- **Background jobs:** nightly Open5e SRD ingest (spells, creatures, items) + character-options seed as a scheduled Trigger.dev job.
+- **Engine (`packages/engine`, E1–E3):** seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, typed Command API + serialized per-campaign queue, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range enforcement), and a spell-cast pipeline with a growing spell registry + golden harness. **Per-campaign events persist to Postgres** (`engine_events` + `PgEventStore`; `engine.submit`/`state`). ~381 engine + ~159 ws-server tests.
+- **Tier 4 multiplayer:** `@app/ws-server` Hocuspocus Yjs sync server (authoritative engine host) + PixiJS battle map with token drag/movement; persisted per-campaign live play. Owner-only rooms today (CAMP-14 invites pending).
+- **Product surfaces:** Home shell, Codex (SRD spells, species/classes, backgrounds/feats, monsters/animals with preset filters, items), Characters (create/view/inline-edit/level-up slices), Smithy MVP (homebrew items + declarative spells), Realms (Grid/List/Graph + relationship panels + AI generator pipeline), Campaigns browser + **9-tab workspace** (7/9 built — World Map tab missing) + live play.
+- **Realms AI generator pipeline:** `@app/llm` package, `generation_events` audit table, rich sectioned generators for all 7 types (Settlement tab depth partial), synchronous + Trigger.dev cascade routes, Advanced Form at `/realms/generate/[type]`.
+- **Campaign workspace (M5 spine):** Overview, Party, World, Hooks, Sessions, Combat, Notes, Settings tabs shipped; authored encounter → Live Play seam (CAMP-8); hook lifecycle (CAMP-5); memory export + pins + recaps.
+- **Live Play:** chat/HUD/combat overlay, real sheet weapons/spells, AoE targeting, enemy AI orchestrator, timed OA prompts + AI auto-reactions, readied actions, party rail, top bar, scene transitions, map zoom/layers, async affordances, pacing controls, tutorial E2E ("Lantern's Last Flicker").
+- **Memory tier (P5):** rolling summaries, session recaps, pinned memories, RAG embed/search, live-turn context assembly — all shipped (MEM-1–8).
+- **Background jobs:** nightly Open5e SRD ingest + character-options seed + nightly re-embed as scheduled Trigger.dev jobs; runtime task dispatch gated on `TRIGGER_SECRET_KEY` (INFRA-1 for prod/Vercel).
 
 ## What This Is
 
@@ -34,7 +37,7 @@ A web app at the intersection of:
 - **Backend**: Node + tRPC (TypeScript end-to-end)
 - **DB**: Postgres + pgvector · Drizzle ORM
 - **Sync**: Yjs CRDT over WebSocket
-- **Auth**: Supabase Auth / Clerk
+- **Auth**: Supabase Auth
 - **LLM**: Anthropic Claude (Sonnet narration / Opus generation) + OpenAI fallback
 - **Embeddings**: OpenAI `text-embedding-3-large`
 - **TTS**: ElevenLabs / OpenAI TTS
@@ -47,7 +50,7 @@ A web app at the intersection of:
 
 Full rationale per-choice (with alternatives considered) in `docs/01-tech-stack.md`. External services and data sources (LLM providers, embeddings, TTS, image gen, SRD ingest, map libraries) in `docs/data-sources.md`. Locked decisions summarized in `docs/00-consolidated-plan.md`.
 
-**Implemented packages of note:** `@app/engine` (deterministic 5E engine), `@app/ws-server` (Yjs/Hocuspocus sync), `@app/llm` (provider-agnostic LLM generation: Anthropic client, zod→`emit_entity` tool-schema, `generateEntity` with validate-and-retry + injectable fake client for tests — the contract behind the Realms generators), `@app/db` (Drizzle schema + migrations + `PgEventStore`), `@app/config` (env validation).
+**Implemented packages of note:** `@app/engine` (deterministic 5E engine), `@app/ws-server` (Yjs/Hocuspocus sync), `@app/llm` (provider-agnostic LLM generation), `@app/db` (Drizzle schema + migrations + `PgEventStore`), `@app/config` (env validation), `@app/memory` (embeddings + RAG retrieval).
 
 ## Core Architecture
 
@@ -69,32 +72,42 @@ Read `docs/00-consolidated-plan.md` first. Then drill into whatever surface you 
 - **`docs/00-consolidated-plan.md`** — the 19 locked architectural decisions
 - **`docs/deferrals.md`** — **single source of truth for all deferred/backlog items** (generator-pipeline deferrals, per-surface UI-flow gaps, unbuilt generators, engine/infra, v1.5+ cuts). Add new deferrals here.
 - **`docs/02-implementation-roadmap.md`** — v1 phased roadmap: milestones, dependency graph, beta gates, solo calendar (~28–34 months to GA)
-- **`docs/01-tech-stack.md`** — application-layer technology choices with 1-2 paragraph rationale and alternatives per choice (frontend, components, maps, state, API, DB, sync, auth, jobs, hosting, monitoring, testing, sandboxing)
-- **`docs/data-sources.md`** — external services and data sources: SRD content ingest, procedural map libraries, art generation pipeline, TTS providers, LLM providers, embeddings & RAG
-- **`docs/product-spec.md`** — product-level concerns not covered elsewhere: target personas (5), success metrics (activation / engagement / quality / commercial), consolidated v1 out-of-scope list, and explicit assumptions
+- **`docs/03-m5-completion-plan.md`** — M5 sequencing plan; Workstreams A/B/C all marked complete (Jun 2026)
+- **`docs/01-tech-stack.md`** — application-layer technology choices with rationale and alternatives per choice
+- **`docs/data-sources.md`** — external services and data sources
+- **`docs/product-spec.md`** — personas, success metrics, v1 out-of-scope, assumptions
 - **`docs/ui-flows/`** — per-surface UI specifications
-  - `home.md` · `characters-dashboard.md` · `character-creation-wizard.md` · `level-up-wizard.md` · `character-view-inline-editing.md`
-  - `codex.md` · `smithy.md`
-  - `realms-library.md` · `campaigns-workspace.md` · `live-play-surface.md`
-- **`docs/generators/forms-and-pages.md`** — the 7 worldbuilding generators (Region, Settlement, Building, Tavern, Shop, Dungeon, Faction): input forms, generation pipelines, output detail pages, cross-generator integration, engineering effort estimates
-- **`docs/generators/samples/`** — sample generator outputs (one per generator type) preserved as reference artifacts
-- **`docs/engine/architecture.md`** — the deterministic 5E rules engine: data model, event store, command API, effect system, full spell automation architecture, retcon mechanism, phased implementation plan. *Note: some sections (specific TypeScript signatures, the phased month-by-month plan, the test-strategy detail) are concrete proposals rather than fully-locked decisions; revisit before commitment.*
-- **`docs/onboarding/tutorial-adventure.md`** — the 30-minute "Lantern's Last Flicker" onboarding micro-campaign (every primary feature demonstrated through play)
+- **`docs/generators/forms-and-pages.md`** — the 7 worldbuilding generators
+- **`docs/generators/samples/`** — sample generator outputs
+- **`docs/engine/architecture.md`** — the deterministic 5E rules engine
+- **`docs/onboarding/tutorial-adventure.md`** — the "Lantern's Last Flicker" tutorial micro-campaign
 
 ## Current Goal
 
-**P4 / M5 "First Campaign"** per `docs/02-implementation-roadmap.md` §6 P4. The active frontier (all tracked in `docs/deferrals.md`): rich per-type generator schemas + tabbed detail pages (GEN-1, REALM-1), the 5 unbuilt rich generators — Tavern/Shop/Building/Faction/Dungeon (GENR-1–5), the **Campaign workspace** (9 tabs — currently 0/9, only a browser + `[id]/play` exist; CAMP-1–15), Plot Hook Kanban + lifecycle (CAMP-5), per-campaign discovery state (CAMP-4), and the full Live Play surface — chat/HUD/combat overlay (PLAY-1–14).
+**M7 closed-alpha prep** per `docs/02-implementation-roadmap.md` §7. M5 DoD met at tracer/vertical-slice depth; M6 tutorial E2E shipped and verified.
 
-**Before branching new work:** decide whether to open/merge a PR for the current `feat/realms-generator-pipeline` branch (generator commits are pushed but there is no open PR).
+**Active frontier** (all tracked in `docs/deferrals.md`):
 
-**P0–P3 are done** (see Status above). Trigger.dev is live (CLI authed; nightly ingest deployed to prod; per-campaign events persist to Postgres). Still deferred until needed (`docs/deferrals.md` §5): the **`tr_prod_` runtime secret key** (needed once the app triggers tasks at runtime, e.g. P4 generation cascades — the nightly cron doesn't need it); Vercel deploy (repo pushed, unblocked); Sentry/PostHog provisioning (env-gated stubs in place).
+| Priority | Item | ID |
+|---|---|---|
+| Combat polish | Multiattack in enemy AI | PLAY-15 |
+| Combat polish | Reach-weapon OA provoke | ENG-10 |
+| Alpha gate | Top-120 spell batch 3 | ENG-2 |
+| Tier 4 promise | Multiplayer invites + seat auth | CAMP-14 |
+| Workspace | World Map tab | CAMP-7 |
+| Infra | Trigger `tr_prod_` on Vercel | INFRA-1 |
+| Post-M6 | Real reputation system | REP-1 |
+
+**Closed-alpha gates still open:** top-120 golden coverage (ENG-2 partial), LLM tool-adherence ≥98% (ENG-6 skeleton shipped), 6-client sync stress (ENG-7 harness shipped), tutorial E2E ✅, billing + 10 DM chats (M8).
+
+**Branch:** `main`, clean. Package manager is **npm**.
 
 Roadmap and product locks live in `docs/02-implementation-roadmap.md` and `docs/product-spec.md` §5.
 
 ## Critical Risks (Acknowledged)
 
 1. **Full SRD spell automation** is the single largest engineering subproject — ~4–6 engineer-months alone
-2. **Tier 4 multiplayer + real-time sync infra** — ~6–8 weeks for the sync layer alone
+2. **Tier 4 multiplayer + real-time sync infra** — sync layer shipped; invite/seat auth still needed (CAMP-14)
 3. **LLM cost per session** — $0.50–$3 each; needs usage-based pricing if commercial
 4. **TTS latency** — pre-generate and cache aggressively
 5. **Combined v1 scope** — realistic estimate is **12–18 months** with a small team to ship the full v1 as designed

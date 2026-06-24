@@ -171,6 +171,7 @@ describe("expandEncounterFoes", () => {
     expect(foes.map((f) => f.id)).toEqual(["npc:foe-0", "npc:foe-1", "npc:foe-2"]);
     expect(foes.map((f) => f.name)).toEqual(["Goblin 1", "Goblin 2", "Ogre"]);
     expect(foes[2]?.maxHp).toBe(MONSTER_TEMPLATES.ogre!.maxHp);
+    expect(foes[2]?.attacksPerAction).toBe(2);
   });
 
   it("honors a name override and drops a single count's suffix", () => {

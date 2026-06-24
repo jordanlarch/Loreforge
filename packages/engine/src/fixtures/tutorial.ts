@@ -411,10 +411,13 @@ export function buildTutorialSceneRepairCommands(
   sceneId: string,
   party: readonly PartyMemberLike[],
   state: Pick<WorldState, "entities" | "encounter">,
+  opts?: { companionActive?: boolean },
 ): Command[] {
   if (state.encounter) return [];
   const placement = tutorialScenePlacement(sceneId);
   if (!placement) return [];
+
+  const companionActive = opts?.companionActive ?? party.length > 1;
 
   const cmds: Command[] = [];
   const leadEntityId = resolveTutorialLeadEntityId(party, state.entities);
@@ -457,7 +460,9 @@ export function buildTutorialSceneRepairCommands(
     cmds.push(...placeLead(party, sceneId, placement.lead));
   }
 
-  if (placement.companion && state.entities[TUTORIAL_COMPANION.id]) {
+  if (placement.companion && companionActive && !state.entities[TUTORIAL_COMPANION.id]) {
+    cmds.push(...buildCompanionCommands(sceneId, placement.companion));
+  } else if (placement.companion && state.entities[TUTORIAL_COMPANION.id]) {
     const companion = state.entities[TUTORIAL_COMPANION.id];
     if (entityNeedsPlacement(companion, sceneId)) {
       cmds.push({

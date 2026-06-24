@@ -1297,9 +1297,11 @@ export function TutorialPlaySurface({
     acceptHook.mutate(undefined, {
       onSuccess: () => {
         companionJoin.mutate(undefined, {
+          onSuccess: () => {
+            session.tutorialCompanion();
+          },
           onSettled: () => void utils.tutorial.world.invalidate(),
         });
-        session.tutorialCompanion();
         void utils.tutorial.world.invalidate();
       },
     });

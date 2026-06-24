@@ -187,6 +187,33 @@ describe("tutorial script", () => {
     );
   });
 
+  it("backfills a missing companion when the DB party is active but join was skipped", async () => {
+    const engine = await seed();
+    for (const command of nextTutorialScene(TUTORIAL_SCENE_HOLLOWS_EDGE)!.enter(
+      TUTORIAL_FALLBACK_PARTY,
+    )) {
+      await engine.execute(CAMPAIGN, command);
+    }
+    const partyWithCompanion = [
+      ...TUTORIAL_FALLBACK_PARTY,
+      { ...TUTORIAL_COMPANION, id: "char:brennar-row" },
+    ];
+    let state = await engine.getState(CAMPAIGN);
+    expect(state.entities[TUTORIAL_COMPANION.id]).toBeUndefined();
+
+    for (const command of buildTutorialSceneRepairCommands(
+      TUTORIAL_SCENE_HEARTH,
+      partyWithCompanion,
+      state,
+    )) {
+      await engine.execute(CAMPAIGN, command);
+    }
+    state = await engine.getState(CAMPAIGN);
+    expect(state.entities[TUTORIAL_COMPANION.id]?.sceneId).toBe(
+      TUTORIAL_SCENE_HEARTH,
+    );
+  });
+
   it("routes free text to a dialogue topic and always reaches Lily's hook", () => {
     expect(classifyScene2Topic("I order a stew from the barman")).toBe(
       "barnaby",

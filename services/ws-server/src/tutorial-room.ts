@@ -27,6 +27,7 @@ import {
   nextTutorialScene,
   tutorialBeat,
   tutorialScene,
+  tutorialScenePlacement,
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_FOES_SIDE,
@@ -101,13 +102,16 @@ export class TutorialRoom implements LiveRoom {
   }
 
   async ensureSeeded(): Promise<void> {
-    if (this.seeded) return;
-    if ((await this.store.lastSequence(this.campaignId)) === 0) {
-      for (const command of await this.seedCommands()) {
-        await this.engine.execute(this.campaignId, command);
+    if (!this.seeded) {
+      if ((await this.store.lastSequence(this.campaignId)) === 0) {
+        for (const command of await this.seedCommands()) {
+          await this.engine.execute(this.campaignId, command);
+        }
       }
+      this.seeded = true;
     }
-    this.seeded = true;
+    // Run on every load/reconnect so a DB-active companion backfills a missing
+    // engine entity (companion join can succeed while the WS summon no-ops).
     await this.repairSceneTokens();
   }
 
@@ -380,10 +384,15 @@ export class TutorialRoom implements LiveRoom {
   async summonCompanion(): Promise<string | null> {
     await this.ensureSeeded();
     const state = await this.engine.getState(this.campaignId);
-    if (state.entities[TUTORIAL_COMPANION.id]) return null;
     const sceneId = state.currentSceneId;
     if (!sceneId) return null;
-    for (const command of buildCompanionCommands(sceneId)) {
+    if (state.entities[TUTORIAL_COMPANION.id]) {
+      await this.repairSceneTokens();
+      return null;
+    }
+    const placement = tutorialScenePlacement(sceneId);
+    const position = placement?.companion ?? { x: 6, y: 6 };
+    for (const command of buildCompanionCommands(sceneId, position)) {
       await this.engine.execute(this.campaignId, command);
     }
     await this.repairSceneTokens();

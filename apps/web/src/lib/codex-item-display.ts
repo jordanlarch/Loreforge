@@ -29,7 +29,17 @@ type WeaponRaw = {
   damage_type?: { name?: string | null } | null;
   is_simple?: boolean | null;
   is_martial?: boolean | null;
-  properties?: { property?: { name?: string; desc?: string } | null; detail?: string | null }[] | null;
+  properties?: {
+    property?: { name?: string; desc?: string; type?: string | null } | null;
+    detail?: string | null;
+  }[] | null;
+};
+
+export type WeaponPropertyEntry = {
+  name: string;
+  desc: string | null;
+  detail: string | null;
+  type: string | null;
 };
 
 type ArmorRaw = {
@@ -65,15 +75,29 @@ export function armorSummary(raw: Record<string, unknown>): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-export function weaponProperties(raw: Record<string, unknown>): string[] {
+export function weaponPropertyEntries(
+  raw: Record<string, unknown>,
+): WeaponPropertyEntry[] {
   const weapon = raw.weapon as WeaponRaw | null | undefined;
   if (!weapon?.properties?.length) return [];
   return weapon.properties
     .map((entry) => {
       const name = entry.property?.name;
       if (!name) return null;
-      const detail = entry.detail ? ` (${entry.detail})` : "";
-      return `${name}${detail}`;
+      return {
+        name,
+        desc: entry.property?.desc?.trim() || null,
+        detail: entry.detail?.trim() || null,
+        type: entry.property?.type?.trim() || null,
+      };
     })
-    .filter((line): line is string => line != null);
+    .filter((entry): entry is WeaponPropertyEntry => entry != null);
+}
+
+/** @deprecated Use {@link weaponPropertyEntries} for rich property display. */
+export function weaponProperties(raw: Record<string, unknown>): string[] {
+  return weaponPropertyEntries(raw).map((entry) => {
+    const detail = entry.detail ? ` (${entry.detail})` : "";
+    return `${entry.name}${detail}`;
+  });
 }

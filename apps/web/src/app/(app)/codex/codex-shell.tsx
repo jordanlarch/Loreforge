@@ -11,9 +11,11 @@ import {
   type CodexCategory,
 } from "@/lib/codex-categories";
 
+import { BackgroundBrowser } from "./background-browser";
 import { ClassBrowser } from "./class-browser";
 import { CodexBrowser } from "./codex-browser";
 import { CodexComingSoon } from "./codex-coming-soon";
+import { FeatBrowser } from "./feat-browser";
 import { ItemBrowser } from "./item-browser";
 import { MonsterBrowser } from "./monster-browser";
 import { SpeciesBrowser } from "./species-browser";
@@ -109,6 +111,12 @@ export function CodexShell() {
       )}
       {category === "Classes" && (
         <ClassBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
+      )}
+      {category === "Backgrounds" && (
+        <BackgroundBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
+      )}
+      {category === "Feats" && (
+        <FeatBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
       )}
       {category === "Animals" && (
         <MonsterBrowser

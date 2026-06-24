@@ -8,7 +8,9 @@ import { and, asc, count, eq, gte, ilike, lte } from "drizzle-orm";
 import { z } from "zod";
 
 import {
+  codexBackgrounds,
   codexClasses,
+  codexFeats,
   codexItems,
   codexMonsters,
   codexSpecies,
@@ -17,6 +19,7 @@ import {
 } from "@app/db";
 
 import { sortSizes } from "@/lib/codex-monster-filters";
+import { backgroundBenefitSummary } from "@/lib/codex-background-feat-display";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -369,4 +372,102 @@ export const codexRouter = createTRPCRouter({
     const [row] = await db.select({ value: count() }).from(codexItems);
     return { count: row?.value ?? 0 };
   }),
+
+  /** SRD backgrounds for the Codex, alphabetical. */
+  listBackgrounds: protectedProcedure
+    .input(z.object({ search: z.string().trim().max(100).optional() }).optional())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const where = input?.search
+        ? ilike(codexBackgrounds.name, `%${input.search}%`)
+        : undefined;
+      return db
+        .select({
+          slug: codexBackgrounds.slug,
+          name: codexBackgrounds.name,
+          description: codexBackgrounds.description,
+          raw: codexBackgrounds.raw,
+        })
+        .from(codexBackgrounds)
+        .where(where)
+        .orderBy(asc(codexBackgrounds.name))
+        .then((rows) =>
+          rows.map(({ raw, ...row }) => ({
+            ...row,
+            skillSummary: backgroundBenefitSummary(
+              raw as Record<string, unknown>,
+            ),
+          })),
+        );
+    }),
+
+  /** Full SRD background record by slug. */
+  getBackground: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexBackgrounds)
+        .where(eq(codexBackgrounds.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** Filterable list of SRD feats. */
+  listFeats: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().max(100).optional(),
+          featType: z.string().trim().max(40).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = [
+        input?.search
+          ? ilike(codexFeats.name, `%${input.search}%`)
+          : undefined,
+        input?.featType ? eq(codexFeats.featType, input.featType) : undefined,
+      ].filter(Boolean);
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      return db
+        .select({
+          slug: codexFeats.slug,
+          name: codexFeats.name,
+          description: codexFeats.description,
+          prerequisite: codexFeats.prerequisite,
+          featType: codexFeats.featType,
+        })
+        .from(codexFeats)
+        .where(where)
+        .orderBy(asc(codexFeats.name));
+    }),
+
+  /** Distinct feat types for filter chips. */
+  featFacets: protectedProcedure.query(async () => {
+    const db = getDb();
+    const types = await db
+      .selectDistinct({ value: codexFeats.featType })
+      .from(codexFeats)
+      .orderBy(asc(codexFeats.featType));
+    return {
+      types: types.map((t) => t.value).filter((v): v is string => v != null),
+    };
+  }),
+
+  /** Full SRD feat record by slug. */
+  getFeat: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexFeats)
+        .where(eq(codexFeats.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
 });

@@ -15,6 +15,18 @@ export {
   type IngestCreaturesResult,
 } from "./ingest/open5e-creatures";
 export {
+  backgroundToRow,
+  ingestOpen5eBackgrounds,
+  type IngestBackgroundsOptions,
+  type IngestBackgroundsResult,
+} from "./ingest/open5e-backgrounds";
+export {
+  featToRow,
+  ingestOpen5eFeats,
+  type IngestFeatsOptions,
+  type IngestFeatsResult,
+} from "./ingest/open5e-feats";
+export {
   ingestOpen5eItems,
   itemToRow,
   OPEN5E_SRD_ITEMS_DOCUMENT_KEY,

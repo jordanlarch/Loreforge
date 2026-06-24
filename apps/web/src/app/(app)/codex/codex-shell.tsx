@@ -18,6 +18,7 @@ import { CodexComingSoon } from "./codex-coming-soon";
 import { FeatBrowser } from "./feat-browser";
 import { ItemBrowser } from "./item-browser";
 import { MonsterBrowser } from "./monster-browser";
+import { RulesBrowser } from "./rules-browser";
 import { SpeciesBrowser } from "./species-browser";
 
 export function CodexShell() {
@@ -48,6 +49,10 @@ export function CodexShell() {
 
   function selectSlug(slug: string | null) {
     pushParams({ slug });
+  }
+
+  function navigateToRef(cat: CodexCategory, slug: string) {
+    pushParams({ category: cat, slug });
   }
 
   return (
@@ -112,8 +117,15 @@ export function CodexShell() {
       {category === "Classes" && (
         <ClassBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
       )}
+      {category === "Rules" && (
+        <RulesBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
+      )}
       {category === "Backgrounds" && (
-        <BackgroundBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
+        <BackgroundBrowser
+          selectedSlug={selectedSlug}
+          onSelect={selectSlug}
+          onNavigateRef={navigateToRef}
+        />
       )}
       {category === "Feats" && (
         <FeatBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />

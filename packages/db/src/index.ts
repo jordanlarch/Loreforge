@@ -34,6 +34,14 @@ export {
   type IngestItemsResult,
 } from "./ingest/open5e-items";
 export {
+  ingestOpen5eRules,
+  open5eKeyToSlug,
+  ruleSectionToRow,
+  rulesetToChapterRow,
+  type IngestRulesOptions,
+  type IngestRulesResult,
+} from "./ingest/open5e-rules";
+export {
   seedCharacterOptions,
   SRD_CLASSES,
   SRD_SPECIES,

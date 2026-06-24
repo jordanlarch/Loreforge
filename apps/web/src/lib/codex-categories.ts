@@ -17,6 +17,7 @@ const LIVE: CodexCategory[] = [
   "Spells",
   "Species",
   "Classes",
+  "Rules",
   "Backgrounds",
   "Animals",
   "Monsters",
@@ -36,8 +37,6 @@ export function parseCodexCategory(value: string | null | undefined): CodexCateg
 }
 
 export const COMING_SOON_COPY: Partial<Record<CodexCategory, string>> = {
-  Rules:
-    "Core SRD rules chapters (combat, spellcasting, equipment) will land when the rules ingest pipeline is built.",
   Backgrounds:
     "SRD 2024 backgrounds from Open5e — ability scores, proficiencies, equipment, and origin feats.",
   Animals:

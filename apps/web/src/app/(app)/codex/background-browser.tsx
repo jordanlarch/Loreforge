@@ -3,15 +3,18 @@
 import { useState } from "react";
 
 import { trpc } from "@/lib/trpc/client";
+import type { CodexCategory } from "@/lib/codex-categories";
 
 import { BackgroundDetail } from "./background-detail";
 
 export function BackgroundBrowser({
   selectedSlug,
   onSelect,
+  onNavigateRef,
 }: {
   selectedSlug: string | null;
   onSelect: (slug: string | null) => void;
+  onNavigateRef?: (category: CodexCategory, slug: string) => void;
 }) {
   const [search, setSearch] = useState("");
 
@@ -70,7 +73,11 @@ export function BackgroundBrowser({
       )}
 
       {selectedSlug && (
-        <BackgroundDetail slug={selectedSlug} onClose={() => onSelect(null)} />
+        <BackgroundDetail
+          slug={selectedSlug}
+          onClose={() => onSelect(null)}
+          onNavigateRef={onNavigateRef}
+        />
       )}
     </>
   );

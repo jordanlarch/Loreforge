@@ -2,6 +2,7 @@
 
 import { SrdHint } from "@/components/srd-hint";
 import { CodexRefLink } from "@/components/codex-ref-link";
+import type { CodexCategory } from "@/lib/codex-categories";
 import {
   segmentBenefitDescription,
   type CodexLinkIndex,
@@ -11,12 +12,12 @@ export function BackgroundBenefitText({
   desc,
   benefitType,
   linkIndex,
-  onNavigate,
+  onNavigateRef,
 }: {
   desc: string;
   benefitType: string | null | undefined;
   linkIndex: CodexLinkIndex;
-  onNavigate?: () => void;
+  onNavigateRef?: (category: CodexCategory, slug: string) => void;
 }) {
   const segments = segmentBenefitDescription(desc, benefitType, linkIndex);
 
@@ -34,7 +35,7 @@ export function BackgroundBenefitText({
               slug={segment.slug}
               label={segment.text}
               preview={segment.preview}
-              onNavigate={onNavigate}
+              onNavigateRef={onNavigateRef}
             />
           );
         }

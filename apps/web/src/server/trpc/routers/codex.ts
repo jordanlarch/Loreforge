@@ -13,6 +13,8 @@ import {
   codexFeats,
   codexItems,
   codexMonsters,
+  codexRuleChapters,
+  codexRuleSections,
   codexSpecies,
   codexSpells,
   getDb,
@@ -491,6 +493,69 @@ export const codexRouter = createTRPCRouter({
         .select()
         .from(codexFeats)
         .where(eq(codexFeats.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** SRD rules chapters (rulesets), in document order. */
+  listRuleChapters: protectedProcedure.query(async () => {
+    const db = getDb();
+    return db
+      .select({
+        slug: codexRuleChapters.slug,
+        name: codexRuleChapters.name,
+        description: codexRuleChapters.description,
+      })
+      .from(codexRuleChapters)
+      .orderBy(asc(codexRuleChapters.sortIndex), asc(codexRuleChapters.name));
+  }),
+
+  /** Filterable list of SRD rule sections. */
+  listRuleSections: protectedProcedure
+    .input(
+      z
+        .object({
+          chapterSlug: z.string().trim().max(120).optional(),
+          search: z.string().trim().max(100).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = [
+        input?.chapterSlug
+          ? eq(codexRuleSections.chapterSlug, input.chapterSlug)
+          : undefined,
+        input?.search
+          ? ilike(codexRuleSections.name, `%${input.search}%`)
+          : undefined,
+      ].filter(Boolean);
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      return db
+        .select({
+          slug: codexRuleSections.slug,
+          name: codexRuleSections.name,
+          description: codexRuleSections.description,
+          chapterSlug: codexRuleSections.chapterSlug,
+        })
+        .from(codexRuleSections)
+        .where(where)
+        .orderBy(
+          asc(codexRuleSections.chapterSlug),
+          asc(codexRuleSections.sortIndex),
+          asc(codexRuleSections.name),
+        );
+    }),
+
+  /** Full SRD rule section by slug. */
+  getRuleSection: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexRuleSections)
+        .where(eq(codexRuleSections.slug, input.slug))
         .limit(1);
       return row ?? null;
     }),

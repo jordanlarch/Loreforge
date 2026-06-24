@@ -4,14 +4,17 @@ import { useEffect } from "react";
 
 import { BackgroundBenefitText } from "@/components/background-benefit-text";
 import { backgroundBenefits } from "@/lib/codex-background-feat-display";
+import type { CodexCategory } from "@/lib/codex-categories";
 import { trpc } from "@/lib/trpc/client";
 
 export function BackgroundDetail({
   slug,
   onClose,
+  onNavigateRef,
 }: {
   slug: string;
   onClose: () => void;
+  onNavigateRef?: (category: CodexCategory, slug: string) => void;
 }) {
   const background = trpc.codex.getBackground.useQuery({ slug });
   const linkIndex = trpc.codex.linkIndex.useQuery(undefined, {
@@ -87,7 +90,7 @@ export function BackgroundDetail({
                             desc={benefit.desc}
                             benefitType={benefit.type}
                             linkIndex={index}
-                            onNavigate={onClose}
+                            onNavigateRef={onNavigateRef}
                           />
                         ) : null}
                       </li>

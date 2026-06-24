@@ -7,28 +7,18 @@ import {
   buildCharacterSheet,
   MAX_CHARACTER_LEVEL,
   xpProgress,
-  type Ability,
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 
-import { SrdHint } from "@/components/srd-hint";
-
+import { AbilitiesPanel } from "./abilities-panel";
 import { EquipmentTab } from "./equipment-tab";
 import { LevelUpDialog } from "./level-up-dialog";
+import { SkillsPanel } from "./skills-panel";
 import { SpellsTab } from "./spells-tab";
 
 const TABS = ["Overview", "Equipment", "Spells", "Notes"] as const;
 type Tab = (typeof TABS)[number];
-
-const ABILITY_LABELS: Record<Ability, string> = {
-  str: "Strength",
-  dex: "Dexterity",
-  con: "Constitution",
-  int: "Intelligence",
-  wis: "Wisdom",
-  cha: "Charisma",
-};
 
 function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
@@ -74,7 +64,7 @@ export function CharacterSheetView({ id }: { id: string }) {
   const character = query.data;
   if (!character) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-10">
+      <div className="mx-auto max-w-6xl px-4 py-10">
         <Link
           href="/characters"
           className="text-sm text-lore-muted hover:text-lore-text"
@@ -93,7 +83,7 @@ export function CharacterSheetView({ id }: { id: string }) {
   const atCap = sheet.level >= MAX_CHARACTER_LEVEL;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-10">
       <Link
         href="/characters"
         className="text-sm text-lore-muted hover:text-lore-text"
@@ -220,91 +210,37 @@ export function CharacterSheetView({ id }: { id: string }) {
 
       {tab === "Overview" && (
         <>
-      <section className="mt-8">
-        <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-          Ability Scores
-        </h2>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          {(Object.keys(ABILITY_LABELS) as Ability[]).map((ability) => (
-            <div
-              key={ability}
-              className="rounded-lg border border-lore-border bg-lore-surface p-4 text-center"
-            >
-              <div className="text-xs uppercase tracking-wide text-lore-muted">
-                <SrdHint kind="ability" ability={ability} label={ability.toUpperCase()} />
-              </div>
-              <div className="mt-1 font-display text-3xl">
-                {signed(sheet.abilityModifiers[ability])}
-              </div>
-              <div className="mt-1 flex justify-center text-sm text-lore-muted">
-                <EditableNumber
-                  value={character.abilityScores[ability]}
-                  ariaLabel={`${ABILITY_LABELS[ability]} score`}
-                  onCommit={(score) =>
-                    update.mutate({
-                      id,
-                      abilityScores: {
-                        ...character.abilityScores,
-                        [ability]: score,
-                      },
-                    })
-                  }
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="mt-8 grid gap-8 sm:grid-cols-2">
-        <section>
-          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Saving Throws
-          </h2>
-          <ul className="space-y-1.5">
-            {sheet.savingThrows.map((save) => (
-              <li
-                key={save.ability}
-                className="flex items-center justify-between rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className={`inline-block h-2 w-2 rounded-full ${
-                      save.proficient ? "bg-lore-accent" : "bg-lore-border"
-                    }`}
-                    aria-hidden
-                  />
-                  <SrdHint
-                    kind="ability"
-                    ability={save.ability}
-                    label={ABILITY_LABELS[save.ability]}
-                  />
-                </span>
-                <span className="font-mono">{signed(save.modifier)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Skill Proficiencies
-          </h2>
-          {sheet.skillProficiencies.length === 0 ? (
-            <p className="text-sm text-lore-muted">None.</p>
-          ) : (
-            <ul className="flex flex-wrap gap-2">
-              {sheet.skillProficiencies.map((skill) => (
-                <li
-                  key={skill}
-                  className="rounded-full border border-lore-border bg-lore-surface px-3 py-1 text-sm"
-                >
-                  <SrdHint kind="skill" skill={skill} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_280px]">
+        <AbilitiesPanel
+          sheet={sheet}
+          abilityScores={character.abilityScores}
+          onScoreChange={(ability, score) =>
+            update.mutate({
+              id,
+              abilityScores: {
+                ...character.abilityScores,
+                [ability]: score,
+              },
+            })
+          }
+          onToggleSaveProficiency={(ability) => {
+            const saves = character.saveProficiencies;
+            const next = saves.includes(ability)
+              ? saves.filter((a) => a !== ability)
+              : [...saves, ability];
+            update.mutate({ id, saveProficiencies: next });
+          }}
+        />
+        <SkillsPanel
+          sheet={sheet}
+          onToggleSkillProficiency={(skill) => {
+            const skills = character.skillProficiencies;
+            const next = skills.includes(skill)
+              ? skills.filter((s) => s !== skill)
+              : [...skills, skill];
+            update.mutate({ id, skillProficiencies: next });
+          }}
+        />
       </div>
 
       <section className="mt-8">

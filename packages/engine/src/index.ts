@@ -307,6 +307,7 @@ export type {
   CharacterSheetInput,
   FixtureCharacter,
   SavingThrow,
+  SkillRow,
 } from "./fixtures/party";
 export {
   buildCompanionCommands,

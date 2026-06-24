@@ -133,9 +133,9 @@ no Smithy copy loop, deep links, right pane, or global search.
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| CODEX-1 | Non-spell category browsers (Rules, Species, Backgrounds, Classes, Animals, Monsters, Items, Feats, Advanced) | P3+ / ongoing | doc-only | Missing | Category pills are decorative; `listSpecies`/`listClasses` exist but wizard-only. **Spell detail** now shows engine-normalized stats + mechanics via `open5eRawToSpellDefinition` (shared panel with Smithy). |
+| CODEX-1 | Non-spell category browsers (Rules, Species, Backgrounds, Classes, Animals, Monsters, Items, Feats, Advanced) | P3+ / ongoing | doc-only | Partial | **Live:** Spells (full browser + normalized detail), **Species** + **Classes** (searchable grids + detail modals, same curated SRD data as Creation Wizard). Category nav + `?category=&slug=` URL sync (#199). **Still deferred:** Rules, Backgrounds, Animals, Monsters, Items, Feats, Advanced — honest coming-soon panels until ingest lands. |
 | CODEX-2 | "Copy to The Smithy" from spell detail (+ bulk multi-select copy) | P2 (deepen) | doc-only | Partial | **Spell copy shipped:** Codex detail "Copy to The Smithy" + Smithy picker call `smithy.copySpellFromCodex` (Open5e raw → `SpellDefinition`, idempotent per slug). **Still deferred:** bulk multi-select, non-spell categories. |
-| CODEX-3 | Deep links / bookmarkable detail (`/codex/spells/[slug]`, `?search=`, category routes) | P3+ | doc-only | Missing | Detail is client state only. |
+| CODEX-3 | Deep links / bookmarkable detail (`/codex/spells/[slug]`, `?search=`, category routes) | P3+ | doc-only | Partial | **Partial (#199):** query-param deep links `?category=Species&slug=hill-dwarf` (and Spells/Classes). **Still deferred:** path-based routes (`/codex/spells/[slug]`), search param on list. |
 | CODEX-4 | Right pane (Recently Viewed, Quick Copy suggestions, Your Characters) + footer (SRD attribution, export) | P3+ | doc-only | Missing | — |
 | CODEX-5 | Richer spell filters (ritual, concentration, class-list) + List/Table view toggle + sorting | P3+ | doc-only | Partial | Level + school only today. |
 | CODEX-6 | Detail action buttons (Use in Character, Bookmark, Share, View SRD Source) | P3+ | doc-only | Missing | — |

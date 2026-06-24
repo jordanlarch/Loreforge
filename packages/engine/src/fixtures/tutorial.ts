@@ -186,6 +186,24 @@ export type TutorialDialogueBeat = {
 /** Where Mira starts on the Hollow's Edge road map. */
 const HOLLOWS_EDGE_START: GridPosition = { x: 6, y: 8 };
 
+/**
+ * Row on the Hollow's Edge map (north = lower y) that counts as reaching the
+ * village outskirts — triggers Scene 2 when the PC drags there (Scene 1 exit).
+ */
+export const TUTORIAL_SCENE1_VILLAGE_ROW = 5;
+
+/** Whether the lead PC has moved far enough toward the village to leave Scene 1. */
+export function tutorialScene1VillageReached(
+  sceneId: string | undefined,
+  position: GridPosition | undefined,
+): boolean {
+  return (
+    sceneId === TUTORIAL_SCENE_HOLLOWS_EDGE &&
+    position !== undefined &&
+    position.y <= TUTORIAL_SCENE1_VILLAGE_ROW
+  );
+}
+
 /** A few birches/cairns flanking the road, for atmosphere (block move + LoS). */
 const HOLLOWS_EDGE_WALLS: GridPosition[] = [
   { x: 2, y: 2 },

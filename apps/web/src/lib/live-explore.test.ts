@@ -70,7 +70,7 @@ describe("buildExploreModel", () => {
     expect(model!.sceneDescription).toBe("A rain-wet road.");
   });
 
-  it("renders placed entities as neutral, static tokens", () => {
+  it("makes the party PC draggable with a movement-radius highlight", () => {
     const model = buildExploreModel(world([entity({ id: "mira" })]));
     expect(model!.tokens).toHaveLength(1);
     const token = model!.tokens[0]!;
@@ -78,8 +78,10 @@ describe("buildExploreModel", () => {
     expect(token.position).toEqual({ x: 1, y: 2 });
     expect(token.hostile).toBe(false);
     expect(token.isActive).toBe(false);
-    expect(token.draggable).toBe(false);
+    expect(token.draggable).toBe(true);
     expect(token.interactive).toBe(false);
+    expect(model!.pcEntityId).toBe("mira");
+    expect(model!.reachable.length).toBeGreaterThan(0);
   });
 
   it("marks npc and companion tokens as tappable in exploration", () => {
@@ -91,7 +93,9 @@ describe("buildExploreModel", () => {
       ]),
     );
     const byId = Object.fromEntries(model!.tokens.map((t) => [t.id, t]));
+    expect(byId.mira?.draggable).toBe(true);
     expect(byId.mira?.interactive).toBe(false);
+    expect(byId["npc:brennar"]?.draggable).toBe(false);
     expect(byId["npc:brennar"]?.interactive).toBe(true);
     expect(byId["npc:tut-barnaby"]?.interactive).toBe(true);
   });

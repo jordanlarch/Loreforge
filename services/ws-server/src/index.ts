@@ -42,6 +42,7 @@ import {
   tutorialRelightPath,
   tutorialScene,
   TUTORIAL_SHADE_ID,
+  tutorialScene1VillageReached,
   TUTORIAL_WRAP,
   type TutorialRelightPath,
   type WorldState,
@@ -1425,6 +1426,7 @@ const server = new Hocuspocus({
           await appendAndPersist(document, documentName, [
             gmEntry(TUTORIAL_ATTACK_ALLY_DEFLECT, chatDeps),
           ]);
+          clearClientBusy(document);
           return;
         }
       }
@@ -1450,6 +1452,24 @@ const server = new Hocuspocus({
         // net, victory→advance) instead of the generic enemy loop.
         if (room instanceof TutorialRoom) {
           await runTutorialCombat(room, document, documentName, getNarrationClient());
+          // Scene 1 exit: dragging toward the village auto-advances like Continue.
+          if (message.action.type === "move_entity") {
+            const afterMove = await room.getState();
+            const moved = afterMove.entities[message.action.entity];
+            if (
+              moved?.position &&
+              tutorialScene1VillageReached(afterMove.currentSceneId, moved.position)
+            ) {
+              await handleTutorial(
+                room,
+                document,
+                documentName,
+                "advance",
+                undefined,
+                undefined,
+              );
+            }
+          }
         } else {
           await runEnemyReactions(room, document, documentName, getNarrationClient());
           await runEnemyTurns(room, document, documentName, getNarrationClient());
@@ -1538,6 +1558,9 @@ const server = new Hocuspocus({
       tutorialSignal(document, "reset");
     }
     writeProjection(document, await room.getState());
+    // Reset may rewrite the same Scene 1 projection (idempotent write) — still
+    // release the client's busy latch (#bug2).
+    clearClientBusy(document);
     // A fresh encounter may open on an enemy's initiative.
     await runEnemyTurns(room, document, documentName, getNarrationClient());
   },

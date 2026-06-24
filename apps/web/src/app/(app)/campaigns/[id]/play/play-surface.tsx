@@ -502,8 +502,8 @@ function LiveBattle({
                   rows={explore.rows}
                   walls={explore.walls}
                   tokens={explore.tokens}
-                  reachable={[]}
-                  onMoveToken={() => {}}
+                  reachable={explore.reachable}
+                  onMoveToken={(id, to) => session.moveToken(id, to)}
                   onSelectToken={
                     onEntityClick ? onExploreTokenSelect : undefined
                   }
@@ -1058,6 +1058,9 @@ export function TutorialPlaySurface({
     () => new Set(),
   );
   const [advancing, setAdvancing] = useState(false);
+  // Ignore check rows from chat before the last reset (replay clears chat, but
+  // the baseline guards against a stale latch if sync races the truncate).
+  const checkChatBaseline = useRef(0);
 
   const replay = trpc.tutorial.replay.useMutation({
     onSuccess: () => {
@@ -1068,6 +1071,8 @@ export function TutorialPlaySurface({
 
   // Replay-from-start (#178): once the live channel syncs, truncate the engine log.
   const replayPending = useRef(replayFromStart);
+  const resetSession = useRef(session.reset);
+  resetSession.current = session.reset;
 
   useEffect(() => {
     if (replayFromStart) {
@@ -1118,11 +1123,6 @@ export function TutorialPlaySurface({
   const hookActive = hookStatus === "active";
   const hookOffered = lilySpoken || hookStatus === "active";
 
-  const checkUsed = useMemo(
-    () => tutorialCheckDoneInChat(session.chat, sceneId),
-    [session.chat, sceneId],
-  );
-
   // Release the advancing latch once the scene changes or the server clears busy
   // without advancing (duplicate click / stale one-shot after refresh, #bug2).
   useEffect(() => {
@@ -1139,9 +1139,10 @@ export function TutorialPlaySurface({
     if (!replayPending.current || session.isLoading) return;
     replayPending.current = false;
     sessionStorage.removeItem(TUTORIAL_REPLAY_KEY);
-    session.reset();
+    checkChatBaseline.current = session.chat.length;
+    resetSession.current();
     setGraduated(false);
-  }, [session.isLoading, session]);
+  }, [session.isLoading, session.chat.length]);
 
   useEffect(() => {
     setHintDismissals(0);
@@ -1206,6 +1207,7 @@ export function TutorialPlaySurface({
   const resetNonce = session.resetNonce;
   useEffect(() => {
     if (resetNonce === 0) return;
+    checkChatBaseline.current = session.chat.length;
     setSpokenTopics(new Set());
     setLilySpoken(false);
     setHelpUsed(false);
@@ -1216,7 +1218,16 @@ export function TutorialPlaySurface({
     sessionStorage.removeItem(TUTORIAL_REPLAY_KEY);
     void utils.tutorial.world.invalidate();
     void utils.tutorial.inventory.invalidate();
-  }, [resetNonce, utils]);
+  }, [resetNonce, utils, session.chat.length]);
+
+  const checkUsed = useMemo(
+    () =>
+      tutorialCheckDoneInChat(
+        session.chat.slice(checkChatBaseline.current),
+        sceneId,
+      ),
+    [session.chat, sceneId, resetNonce],
+  );
 
   // Drive the action-triggered coachmarks off live state.
   const firedActions = useMemo(() => {
@@ -1256,7 +1267,7 @@ export function TutorialPlaySurface({
   const leveledUp = signals.includes("leveled-up");
 
   function runCheck(help = false) {
-    if (checkUsed || session.isBusy) return;
+    if (checkUsed || advancing) return;
     bumpActivity();
     if (help) setHelpUsed(true);
     session.tutorialCheck(help);
@@ -1277,7 +1288,7 @@ export function TutorialPlaySurface({
   // Advance with an in-flight latch only while the server is processing (#bug2).
   function advance() {
     bumpActivity();
-    if (advancing || session.isBusy || !sceneId) return;
+    if (advancing || !sceneId) return;
     setAdvancing(true);
     session.tutorialAdvance();
   }
@@ -1368,10 +1379,14 @@ export function TutorialPlaySurface({
             <button
               type="button"
               onClick={() => runCheck()}
-              disabled={session.isBusy || checkUsed}
+              disabled={checkUsed}
               className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
             >
-              {checkUsed ? "Looked for tracks ✓" : "Look for tracks"}
+              {session.isBusy && !checkUsed
+                ? "Looking…"
+                : checkUsed
+                  ? "Looked for tracks ✓"
+                  : "Look for tracks"}
             </button>
           )}
           {inScene2 && (
@@ -1387,10 +1402,10 @@ export function TutorialPlaySurface({
           <button
             type="button"
             onClick={advance}
-            disabled={session.isBusy || advancing}
+            disabled={advancing}
             className="rounded border border-lore-accent bg-lore-bg px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
           >
-            {advancing && session.isBusy ? "Continuing…" : "Continue ▶"}
+            {advancing ? "Continuing…" : "Continue ▶"}
           </button>
         </div>
       </div>
@@ -1445,7 +1460,7 @@ export function TutorialPlaySurface({
                 <button
                   type="button"
                   onClick={() => pickLock(false)}
-                  disabled={session.isBusy || checkUsed}
+                  disabled={checkUsed}
                   className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
                 >
                   {checkUsed ? "Lock picked ✓" : "Pick the lock"}
@@ -1454,7 +1469,7 @@ export function TutorialPlaySurface({
                   type="button"
                   data-coachmark="tut-advantage"
                   onClick={() => pickLock(true)}
-                  disabled={session.isBusy || checkUsed || helpUsed}
+                  disabled={checkUsed || helpUsed}
                   className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
                 >
                   {helpUsed

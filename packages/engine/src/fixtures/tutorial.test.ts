@@ -29,6 +29,7 @@ import {
   TUTORIAL_SCENE_CROOKED_LANE,
   TUTORIAL_SCENE_HEARTH,
   TUTORIAL_SCENE_HOLLOWS_EDGE,
+  TUTORIAL_SCENE1_VILLAGE_ROW,
   TUTORIAL_SCENE_SPIRE_LOWER,
   TUTORIAL_SCENE_SPIRE_STAIR,
   TUTORIAL_SCENE_SPIRE_UPPER,
@@ -39,6 +40,7 @@ import {
   isTutorialFriendlyFireTarget,
   tutorialChatFallback,
   tutorialHintForScene,
+  tutorialScene1VillageReached,
   TUTORIAL_SCENE_HINTS,
 } from "./tutorial";
 
@@ -452,6 +454,24 @@ describe("Tutorial hints + fail-forward (#178)", () => {
   it("classifies leave intent for the village soft rail", () => {
     expect(classifyTutorialLeaveIntent("I turn back for the road")).toBe(true);
     expect(classifyTutorialLeaveIntent("I look for tracks")).toBe(false);
+  });
+
+  it("detects when Scene 1 PC reaches the village outskirts row", () => {
+    expect(
+      tutorialScene1VillageReached(TUTORIAL_SCENE_HOLLOWS_EDGE, {
+        x: 6,
+        y: TUTORIAL_SCENE1_VILLAGE_ROW,
+      }),
+    ).toBe(true);
+    expect(
+      tutorialScene1VillageReached(TUTORIAL_SCENE_HOLLOWS_EDGE, {
+        x: 6,
+        y: TUTORIAL_SCENE1_VILLAGE_ROW + 1,
+      }),
+    ).toBe(false);
+    expect(
+      tutorialScene1VillageReached(TUTORIAL_SCENE_HEARTH, { x: 1, y: 1 }),
+    ).toBe(false);
   });
 
   it("classifies Scene 6 relight intent from free-text (#178)", () => {

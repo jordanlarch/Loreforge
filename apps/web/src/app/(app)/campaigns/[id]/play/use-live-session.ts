@@ -133,6 +133,9 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
           setState(readBattleDoc(doc));
           setChat(doc.getArray<ChatEntry>(CHAT_ROOT).toArray());
           setStatus("synced");
+          // Initial sync (or reconnect) should never leave buttons latched from a
+          // prior command that finished while the tab was away (#bug2).
+          setBusy(false);
         },
         onStateless: ({ payload }) => {
           try {
@@ -155,6 +158,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
             } else if (message?.t === "tutorial" && message.event === "reset") {
               // Full reset (#bug3): drop accumulated combat signals and bump the
               // reset nonce so the surface refetches + clears its local guards.
+              setBusy(false);
               setTutorialSignals([]);
               setResetNonce((n) => n + 1);
             } else if (message?.t === "tutorial" && message.event) {

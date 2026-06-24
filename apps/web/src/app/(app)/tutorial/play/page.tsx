@@ -6,12 +6,15 @@
  * it. If the user hasn't started yet, it points them back to the splash.
  */
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { TutorialPlaySurface } from "@/app/(app)/campaigns/[id]/play/play-surface";
 import { trpc } from "@/lib/trpc/client";
 
 export default function TutorialPlayPage() {
   const progress = trpc.tutorial.get.useQuery();
+  const searchParams = useSearchParams();
+  const replayFromStart = searchParams.get("replay") === "1";
 
   if (progress.isLoading) {
     return (
@@ -43,5 +46,10 @@ export default function TutorialPlayPage() {
     );
   }
 
-  return <TutorialPlaySurface campaignId={campaignId} />;
+  return (
+    <TutorialPlaySurface
+      campaignId={campaignId}
+      replayFromStart={replayFromStart}
+    />
+  );
 }

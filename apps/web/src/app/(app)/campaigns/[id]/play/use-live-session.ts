@@ -298,6 +298,8 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     tutorialCompanion: () => send({ t: "tutorial", action: "companion" }),
     /** Resume the paused Scene 5 loop after a passed/timed-out OA reaction. */
     tutorialResume: () => send({ t: "tutorial", action: "resume" }),
+    /** Gentle auto-progress after 3 dismissed idle hints (#178). */
+    tutorialAutoHint: () => send({ t: "tutorial", action: "auto-hint" }),
     moveToken: (id: string, to: Cell) =>
       send({ t: "cmd", action: { type: "move_entity", entity: id, to } }),
     endTurn: () => send({ t: "cmd", action: { type: "end_turn" } }),

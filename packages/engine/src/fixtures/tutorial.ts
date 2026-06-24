@@ -938,3 +938,124 @@ export function buildCompanionCommands(
     },
   ];
 }
+
+/* ------------------------------------------------------------------------- *
+ *  Scene hints + fail-forward rails (TUT-1, #178, D3/D6)
+ * ------------------------------------------------------------------------- */
+
+/** Per-scene idle hint copy (scripted, LLM-free). */
+export type TutorialSceneHint = {
+  /** Suggested actions shown in the "Stuck?" chip. */
+  suggestions: readonly string[];
+  /** GM narration posted after 3 dismissed hints (gentle auto-progress). */
+  autoProgressNarration: string;
+};
+
+/** Idle-hint data keyed by scene id (`docs/onboarding/tutorial-adventure.md` §7). */
+export const TUTORIAL_SCENE_HINTS: Readonly<
+  Record<string, TutorialSceneHint>
+> = {
+  [TUTORIAL_SCENE_HOLLOWS_EDGE]: {
+    suggestions: ["Click Continue to follow the road into the village."],
+    autoProgressNarration:
+      "The warm glow of tavern windows draws you down the path toward Last Light Hollow.",
+  },
+  [TUTORIAL_SCENE_HEARTH]: {
+    suggestions: [
+      "Talk to Barnaby at the bar, or speak with Lily in the corner.",
+      "Accept the hook once Lily offers it.",
+    ],
+    autoProgressNarration:
+      "As you turn to go, Lily calls after you, voice cracking — \"Wait. Please.\"",
+  },
+  [TUTORIAL_SCENE_CROOKED_LANE]: {
+    suggestions: [
+      "Visit Toric's shop for a gift, or open your inventory drawer.",
+      "Click Continue when you're ready to head for the spire.",
+    ],
+    autoProgressNarration:
+      "Old Brennar hefts his pack. \"The spire won't wait forever, Mira.\"",
+  },
+  [TUTORIAL_SCENE_SPIRE_LOWER]: {
+    suggestions: [
+      "Search the chest — Brennar can Help on the lock for advantage.",
+      "Click Continue once you've claimed the loot.",
+    ],
+    autoProgressNarration:
+      "Brennar's lantern sweeps the stairwell. \"Up — before the dark notices us.\"",
+  },
+  [TUTORIAL_SCENE_SPIRE_STAIR]: {
+    suggestions: [
+      "Attack the Hungering Shade when it's your turn.",
+      "Watch for the Opportunity Attack prompt when it flees.",
+    ],
+    autoProgressNarration:
+      "The Shade hisses — but Brennar steadies your bow. \"Now, Mira. Finish it.\"",
+  },
+  [TUTORIAL_SCENE_SPIRE_UPPER]: {
+    suggestions: [
+      "Choose a way to relight the lantern: Oil, flint, prayer, or improv.",
+    ],
+    autoProgressNarration:
+      "The cold pedestal waits. Brennar murmurs, \"However you do it — do it now.\"",
+  },
+};
+
+/** Lookup scripted idle hints for a scene, or undefined when none apply. */
+export function tutorialHintForScene(
+  sceneId: string | undefined,
+): TutorialSceneHint | undefined {
+  if (!sceneId) return undefined;
+  return TUTORIAL_SCENE_HINTS[sceneId];
+}
+
+/** GM copy when the player attacks a friendly NPC (fail-forward, §8). */
+export const TUTORIAL_ATTACK_ALLY_DEFLECT =
+  "I'm not your enemy, friend. Put it down — save it for what's waiting in the dark.";
+
+/** GM copy when the player tries to leave mid-tutorial (soft rail, §8). */
+export const TUTORIAL_LEAVE_VILLAGE_RAIL =
+  "A weathered voice calls after you from the inn steps. \"You're on the lantern road now, " +
+  "ranger — the village needs someone who won't turn back at the first shadow.\"";
+
+/** Whether free-text looks like the player is trying to bail on the tutorial. */
+export function classifyTutorialLeaveIntent(text: string): boolean {
+  const t = text.toLowerCase();
+  return /\b(leave|turn back|head back|go back|ride out|go home|return home)\b/.test(
+    t,
+  );
+}
+
+/**
+ * True when `target` is a friendly the player must not harm (companion / NPC).
+ * Monsters (the Shade) are never friendly fire.
+ */
+export function isTutorialFriendlyFireTarget(
+  target: { id: string; kind: string },
+  attackerId: string,
+): boolean {
+  if (target.id === attackerId) return false;
+  if (target.kind === "monster") return false;
+  if (target.id === TUTORIAL_COMPANION.id) return true;
+  // Any other character entity in the tutorial is an NPC ally.
+  return target.kind === "character";
+}
+
+/** Canned GM fallback when the LLM is unavailable or fails (air-gapped-safe). */
+export function tutorialChatFallback(
+  sceneId: string | undefined,
+  text: string,
+): string {
+  if (sceneId === TUTORIAL_SCENE_HEARTH) {
+    const topic = classifyScene2Topic(text);
+    const beat = TUTORIAL_SCENE2_BEATS.find((b) => b.topic === topic);
+    if (beat) return beat.text;
+  }
+  if (sceneId === TUTORIAL_SCENE_HOLLOWS_EDGE && classifyTutorialLeaveIntent(text)) {
+    return TUTORIAL_LEAVE_VILLAGE_RAIL;
+  }
+  return (
+    "The lantern's glow holds steady. When you're ready, use the scene controls " +
+    "or Continue to move the story forward."
+  );
+}

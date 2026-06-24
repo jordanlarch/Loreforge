@@ -41,6 +41,7 @@ import {
   tutorialChatFallback,
   tutorialHintForScene,
   tutorialScene1VillageReached,
+  tutorialSceneRequiresCompanion,
   TUTORIAL_SCENE_HINTS,
 } from "./tutorial";
 
@@ -535,5 +536,11 @@ describe("Tutorial hints + fail-forward (#178)", () => {
     expect(tutorialChatFallback(TUTORIAL_SCENE_HEARTH, "I'll talk to Barnaby")).toMatch(
       /Barnaby/i,
     );
+  });
+
+  it("requires the companion from Crooked Lane onward (fail-forward)", () => {
+    expect(tutorialSceneRequiresCompanion(TUTORIAL_SCENE_HEARTH)).toBe(false);
+    expect(tutorialSceneRequiresCompanion(TUTORIAL_SCENE_CROOKED_LANE)).toBe(true);
+    expect(tutorialSceneRequiresCompanion(TUTORIAL_SCENE_SPIRE_LOWER)).toBe(true);
   });
 });

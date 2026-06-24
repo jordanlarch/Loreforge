@@ -223,6 +223,58 @@ const TUTORIAL_BRENNAR = STARTER_BRENNAR;
 
 const TUTORIAL_CAMPAIGN_NAME = "The Lantern's Last Flicker";
 
+/** Activate Old Brennar's party membership row (idempotent upsert). */
+async function activateTutorialCompanionRow(
+  ownerId: string,
+  campaignId: string,
+): Promise<void> {
+  const db = getDb();
+  const activated = await db
+    .update(campaignCharacters)
+    .set({ status: "active" })
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.ownerId, ownerId),
+        eq(campaignCharacters.role, "companion"),
+      ),
+    )
+    .returning({ id: campaignCharacters.id });
+  if (activated.length > 0) return;
+
+  const brennarId =
+    (await findOwnedCharacter(ownerId, STARTER_BRENNAR.name)) ??
+    (
+      await db
+        .insert(characters)
+        .values({
+          ...TUTORIAL_BRENNAR,
+          ownerId,
+          libraryVisibility: "campaign_only",
+        })
+        .returning({ id: characters.id })
+    )[0]?.id;
+  if (!brennarId) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Could not seed Old Brennar.",
+    });
+  }
+  await db
+    .insert(campaignCharacters)
+    .values({
+      campaignId,
+      characterId: brennarId,
+      ownerId,
+      role: "companion",
+      status: "active",
+    })
+    .onConflictDoUpdate({
+      target: [campaignCharacters.campaignId, campaignCharacters.characterId],
+      set: { status: "active", role: "companion" },
+    });
+}
+
 export const tutorialRouter = createTRPCRouter({
   /** The current user's tutorial run, or null if they haven't started. */
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -410,14 +462,13 @@ export const tutorialRouter = createTRPCRouter({
       .returning();
     // First Steps (TUT-1, §10): accepting the first hook unlocks the bronze badge.
     await unlockAchievement(ctx.user.id, TUTORIAL_ACHIEVEMENT_FIRST_STEPS);
+    await activateTutorialCompanionRow(ctx.user.id, campaignId);
     return row ?? null;
   }),
 
   /**
    * Activate Old Brennar's party membership (the DB half of "companion joins",
-   * D4; the engine entity is created by the `TutorialRoom`). Idempotent: flips
-   * the seeded "reserve" companion row to "active", or creates the row when an
-   * older campaign seed is missing it.
+   * D4; the engine entity is created by the `TutorialRoom`). Idempotent.
    */
   companionJoin: protectedProcedure.mutation(async ({ ctx }) => {
     const campaignId = await tutorialCampaignId(ctx.user.id);
@@ -427,54 +478,7 @@ export const tutorialRouter = createTRPCRouter({
         message: "No tutorial in progress.",
       });
     }
-    const db = getDb();
-    const activated = await db
-      .update(campaignCharacters)
-      .set({ status: "active" })
-      .where(
-        and(
-          eq(campaignCharacters.campaignId, campaignId),
-          eq(campaignCharacters.ownerId, ctx.user.id),
-          eq(campaignCharacters.role, "companion"),
-        ),
-      )
-      .returning({ id: campaignCharacters.id });
-    if (activated.length > 0) return { ok: true };
-
-    const brennarId =
-      (await findOwnedCharacter(ctx.user.id, STARTER_BRENNAR.name)) ??
-      (
-        await db
-          .insert(characters)
-          .values({
-            ...TUTORIAL_BRENNAR,
-            ownerId: ctx.user.id,
-            libraryVisibility: "campaign_only",
-          })
-          .returning({ id: characters.id })
-      )[0]?.id;
-    if (!brennarId) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Could not seed Old Brennar.",
-      });
-    }
-    await db
-      .insert(campaignCharacters)
-      .values({
-        campaignId,
-        characterId: brennarId,
-        ownerId: ctx.user.id,
-        role: "companion",
-        status: "active",
-      })
-      .onConflictDoUpdate({
-        target: [
-          campaignCharacters.campaignId,
-          campaignCharacters.characterId,
-        ],
-        set: { status: "active", role: "companion" },
-      });
+    await activateTutorialCompanionRow(ctx.user.id, campaignId);
     return { ok: true };
   }),
 

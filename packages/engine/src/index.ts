@@ -330,6 +330,7 @@ export {
   buildTutorialSceneRepairCommands,
   resolveTutorialLeadEntityId,
   tutorialScenePlacement,
+  tutorialSceneRequiresCompanion,
   TUTORIAL_COMPANION,
   TUTORIAL_FALLBACK_PARTY,
   TUTORIAL_FIRST_SCENE_ID,

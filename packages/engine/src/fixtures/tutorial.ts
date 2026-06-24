@@ -37,6 +37,19 @@ export const TUTORIAL_SCENE_SPIRE_LOWER = "scene:tut-spire-lower";
 export const TUTORIAL_SCENE_SPIRE_STAIR = "scene:tut-spire-stair";
 export const TUTORIAL_SCENE_SPIRE_UPPER = "scene:tut-spire-upper";
 
+/** Scenes where Old Brennar canonically travels with the party (post-inn). */
+const TUTORIAL_SCENES_WITH_COMPANION = new Set<string>([
+  TUTORIAL_SCENE_CROOKED_LANE,
+  TUTORIAL_SCENE_SPIRE_LOWER,
+  TUTORIAL_SCENE_SPIRE_STAIR,
+  TUTORIAL_SCENE_SPIRE_UPPER,
+]);
+
+/** True when the script expects Brennar to be present (fail-forward repair). */
+export function tutorialSceneRequiresCompanion(sceneId: string): boolean {
+  return TUTORIAL_SCENES_WITH_COMPANION.has(sceneId);
+}
+
 /** A scripted loot item granted on a successful check (D4). Plain data so both
  * the engine fixture and the DB grant (ws-server) share one definition; the
  * grant maps it onto a character `equipment` row. */

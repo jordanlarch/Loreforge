@@ -50,7 +50,7 @@ import {
   type LiveRoom,
   type PartyLoader,
 } from "./room.js";
-import { tutorialCompanionShouldBeActive } from "./db.js";
+import { tutorialCompanionShouldBeActive, activateTutorialCompanion } from "./db.js";
 
 /** The outcome of a scripted scene advance: the entered scene + its narration. */
 export type AdvanceResult = {
@@ -126,7 +126,7 @@ export class TutorialRoom implements LiveRoom {
     const party = await this.party();
     const companionActive =
       opts?.forceCompanion ??
-      (await tutorialCompanionShouldBeActive(this.campaignId));
+      (await tutorialCompanionShouldBeActive(this.campaignId, sceneId));
     for (const command of buildTutorialSceneRepairCommands(
       sceneId,
       party,
@@ -135,6 +135,25 @@ export class TutorialRoom implements LiveRoom {
     )) {
       await this.engine.execute(this.campaignId, command);
     }
+  }
+
+  /**
+   * Ensure Old Brennar exists in the engine when the script/DB says he should
+   * (hook accepted, post-inn scenes, or explicit Help action).
+   */
+  async ensureCompanionPresent(force = false): Promise<boolean> {
+    const state = await this.engine.getState(this.campaignId);
+    const sceneId = state.currentSceneId;
+    if (!sceneId) return false;
+    const should =
+      force ||
+      (await tutorialCompanionShouldBeActive(this.campaignId, sceneId));
+    if (!should) return false;
+    const joined = await this.summonCompanion();
+    if (joined) {
+      await activateTutorialCompanion(this.campaignId);
+    }
+    return joined !== null;
   }
 
   async apply(action: BattleAction): Promise<ApplyResult> {
@@ -257,6 +276,7 @@ export class TutorialRoom implements LiveRoom {
       await this.engine.execute(this.campaignId, command);
     }
     await this.repairSceneTokens();
+    await this.ensureCompanionPresent();
     // Combat handoff (D2): arm an encounter from whoever is actually in the new
     // scene (party-side characters + the scripted foes), then roll initiative.
     if (next.combat) {

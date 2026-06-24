@@ -30,6 +30,7 @@ import {
   TUTORIAL_SCENE_SPIRE_UPPER,
   tutorialHintForScene,
   tutorialScene,
+  tutorialSceneRequiresCompanion,
   type EntityState,
   type WorldState,
 } from "@app/engine";
@@ -86,6 +87,7 @@ import { mergeChatEntries } from "@/lib/scene-transition-chat";
 import type { ChatEntry } from "@/lib/live-chat";
 import { TUTORIAL_SHOP } from "@/lib/tutorial-shop";
 import { TUTORIAL_TAVERN } from "@/lib/tutorial-tavern";
+import { tutorialLilyHookOfferedInChat } from "@/lib/tutorial-hook";
 
 type ViewModel = {
   cols: number;
@@ -1174,14 +1176,33 @@ export function TutorialPlaySurface({
 
   const hookStatus = world.data?.hookStatus ?? null;
   const companionJoined = world.data?.companionJoined ?? false;
+  const signals = session.tutorialSignals;
   const sceneId = session.state?.currentSceneId;
   const inScene1 = sceneId === TUTORIAL_SCENE_HOLLOWS_EDGE;
   const inScene2 = sceneId === TUTORIAL_SCENE_HEARTH;
   const inScene3 = sceneId === TUTORIAL_SCENE_CROOKED_LANE;
   const inScene4 = sceneId === TUTORIAL_SCENE_SPIRE_LOWER;
   const inScene6 = sceneId === TUTORIAL_SCENE_SPIRE_UPPER;
-  const hookActive = hookStatus === "active";
-  const hookOffered = lilySpoken || hookStatus === "active";
+  const hookActive = hookStatus === "active" || hookStatus === "resolved";
+  const lilyHookInChat = useMemo(
+    () =>
+      tutorialLilyHookOfferedInChat(
+        session.chat.slice(checkChatBaseline.current),
+      ),
+    [session.chat, session.resetNonce],
+  );
+  const hookOffered =
+    lilySpoken ||
+    lilyHookInChat ||
+    signals.includes("hook-offered") ||
+    hookActive;
+  const companionExpected =
+    hookActive ||
+    companionJoined ||
+    (sceneId ? tutorialSceneRequiresCompanion(sceneId) : false);
+  const brennarInEngine = Boolean(
+    session.state?.entities[TUTORIAL_COMPANION.id],
+  );
 
   // Release the advancing latch once the scene changes or the server clears busy
   // without advancing (duplicate click / stale one-shot after refresh, #bug2).
@@ -1249,8 +1270,6 @@ export function TutorialPlaySurface({
     void utils.tutorial.inventory.invalidate();
   }, [session.lootNonce, utils]);
 
-  const signals = session.tutorialSignals;
-
   // Scene 6 resolution signals (server-driven, #175): once the finale fires, the
   // hook is resolved + XP awarded — refetch the world (and inventory) so the
   // relight controls retire and the level-up state is current.
@@ -1294,6 +1313,7 @@ export function TutorialPlaySurface({
     const a: string[] = [];
     if (inScene2) a.push("scene2");
     if (hookActive) a.push("hook-accepted");
+    if (hookOffered && !hookActive) a.push("hook-offered");
     if (companionJoined) a.push("companion-joined");
     if (oilGranted) a.push("oil-granted");
     if (helpUsed) a.push("help-used");
@@ -1305,7 +1325,7 @@ export function TutorialPlaySurface({
     if (signals.includes("leveled-up")) a.push("leveled-up");
     if (sawPin) a.push("pin-demo");
     return a;
-  }, [inScene2, hookActive, companionJoined, oilGranted, helpUsed, signals, sawPin]);
+  }, [inScene2, hookActive, hookOffered, companionJoined, oilGranted, helpUsed, signals, sawPin]);
 
   function pinMessage(text: string) {
     if (pinnedTexts.has(text)) return;
@@ -1334,16 +1354,53 @@ export function TutorialPlaySurface({
   }
 
   function pickLock(help: boolean) {
+    if (checkUsed || advancing) return;
+    bumpActivity();
+    if (help) setHelpUsed(true);
+
+    const runHelpCheck = () => session.tutorialCheck(help);
+    const summonThenCheck = () => {
+      session.tutorialCompanion();
+      runHelpCheck();
+    };
+
+    if (help && !brennarInEngine) {
+      const afterDb = () => {
+        summonThenCheck();
+        void utils.campaigns.party.invalidate({ campaignId });
+        void utils.tutorial.world.invalidate();
+      };
+      if (!companionJoined && !companionJoin.isPending) {
+        companionJoin.mutate(undefined, { onSuccess: afterDb });
+      } else {
+        afterDb();
+      }
+      return;
+    }
+
     runCheck(help);
   }
 
   function speak(topic: "barnaby" | "lily") {
     bumpActivity();
-    if (spokenTopics.has(topic)) return;
+    if (spokenTopics.has(topic)) {
+      if (topic === "lily") setLilySpoken(true);
+      return;
+    }
     setSpokenTopics((prev) => new Set(prev).add(topic));
     session.tutorialSay(topic);
     if (topic === "lily") setLilySpoken(true);
   }
+
+  // Keep hook UI in sync when Lily was reached via chat or a reconnect.
+  useEffect(() => {
+    if (lilyHookInChat || signals.includes("hook-offered")) {
+      setLilySpoken(true);
+      setSpokenTopics((prev) =>
+        prev.has("lily") ? prev : new Set(prev).add("lily"),
+      );
+    }
+  }, [lilyHookInChat, signals]);
 
   // Advance with an in-flight latch only while the server is processing (#bug2).
   function advance() {
@@ -1356,13 +1413,8 @@ export function TutorialPlaySurface({
   function acceptTheHook() {
     acceptHook.mutate(undefined, {
       onSuccess: () => {
-        companionJoin.mutate(undefined, {
-          onSuccess: () => {
-            session.tutorialCompanion();
-            void utils.campaigns.party.invalidate({ campaignId });
-          },
-          onSettled: () => void utils.tutorial.world.invalidate(),
-        });
+        session.tutorialCompanion();
+        void utils.campaigns.party.invalidate({ campaignId });
         void utils.tutorial.world.invalidate();
       },
     });
@@ -1370,8 +1422,7 @@ export function TutorialPlaySurface({
 
   const companionSummonPending = useRef(false);
   useEffect(() => {
-    const needsCompanion = hookActive || companionJoined;
-    if (!needsCompanion || session.isLoading || !session.state) return;
+    if (!companionExpected || session.isLoading || !session.state) return;
     if (session.state.entities[TUTORIAL_COMPANION.id]) return;
 
     if (!companionJoined && hookActive && !companionJoin.isPending) {
@@ -1385,11 +1436,11 @@ export function TutorialPlaySurface({
       return;
     }
 
-    if (companionJoined && !companionSummonPending.current) {
-      companionSummonPending.current = true;
-      session.tutorialCompanion();
-    }
+    if (companionSummonPending.current) return;
+    companionSummonPending.current = true;
+    session.tutorialCompanion();
   }, [
+    companionExpected,
     hookActive,
     companionJoined,
     session.isLoading,
@@ -1399,6 +1450,34 @@ export function TutorialPlaySurface({
     campaignId,
     utils.campaigns.party,
     utils.tutorial.world,
+  ]);
+
+  // Retry WS summon until Brennar appears (handles reconnect / race after advance).
+  useEffect(() => {
+    if (!companionExpected || brennarInEngine || session.isLoading) return;
+
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      if (session.state?.entities[TUTORIAL_COMPANION.id]) {
+        window.clearInterval(timer);
+        return;
+      }
+      attempts += 1;
+      if (attempts > 8) {
+        window.clearInterval(timer);
+        return;
+      }
+      companionSummonPending.current = false;
+      session.tutorialCompanion();
+    }, 2500);
+
+    return () => window.clearInterval(timer);
+  }, [
+    companionExpected,
+    brennarInEngine,
+    session.isLoading,
+    session.state?.currentSceneId,
+    session,
   ]);
 
   useEffect(() => {
@@ -1495,14 +1574,29 @@ export function TutorialPlaySurface({
             </button>
           )}
           {inScene2 && (
-            <button
-              type="button"
-              onClick={() => speak("barnaby")}
-              disabled={spokenTopics.has("barnaby")}
-              className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
-            >
-              {spokenTopics.has("barnaby") ? "Spoke to Barnaby ✓" : "Talk to Barnaby"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => speak("barnaby")}
+                disabled={spokenTopics.has("barnaby")}
+                className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+              >
+                {spokenTopics.has("barnaby")
+                  ? "Spoke to Barnaby ✓"
+                  : "Talk to Barnaby"}
+              </button>
+              <button
+                type="button"
+                data-coachmark="tut-lily"
+                onClick={() => speak("lily")}
+                disabled={spokenTopics.has("lily")}
+                className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
+              >
+                {spokenTopics.has("lily")
+                  ? "Spoke to Lily ✓"
+                  : "Talk to Lily"}
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -1559,7 +1653,8 @@ export function TutorialPlaySurface({
             <>
               <p className="text-xs text-lore-muted">
                 A Dexterity check with Thieves&apos; Tools, DC 13. You&apos;re not
-                proficient — but Brennar can Help, giving you advantage.
+                proficient — Old Brennar can grant Help (advantage). If he isn&apos;t
+                in your party yet, accepting his Help adds him first.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -1717,7 +1812,7 @@ export function TutorialPlaySurface({
         campaignId={campaignId}
         pcCharacterId={pcCharacterId}
         partyRoster={partyQuery.data}
-        companionExpected={hookActive || companionJoined}
+        companionExpected={companionExpected}
         loadouts={loadouts}
         tutorialControls={tutorialControls}
         hudExtra={hudExtra}

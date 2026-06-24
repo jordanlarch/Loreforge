@@ -91,6 +91,10 @@ describe("TutorialRoom", () => {
     expect((await room.getState()).currentSceneId).toBe(
       TUTORIAL_SCENE_CROOKED_LANE,
     );
+    // Fail-forward: Brennar joins once the party leaves the inn.
+    expect((await room.getState()).entities[TUTORIAL_COMPANION.id]?.sceneId).toBe(
+      TUTORIAL_SCENE_CROOKED_LANE,
+    );
   });
 
   it("arms an encounter on the combat handoff (Scene 4 → the Stair)", async () => {
@@ -109,6 +113,7 @@ describe("TutorialRoom", () => {
     // The PC and the single Hungering Shade foe are in initiative (#174).
     const ids = state.encounter!.order.map((o) => o.entity);
     expect(ids).toContain(MIRA.id);
+    expect(ids).toContain(TUTORIAL_COMPANION.id);
     expect(ids).toContain(TUTORIAL_SHADE_ID);
     expect(ids.filter((id) => id.startsWith("npc:tut-shade"))).toHaveLength(1);
   });
@@ -180,6 +185,26 @@ describe("TutorialRoom", () => {
     expect(room.say("lily")?.offersHook).toBe(true);
     expect(room.say("barnaby")?.speaker).toBe("Barnaby Bramblefoot");
     expect(room.say("unknown")).toBeUndefined();
+  });
+
+  it("ensureCompanionPresent backfills Brennar on post-inn scenes", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    await room.advance(); // → Hearth
+    await room.advance(); // → Crooked Lane (auto-summons via fail-forward)
+
+    const state = await room.getState();
+    expect(state.entities[TUTORIAL_COMPANION.id]?.sceneId).toBe(
+      TUTORIAL_SCENE_CROOKED_LANE,
+    );
+
+    await room.advance(); // → Spire Lower
+    expect(
+      await room.ensureCompanionPresent(),
+    ).toBe(true);
+    expect((await room.getState()).entities[TUTORIAL_COMPANION.id]?.sceneId).toBe(
+      TUTORIAL_SCENE_SPIRE_LOWER,
+    );
   });
 
   it("summons the companion as a party-side entity in the current scene", async () => {

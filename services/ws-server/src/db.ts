@@ -37,6 +37,7 @@ import {
   type FoeSpec,
   type PartyMember,
   type TutorialLootItem,
+  tutorialSceneRequiresCompanion,
 } from "@app/engine";
 
 import type { ChatEntry, ChatEntryKind } from "./chat.js";
@@ -454,7 +455,9 @@ export async function getTutorialHookStatus(
 /** True when the tutorial companion should be in the party (hook accepted+). */
 export async function tutorialCompanionShouldBeActive(
   campaignId: string,
+  sceneId?: string,
 ): Promise<boolean> {
+  if (sceneId && tutorialSceneRequiresCompanion(sceneId)) return true;
   try {
     const hookStatus = await getTutorialHookStatus(campaignId);
     if (hookStatus === "active" || hookStatus === "resolved") return true;
@@ -674,6 +677,25 @@ export async function resetTutorialState(campaignId: string): Promise<void> {
     }
   } catch {
     // Best-effort reset; the engine event-log truncation is the authority.
+  }
+}
+
+/** Flip the tutorial companion roster row to active (best-effort, WS-side sync). */
+export async function activateTutorialCompanion(
+  campaignId: string,
+): Promise<void> {
+  try {
+    await getDb()
+      .update(campaignCharacters)
+      .set({ status: "active" })
+      .where(
+        and(
+          eq(campaignCharacters.campaignId, campaignId),
+          eq(campaignCharacters.role, "companion"),
+        ),
+      );
+  } catch {
+    // DB sync is best-effort; the engine entity is authoritative for live play.
   }
 }
 

@@ -1165,6 +1165,7 @@ async function handleTutorialInner(
     await appendAndPersist(document, documentName, [
       gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
     ]);
+    if (beat.offersHook) tutorialSignal(document, "hook-offered");
     return;
   }
 
@@ -1238,6 +1239,10 @@ async function handleTutorialInner(
   // action === "check" — `help` grants advantage (the companion's Help action).
   const checkScene = (await room.getState()).currentSceneId;
   if (!checkScene || !room.markOnce(`check:${checkScene}`)) return;
+  if (help) {
+    await room.ensureCompanionPresent(true);
+    writeProjection(document, await room.getState());
+  }
   const result = await room.runScriptedCheck(
     help ? { mode: "advantage" } : undefined,
   );
@@ -1308,6 +1313,7 @@ async function handleTutorialChat(
       await appendAndPersist(document, documentName, [
         gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
       ]);
+      if (beat.offersHook) tutorialSignal(document, "hook-offered");
       return true;
     }
   }
@@ -1367,6 +1373,9 @@ const server = new Hocuspocus({
   async onLoadDocument({ document, documentName }) {
     const room = await roomFor(documentName);
     await room.ensureSeeded();
+    if (room instanceof TutorialRoom) {
+      await room.ensureCompanionPresent();
+    }
     writeProjection(document, await room.getState());
     // Re-hydrate persisted chat so a cold-loaded campaign room resumes the
     // conversation instead of starting blank (#96). Sandbox rooms are ephemeral.

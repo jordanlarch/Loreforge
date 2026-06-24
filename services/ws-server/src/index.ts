@@ -1118,6 +1118,8 @@ async function handleTutorialInner(
   help: boolean | undefined,
 ): Promise<void> {
   if (action === "advance") {
+    const state = await room.getState();
+    if (!room.markOnce(`advance:${state.currentSceneId}`)) return;
     const result = await room.advance();
     writeProjection(document, await room.getState());
     if (!result) return;
@@ -1218,6 +1220,8 @@ async function handleTutorialInner(
   }
 
   // action === "check" — `help` grants advantage (the companion's Help action).
+  const checkScene = (await room.getState()).currentSceneId;
+  if (!checkScene || !room.markOnce(`check:${checkScene}`)) return;
   const result = await room.runScriptedCheck(
     help ? { mode: "advantage" } : undefined,
   );

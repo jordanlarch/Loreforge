@@ -916,6 +916,10 @@ export function TutorialPlaySurface({
   const [invOpen, setInvOpen] = useState(false);
   const [helpUsed, setHelpUsed] = useState(false);
   const [relightSent, setRelightSent] = useState(false);
+  const [checkUsed, setCheckUsed] = useState(false);
+  const [finishSent, setFinishSent] = useState(false);
+  /** Scene id for which Continue was already pressed (fire-once per scene, #bug2). */
+  const [continuedSceneId, setContinuedSceneId] = useState<string | null>(null);
   // Fire-once guards so a re-click can't repeat a scripted beat (#bug2): the set
   // of dialogue topics already requested, and an in-flight "advancing" latch.
   const [spokenTopics, setSpokenTopics] = useState<ReadonlySet<string>>(
@@ -989,6 +993,7 @@ export function TutorialPlaySurface({
   useEffect(() => {
     setHintDismissals(0);
     setHintVisible(false);
+    setCheckUsed(false);
     lastActivity.current = Date.now();
   }, [sceneId]);
 
@@ -1053,6 +1058,9 @@ export function TutorialPlaySurface({
     setLilySpoken(false);
     setHelpUsed(false);
     setRelightSent(false);
+    setCheckUsed(false);
+    setFinishSent(false);
+    setContinuedSceneId(null);
     setAdvancing(false);
     setPinnedTexts(new Set());
     void utils.tutorial.world.invalidate();
@@ -1096,9 +1104,16 @@ export function TutorialPlaySurface({
 
   const leveledUp = signals.includes("leveled-up");
 
-  function pickLock(help: boolean) {
+  function runCheck(help = false) {
+    if (checkUsed) return;
+    bumpActivity();
+    setCheckUsed(true);
     if (help) setHelpUsed(true);
     session.tutorialCheck(help);
+  }
+
+  function pickLock(help: boolean) {
+    runCheck(help);
   }
 
   function speak(topic: "barnaby" | "lily") {
@@ -1113,8 +1128,9 @@ export function TutorialPlaySurface({
   // changes, so a double-click can't skip a scene (#bug2).
   function advance() {
     bumpActivity();
-    if (advancing) return;
+    if (advancing || !sceneId || continuedSceneId === sceneId) return;
     setAdvancing(true);
+    setContinuedSceneId(sceneId);
     session.tutorialAdvance();
   }
 
@@ -1145,6 +1161,8 @@ export function TutorialPlaySurface({
   }
 
   function finishTutorial() {
+    if (finishSent) return;
+    setFinishSent(true);
     // Post the closing GM beat over chat, then mark the run complete + unlock
     // First Light; the modal opens on the completion write.
     session.tutorialWrap();
@@ -1154,6 +1172,7 @@ export function TutorialPlaySurface({
         void utils.tutorial.achievements.invalidate();
         setGraduated(true);
       },
+      onError: () => setFinishSent(false),
     });
   }
 
@@ -1199,11 +1218,11 @@ export function TutorialPlaySurface({
           {inScene1 && (
             <button
               type="button"
-              onClick={() => session.tutorialCheck()}
-              disabled={session.isBusy}
+              onClick={() => runCheck()}
+              disabled={session.isBusy || checkUsed}
               className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
             >
-              Look for tracks
+              {checkUsed ? "Looked for tracks ✓" : "Look for tracks"}
             </button>
           )}
           {inScene2 && (
@@ -1219,10 +1238,14 @@ export function TutorialPlaySurface({
           <button
             type="button"
             onClick={advance}
-            disabled={session.isBusy || advancing}
+            disabled={
+              session.isBusy ||
+              advancing ||
+              (sceneId !== null && continuedSceneId === sceneId)
+            }
             className="rounded border border-lore-accent bg-lore-bg px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
           >
-            Continue ▶
+            {sceneId && continuedSceneId === sceneId ? "Continued ✓" : "Continue ▶"}
           </button>
         </div>
       </div>
@@ -1302,19 +1325,21 @@ export function TutorialPlaySurface({
                 <button
                   type="button"
                   onClick={() => pickLock(false)}
-                  disabled={session.isBusy}
+                  disabled={session.isBusy || checkUsed}
                   className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
                 >
-                  Pick the lock
+                  {checkUsed ? "Lock picked ✓" : "Pick the lock"}
                 </button>
                 <button
                   type="button"
                   data-coachmark="tut-advantage"
                   onClick={() => pickLock(true)}
-                  disabled={session.isBusy}
+                  disabled={session.isBusy || checkUsed || helpUsed}
                   className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
                 >
-                  Accept Brennar&apos;s Help (Advantage)
+                  {helpUsed
+                    ? "Brennar helped ✓"
+                    : "Accept Brennar's Help (Advantage)"}
                 </button>
               </div>
               <p className="text-[11px] text-lore-muted">
@@ -1340,12 +1365,14 @@ export function TutorialPlaySurface({
               <button
                 type="button"
                 onClick={finishTutorial}
-                disabled={completeTutorial.isPending}
+                disabled={completeTutorial.isPending || finishSent}
                 className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
               >
                 {completeTutorial.isPending
                   ? "Finishing…"
-                  : "Finish the adventure ▶"}
+                  : finishSent
+                    ? "Finishing…"
+                    : "Finish the adventure ▶"}
               </button>
             </div>
           ) : (
@@ -1459,6 +1486,7 @@ export function TutorialPlaySurface({
         name={drawerName}
         onClose={() => setDrawerName(null)}
         onSpeak={speak}
+        spokenTopics={spokenTopics}
       />
       <TutorialInventoryDrawer
         open={invOpen}

@@ -140,6 +140,55 @@ export const codexFeats = pgTable(
   ],
 );
 
+/**
+ * SRD rules chapters (Open5e rulesets) from Open5e ingest (CODEX-1).
+ * Each chapter groups nested rule sections (e.g. Combat, Spellcasting).
+ */
+export const codexRuleChapters = pgTable(
+  "codex_rule_chapters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    sortIndex: integer("sort_index").notNull().default(0),
+    source: text("source").notNull().default("open5e"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_rule_chapters_name_idx").on(t.name),
+    index("codex_rule_chapters_sort_idx").on(t.sortIndex),
+  ],
+);
+
+/**
+ * SRD rules sections nested under a chapter ruleset.
+ */
+export const codexRuleSections = pgTable(
+  "codex_rule_sections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    chapterSlug: text("chapter_slug").notNull(),
+    sortIndex: integer("sort_index").notNull().default(0),
+    source: text("source").notNull().default("open5e"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_rule_sections_name_idx").on(t.name),
+    index("codex_rule_sections_chapter_idx").on(t.chapterSlug),
+    index("codex_rule_sections_sort_idx").on(t.sortIndex),
+  ],
+);
+
 /** How many skills a class lets you pick at level 1, and from which list. */
 export type SkillChoice = {
   choose: number;

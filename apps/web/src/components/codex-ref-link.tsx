@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import type { CodexCategory } from "@/lib/codex-categories";
 
@@ -12,32 +12,40 @@ export function CodexRefLink({
   slug,
   label,
   preview,
-  onNavigate,
+  onNavigateRef,
 }: {
   category: CodexCategory;
   slug: string;
   label: string;
   preview?: string | null;
-  onNavigate?: () => void;
+  /** Preferred: single atomic navigation (avoids racing with modal close). */
+  onNavigateRef?: (category: CodexCategory, slug: string) => void;
 }) {
-  const router = useRouter();
+  const href = `/codex?${new URLSearchParams({ category, slug }).toString()}`;
+
+  const className =
+    "text-lore-accent underline decoration-lore-accent/40 underline-offset-2 transition-colors hover:decoration-lore-accent";
+
+  const link = onNavigateRef ? (
+    <button
+      type="button"
+      className={className}
+      onClick={(e) => {
+        e.stopPropagation();
+        onNavigateRef(category, slug);
+      }}
+    >
+      {label}
+    </button>
+  ) : (
+    <Link href={href} className={className} onClick={(e) => e.stopPropagation()}>
+      {label}
+    </Link>
+  );
 
   return (
     <span className="group relative inline">
-      <button
-        type="button"
-        className="text-lore-accent underline decoration-lore-accent/40 underline-offset-2 transition-colors hover:decoration-lore-accent"
-        onClick={() => {
-          const params = new URLSearchParams({
-            category,
-            slug,
-          });
-          router.push(`/codex?${params.toString()}`);
-          onNavigate?.();
-        }}
-      >
-        {label}
-      </button>
+      {link}
       {preview ? (
         <span
           role="tooltip"

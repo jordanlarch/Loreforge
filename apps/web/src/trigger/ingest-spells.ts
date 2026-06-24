@@ -5,6 +5,7 @@ import {
   ingestOpen5eCreatures,
   ingestOpen5eFeats,
   ingestOpen5eItems,
+  ingestOpen5eRules,
   ingestOpen5eSpells,
   seedCharacterOptions,
 } from "@app/db";
@@ -74,10 +75,16 @@ export const ingestSpellsNightly = schedules.task({
       });
       logger.info("Nightly Open5e feat ingest complete", { ...feats });
 
+      const rules = await ingestOpen5eRules({
+        db,
+        logger: (message) => logger.info(message),
+      });
+      logger.info("Nightly Open5e rules ingest complete", { ...rules });
+
       const options = await seedCharacterOptions(db);
       logger.info("Nightly SRD character-options seed complete", { ...options });
 
-      return { ...result, ...creatures, ...items, ...backgrounds, ...feats, ...options };
+      return { ...result, ...creatures, ...items, ...backgrounds, ...feats, ...rules, ...options };
     } finally {
       await closeDb();
     }

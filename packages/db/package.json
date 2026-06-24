@@ -19,6 +19,7 @@
     "ingest:open5e-items": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e-items.ts",
     "ingest:open5e-backgrounds": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e-backgrounds.ts",
     "ingest:open5e-feats": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e-feats.ts",
+    "ingest:open5e-rules": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e-rules.ts",
     "seed:character-options": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/seed-character-options.ts"
   },
   "dependencies": {

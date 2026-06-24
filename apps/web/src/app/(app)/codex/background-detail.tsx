@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { BackgroundBenefitText } from "@/components/background-benefit-text";
 import { backgroundBenefits } from "@/lib/codex-background-feat-display";
 import { trpc } from "@/lib/trpc/client";
 
@@ -13,6 +14,9 @@ export function BackgroundDetail({
   onClose: () => void;
 }) {
   const background = trpc.codex.getBackground.useQuery({ slug });
+  const linkIndex = trpc.codex.linkIndex.useQuery(undefined, {
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -24,6 +28,7 @@ export function BackgroundDetail({
 
   const raw = (background.data?.raw ?? {}) as Record<string, unknown>;
   const benefits = backgroundBenefits(raw);
+  const index = linkIndex.data ?? { feats: [], items: [] };
 
   return (
     <div
@@ -78,9 +83,12 @@ export function BackgroundDetail({
                           {benefit.name}
                         </div>
                         {benefit.desc ? (
-                          <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-lore-muted">
-                            {benefit.desc}
-                          </p>
+                          <BackgroundBenefitText
+                            desc={benefit.desc}
+                            benefitType={benefit.type}
+                            linkIndex={index}
+                            onNavigate={onClose}
+                          />
                         ) : null}
                       </li>
                     ))}

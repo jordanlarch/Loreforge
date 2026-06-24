@@ -373,6 +373,30 @@ export const codexRouter = createTRPCRouter({
     return { count: row?.value ?? 0 };
   }),
 
+  /** Lightweight name/slug index for cross-linking background benefits. */
+  linkIndex: protectedProcedure.query(async () => {
+    const db = getDb();
+    const [feats, items] = await Promise.all([
+      db
+        .select({
+          slug: codexFeats.slug,
+          name: codexFeats.name,
+          preview: codexFeats.description,
+        })
+        .from(codexFeats)
+        .orderBy(asc(codexFeats.name)),
+      db
+        .select({
+          slug: codexItems.slug,
+          name: codexItems.name,
+          preview: codexItems.description,
+        })
+        .from(codexItems)
+        .orderBy(asc(codexItems.name)),
+    ]);
+    return { feats, items };
+  }),
+
   /** SRD backgrounds for the Codex, alphabetical. */
   listBackgrounds: protectedProcedure
     .input(z.object({ search: z.string().trim().max(100).optional() }).optional())

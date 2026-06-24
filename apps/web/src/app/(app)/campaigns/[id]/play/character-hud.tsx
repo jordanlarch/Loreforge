@@ -21,6 +21,7 @@ type HudSession = {
     target: string,
     attackBonus: number,
     damage: { notation: string; type: string },
+    rangeFt?: number,
   ) => void;
   sendChat: (text: string, mode?: string) => void;
 };

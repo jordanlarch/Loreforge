@@ -4,8 +4,7 @@
  * First Smithy surface: create / list / get / delete custom items, scoped to the
  * signed-in Supabase user. Item taxonomy (type/rarity/source) is validated
  * against the shared `@app/engine` content constants so the DB, API, and UI
- * never drift. "Copy from Codex" provenance fields exist on the row but the copy
- * plumbing is stubbed until Codex items are ingested.
+ * never drift. Codex spell copy is live via `copySpellFromCodex` (SMITH-6).
  */
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq } from "drizzle-orm";
@@ -23,10 +22,11 @@ import {
   SAVE_OUTCOMES,
   SPELL_SCHOOLS,
   TARGETING_TYPES,
+  open5eRawToSpellDefinition,
   validateSpellDefinition,
   type SpellDefinition,
 } from "@app/engine";
-import { getDb, homebrewItems, homebrewSpells } from "@app/db";
+import { codexSpells, getDb, homebrewItems, homebrewSpells } from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -283,6 +283,69 @@ export const smithyRouter = createTRPCRouter({
           definition,
           source: input.source,
           copiedFromSlug: input.copiedFromSlug,
+        })
+        .returning();
+      return row;
+    }),
+
+  /**
+   * Copy an ingested Codex spell into the owner's Smithy grimoire (CODEX-2 /
+   * SMITH-6). Idempotent per owner+slug — returns the existing homebrew row if
+   * already copied. Open5e raw → {@link SpellDefinition} is best-effort; spells
+   * that fail engine validation return BAD_REQUEST.
+   */
+  copySpellFromCodex: protectedProcedure
+    .input(z.object({ slug: z.string().trim().min(1).max(160) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+
+      const [existing] = await db
+        .select()
+        .from(homebrewSpells)
+        .where(
+          and(
+            eq(homebrewSpells.ownerId, ctx.user.id),
+            eq(homebrewSpells.copiedFromSlug, input.slug),
+          ),
+        )
+        .limit(1);
+      if (existing) return existing;
+
+      const [codex] = await db
+        .select()
+        .from(codexSpells)
+        .where(eq(codexSpells.slug, input.slug))
+        .limit(1);
+      if (!codex) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Codex spell not found.",
+        });
+      }
+
+      const definition = open5eRawToSpellDefinition(codex.raw, {
+        slug: codex.slug,
+        name: codex.name,
+      });
+      const errors = validateSpellDefinition(definition);
+      if (errors.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `This spell could not be converted automatically: ${errors.join(" ")}`,
+        });
+      }
+
+      const [row] = await db
+        .insert(homebrewSpells)
+        .values({
+          ownerId: ctx.user.id,
+          name: definition.name,
+          level: definition.level,
+          school: definition.school,
+          description: definition.description,
+          definition,
+          source: "codex",
+          copiedFromSlug: input.slug,
         })
         .returning();
       return row;

@@ -12,6 +12,8 @@ import {
 
 import { trpc } from "@/lib/trpc/client";
 
+import { SrdHint } from "@/components/srd-hint";
+
 import { EquipmentTab } from "./equipment-tab";
 import { LevelUpDialog } from "./level-up-dialog";
 import { SpellsTab } from "./spells-tab";
@@ -229,7 +231,7 @@ export function CharacterSheetView({ id }: { id: string }) {
               className="rounded-lg border border-lore-border bg-lore-surface p-4 text-center"
             >
               <div className="text-xs uppercase tracking-wide text-lore-muted">
-                {ability}
+                <SrdHint kind="ability" ability={ability} label={ability.toUpperCase()} />
               </div>
               <div className="mt-1 font-display text-3xl">
                 {signed(sheet.abilityModifiers[ability])}
@@ -272,7 +274,11 @@ export function CharacterSheetView({ id }: { id: string }) {
                     }`}
                     aria-hidden
                   />
-                  {ABILITY_LABELS[save.ability]}
+                  <SrdHint
+                    kind="ability"
+                    ability={save.ability}
+                    label={ABILITY_LABELS[save.ability]}
+                  />
                 </span>
                 <span className="font-mono">{signed(save.modifier)}</span>
               </li>
@@ -293,7 +299,7 @@ export function CharacterSheetView({ id }: { id: string }) {
                   key={skill}
                   className="rounded-full border border-lore-border bg-lore-surface px-3 py-1 text-sm"
                 >
-                  {skill}
+                  <SrdHint kind="skill" skill={skill} />
                 </li>
               ))}
             </ul>

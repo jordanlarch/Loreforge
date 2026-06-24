@@ -8,6 +8,7 @@ import { ITEM_RARITIES, ITEM_TYPES, type ItemType } from "@app/engine";
 import { trpc } from "@/lib/trpc/client";
 
 import { SpellBrowser } from "./spell-browser";
+import { CopyFromCodexButton } from "./codex-spell-copy";
 
 type SmithyKind = "items" | "spells";
 
@@ -126,32 +127,6 @@ function ItemsBrowser() {
           </ul>
         )}
       </section>
-    </div>
-  );
-}
-
-function CopyFromCodexButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:text-lore-text"
-      >
-        Copy from Codex
-      </button>
-      {open && (
-        <div className="absolute right-0 z-10 mt-2 w-64 rounded-lg border border-lore-border bg-lore-surface p-4 text-sm text-lore-muted shadow-lg">
-          Codex items aren&apos;t ingested yet — only spells are available so
-          far. One-click copy lands once SRD items are in the Codex.
-          <button
-            onClick={() => setOpen(false)}
-            className="mt-3 block text-xs text-lore-accent hover:underline"
-          >
-            Got it
-          </button>
-        </div>
-      )}
     </div>
   );
 }

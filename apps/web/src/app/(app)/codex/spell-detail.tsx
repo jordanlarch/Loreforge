@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { trpc } from "@/lib/trpc/client";
@@ -31,7 +32,18 @@ export function SpellDetail({
   slug: string;
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const utils = trpc.useUtils();
   const spell = trpc.codex.getSpell.useQuery({ slug });
+
+  const copy = trpc.smithy.copySpellFromCodex.useMutation({
+    onSuccess: async (row) => {
+      if (!row) return;
+      await utils.smithy.listSpells.invalidate();
+      onClose();
+      router.push(`/smithy/spells/${row.id}`);
+    },
+  });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -93,6 +105,20 @@ export function SpellDetail({
           >
             Close
           </button>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => copy.mutate({ slug })}
+            disabled={copy.isPending || spell.isLoading}
+            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
+          >
+            {copy.isPending ? "Copying…" : "Copy to The Smithy"}
+          </button>
+          {copy.error && (
+            <p className="self-center text-sm text-red-400">{copy.error.message}</p>
+          )}
         </div>
 
         {spell.isLoading && <p className="text-lore-muted">Loading…</p>}

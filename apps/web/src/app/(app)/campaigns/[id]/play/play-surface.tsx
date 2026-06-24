@@ -856,7 +856,7 @@ const TUTORIAL_SCENE1_COACHMARKS: readonly CoachmarkDef[] = [
     id: "tut-scene1-map",
     anchor: "tut-scene1-map",
     title: "The world, mapped",
-    body: "This is where the story plays out. Your hero's token stands on the road into Last Light Hollow — scenes, tokens, and (soon) combat all live here.",
+    body: "Drag your token toward the village — north on the map — to follow the road into Last Light Hollow. Scenes, tokens, and combat all play out here.",
     trigger: { kind: "first_seen" },
   },
   {

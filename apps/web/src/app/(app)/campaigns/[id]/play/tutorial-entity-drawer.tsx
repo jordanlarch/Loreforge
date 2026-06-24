@@ -28,12 +28,15 @@ export function TutorialEntityDrawer({
   name,
   onClose,
   onSpeak,
+  spokenTopics,
 }: {
   /** The entity name to show, or null when the drawer is closed. */
   name: string | null;
   onClose: () => void;
   /** Trigger a scripted dialogue beat for a speakable NPC. */
   onSpeak: (topic: "barnaby" | "lily") => void;
+  /** Topics already spoken this run — Speak is fire-once per NPC (#bug2). */
+  spokenTopics: ReadonlySet<string>;
 }) {
   useEffect(() => {
     if (!name) return;
@@ -103,6 +106,7 @@ export function TutorialEntityDrawer({
                 firstName={name.split(" ")[0] ?? name}
                 onSpeak={onSpeak}
                 onClose={onClose}
+                spoken={spokenTopics.has(entity.speak)}
               />
             ) : null}
           </>
@@ -121,22 +125,25 @@ function SpeakButton({
   firstName,
   onSpeak,
   onClose,
+  spoken,
 }: {
   topic: "barnaby" | "lily";
   firstName: string;
   onSpeak: (topic: "barnaby" | "lily") => void;
   onClose: () => void;
+  spoken: boolean;
 }) {
   return (
     <button
       type="button"
+      disabled={spoken}
       onClick={() => {
         onSpeak(topic);
         onClose();
       }}
-      className="mt-auto rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent"
+      className="mt-auto rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
     >
-      Speak to {firstName}
+      {spoken ? `Spoke to ${firstName} ✓` : `Speak to ${firstName}`}
     </button>
   );
 }

@@ -283,4 +283,15 @@ describe("TutorialRoom", () => {
     expect(room.markOnce("say:barnaby")).toBe(true);
     expect(room.acquireAction()).toBe(true);
   });
+
+  it("marks advance and check once per scene id (#bug2)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new TutorialRoom(CAMPAIGN, store, async () => [MIRA]);
+    const sceneId = (await room.getState()).currentSceneId!;
+
+    expect(room.markOnce(`advance:${sceneId}`)).toBe(true);
+    expect(room.markOnce(`advance:${sceneId}`)).toBe(false);
+    expect(room.markOnce(`check:${sceneId}`)).toBe(true);
+    expect(room.markOnce(`check:${sceneId}`)).toBe(false);
+  });
 });

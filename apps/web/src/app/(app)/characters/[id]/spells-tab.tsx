@@ -9,6 +9,10 @@
 import { useState } from "react";
 
 import {
+  CodexSpellAddPicker,
+  SmithySpellAddPicker,
+} from "@/components/character-library-pickers";
+import {
   blankSpell,
   groupSpellsByLevel,
   spellLevelLabel,
@@ -27,7 +31,13 @@ export function SpellsTab({
   onSave: (spells: SpellLoadout) => void;
 }) {
   const [draft, setDraft] = useState<SpellLoadout>(spells);
+  const [codexOpen, setCodexOpen] = useState(false);
+  const [smithyOpen, setSmithyOpen] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(spells);
+
+  function addSpell(spell: CharacterSpell) {
+    setDraft((d) => ({ ...d, spells: [...d.spells, spell] }));
+  }
 
   function patchSpell(index: number, fields: Partial<CharacterSpell>) {
     setDraft((d) => ({
@@ -228,15 +238,46 @@ export function SpellsTab({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() =>
-          setDraft((d) => ({ ...d, spells: [...d.spells, blankSpell(0)] }))
-        }
-        className="mt-4 rounded border border-dashed border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
-      >
-        + Add spell
-      </button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() =>
+            setDraft((d) => ({ ...d, spells: [...d.spells, blankSpell(0)] }))
+          }
+          className="rounded border border-dashed border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          + Add spell
+        </button>
+        <button
+          type="button"
+          onClick={() => setCodexOpen(true)}
+          className="rounded border border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          Add from Codex
+        </button>
+        <button
+          type="button"
+          onClick={() => setSmithyOpen(true)}
+          className="rounded border border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          Add from Smithy
+        </button>
+      </div>
+
+      {codexOpen && (
+        <CodexSpellAddPicker
+          existing={draft.spells}
+          onAdd={addSpell}
+          onClose={() => setCodexOpen(false)}
+        />
+      )}
+      {smithyOpen && (
+        <SmithySpellAddPicker
+          existing={draft.spells}
+          onAdd={addSpell}
+          onClose={() => setSmithyOpen(false)}
+        />
+      )}
     </div>
   );
 }

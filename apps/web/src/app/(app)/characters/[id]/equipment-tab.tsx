@@ -2,11 +2,11 @@
 
 /**
  * Equipment tab (#56 schema → CHAR-7). Edits the character's `equipment` JSON
- * as a local draft and commits the whole array via `characters.update`. Smithy
- * integration (Equip from library) is SMITH-5, deferred.
+ * as a local draft and commits the whole array via `characters.update`.
  */
 import { useState } from "react";
 
+import { SmithyItemAddPicker } from "@/components/character-library-pickers";
 import {
   blankEquipmentItem,
   totalWeight,
@@ -23,6 +23,7 @@ export function EquipmentTab({
   onSave: (equipment: EquipmentItem[]) => void;
 }) {
   const [draft, setDraft] = useState<EquipmentItem[]>(equipment);
+  const [smithyOpen, setSmithyOpen] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(equipment);
 
   function patch(index: number, fields: Partial<EquipmentItem>) {
@@ -174,13 +175,30 @@ export function EquipmentTab({
         </ul>
       )}
 
-      <button
-        type="button"
-        onClick={() => setDraft((items) => [...items, blankEquipmentItem()])}
-        className="mt-4 rounded border border-dashed border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
-      >
-        + Add item
-      </button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setDraft((items) => [...items, blankEquipmentItem()])}
+          className="rounded border border-dashed border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          + Add item
+        </button>
+        <button
+          type="button"
+          onClick={() => setSmithyOpen(true)}
+          className="rounded border border-lore-border px-4 py-2 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          Add from Smithy
+        </button>
+      </div>
+
+      {smithyOpen && (
+        <SmithyItemAddPicker
+          existing={draft}
+          onAdd={(item) => setDraft((items) => [...items, item])}
+          onClose={() => setSmithyOpen(false)}
+        />
+      )}
     </div>
   );
 }

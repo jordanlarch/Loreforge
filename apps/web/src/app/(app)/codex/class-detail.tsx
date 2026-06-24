@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import type { Ability } from "@app/engine";
 
 import { SrdHint } from "@/components/srd-hint";
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { ABILITY_LABELS } from "@/lib/codex-display";
 import { trpc } from "@/lib/trpc/client";
 
@@ -34,6 +35,12 @@ export function ClassDetail({
         <p className="text-sm text-red-400">Class not found.</p>
       ) : (
         <>
+          <CodexDetailActions
+            category="Classes"
+            slug={slug}
+            name={cls.data.name}
+            raw={cls.data.raw as Record<string, unknown>}
+          />
           <p className="text-sm text-lore-muted">
             Hit Die d{cls.data.hitDie} · SRD core class
           </p>

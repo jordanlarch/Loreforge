@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { ItemPropertyRow } from "@/components/item-property-hint";
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import {
   armorSummary,
   formatItemCategory,
@@ -80,6 +81,12 @@ export function ItemDetail({
             <p className="text-sm text-lore-muted">Item not found.</p>
           ) : (
             <>
+              <CodexDetailActions
+                category="Items"
+                slug={slug}
+                name={item.data.name}
+                raw={raw}
+              />
               {item.data.description && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">
                   {item.data.description}

@@ -193,7 +193,11 @@ export function MonsterBrowser({
       </div>
 
       {selectedSlug && (
-        <MonsterDetail slug={selectedSlug} onClose={() => onSelect(null)} />
+        <MonsterDetail
+          slug={selectedSlug}
+          category={mode === "animals" ? "Animals" : "Monsters"}
+          onClose={() => onSelect(null)}
+        />
       )}
     </>
   );

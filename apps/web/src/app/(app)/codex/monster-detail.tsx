@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import type { CodexCategory } from "@/lib/codex-categories";
 import {
   abilityScoreRows,
   formatChallengeRating,
@@ -10,6 +11,7 @@ import {
   formatSpeedLine,
   namedBlocks,
 } from "@/lib/codex-monster-display";
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { trpc } from "@/lib/trpc/client";
 
 function signed(n: number): string {
@@ -18,9 +20,11 @@ function signed(n: number): string {
 
 export function MonsterDetail({
   slug,
+  category,
   onClose,
 }: {
   slug: string;
+  category: Extract<CodexCategory, "Animals" | "Monsters">;
   onClose: () => void;
 }) {
   const monster = trpc.codex.getMonster.useQuery({ slug });
@@ -83,6 +87,12 @@ export function MonsterDetail({
             <p className="text-sm text-red-400">Creature not found.</p>
           ) : (
             <>
+              <CodexDetailActions
+                category={category}
+                slug={slug}
+                name={monster.data.name}
+                raw={raw}
+              />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
                 <Stat label="Challenge" value={formatChallengeRating(monster.data.challengeRating)} />
                 <Stat

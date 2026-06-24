@@ -6,6 +6,7 @@ import {
   featBenefits,
   formatFeatType,
 } from "@/lib/codex-background-feat-display";
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { trpc } from "@/lib/trpc/client";
 
 export function FeatDetail({
@@ -72,6 +73,12 @@ export function FeatDetail({
             <p className="text-sm text-lore-muted">Feat not found.</p>
           ) : (
             <>
+              <CodexDetailActions
+                category="Feats"
+                slug={slug}
+                name={feat.data.name}
+                raw={raw}
+              />
               {feat.data.description && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">
                   {feat.data.description}

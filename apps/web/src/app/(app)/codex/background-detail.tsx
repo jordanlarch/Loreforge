@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { BackgroundBenefitText } from "@/components/background-benefit-text";
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { backgroundBenefits } from "@/lib/codex-background-feat-display";
 import { trpc } from "@/lib/trpc/client";
 
@@ -62,6 +63,12 @@ export function BackgroundDetail({
             <p className="text-sm text-lore-muted">Background not found.</p>
           ) : (
             <>
+              <CodexDetailActions
+                category="Backgrounds"
+                slug={slug}
+                name={background.data.name}
+                raw={raw}
+              />
               {background.data.description && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">
                   {background.data.description}

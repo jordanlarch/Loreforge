@@ -7,7 +7,7 @@
  * and ships the raw text + mode over the stateless channel.
  */
 
-export type ChatEntryKind = "gm" | "player" | "event" | "roll" | "ooc";
+export type ChatEntryKind = "gm" | "player" | "event" | "roll" | "ooc" | "scene_divider";
 
 export interface DiceRoll {
   notation: string;

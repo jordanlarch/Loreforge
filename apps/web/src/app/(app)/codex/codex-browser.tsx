@@ -16,12 +16,17 @@ function levelBadge(level: string | null): string {
   return level == null ? "·" : level === "0" ? "C" : level;
 }
 
-export function CodexBrowser() {
+export function CodexBrowser({
+  selectedSlug,
+  onSelectSlug,
+}: {
+  selectedSlug: string | null;
+  onSelectSlug: (slug: string | null) => void;
+}) {
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState<string | undefined>();
   const [school, setSchool] = useState<string | undefined>();
   const [page, setPage] = useState(0);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 
   const facets = trpc.codex.spellFacets.useQuery();
   const list = trpc.codex.listSpells.useQuery(
@@ -117,7 +122,7 @@ export function CodexBrowser() {
             {spells.map((spell) => (
               <li key={spell.id}>
                 <button
-                  onClick={() => setSelectedSlug(spell.slug)}
+                  onClick={() => onSelectSlug(spell.slug)}
                   className="flex h-full w-full flex-col gap-2 rounded-lg border border-lore-border bg-lore-surface p-4 text-left transition-colors hover:border-lore-accent"
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -143,7 +148,7 @@ export function CodexBrowser() {
       {selectedSlug && (
         <SpellDetail
           slug={selectedSlug}
-          onClose={() => setSelectedSlug(null)}
+          onClose={() => onSelectSlug(null)}
         />
       )}
     </div>

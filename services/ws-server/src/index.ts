@@ -41,6 +41,7 @@ import {
   appendChat,
   chatArray,
   checkEntry,
+  clearChat,
   composePlayerInput,
   gmEcho,
   gmEntry,
@@ -51,6 +52,7 @@ import {
 } from "./chat.js";
 import {
   awardTutorialXp,
+  clearCampaignChat,
   consumeTutorialItem,
   getCampaignEncounter,
   getCampaignParty,
@@ -62,6 +64,7 @@ import {
   loadChatMessages,
   loadRollingSummary,
   persistChatMessages,
+  resetTutorialState,
   resolveTutorialHook,
   setTutorialScene,
 } from "./db.js";
@@ -1067,6 +1070,27 @@ async function handleTutorial(
   topic: string | undefined,
   help: boolean | undefined,
 ): Promise<void> {
+  // Serialize tutorial actions per room so a double-click can't double-process
+  // (advance twice, re-roll a check, repeat a dialogue beat). The duplicate is
+  // simply dropped (#bug2).
+  if (!room.acquireAction()) return;
+  try {
+    await handleTutorialInner(room, document, documentName, action, topic, help);
+  } finally {
+    room.releaseAction();
+  }
+}
+
+async function handleTutorialInner(
+  room: TutorialRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  action: TutorialAction,
+  topic: string | undefined,
+  help: boolean | undefined,
+): Promise<void> {
   if (action === "advance") {
     const result = await room.advance();
     writeProjection(document, await room.getState());
@@ -1089,9 +1113,11 @@ async function handleTutorial(
 
   if (action === "say") {
     // A scripted NPC dialogue beat (the soft rail): post the canned GM line with
-    // its @Entity chips. Deterministic + air-gapped — no LLM in the loop.
+    // its @Entity chips. Deterministic + air-gapped — no LLM in the loop. Played
+    // at most once per topic so re-clicks don't repeat the GM (#bug2).
     const beat = topic ? room.say(topic) : undefined;
     if (!beat) return;
+    if (!room.markOnce(`say:${topic}`)) return;
     await appendAndPersist(document, documentName, [
       gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
     ]);
@@ -1345,6 +1371,24 @@ const server = new Hocuspocus({
 
     // message.t === "reset"
     await room.reset();
+    const resetParsed = parseRoom(documentName);
+    // Tutorial reset is a full replay-from-scratch (#bug3): clear the chat window
+    // (live doc + persisted rows) and restore the seeded DB state, then re-post
+    // the opening scene so the player lands back in-fiction on a clean slate.
+    if (room instanceof TutorialRoom && resetParsed?.kind === "campaign") {
+      clearChat(document);
+      await clearCampaignChat(resetParsed.campaignId);
+      await resetTutorialState(resetParsed.campaignId);
+      const opening = tutorialScene((await room.getState()).currentSceneId);
+      if (opening) {
+        await appendAndPersist(document, documentName, [
+          gmEntry(opening.narration, chatDeps, { mentions: opening.mentions }),
+        ]);
+      }
+      // Nudge connected tabs to refetch the tutorial DB state + clear local
+      // fire-once guards (the new projection alone doesn't cover tRPC queries).
+      tutorialSignal(document, "reset");
+    }
     writeProjection(document, await room.getState());
     // A fresh encounter may open on an enemy's initiative.
     await runEnemyTurns(room, document, documentName, getNarrationClient());

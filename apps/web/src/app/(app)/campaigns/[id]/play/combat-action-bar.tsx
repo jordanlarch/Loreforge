@@ -24,6 +24,9 @@ export function CombatActionBar({
   disabled,
   aimReady,
   readiedNote,
+  canAttack,
+  canAct,
+  attacksLeft,
   onAttack,
   onCast,
   onReady,
@@ -38,6 +41,12 @@ export function CombatActionBar({
   aimReady: boolean;
   /** A held-action confirmation line shown when an action is readied (#104). */
   readiedNote?: string;
+  /** Attacks remain in the Attack action's budget this turn (action economy). */
+  canAttack: boolean;
+  /** The single action is still available (cast / ready). */
+  canAct: boolean;
+  /** Attacks left this turn (Extra Attack / Multiattack), for the hint label. */
+  attacksLeft: number;
   onAttack: (weapon: WeaponAttack) => void;
   onCast: (spell: CastableSpell) => void;
   /** Arm the picker to ready a strike against a chosen foe (#104). */
@@ -116,7 +125,8 @@ export function CombatActionBar({
         <button
           type="button"
           onClick={() => weapons[0] && onAttack(weapons[0])}
-          disabled={disabled || weapons.length === 0}
+          disabled={disabled || weapons.length === 0 || !canAttack}
+          title={!canAttack ? "No attacks left this turn — End turn" : undefined}
           className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
         >
           {weapons[0] ? `Attack: ${weapons[0].label}` : "Attack"}
@@ -126,7 +136,8 @@ export function CombatActionBar({
           <button
             type="button"
             onClick={() => setAttackOpen((o) => !o)}
-            disabled={disabled}
+            disabled={disabled || !canAttack}
+            title={!canAttack ? "No attacks left this turn — End turn" : undefined}
             className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
           >
             Attack ▾
@@ -160,7 +171,8 @@ export function CombatActionBar({
               if (weapons.length === 1) onReady(weapons[0]!);
               else setReadyOpen((o) => !o);
             }}
-            disabled={disabled}
+            disabled={disabled || !canAct}
+            title={!canAct ? "Action already used this turn" : undefined}
             className="rounded border border-lore-border px-3 py-1 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
           >
             {weapons.length === 1 ? "Ready" : "Ready ▾"}
@@ -191,7 +203,8 @@ export function CombatActionBar({
           <button
             type="button"
             onClick={() => setCastOpen((o) => !o)}
-            disabled={disabled}
+            disabled={disabled || !canAct}
+            title={!canAct ? "Action already used this turn" : undefined}
             className="rounded border border-lore-border px-3 py-1 text-sm transition-colors hover:border-lore-accent disabled:opacity-40"
           >
             Cast ▾
@@ -220,6 +233,16 @@ export function CombatActionBar({
         </div>
       )}
       </div>
+      {attacksLeft > 1 && (
+        <p className="rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-xs text-lore-muted">
+          ⚔️ {attacksLeft} attacks left this turn (Extra Attack).
+        </p>
+      )}
+      {!canAttack && !canAct && (
+        <p className="rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-xs text-lore-muted">
+          Action used — move if you like, then End turn.
+        </p>
+      )}
       {readiedNote && (
         <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200">
           ⏳ {readiedNote}

@@ -29,6 +29,9 @@ import {
   monsterTemplate,
   totalLevel,
   xpForLevel,
+  TUTORIAL_CHEST_LOOT,
+  TUTORIAL_FIRST_SCENE_ID,
+  TUTORIAL_OIL_NAME,
   type Ability,
   type EventStore,
   type FoeSpec,
@@ -554,6 +557,110 @@ export async function awardTutorialXp(
     return { leveledUp, awarded };
   } catch {
     return { leveledUp: false, awarded: 0 };
+  }
+}
+
+/* ------------------------------------------------------------------------- *
+ *  Tutorial reset (TUT-1, #bug3) — restore the campaign to its seeded baseline
+ * ------------------------------------------------------------------------- */
+
+/** Mira Thornwood's seeded XP (Ranger 3) — keep in sync with the tutorial tRPC
+ * router's `TUTORIAL_MIRA.xp`. Reset restores the hero to this. */
+const TUTORIAL_PC_BASELINE_XP = 900;
+/** Old Brennar's seeded XP (Cleric 2) — keep in sync with `TUTORIAL_BRENNAR.xp`. */
+const TUTORIAL_COMPANION_BASELINE_XP = 450;
+
+/**
+ * Wipe a campaign's persisted conversation (chat rows + rolling summary + pins),
+ * so a tutorial "Reset" truly clears the chat window instead of re-hydrating the
+ * old transcript on reload (#bug3). Best-effort; never throws into the channel.
+ */
+export async function clearCampaignChat(campaignId: string): Promise<void> {
+  try {
+    const db = getDb();
+    await db.delete(chatMessages).where(eq(chatMessages.campaignId, campaignId));
+    await db
+      .delete(rollingSummaries)
+      .where(eq(rollingSummaries.campaignId, campaignId));
+    await db
+      .delete(pinnedMemories)
+      .where(eq(pinnedMemories.campaignId, campaignId));
+  } catch {
+    // Reset cleanup is best-effort; the engine log truncation is the authority.
+  }
+}
+
+/**
+ * Restore the tutorial campaign's DB-side state to its seeded baseline (#bug3):
+ * the plot hook back to "suggested", the companion back to "reserve", the resume
+ * pointer to the first scene, and the hero's sheet de-progressed (granted items
+ * stripped, XP reset). Mirrors the inverse of the Scene 2–6 writes so a replay
+ * starts clean. Best-effort — a failure must never break the live channel.
+ */
+export async function resetTutorialState(campaignId: string): Promise<void> {
+  try {
+    const db = getDb();
+
+    await db
+      .update(plotHooks)
+      .set({ status: "suggested", updatedAt: new Date() })
+      .where(eq(plotHooks.campaignId, campaignId));
+
+    await db
+      .update(campaignCharacters)
+      .set({ status: "reserve" })
+      .where(
+        and(
+          eq(campaignCharacters.campaignId, campaignId),
+          eq(campaignCharacters.role, "companion"),
+        ),
+      );
+
+    await db
+      .update(tutorialProgress)
+      .set({
+        currentSceneId: TUTORIAL_FIRST_SCENE_ID,
+        status: "in_progress",
+        completedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(tutorialProgress.campaignId, campaignId));
+
+    // De-progress the roster: strip tutorial-granted items + reset XP by role.
+    const granted = new Set<string>([
+      TUTORIAL_OIL_NAME,
+      ...TUTORIAL_CHEST_LOOT.map((i) => i.name),
+    ]);
+    const roster = await db
+      .select({
+        id: characters.id,
+        equipment: characters.equipment,
+        role: campaignCharacters.role,
+      })
+      .from(campaignCharacters)
+      .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
+      .where(
+        and(
+          eq(campaignCharacters.campaignId, campaignId),
+          inArray(campaignCharacters.role, ["pc", "companion"]),
+        ),
+      );
+
+    for (const row of roster) {
+      const equipment = ((row.equipment ?? []) as EquipmentItem[]).filter(
+        (i) => !granted.has(i.name),
+      );
+      const xp =
+        row.role === "pc"
+          ? TUTORIAL_PC_BASELINE_XP
+          : TUTORIAL_COMPANION_BASELINE_XP;
+      await db
+        .update(characters)
+        .set({ equipment, xp, updatedAt: new Date() })
+        .where(eq(characters.id, row.id));
+    }
+  } catch {
+    // Best-effort reset; the engine event-log truncation is the authority.
   }
 }
 

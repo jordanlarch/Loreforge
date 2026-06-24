@@ -2,6 +2,7 @@ import {
   closeDb,
   getDb,
   ingestOpen5eCreatures,
+  ingestOpen5eItems,
   ingestOpen5eSpells,
   seedCharacterOptions,
 } from "@app/db";
@@ -53,10 +54,16 @@ export const ingestSpellsNightly = schedules.task({
       });
       logger.info("Nightly Open5e creature ingest complete", { ...creatures });
 
+      const items = await ingestOpen5eItems({
+        db,
+        logger: (message) => logger.info(message),
+      });
+      logger.info("Nightly Open5e item ingest complete", { ...items });
+
       const options = await seedCharacterOptions(db);
       logger.info("Nightly SRD character-options seed complete", { ...options });
 
-      return { ...result, ...creatures, ...options };
+      return { ...result, ...creatures, ...items, ...options };
     } finally {
       await closeDb();
     }

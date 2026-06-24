@@ -16,6 +16,7 @@
     "migrate": "dotenv -e ../../.env.local --no-expand -- drizzle-kit migrate",
     "ingest:open5e": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e.ts",
     "ingest:open5e-creatures": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e-creatures.ts",
+    "ingest:open5e-items": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/ingest-open5e-items.ts",
     "seed:character-options": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/seed-character-options.ts"
   },
   "dependencies": {

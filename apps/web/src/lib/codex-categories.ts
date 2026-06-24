@@ -19,6 +19,7 @@ const LIVE: CodexCategory[] = [
   "Classes",
   "Animals",
   "Monsters",
+  "Items",
 ];
 
 export function isLiveCodexCategory(cat: CodexCategory): boolean {
@@ -42,7 +43,7 @@ export const COMING_SOON_COPY: Partial<Record<CodexCategory, string>> = {
   Monsters:
     "Full SRD creature stat blocks from Open5e.",
   Items:
-    "Adventuring gear and magic items await structured equipment ingest.",
+    "Adventuring gear, weapons, armor, and wondrous items from the Open5e SRD item ingest.",
   Feats:
     "SRD feats will ship with the feats ingest pass.",
 };

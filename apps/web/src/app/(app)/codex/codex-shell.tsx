@@ -14,6 +14,7 @@ import {
 import { ClassBrowser } from "./class-browser";
 import { CodexBrowser } from "./codex-browser";
 import { CodexComingSoon } from "./codex-coming-soon";
+import { ItemBrowser } from "./item-browser";
 import { MonsterBrowser } from "./monster-browser";
 import { SpeciesBrowser } from "./species-browser";
 
@@ -122,6 +123,9 @@ export function CodexShell() {
           selectedSlug={selectedSlug}
           onSelect={selectSlug}
         />
+      )}
+      {category === "Items" && (
+        <ItemBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
       )}
       {!isLiveCodexCategory(category) && (
         <CodexComingSoon category={category} />

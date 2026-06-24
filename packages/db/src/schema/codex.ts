@@ -66,6 +66,34 @@ export const codexMonsters = pgTable(
   ],
 );
 
+/**
+ * SRD items from Open5e ingest (CODEX-1).
+ * Open5e v2 items corpus is scoped to the 2024 SRD document (`srd-2024`).
+ */
+export const codexItems = pgTable(
+  "codex_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    /** Open5e category key, e.g. weapon, armor, wondrous-item. */
+    category: text("category"),
+    description: text("description"),
+    cost: text("cost"),
+    weight: text("weight"),
+    weightUnit: text("weight_unit"),
+    source: text("source").notNull().default("open5e"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_items_name_idx").on(t.name),
+    index("codex_items_category_idx").on(t.category),
+  ],
+);
+
 /** How many skills a class lets you pick at level 1, and from which list. */
 export type SkillChoice = {
   choose: number;

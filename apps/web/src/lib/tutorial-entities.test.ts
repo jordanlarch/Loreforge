@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   dispositionLabel,
   TUTORIAL_ENTITIES,
+  tutorialBrowseCatalog,
   tutorialEntity,
 } from "./tutorial-entities";
 
@@ -41,5 +42,13 @@ describe("tutorial entity registry (TUT-1, #171)", () => {
   it("labels dispositions", () => {
     expect(dispositionLabel("friendly")).toBe("Friendly");
     expect(dispositionLabel("unknown")).toBe("Unknown");
+  });
+
+  it("maps vendor entities to shop or tavern browse overlays", () => {
+    expect(tutorialBrowseCatalog("Barnaby Bramblefoot")).toBe("tavern");
+    expect(tutorialBrowseCatalog("The Hearth and Hemlock")).toBe("tavern");
+    expect(tutorialBrowseCatalog("Toric Pennywhistle")).toBe("shop");
+    expect(tutorialBrowseCatalog("Tinker's Mercy")).toBe("shop");
+    expect(tutorialBrowseCatalog("Lily Lampmaker")).toBeNull();
   });
 });

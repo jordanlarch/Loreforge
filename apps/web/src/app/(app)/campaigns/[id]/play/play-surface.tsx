@@ -33,6 +33,7 @@ import {
 
 import { CoachmarkHost } from "@/components/coachmark";
 import { CharacterSheetOverlay } from "@/components/character-sheet-overlay";
+import { TutorialCatalogOverlay } from "@/components/tutorial-catalog-overlay";
 import { TutorialHintChip } from "@/components/tutorial-hint-chip";
 import { trpc } from "@/lib/trpc/client";
 import { trackTutorialEvent } from "@/lib/observability/tutorial-telemetry";
@@ -81,6 +82,7 @@ import { useSceneTransition, useCombatTransition } from "./use-scene-transition"
 import { useLiveSession } from "./use-live-session";
 import { mergeChatEntries } from "@/lib/scene-transition-chat";
 import { TUTORIAL_SHOP } from "@/lib/tutorial-shop";
+import { TUTORIAL_TAVERN } from "@/lib/tutorial-tavern";
 
 type ViewModel = {
   cols: number;
@@ -1000,6 +1002,9 @@ export function TutorialPlaySurface({
   const partyQuery = trpc.campaigns.party.useQuery({ campaignId });
   const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
   const [drawerName, setDrawerName] = useState<string | null>(null);
+  const [catalogKind, setCatalogKind] = useState<"shop" | "tavern" | null>(
+    null,
+  );
   const [lilySpoken, setLilySpoken] = useState(false);
   const [invOpen, setInvOpen] = useState(false);
   const [helpUsed, setHelpUsed] = useState(false);
@@ -1239,6 +1244,7 @@ export function TutorialPlaySurface({
       onSuccess: () => {
         void utils.tutorial.inventory.invalidate();
         setInvOpen(true);
+        setCatalogKind(null);
       },
     });
   }
@@ -1347,48 +1353,23 @@ export function TutorialPlaySurface({
             <span aria-hidden>🛒</span>
             {TUTORIAL_SHOP.name}
           </div>
-          <div className="text-xs text-lore-muted">
-            Shopkeeper: {TUTORIAL_SHOP.keeper} ({TUTORIAL_SHOP.keeperBlurb})
-          </div>
-          <ul className="flex flex-col gap-1.5">
-            {TUTORIAL_SHOP.listings.map((listing) => (
-              <li
-                key={listing.name}
-                className="rounded border border-lore-border bg-lore-bg p-2"
-              >
-                <div className="flex items-center justify-between gap-2 text-xs text-lore-text">
-                  <span>
-                    {listing.icon} {listing.name}
-                  </span>
-                  <span className="text-lore-muted">{listing.price}</span>
-                </div>
-                <p className="mt-0.5 text-[11px] text-lore-muted">
-                  {listing.blurb}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <p className="text-xs text-lore-muted">
+            Toric Pennywhistle&apos;s stall on Crooked Lane — lamp oil, silvered
+            arrows, and tinder.
+          </p>
           {oilGranted ? (
             <div className="text-xs font-medium text-lore-accent">
               ✓ Toric pressed the Oil of Brightness into your hand — it&apos;s in
               your pack.
             </div>
-          ) : (
-            <>
-              <p className="text-[11px] italic text-lore-muted">
-                &ldquo;You&apos;ll need it. And if you&apos;re back tomorrow,
-                we&apos;ll all owe you. If you&apos;re not… well.&rdquo;
-              </p>
-              <button
-                type="button"
-                onClick={takeTorricsGift}
-                disabled={grantOil.isPending}
-                className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
-              >
-                {grantOil.isPending ? "Taking…" : "Accept Toric's gift ▶"}
-              </button>
-            </>
-          )}
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setCatalogKind("shop")}
+            className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+          >
+            Browse wares ▶
+          </button>
         </div>
       )}
 
@@ -1575,8 +1556,43 @@ export function TutorialPlaySurface({
         name={drawerName}
         onClose={() => setDrawerName(null)}
         onSpeak={speak}
+        onBrowse={(kind) => setCatalogKind(kind)}
         spokenTopics={spokenTopics}
       />
+      {catalogKind === "shop" ? (
+        <TutorialCatalogOverlay
+          title={TUTORIAL_SHOP.name}
+          subtitle={`Shopkeeper: ${TUTORIAL_SHOP.keeper} (${TUTORIAL_SHOP.keeperBlurb})`}
+          listings={TUTORIAL_SHOP.listings}
+          onClose={() => setCatalogKind(null)}
+          footer={
+            oilGranted ? undefined : (
+              <p className="text-[11px] italic text-lore-muted">
+                &ldquo;You&apos;ll need it. And if you&apos;re back tomorrow,
+                we&apos;ll all owe you. If you&apos;re not… well.&rdquo;
+              </p>
+            )
+          }
+          primaryAction={
+            oilGranted
+              ? undefined
+              : {
+                  label: "Accept Toric's gift ▶",
+                  onClick: takeTorricsGift,
+                  pending: grantOil.isPending,
+                }
+          }
+        />
+      ) : null}
+      {catalogKind === "tavern" ? (
+        <TutorialCatalogOverlay
+          title={TUTORIAL_TAVERN.name}
+          subtitle={`Keeper: ${TUTORIAL_TAVERN.keeper} (${TUTORIAL_TAVERN.keeperBlurb})`}
+          listings={TUTORIAL_TAVERN.listings}
+          purseGp={TUTORIAL_TAVERN.purseGp}
+          onClose={() => setCatalogKind(null)}
+        />
+      ) : null}
       <TutorialInventoryDrawer
         open={invOpen}
         items={items}

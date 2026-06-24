@@ -13,6 +13,7 @@ import { useEffect } from "react";
 
 import {
   dispositionLabel,
+  tutorialBrowseCatalog,
   tutorialEntity,
   type EntityDisposition,
 } from "@/lib/tutorial-entities";
@@ -28,6 +29,7 @@ export function TutorialEntityDrawer({
   name,
   onClose,
   onSpeak,
+  onBrowse,
   spokenTopics,
 }: {
   /** The entity name to show, or null when the drawer is closed. */
@@ -35,6 +37,8 @@ export function TutorialEntityDrawer({
   onClose: () => void;
   /** Trigger a scripted dialogue beat for a speakable NPC. */
   onSpeak: (topic: "barnaby" | "lily") => void;
+  /** Open the shop or tavern catalog overlay. */
+  onBrowse?: (kind: "shop" | "tavern") => void;
   /** Topics already spoken this run — Speak is fire-once per NPC (#bug2). */
   spokenTopics: ReadonlySet<string>;
 }) {
@@ -49,6 +53,7 @@ export function TutorialEntityDrawer({
 
   if (!name) return null;
   const entity = tutorialEntity(name);
+  const browse = tutorialBrowseCatalog(name);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -100,15 +105,29 @@ export function TutorialEntityDrawer({
               </div>
             )}
 
-            {entity.speak ? (
-              <SpeakButton
-                topic={entity.speak}
-                firstName={name.split(" ")[0] ?? name}
-                onSpeak={onSpeak}
-                onClose={onClose}
-                spoken={spokenTopics.has(entity.speak)}
-              />
-            ) : null}
+            <div className="mt-auto flex flex-col gap-2">
+              {browse && onBrowse ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onBrowse(browse);
+                    onClose();
+                  }}
+                  className="rounded-lg border border-lore-border px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent"
+                >
+                  {browse === "shop" ? "Browse wares" : "View menu"}
+                </button>
+              ) : null}
+              {entity.speak ? (
+                <SpeakButton
+                  topic={entity.speak}
+                  firstName={name.split(" ")[0] ?? name}
+                  onSpeak={onSpeak}
+                  onClose={onClose}
+                  spoken={spokenTopics.has(entity.speak)}
+                />
+              ) : null}
+            </div>
           </>
         ) : (
           <p className="text-sm text-lore-muted">
@@ -141,7 +160,7 @@ function SpeakButton({
         onSpeak(topic);
         onClose();
       }}
-      className="mt-auto rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+      className="rounded-lg border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
     >
       {spoken ? `Spoke to ${firstName} ✓` : `Speak to ${firstName}`}
     </button>

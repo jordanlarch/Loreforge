@@ -80,6 +80,19 @@ export const TUTORIAL_ENTITIES: Record<string, TutorialEntity> = {
   },
 };
 
+/** Which read-only vendor catalog an entity name opens, if any. */
+export function tutorialBrowseCatalog(
+  name: string,
+): "shop" | "tavern" | null {
+  if (name === "Barnaby Bramblefoot" || name === "The Hearth and Hemlock") {
+    return "tavern";
+  }
+  if (name === "Toric Pennywhistle" || name === "Tinker's Mercy") {
+    return "shop";
+  }
+  return null;
+}
+
 /** The registry entry for an entity name, or undefined if it isn't a known one. */
 export function tutorialEntity(name: string): TutorialEntity | undefined {
   return TUTORIAL_ENTITIES[name];

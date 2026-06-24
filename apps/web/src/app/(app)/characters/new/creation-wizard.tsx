@@ -25,6 +25,8 @@ import {
 
 import { trpc } from "@/lib/trpc/client";
 
+import { SrdHint } from "@/components/srd-hint";
+
 const ABILITY_LABELS: Record<Ability, string> = {
   str: "STR",
   dex: "DEX",
@@ -516,7 +518,9 @@ function AbilitiesStep({
             key={a}
             className="flex items-center gap-3 rounded border border-lore-border bg-lore-surface px-3 py-2"
           >
-            <span className="w-10 text-sm font-medium">{ABILITY_LABELS[a]}</span>
+            <span className="w-28 text-sm font-medium">
+              <SrdHint kind="ability" ability={a} label={ABILITY_LABELS[a]} />
+            </span>
 
             <div className="flex-1">
               {method === "point-buy" && (
@@ -675,7 +679,7 @@ function SkillsStep({
                 onChange={() => toggle(skill)}
                 className="accent-lore-accent"
               />
-              {skill}
+              <SrdHint kind="skill" skill={skill} />
             </label>
           );
         })}

@@ -65,15 +65,42 @@ git pull origin main
 
 Use `--squash` only if the user or repo convention requests it.
 
-## 6. Supabase migrations
+## 6. Supabase migrations (required when schema changes)
 
-When the branch adds files under `packages/db/drizzle/` or `supabase/migrations/`:
+When the branch adds files under `packages/db/migrations/`:
 
-1. List pending migrations vs what prod has
-2. Apply via the project's migration path (Drizzle push / Supabase CLI — whichever this repo uses)
-3. Note in the PR or handoff if prod still needs manual apply
+### 6a. Preflight — confirm env is wired
 
-**This hotfix had no DB migration.** Skip when no schema changes.
+Migrations read from repo-root `.env.local` via `dotenv-cli`. **At least one** of these must be set:
+
+- `DIRECT_URL` — **preferred** (Supabase session pooler / direct, port **5432**)
+- `DATABASE_URL` — fallback (often transaction pooler port 6543; use only if migrate succeeds)
+
+Verify without printing secrets:
+
+```powershell
+Set-Location packages/db
+npx dotenv -e ../../.env.local -- node -e "console.log('ready', !!(process.env.DIRECT_URL||process.env.DATABASE_URL))"
+```
+
+If this prints `ready false`, add `DIRECT_URL` to `.env.local` (see `.env.example` § Supabase) before continuing.
+
+### 6b. Apply pending migrations
+
+```powershell
+Set-Location packages/db
+npm run migrate
+```
+
+This runs `drizzle-kit migrate` against the Postgres instance. New SQL files in `packages/db/migrations/` (e.g. `0023_character_library_visibility.sql`) are applied in journal order.
+
+### 6c. Confirm + handoff
+
+- Re-run the preflight if migrate failed (wrong port, password encoding, network).
+- Tell the user which migration tags were applied and any manual follow-up.
+- **Apply migrations after merge to prod Supabase**, not only locally — local `.env.local` may point at prod or a dev project; clarify which DB was migrated.
+
+Skip this section entirely when the PR has **no** new files in `packages/db/migrations/`.
 
 ## 7. Update docs (when applicable)
 
@@ -87,7 +114,7 @@ Do not scatter deferrals outside `deferrals.md`.
 
 ## 8. Tell the user what to verify
 
-After merge, give concrete manual verification steps (URLs, flows, env vars if any).
+After merge, give concrete manual verification steps (URLs, flows, env vars if any). If step 6 was skipped because env was missing, **explicitly remind the user to run `npm run migrate` in `packages/db`** before testing features that depend on new columns.
 
 ## Quick reference — Jordan's environment
 
@@ -95,3 +122,4 @@ After merge, give concrete manual verification steps (URLs, flows, env vars if a
 - Package manager: **npm** (not pnpm)
 - GitHub: `gh` CLI
 - Workspace: `C:\Users\Jordan\Desktop\Projects\Python Projects\Loreforge`
+- DB migrations: `packages/db` → `npm run migrate` (needs `DIRECT_URL` or `DATABASE_URL` in `.env.local`)

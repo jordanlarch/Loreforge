@@ -25,6 +25,8 @@ import {
 
 import { trpc } from "@/lib/trpc/client";
 
+import { CopyFromCodexButton } from "./codex-spell-copy";
+
 type Ability = "str" | "dex" | "con" | "int" | "wis" | "cha";
 const ABILITIES: Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
 
@@ -102,12 +104,15 @@ export function SpellBrowser() {
                   list.data?.length === 1 ? "" : "s"
                 }`}
           </span>
-          <button
-            onClick={() => setInscribing((f) => !f)}
-            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
-          >
-            {inscribing ? "Cancel" : "+ Inscribe New"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <CopyFromCodexButton />
+            <button
+              onClick={() => setInscribing((f) => !f)}
+              className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+            >
+              {inscribing ? "Cancel" : "+ Inscribe New"}
+            </button>
+          </div>
         </div>
 
         {inscribing && (

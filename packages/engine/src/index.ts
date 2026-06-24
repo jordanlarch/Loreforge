@@ -205,6 +205,7 @@ export {
   type TargetingType,
   type UpcastScaling,
 } from "./content/spells";
+export { open5eRawToSpellDefinition } from "./content/open5e-spell";
 export {
   MONSTER_TEMPLATES,
   MONSTER_TEMPLATE_LIST,

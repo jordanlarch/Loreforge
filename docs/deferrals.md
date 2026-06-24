@@ -134,7 +134,7 @@ no Smithy copy loop, deep links, right pane, or global search.
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
 | CODEX-1 | Non-spell category browsers (Rules, Species, Backgrounds, Classes, Animals, Monsters, Items, Feats, Advanced) | P3+ / ongoing | doc-only | Missing | Category pills are decorative; `listSpecies`/`listClasses` exist but wizard-only. |
-| CODEX-2 | "Copy to The Smithy" from spell detail (+ bulk multi-select copy) | P2 (deepen) | doc-only | Missing | No copy mutation; Smithy `CopyFromCodexButton` is a stub. Pairs with SMITH-6. |
+| CODEX-2 | "Copy to The Smithy" from spell detail (+ bulk multi-select copy) | P2 (deepen) | doc-only | Partial | **Spell copy shipped:** Codex detail "Copy to The Smithy" + Smithy picker call `smithy.copySpellFromCodex` (Open5e raw → `SpellDefinition`, idempotent per slug). **Still deferred:** bulk multi-select, non-spell categories. |
 | CODEX-3 | Deep links / bookmarkable detail (`/codex/spells/[slug]`, `?search=`, category routes) | P3+ | doc-only | Missing | Detail is client state only. |
 | CODEX-4 | Right pane (Recently Viewed, Quick Copy suggestions, Your Characters) + footer (SRD attribution, export) | P3+ | doc-only | Missing | — |
 | CODEX-5 | Richer spell filters (ritual, concentration, class-list) + List/Table view toggle + sorting | P3+ | doc-only | Partial | Level + school only today. |
@@ -173,7 +173,7 @@ are metadata-only. Diverges sharply from the full "homebrew forge."
 | SMITH-3 | Browse-card actions (Edit, Duplicate, Delete-on-card, Use in Character) + timestamps + description snippets | P2 (deepen) | doc-only | Missing | Cards link to detail only. |
 | SMITH-4 | Text search + filters (Last Edited, Source Copied/Original) + Grid/List/Table toggle | P2 (deepen) | doc-only | Missing | — |
 | SMITH-5 | Character integration ("Use in Character" / Equip / Learn / Apply) | P4 | doc-only | Missing | Depends on CHAR-1 schema. |
-| SMITH-6 | Copy-from-Codex flow (real picker, `source`/`copiedFromSlug` populate, toast, Reset-to-SRD) | P2 (deepen) | doc-only | Missing | DB provenance fields ready but unused; pairs with CODEX-2. |
+| SMITH-6 | Copy-from-Codex flow (real picker, `source`/`copiedFromSlug` populate, toast, Reset-to-SRD) | P2 (deepen) | doc-only | Partial | **Spell copy shipped:** `CopyFromCodexButton` opens Codex spell search picker; `copySpellFromCodex` sets `source: codex` + `copiedFromSlug`. **Still deferred:** item copy, Reset-to-SRD, toast polish. |
 | SMITH-7 | Item engine mechanics (`EffectTemplate`, damage/stats, sandbox handlers) beyond metadata | P3/P6 | doc-only | Missing | QuickJS sandbox is roadmap E5/P6. |
 | SMITH-8 | Right pane (Recently Forged, Quick Copy, Your Characters), folders/tags, color-coded rarity | P3+ | doc-only | Missing | — |
 | SMITH-9 | Export/Import homebrew JSON, auto-save drafts, version history, undo | P3+ | doc-only | Missing | — |

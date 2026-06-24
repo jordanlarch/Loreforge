@@ -32,6 +32,12 @@ import {
 
 import type { EquipmentItem } from "@/lib/character";
 import { TUTORIAL_OIL_GRANT, withOilGrant } from "@/lib/tutorial-shop";
+import {
+  findOwnedCharacter,
+  seedStarterCharacter,
+  STARTER_BRENNAR,
+  STARTER_MIRA,
+} from "@/lib/tutorial-starter";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -82,63 +88,10 @@ async function unlockAchievement(
 }
 
 /** The pregenerated tutorial hero (`docs/onboarding/tutorial-adventure.md` §2.1). */
-const TUTORIAL_MIRA: Omit<typeof characters.$inferInsert, "ownerId"> = {
-  name: "Mira Thornwood",
-  species: "Half-Elf",
-  background: "Outlander",
-  classes: [{ class: "Ranger", level: 3, subclass: "Hunter" }],
-  abilityScores: { str: 12, dex: 16, con: 13, int: 10, wis: 15, cha: 11 },
-  maxHp: 27,
-  baseAc: 14,
-  speed: 30,
-  saveProficiencies: ["str", "dex"],
-  skillProficiencies: ["Stealth", "Perception", "Survival", "Investigation"],
-  xp: 900,
-  notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
-  equipment: [
-    { name: "Longbow", quantity: 1, equipped: true },
-    { name: "Shortsword", quantity: 2, equipped: true },
-    { name: "Leather Armor", quantity: 1, equipped: true },
-    { name: "Potion of Healing", quantity: 2, equipped: false },
-  ],
-  spells: {
-    spells: [
-      { name: "Hunter's Mark", level: 1, prepared: true },
-      { name: "Cure Wounds", level: 1, prepared: true },
-    ],
-    slots: { "1": { max: 3, used: 0 } },
-  },
-};
+const TUTORIAL_MIRA = STARTER_MIRA;
 
 /** The companion NPC seeded for Scene 2 (`tutorial-adventure.md` §2.2). */
-const TUTORIAL_BRENNAR: Omit<typeof characters.$inferInsert, "ownerId"> = {
-  name: "Old Brennar",
-  species: "Human",
-  background: "Acolyte",
-  classes: [{ class: "Cleric", level: 2, subclass: "Life" }],
-  abilityScores: { str: 11, dex: 10, con: 12, int: 10, wis: 15, cha: 13 },
-  maxHp: 17,
-  baseAc: 13,
-  speed: 30,
-  saveProficiencies: ["wis", "cha"],
-  skillProficiencies: ["Insight", "Medicine", "Religion"],
-  xp: 450,
-  notes:
-    "Your companion through the Hollow — a grieving cleric who knew the lampkeeper. Pregenerated for the tutorial.",
-  equipment: [
-    { name: "Mace", quantity: 1, equipped: true },
-    { name: "Chain Shirt", quantity: 1, equipped: true },
-    { name: "Holy Symbol", quantity: 1, equipped: true },
-    { name: "Potion of Healing", quantity: 1, equipped: false },
-  ],
-  spells: {
-    spells: [
-      { name: "Sacred Flame", level: 0, prepared: true },
-      { name: "Cure Wounds", level: 1, prepared: true },
-    ],
-    slots: { "1": { max: 3, used: 0 } },
-  },
-};
+const TUTORIAL_BRENNAR = STARTER_BRENNAR;
 
 const TUTORIAL_CAMPAIGN_NAME = "The Lantern's Last Flicker";
 
@@ -185,10 +138,28 @@ export const tutorialRouter = createTRPCRouter({
       throw new Error("Failed to create tutorial campaign.");
     }
 
-    const [mira] = await db
-      .insert(characters)
-      .values({ ...TUTORIAL_MIRA, ownerId })
-      .returning({ id: characters.id });
+    const [miraRow] = await (async () => {
+      const reused = await findOwnedCharacter(ownerId, STARTER_MIRA.name);
+      if (reused) {
+        await db
+          .update(characters)
+          .set({
+            notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
+            updatedAt: new Date(),
+          })
+          .where(eq(characters.id, reused));
+        return [{ id: reused }];
+      }
+      return db
+        .insert(characters)
+        .values({
+          ...TUTORIAL_MIRA,
+          ownerId,
+          notes: "Your guide through the Hollow. Pregenerated for the tutorial.",
+        })
+        .returning({ id: characters.id });
+    })();
+    const mira = miraRow;
     if (mira) {
       await db
         .insert(campaignCharacters)
@@ -204,16 +175,20 @@ export const tutorialRouter = createTRPCRouter({
 
     // Old Brennar is seeded now (D4) but parked as a "reserve" companion so he
     // doesn't load into Scene 1; accepting the hook in Scene 2 activates him.
-    const [brennar] = await db
-      .insert(characters)
-      .values({ ...TUTORIAL_BRENNAR, ownerId })
-      .returning({ id: characters.id });
-    if (brennar) {
+    const brennarId =
+      (await findOwnedCharacter(ownerId, STARTER_BRENNAR.name)) ??
+      (
+        await db
+          .insert(characters)
+          .values({ ...TUTORIAL_BRENNAR, ownerId })
+          .returning({ id: characters.id })
+      )[0]?.id;
+    if (brennarId) {
       await db
         .insert(campaignCharacters)
         .values({
           campaignId: campaign.id,
-          characterId: brennar.id,
+          characterId: brennarId,
           ownerId,
           role: "companion",
           status: "reserve",
@@ -241,23 +216,55 @@ export const tutorialRouter = createTRPCRouter({
         campaignId: campaign.id,
         currentSceneId: TUTORIAL_FIRST_SCENE_ID,
         status: "in_progress",
+        completedAt: null,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: tutorialProgress.ownerId,
+        set: {
+          campaignId: campaign.id,
+          currentSceneId: TUTORIAL_FIRST_SCENE_ID,
+          status: "in_progress",
+          completedAt: null,
+          updatedAt: new Date(),
+        },
+      });
 
     return { campaignId: campaign.id };
   }),
 
   /**
-   * Record that the user skipped the tutorial. The frictionless skip→starter
-   * handoff (a seeded blank campaign) lands in a later slice; for now this just
-   * marks an existing run skipped so the splash can route on.
+   * Skip the tutorial (TUT-1, #177): frictionless bail from the splash. Seeds Mira
+   * as a standalone owned character, marks the run skipped (inserting a row when
+   * the user never started), and clears the launch gate. Idempotent.
    */
   skip: protectedProcedure.mutation(async ({ ctx }) => {
     const db = getDb();
-    await db
-      .update(tutorialProgress)
-      .set({ status: "skipped", completedAt: new Date(), updatedAt: new Date() })
-      .where(eq(tutorialProgress.ownerId, ctx.user.id));
+    const ownerId = ctx.user.id;
+    const now = new Date();
+
+    await seedStarterCharacter(ownerId);
+
+    const [existing] = await db
+      .select({ id: tutorialProgress.id })
+      .from(tutorialProgress)
+      .where(eq(tutorialProgress.ownerId, ownerId))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(tutorialProgress)
+        .set({ status: "skipped", completedAt: now, updatedAt: now })
+        .where(eq(tutorialProgress.ownerId, ownerId));
+    } else {
+      await db.insert(tutorialProgress).values({
+        ownerId,
+        campaignId: null,
+        currentSceneId: "",
+        status: "skipped",
+        completedAt: now,
+      });
+    }
+
     return { ok: true };
   }),
 

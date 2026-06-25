@@ -86,7 +86,7 @@ import { PlaySurfaceLayout } from "./play-surface-layout";
 import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
 import { useSceneTransition, useCombatTransition } from "./use-scene-transition";
-import { useLiveSession } from "./use-live-session";
+import { useLiveSession, LIVE_WS_URL } from "./use-live-session";
 
 import {
   PostSessionPins,
@@ -315,6 +315,11 @@ function LiveBattle({
       });
     },
   });
+  const endSessionError = endSession.isError ? (
+    <p className="mt-2 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+      {endSession.error.message}
+    </p>
+  ) : null;
 
   // Scene transition (#103): watch the synced scene id and cross-fade + drop a
   // location banner + chat divider when the engine advances to a new scene.
@@ -619,11 +624,22 @@ function LiveBattle({
       : undefined;
 
   if (session.error) {
+    const wsMisconfigured =
+      LIVE_WS_URL.includes("localhost") || LIVE_WS_URL.includes("127.0.0.1");
     return (
-      <p className="px-4 py-16 text-center text-lore-muted">
-        Couldn&apos;t reach the live session. Check that the sync server is
-        running and you&apos;re signed in.
-      </p>
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <p className="text-lore-muted">
+          Couldn&apos;t reach the live session. Check that you&apos;re signed in
+          and the sync server is reachable.
+        </p>
+        {wsMisconfigured ? (
+          <p className="mt-3 text-sm text-lore-muted">
+            This deployment is pointing at a local sync URL — set{" "}
+            <code className="text-lore-text">NEXT_PUBLIC_WS_URL</code> to the
+            hosted ws-server (INFRA-2).
+          </p>
+        ) : null}
+      </div>
     );
   }
   if (session.isLoading || !session.state) {
@@ -682,6 +698,7 @@ function LiveBattle({
                     disabled: session.isBusy || paused,
                   }}
                 />
+                {endSessionError}
                 {joinPrompt && (
                   <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
                     <span>⚡ {joinPrompt}</span>
@@ -820,6 +837,7 @@ function LiveBattle({
                 disabled: session.isBusy || paused,
               }}
             />
+            {endSessionError}
             {tutorialControls ? (
               <div className="mt-2">{tutorialControls}</div>
             ) : null}
@@ -997,9 +1015,16 @@ export function SandboxPlaySurface() {
  * this client check is UX only. The seeded goblin ambush makes a new campaign
  * immediately playable until real encounter authoring lands.
  */
-export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
+export function CampaignPlaySurface({
+  campaignId,
+  reloadKey,
+}: {
+  campaignId: string;
+  /** Bumped after Combat tab Run Now to force a fresh WS connection (CAMP-8). */
+  reloadKey?: string;
+}) {
   const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
-  const session = useLiveSession({ campaignId });
+  const session = useLiveSession({ campaignId, reloadKey });
 
   // Sheet bridge (#98): map each roster character's equipment + spells by id (=
   // the live entity id the WS server seeds), so the HUD + action bar are driven

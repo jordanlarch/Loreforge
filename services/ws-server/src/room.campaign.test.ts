@@ -196,6 +196,41 @@ describe("CampaignRoom", () => {
     expect(state.encounter?.order).toHaveLength(4);
   });
 
+  it("re-seeds after an external log truncate (Run Now from combat tab)", async () => {
+    const store = new InMemoryEventStore();
+    const ogreFoes: FoeSpec[] = [
+      {
+        id: "npc:foe-0",
+        name: "Ogre 1",
+        abilityScores: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
+        maxHp: 59,
+        baseAc: 11,
+        speed: 40,
+      },
+    ];
+    let armed = false;
+    const room = new CampaignRoom(
+      CAMPAIGN,
+      store,
+      async () => [],
+      async () =>
+        armed
+          ? { name: "Ogre Den", foes: ogreFoes }
+          : undefined,
+    );
+
+    const first = await room.getState();
+    expect(first.entities["npc:goblin-a"]).toBeDefined();
+
+    armed = true;
+    await store.truncate(CAMPAIGN, 0);
+
+    const second = await room.getState();
+    expect(second.scenes[FIXTURE_BATTLE_SCENE_ID]?.name).toBe("Ogre Den");
+    expect(second.entities["npc:foe-0"]?.name).toBe("Ogre 1");
+    expect(second.entities["npc:goblin-a"]).toBeUndefined();
+  });
+
   it("rejects an illegal move (into a wall) and leaves state unchanged", async () => {
     const store = new InMemoryEventStore();
     const room = new CampaignRoom(CAMPAIGN, store);

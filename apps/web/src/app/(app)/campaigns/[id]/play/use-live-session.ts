@@ -28,6 +28,9 @@ import type { ChatEntry } from "@/lib/live-chat";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:1234";
 
+/** WS endpoint the live session hook connects to (exported for error UX). */
+export const LIVE_WS_URL = WS_URL;
+
 /** Y.Doc field contract — must match `@app/ws-server`'s `projection.ts`. */
 const BATTLE_ROOT = "battle";
 /** Top-level chat log field — must match `@app/ws-server`'s `chat.ts`. */
@@ -81,9 +84,9 @@ type LiveStatus = "connecting" | "synced" | "error";
  * persisted `campaign:{id}` room (owner-only, server-authoritative); otherwise
  * it joins the per-user `sandbox:{userId}` fixture demo.
  */
-export type LiveSessionOptions = { campaignId?: string };
+export type LiveSessionOptions = { campaignId?: string; reloadKey?: string };
 
-export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
+export function useLiveSession({ campaignId, reloadKey }: LiveSessionOptions = {}) {
   const [state, setState] = useState<WorldState | undefined>(undefined);
   const [status, setStatus] = useState<LiveStatus>("connecting");
   const [rejected, setRejected] = useState(false);
@@ -208,7 +211,7 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
       provider?.destroy();
       providerRef.current = null;
     };
-  }, [campaignId]);
+  }, [campaignId, reloadKey]);
 
   useEffect(() => {
     if (!rejected) return;

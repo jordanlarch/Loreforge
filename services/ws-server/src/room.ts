@@ -151,8 +151,15 @@ export class CampaignRoom implements LiveRoom {
    * access. Idempotent.
    */
   async ensureSeeded(): Promise<void> {
+    const lastSeq = await this.store.lastSequence(this.campaignId);
+    // CAMP-8 Run Now truncates the log from the web app while this room may
+    // still be cached in memory — re-seed when the log is empty again.
+    if (this.seeded && lastSeq === 0) {
+      this.engine = new Engine({ store: this.store });
+      this.seeded = false;
+    }
     if (this.seeded) return;
-    if ((await this.store.lastSequence(this.campaignId)) === 0) {
+    if (lastSeq === 0) {
       for (const command of await this.seedCommands()) {
         await this.engine.execute(this.campaignId, command);
       }

@@ -90,6 +90,13 @@ export {
   type HitResolution,
 } from "./combat/attack";
 export {
+  attackRollBonusDice,
+  effectiveAc,
+  huntersMarkOn,
+  type ActiveEffect,
+  type EffectModifier,
+} from "./combat/effects";
+export {
   chebyshev,
   CONE_HALF_ANGLE_COS,
   distanceFeet,
@@ -197,6 +204,7 @@ export {
   type SpellAttack,
   type SpellComponents,
   type SpellDefinition,
+  type SpellAppliedEffect,
   type SpellDuration,
   type SpellLevel,
   type SpellProjectiles,

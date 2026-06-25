@@ -27,6 +27,7 @@
  *     Hadar, Witch Bolt, Hellish Rebuke, Catapult, Snilloc's Snowball Swarm,
  *     Mind Spike, Heat Metal, Maximilian's Earthen Grasp, Phantasmal Force,
  *     Vampiric Touch, Spirit Guardians, Hunger of Hadar.
+ *   - Batch 5 (ENG-13): Bless, Shield, Hunter's Mark (appliedEffects proof set).
  *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
  * a malformed registry entry fails CI rather than at cast time, and every
@@ -818,7 +819,7 @@ const CATAPULT: SpellDefinition = {
   classes: ["Sorcerer", "Wizard"],
   castingTime: { unit: "action", amount: 1 },
   range: { type: "feet", amount: 60 },
-  components: { somatic: true },
+  components: { verbal: false, somatic: true },
   duration: { unit: "instantaneous" },
   concentration: false,
   ritual: false,
@@ -860,7 +861,7 @@ const MIND_SPIKE: SpellDefinition = {
   classes: ["Sorcerer", "Warlock", "Wizard"],
   castingTime: { unit: "action", amount: 1 },
   range: { type: "feet", amount: 60 },
-  components: { somatic: true },
+  components: { verbal: false, somatic: true },
   duration: { unit: "hour", amount: 1 },
   concentration: true,
   ritual: false,
@@ -999,6 +1000,86 @@ const HUNGER_OF_HADAR: SpellDefinition = {
     "Each creature in a 20-foot-radius sphere makes a Dexterity saving throw when the spell is cast, taking 2d6 cold damage on a failed save (blindness + acid on later turns narrated).",
 };
 
+// ───────────────────────── Batch 5 (ENG-13 proof spells) ─────────────────
+
+/** Bless — up to three allies gain +1d4 on attack rolls (concentration). */
+const BLESS: SpellDefinition = {
+  id: "bless",
+  name: "Bless",
+  level: 1,
+  school: "enchantment",
+  classes: ["Cleric", "Paladin"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a sprinkling of holy water" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "multi",
+  appliedEffects: [
+    {
+      name: "Blessed",
+      scope: "targets",
+      modifier: { type: "attack_roll_bonus", dice: "1d4" },
+      concentration: true,
+    },
+  ],
+  description:
+    "Up to three creatures of your choice gain a +1d4 bonus to attack rolls for the duration.",
+};
+
+/** Shield — reaction; +5 AC until the start of your next turn. */
+const SHIELD: SpellDefinition = {
+  id: "shield",
+  name: "Shield",
+  level: 1,
+  school: "abjuration",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "reaction", amount: 1 },
+  range: { type: "self" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "round", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "self",
+  appliedEffects: [
+    {
+      name: "Shield",
+      scope: "caster",
+      modifier: { type: "ac_bonus", amount: 5 },
+      expiresStartOfNextTurn: true,
+    },
+  ],
+  description:
+    "An invisible barrier grants you a +5 bonus to AC until the start of your next turn (including against the triggering attack narratively).",
+};
+
+/** Hunter's Mark — mark a foe; weapon hits from you deal +1d6 force. */
+const HUNTERS_MARK: SpellDefinition = {
+  id: "hunters-mark",
+  name: "Hunter's Mark",
+  level: 1,
+  school: "divination",
+  classes: ["Ranger"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "feet", amount: 90 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Hunter's Mark",
+      scope: "targets",
+      modifier: { type: "hunters_mark", dice: "1d6" },
+      concentration: true,
+    },
+  ],
+  description:
+    "The target is mystically marked; you deal an extra 1d6 force damage to it whenever you hit it with a weapon attack.",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -1047,6 +1128,9 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [VAMPIRIC_TOUCH.id]: VAMPIRIC_TOUCH,
   [SPIRIT_GUARDIANS.id]: SPIRIT_GUARDIANS,
   [HUNGER_OF_HADAR.id]: HUNGER_OF_HADAR,
+  [BLESS.id]: BLESS,
+  [SHIELD.id]: SHIELD,
+  [HUNTERS_MARK.id]: HUNTERS_MARK,
 };
 
 /** Look up an authored spell definition by slug id. */

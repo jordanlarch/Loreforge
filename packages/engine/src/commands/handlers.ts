@@ -37,6 +37,12 @@ import {
   type RollAdjust,
 } from "../combat/conditions";
 import { concentrationDC, resolveDeathSave } from "../combat/death";
+import {
+  attackRollBonusDice,
+  effectFromSpec,
+  effectiveAc,
+  huntersMarkOn,
+} from "../combat/effects";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
   Ability,
@@ -784,17 +790,23 @@ function handleAttack(
   );
 
   const d20 = ctx.roll("1d20", `attack:${cmd.attacker}->${cmd.target}`, mode);
+  const events: DraftEvent[] = [rollDiceEvent(ctx, d20)];
   // "1d20" carries no modifier, so the total is the natural face (or the chosen
   // face under advantage/disadvantage).
   const natural = d20.total;
-  const total = natural + cmd.attackBonus;
+  let blessBonus = 0;
+  for (const dice of attackRollBonusDice(attacker)) {
+    const roll = ctx.roll(dice, `attack-bless:${cmd.attacker}->${cmd.target}`);
+    events.push(rollDiceEvent(ctx, roll));
+    blessBonus += roll.total;
+  }
+  const total = natural + cmd.attackBonus + blessBonus;
+  const targetAc = effectiveAc(target);
   const forceCrit =
     adjacent === true && critsWhenAdjacent(target.conditions);
-  const { hit, critical } = resolveHit(natural, total, target.baseAc, {
+  const { hit, critical } = resolveHit(natural, total, targetAc, {
     forceCrit,
   });
-
-  const events: DraftEvent[] = [rollDiceEvent(ctx, d20)];
 
   let damage: number | undefined;
   let hpAfter = target.hp.current;
@@ -805,6 +817,15 @@ function handleAttack(
     const dmg = ctx.roll(notation, `damage:${cmd.target}`);
     events.push(rollDiceEvent(ctx, dmg));
     damage = Math.max(0, dmg.total);
+    const mark = huntersMarkOn(target, cmd.attacker);
+    if (mark && mark.modifier.type === "hunters_mark") {
+      const extra = ctx.roll(
+        mark.modifier.dice,
+        `hunters-mark:${cmd.attacker}->${cmd.target}`,
+      );
+      events.push(rollDiceEvent(ctx, extra));
+      damage += Math.max(0, extra.total);
+    }
     const fromTemp = Math.min(target.hp.temp, damage);
     hpAfter = Math.max(0, target.hp.current - (damage - fromTemp));
   }
@@ -816,7 +837,7 @@ function handleAttack(
       attacker: cmd.attacker,
       target: cmd.target,
       attackRoll: { natural, total, mode },
-      targetAc: target.baseAc,
+      targetAc,
       hit,
       critical,
       damageType: cmd.damage.type,
@@ -859,7 +880,7 @@ function handleAttack(
       target: cmd.target,
       natural,
       attackTotal: total,
-      targetAc: target.baseAc,
+      targetAc,
       hit,
       critical,
       damageType: cmd.damage.type,
@@ -1880,7 +1901,7 @@ function handleCastSpell(
     const d20 = ctx.roll("1d20", `spell-attack:${caster.id}->${target.id}`, mode);
     const natural = d20.total;
     const total = natural + bonus;
-    const { hit, critical } = resolveHit(natural, total, target.baseAc);
+    const { hit, critical } = resolveHit(natural, total, effectiveAc(target));
     events.push(rollDiceEvent(ctx, d20));
 
     let damage: number | undefined;
@@ -1903,7 +1924,7 @@ function handleCastSpell(
         attacker: caster.id,
         target: target.id,
         attackRoll: { natural, total, mode },
-        targetAc: target.baseAc,
+        targetAc: effectiveAc(target),
         hit,
         critical,
         damageType: spell.damage[0]!.type,
@@ -2034,6 +2055,34 @@ function handleCastSpell(
       totalHealing += rolled.amount;
     }
     Object.assign(summary, { targets: targets.length, healing: totalHealing });
+  }
+
+  if (spell.appliedEffects?.length) {
+    const effectTargets =
+      spell.targeting === "self" ? [caster.id] : [...targets];
+    for (const spec of spell.appliedEffects) {
+      const recipients =
+        spec.scope === "caster" ? [caster.id] : effectTargets;
+      for (const targetId of recipients) {
+        const effect = effectFromSpec(spec, {
+          id: `${ctx.commandId}:${spell.id}:${targetId}`,
+          source: caster.id,
+          concentrationHolder: spec.concentration ? caster.id : undefined,
+          concentrationSpell: spec.concentration ? spell.name : undefined,
+          markedBy:
+            spec.modifier.type === "hunters_mark" ? caster.id : undefined,
+          expiresStartOfTurn: spec.expiresStartOfNextTurn
+            ? targetId
+            : undefined,
+        });
+        events.push({
+          type: "EffectApplied",
+          ...meta(ctx, caster.id),
+          payload: { target: targetId, effect },
+        });
+      }
+    }
+    Object.assign(summary, { effectsApplied: spell.appliedEffects.length });
   }
 
   return { accepted: true, events, summary };

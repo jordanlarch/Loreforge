@@ -12,12 +12,13 @@ import {
 import { trpc } from "@/lib/trpc/client";
 
 import { AbilitiesPanel } from "./abilities-panel";
+import { CombatTab } from "./combat-tab";
 import { EquipmentTab } from "./equipment-tab";
 import { LevelUpDialog } from "./level-up-dialog";
 import { SkillsPanel } from "./skills-panel";
 import { SpellsTab } from "./spells-tab";
 
-const TABS = ["Overview", "Equipment", "Spells", "Notes"] as const;
+const TABS = ["Overview", "Combat", "Equipment", "Spells", "Notes"] as const;
 type Tab = (typeof TABS)[number];
 
 function signed(n: number): string {
@@ -299,6 +300,12 @@ export function CharacterSheetView({
         recomputed by <code className="text-lore-text">@app/engine</code>.
       </p>
         </>
+      )}
+
+      {tab === "Combat" && (
+        <div className="mt-8">
+          <CombatTab character={character} />
+        </div>
       )}
 
       {tab === "Equipment" && (

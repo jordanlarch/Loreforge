@@ -154,6 +154,9 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
       targets: spell.targeting === "multi" ? ["a1", "a2"] : ["a1"],
     };
   }
+  if (spell.targeting === "self") {
+    return { ...base, targets: ["pc:caster"] };
+  }
   if (spell.projectiles) {
     return {
       ...base,

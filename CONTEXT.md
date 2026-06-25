@@ -9,7 +9,7 @@
 **Code progress (Jun 2026): P0–P5 substantially complete ahead of calendar.** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World, M5 First Campaign (tracer depth), M6 Tutorial E2E.** Memory tier (MEM-1–MEM-8) is Done. **`docs/deferrals.md` is the single source of truth for everything deferred.**
 
 Highlights of what's built:
-- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**46** spells + golden harness). ~388 engine + ~161 ws-server tests.
+- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**49** spells + golden harness), **ENG-13 active effects** (Bless/Shield/Hunter's Mark). ~391 engine tests.
 - **Tier 4 sync:** `@app/ws-server` Hocuspocus Yjs server + PixiJS battle map; persisted per-campaign live play. Invite links shipped at tracer depth (#211, CAMP-14); **multiplayer depth parked** until solo prod polish.
 - **Product surfaces:** six-item nav; Codex (spells, species/classes, backgrounds/feats, monsters, items, rules); Characters; Smithy; Realms (7 rich generators + AI pipeline); **9-tab Campaign workspace** (all tabs at tracer+ depth, World Map included); Live Play (chat/HUD/combat/AoE/enemy AI/reactions/party rail/top bar).
 - **Tutorial:** *Lantern's Last Flicker* E2E (#169–#178) with launch gate.
@@ -60,6 +60,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 **Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 (31 spells) · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
 
 **In progress (Sprint 1–2, uncommitted):** `llm_usage_events` + Settings AI usage panel + model routing (migration 0030) · ENG-6 fixture battery expansion · ENG-2 batch 4 (31→46 spells).
+
+**Recently shipped (this PR):** Sprint 1–3 solo prod polish — LLM observability, spell batches 4–5 (49 registry spells), ENG-13 effect system, Characters Combat tab.
 
 **Parked until polish pass done:** CAMP-14 multiplayer depth · PLAY-9 multi-client reaction sync · INFRA-4 billing · M8 closed beta.
 

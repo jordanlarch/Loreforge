@@ -16,6 +16,14 @@ export type Cell = { x: number; y: number };
  */
 export const CELL_SIZE = 44;
 
+/** Pixi canvas size for a grid with the given dimensions. */
+export function mapCanvasPixelSize(cols: number, rows: number): {
+  width: number;
+  height: number;
+} {
+  return { width: cols * CELL_SIZE, height: rows * CELL_SIZE };
+}
+
 /** Top-left pixel of a cell. */
 export function cellToPixel(cell: Cell, cellSize: number): { x: number; y: number } {
   return { x: cell.x * cellSize, y: cell.y * cellSize };

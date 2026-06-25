@@ -119,6 +119,19 @@ describe("extractOpeningHookText", () => {
       }),
     ).toBe("Missing child: A boy vanished last night.");
   });
+
+  it("inherits tease from parent when the location stub is empty", () => {
+    expect(
+      extractOpeningHookText(
+        {},
+        {
+          trigger: "on_session_start",
+          locationEntityId: TAVERN.entityId,
+          parentData: { hooks: ["A merchant's daughter vanished."] },
+        },
+      ),
+    ).toBe("A merchant's daughter vanished.");
+  });
 });
 
 describe("openingNarrationForLocation", () => {

@@ -20,9 +20,12 @@ import {
   FIXTURE_BATTLE_COMMANDS,
   FIXTURE_PARTY,
   buildCampaignExplorationCommands,
+  buildEnterLocationCommands,
   buildPartyBattleCommands,
   buildPartyMemberJoinCommands,
   DEFAULT_STARTING_LOCATION,
+  entityIdFromSceneId,
+  sceneIdForRealmEntity,
   type BattleAction,
   type CampaignStartingLocation,
   type Command,
@@ -232,6 +235,24 @@ export class CampaignRoom implements LiveRoom {
       }
     }
     return applied;
+  }
+
+  /**
+   * Travel to a Realms World-tab location (Rung 4 Slice 2). Blocked during
+   * combat; no-op when already at the destination scene.
+   */
+  async enterLocation(location: CampaignStartingLocation): Promise<{ changed: boolean }> {
+    await this.ensureSeeded();
+    const state = await this.getState();
+    if (state.encounter) return { changed: false };
+
+    const sceneId = sceneIdForRealmEntity(location.entityId);
+    if (state.currentSceneId === sceneId) return { changed: false };
+
+    for (const command of buildEnterLocationCommands(location, state)) {
+      await this.engine.execute(this.campaignId, command);
+    }
+    return { changed: true };
   }
 }
 

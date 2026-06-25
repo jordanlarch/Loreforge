@@ -9,6 +9,7 @@ import {
   layoutGraph,
   type RealmEntityType,
 } from "@/lib/realms";
+import { isExplorableRealmType } from "@app/engine";
 import { trpc } from "@/lib/trpc/client";
 
 type WorldView = "list" | "graph";
@@ -148,7 +149,17 @@ export function WorldTab({ campaignId }: { campaignId: string }) {
                   {entity.summary}
                 </p>
               )}
-              <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-sm">
+              <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 text-sm">
+                {isExplorableRealmType(entity.type) ? (
+                  <Link
+                    href={`/campaigns/${campaignId}/play?enter=${entity.id}`}
+                    className="rounded border border-lore-accent bg-lore-accent-dim px-2 py-1 text-xs text-lore-text transition-colors hover:border-lore-accent"
+                  >
+                    Enter in Live Play
+                  </Link>
+                ) : (
+                  <span className="text-xs text-lore-muted">Not explorable</span>
+                )}
                 <button
                   type="button"
                   onClick={() =>

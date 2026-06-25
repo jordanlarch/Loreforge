@@ -316,8 +316,13 @@ export {
   type PartyMember,
 } from "./fixtures/battle";
 export {
+  arrivalNarrationForLocation,
   buildCampaignExplorationCommands,
+  buildEnterLocationCommands,
   DEFAULT_STARTING_LOCATION,
+  entityIdFromSceneId,
+  isExplorableRealmType,
+  matchTravelDestination,
   openingNarrationForLocation,
   sceneIdForRealmEntity,
   type CampaignStartingLocation,

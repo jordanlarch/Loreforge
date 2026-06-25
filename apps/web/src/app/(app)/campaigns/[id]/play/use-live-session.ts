@@ -84,9 +84,18 @@ type LiveStatus = "connecting" | "synced" | "error";
  * persisted `campaign:{id}` room (owner-only, server-authoritative); otherwise
  * it joins the per-user `sandbox:{userId}` fixture demo.
  */
-export type LiveSessionOptions = { campaignId?: string; reloadKey?: string };
+export type LiveSessionOptions = {
+  campaignId?: string;
+  reloadKey?: string;
+  /** World-tab entity to enter on connect (Rung 4 Slice 2). */
+  enterEntityId?: string;
+};
 
-export function useLiveSession({ campaignId, reloadKey }: LiveSessionOptions = {}) {
+export function useLiveSession({
+  campaignId,
+  reloadKey,
+  enterEntityId,
+}: LiveSessionOptions = {}) {
   const [state, setState] = useState<WorldState | undefined>(undefined);
   const [status, setStatus] = useState<LiveStatus>("connecting");
   const [rejected, setRejected] = useState(false);
@@ -104,6 +113,11 @@ export function useLiveSession({ campaignId, reloadKey }: LiveSessionOptions = {
   // | "rescue"), driving the Scene 5 coachmarks (TUT-1, #174).
   const [tutorialSignals, setTutorialSignals] = useState<string[]>([]);
   const providerRef = useRef<HocuspocusProvider | null>(null);
+  const enterSentRef = useRef(false);
+
+  useEffect(() => {
+    enterSentRef.current = false;
+  }, [campaignId, reloadKey, enterEntityId]);
 
   useEffect(() => {
     let disposed = false;
@@ -212,6 +226,15 @@ export function useLiveSession({ campaignId, reloadKey }: LiveSessionOptions = {
       providerRef.current = null;
     };
   }, [campaignId, reloadKey]);
+
+  useEffect(() => {
+    if (!enterEntityId || !providerRef.current || state === undefined) return;
+    if (enterSentRef.current) return;
+    enterSentRef.current = true;
+    providerRef.current.sendStateless(
+      JSON.stringify({ t: "enter_location", entityId: enterEntityId }),
+    );
+  }, [enterEntityId, state]);
 
   useEffect(() => {
     if (!rejected) return;

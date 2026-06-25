@@ -6,6 +6,7 @@
  */
 import type { Command } from "../commands/types";
 import type { GridPosition } from "../entities/types";
+import type { WorldState } from "../projections/world-state";
 import { MAX_BATTLE_PARTY, type PartyMember } from "./battle";
 
 /** Realms types that can host an explorable interior/overland map in Live Play. */
@@ -40,6 +41,26 @@ export function sceneIdForRealmEntity(entityId: string): string {
   return entityId === "generic"
     ? "scene:travelers-rest"
     : `scene:realm:${entityId}`;
+}
+
+/** Reverse {@link sceneIdForRealmEntity} for Realms-backed scenes. */
+export function entityIdFromSceneId(sceneId: string | undefined): string | undefined {
+  if (!sceneId) return undefined;
+  if (sceneId === "scene:travelers-rest") return "generic";
+  const prefix = "scene:realm:";
+  if (sceneId.startsWith(prefix)) return sceneId.slice(prefix.length);
+  return undefined;
+}
+
+export function isExplorableRealmType(type: string): type is ExplorableRealmType {
+  return (
+    type === "tavern" ||
+    type === "settlement" ||
+    type === "building" ||
+    type === "shop" ||
+    type === "region" ||
+    type === "dungeon"
+  );
 }
 
 type ExplorationMapDef = {
@@ -163,6 +184,114 @@ export function openingNarrationForLocation(loc: CampaignStartingLocation): {
     text: `You arrive at ${loc.name}. ${blurb} What do you do?`,
     mentions: [loc.name],
   };
+}
+
+/** GM line after the party travels to a new Realms location (Rung 4 Slice 2). */
+export function arrivalNarrationForLocation(loc: CampaignStartingLocation): {
+  text: string;
+  mentions: string[];
+} {
+  const blurb = loc.summary.trim() || defaultBlurb(loc.type);
+  return {
+    text: `You make your way to ${loc.name}. ${blurb}`,
+    mentions: [loc.name],
+  };
+}
+
+/**
+ * Match a free-text travel attempt against campaign World-tab locations.
+ * Returns the best destination when the player names a place or uses a type
+ * shorthand ("go to the tavern") — LLM-free so Speak-mode travel works offline.
+ */
+export function matchTravelDestination(
+  text: string,
+  locations: readonly CampaignStartingLocation[],
+  currentEntityId?: string,
+): CampaignStartingLocation | undefined {
+  if (locations.length === 0) return undefined;
+  const lower = text.toLowerCase().trim();
+  const hasTravelIntent =
+    /\b(go to|head to|travel to|walk to|make my way to|go inside|head into|step into|enter the|inside the)\b/.test(
+      lower,
+    ) || /\b(go|head|walk|travel|visit|enter)\b/.test(lower);
+
+  const candidates = locations.filter((l) => l.entityId !== currentEntityId);
+  const byName = [...candidates].sort((a, b) => b.name.length - a.name.length);
+  for (const loc of byName) {
+    const nameLower = loc.name.toLowerCase();
+    if (!lower.includes(nameLower)) continue;
+    if (
+      hasTravelIntent ||
+      lower.includes(`to ${nameLower}`) ||
+      lower.includes(`to the ${nameLower}`)
+    ) {
+      return loc;
+    }
+  }
+
+  if (!hasTravelIntent) return undefined;
+
+  const typePatterns: { re: RegExp; type: ExplorableRealmType }[] = [
+    { re: /\b(the |a )?(tavern|inn)\b/, type: "tavern" },
+    { re: /\b(the |a )?(settlement|town|village|hamlet|city)\b/, type: "settlement" },
+    { re: /\b(the |a )?(shop|market|store)\b/, type: "shop" },
+    { re: /\b(the |a )?(building|house|hall)\b/, type: "building" },
+    { re: /\b(the |a )?(dungeon|crypt|cavern)\b/, type: "dungeon" },
+    { re: /\b(the |a )?(region|wilds|road|wilderness)\b/, type: "region" },
+  ];
+  for (const { re, type } of typePatterns) {
+    if (!re.test(lower)) continue;
+    const found = candidates.find((l) => l.type === type);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Engine commands to enter a Realms location: ensure the scene exists, switch
+ * to it, and relocate party PCs. No-op pieces are omitted by the caller when
+ * already at the destination.
+ */
+export function buildEnterLocationCommands(
+  location: CampaignStartingLocation,
+  state: WorldState,
+): Command[] {
+  const sceneId = sceneIdForRealmEntity(location.entityId);
+  const map = mapForType(location.type);
+  const commands: Command[] = [];
+  const scenes = state.scenes ?? {};
+
+  if (!scenes[sceneId]) {
+    commands.push({
+      type: "create_scene",
+      scene: {
+        id: sceneId,
+        name: location.name,
+        description: map.description,
+        map: {
+          width: map.width,
+          height: map.height,
+          blockedCells: map.blockedCells,
+        },
+      },
+    });
+  }
+
+  commands.push({ type: "change_scene", sceneId });
+
+  const partyEntities = Object.values(state.entities).filter(
+    (e) => e.kind === "character" && !e.id.startsWith("npc:"),
+  );
+  partyEntities.forEach((entity, i) => {
+    commands.push({
+      type: "relocate_entity",
+      entity: entity.id,
+      sceneId,
+      position: EXPLORATION_STARTS[i] ?? EXPLORATION_STARTS[0]!,
+    });
+  });
+
+  return commands;
 }
 
 /**

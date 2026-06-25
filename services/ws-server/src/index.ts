@@ -29,6 +29,7 @@ import {
   classifyScene2Topic,
   classifyTutorialLeaveIntent,
   classifyTutorialRelightIntent,
+  arrivalNarrationForLocation,
   DEFAULT_STARTING_LOCATION,
   isTutorialFriendlyFireTarget,
   openingNarrationForLocation,
@@ -71,6 +72,7 @@ import {
   clearCampaignChat,
   consumeTutorialItem,
   getCampaignEncounter,
+  getCampaignLocationByEntityId,
   getCampaignOwnerId,
   getCampaignParty,
   getCampaignStartingLocation,
@@ -129,6 +131,9 @@ import {
   retrieveWorldKnowledge,
 } from "./world-knowledge.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
+import {
+  tryCampaignTravelFromChat,
+} from "./campaign-travel.js";
 import { TutorialRoom } from "./tutorial-room.js";
 import { namesReferencedInNarration } from "./world-reveal.js";
 
@@ -213,6 +218,7 @@ type ClientMessage =
   | { t: "cmd"; action: unknown }
   | { t: "reset" }
   | { t: "sync_party" }
+  | { t: "enter_location"; entityId: string }
   | { t: "chat"; mode?: string; text: string }
   | { t: "tutorial"; action: TutorialAction; topic?: string; help?: boolean };
 
@@ -227,6 +233,11 @@ function parseMessage(payload: string): ClientMessage | null {
   const message = value as { t?: unknown };
   if (message.t === "cmd" || message.t === "reset" || message.t === "sync_party") {
     return message as ClientMessage;
+  }
+  if (message.t === "enter_location") {
+    const { entityId } = message as { entityId?: unknown };
+    if (typeof entityId !== "string" || !entityId.trim()) return null;
+    return { t: "enter_location", entityId: entityId.trim() };
   }
   if (message.t === "chat") {
     const { mode, text } = message as { mode?: unknown; text?: unknown };
@@ -1617,6 +1628,15 @@ const server = new Hocuspocus({
         }
       }
 
+      const parsedChat = parseRoom(documentName);
+      let traveledTo =
+        room instanceof CampaignRoom && parsedChat?.kind === "campaign"
+          ? await tryCampaignTravelFromChat(room, parsedChat.campaignId, message)
+          : undefined;
+      if (traveledTo) {
+        writeProjection(document, await room.getState());
+      }
+
       if (!respond) return;
 
       const client = getNarrationClient();
@@ -1626,6 +1646,16 @@ const server = new Hocuspocus({
           const sceneId = (await room.getState()).currentSceneId;
           await appendAndPersist(document, documentName, [
             gmEntry(tutorialChatFallback(sceneId, message.text), chatDeps),
+          ]);
+          return;
+        }
+        if (traveledTo) {
+          const arrival = arrivalNarrationForLocation(traveledTo);
+          await appendAndPersist(document, documentName, [
+            await gmEntryWithReveal(documentName, {
+              text: arrival.text,
+              mentions: arrival.mentions,
+            }),
           ]);
           return;
         }
@@ -1655,6 +1685,37 @@ const server = new Hocuspocus({
       } finally {
         setThinking(document, false);
       }
+      return;
+    }
+
+    if (message.t === "enter_location") {
+      const parsed = parseRoom(documentName);
+      if (!(room instanceof CampaignRoom) || parsed?.kind !== "campaign") {
+        connection.sendStateless(REJECTED);
+        clearClientBusy(document);
+        return;
+      }
+      const location = await getCampaignLocationByEntityId(
+        parsed.campaignId,
+        message.entityId,
+      );
+      if (!location) {
+        connection.sendStateless(REJECTED);
+        clearClientBusy(document);
+        return;
+      }
+      const { changed } = await room.enterLocation(location);
+      if (changed) {
+        writeProjection(document, await room.getState());
+        const arrival = arrivalNarrationForLocation(location);
+        await appendAndPersist(document, documentName, [
+          await gmEntryWithReveal(documentName, {
+            text: arrival.text,
+            mentions: arrival.mentions,
+          }),
+        ]);
+      }
+      clearClientBusy(document);
       return;
     }
 

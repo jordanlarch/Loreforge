@@ -343,19 +343,26 @@ const STARTING_LOCATION_PRIORITY: Record<ExplorableRealmType, number> = {
   dungeon: 5,
 };
 
-/**
- * The first explorable World-tab location for a campaign's Live Play bootstrap
- * (Rung 4). Prefers tavern → settlement → building → shop → region → dungeon;
- * among ties, earliest `addedAt` wins. Returns `undefined` when the campaign
- * has no qualifying world members (caller should use `DEFAULT_STARTING_LOCATION`).
- */
-export async function getCampaignStartingLocation(
-  campaignId: string,
-): Promise<CampaignStartingLocation | undefined> {
-  const ownerId = await getCampaignOwnerId(campaignId);
-  if (!ownerId) return undefined;
+function sortExplorableLocations<
+  T extends { type: string; addedAt: Date; entityId: string; name: string; summary: string },
+>(rows: T[]): CampaignStartingLocation[] {
+  return [...rows]
+    .sort((a, b) => {
+      const pa = STARTING_LOCATION_PRIORITY[a.type as ExplorableRealmType] ?? 99;
+      const pb = STARTING_LOCATION_PRIORITY[b.type as ExplorableRealmType] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return a.addedAt.getTime() - b.addedAt.getTime();
+    })
+    .map((row) => ({
+      entityId: row.entityId,
+      name: row.name,
+      summary: row.summary,
+      type: row.type as ExplorableRealmType,
+    }));
+}
 
-  const rows = await getDb()
+async function loadExplorableWorldRows(campaignId: string, ownerId: string) {
+  return getDb()
     .select({
       entityId: campaignWorldEntities.entityId,
       addedAt: campaignWorldEntities.addedAt,
@@ -375,23 +382,68 @@ export async function getCampaignStartingLocation(
         inArray(realmEntities.type, EXPLORABLE_REALM_TYPES),
       ),
     );
+}
 
-  if (rows.length === 0) return undefined;
+/** All explorable World-tab locations for a campaign (Rung 4 Slice 2 travel). */
+export async function getCampaignExplorableLocations(
+  campaignId: string,
+): Promise<CampaignStartingLocation[]> {
+  const ownerId = await getCampaignOwnerId(campaignId);
+  if (!ownerId) return [];
+  return sortExplorableLocations(await loadExplorableWorldRows(campaignId, ownerId));
+}
 
-  rows.sort((a, b) => {
-    const pa = STARTING_LOCATION_PRIORITY[a.type as ExplorableRealmType] ?? 99;
-    const pb = STARTING_LOCATION_PRIORITY[b.type as ExplorableRealmType] ?? 99;
-    if (pa !== pb) return pa - pb;
-    return a.addedAt.getTime() - b.addedAt.getTime();
-  });
+/** Resolve one World-tab entity to a travel destination, if explorable. */
+export async function getCampaignLocationByEntityId(
+  campaignId: string,
+  entityId: string,
+): Promise<CampaignStartingLocation | undefined> {
+  const ownerId = await getCampaignOwnerId(campaignId);
+  if (!ownerId) return undefined;
 
-  const pick = rows[0]!;
+  const [row] = await getDb()
+    .select({
+      entityId: campaignWorldEntities.entityId,
+      addedAt: campaignWorldEntities.addedAt,
+      name: realmEntities.name,
+      summary: realmEntities.summary,
+      type: realmEntities.type,
+    })
+    .from(campaignWorldEntities)
+    .innerJoin(
+      realmEntities,
+      eq(realmEntities.id, campaignWorldEntities.entityId),
+    )
+    .where(
+      and(
+        eq(campaignWorldEntities.campaignId, campaignId),
+        eq(campaignWorldEntities.ownerId, ownerId),
+        eq(campaignWorldEntities.entityId, entityId),
+        inArray(realmEntities.type, EXPLORABLE_REALM_TYPES),
+      ),
+    )
+    .limit(1);
+
+  if (!row) return undefined;
   return {
-    entityId: pick.entityId,
-    name: pick.name,
-    summary: pick.summary,
-    type: pick.type as ExplorableRealmType,
+    entityId: row.entityId,
+    name: row.name,
+    summary: row.summary,
+    type: row.type as ExplorableRealmType,
   };
+}
+
+/**
+ * The first explorable World-tab location for a campaign's Live Play bootstrap
+ * (Rung 4). Prefers tavern → settlement → building → shop → region → dungeon;
+ * among ties, earliest `addedAt` wins. Returns `undefined` when the campaign
+ * has no qualifying world members (caller should use `DEFAULT_STARTING_LOCATION`).
+ */
+export async function getCampaignStartingLocation(
+  campaignId: string,
+): Promise<CampaignStartingLocation | undefined> {
+  const locations = await getCampaignExplorableLocations(campaignId);
+  return locations[0];
 }
 
 /**

@@ -1019,13 +1019,16 @@ export function SandboxPlaySurface() {
 export function CampaignPlaySurface({
   campaignId,
   reloadKey,
+  enterEntityId,
 }: {
   campaignId: string;
   /** Bumped after Combat tab Run Now to force a fresh WS connection (CAMP-8). */
   reloadKey?: string;
+  /** World-tab entity to enter on connect (Rung 4 Slice 2). */
+  enterEntityId?: string;
 }) {
   const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
-  const session = useLiveSession({ campaignId, reloadKey });
+  const session = useLiveSession({ campaignId, reloadKey, enterEntityId });
 
   // Sheet bridge (#98): map each roster character's equipment + spells by id (=
   // the live entity id the WS server seeds), so the HUD + action bar are driven

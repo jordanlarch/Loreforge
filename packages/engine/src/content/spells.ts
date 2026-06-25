@@ -180,6 +180,8 @@ export type UpcastScaling = {
   appliesTo: "damage" | "healing";
 };
 
+import { isCondition, type Condition } from "../combat/conditions";
+
 /**
  * Declarative spell definition (subset). Condition/effect application and
  * imperative handlers (`onCast`, summoning, transformation) are deferred to the
@@ -207,6 +209,10 @@ export type SpellDefinition = {
   upcastScaling?: UpcastScaling;
   /** Effects applied when the spell resolves (ENG-13). */
   appliedEffects?: SpellAppliedEffect[];
+  /** SRD condition applied to spell target(s) on resolution (ENG-13). */
+  appliedCondition?: Condition;
+  /** SRD condition applied when a save against this spell fails (ENG-13). */
+  failedSaveCondition?: Condition;
   description: string;
 };
 
@@ -220,7 +226,8 @@ export type SpellAppliedEffect = {
     | { type: "attack_roll_bonus"; dice: string }
     | { type: "attack_roll_penalty"; dice: string }
     | { type: "hunters_mark"; dice: string }
-    | { type: "attacks_against_advantage" };
+    | { type: "attacks_against_advantage" }
+    | { type: "attacks_against_disadvantage" };
   /** Effect ends when the caster loses concentration on this spell. */
   concentration?: true;
   /** Effect ends at the start of the bearer's next turn. */
@@ -337,6 +344,13 @@ export function validateSpellDefinition(def: SpellDefinition): string[] {
         `Upcast scaling has invalid dice "${def.upcastScaling.perSlotDice}".`,
       );
     }
+  }
+
+  if (def.appliedCondition && !isCondition(def.appliedCondition)) {
+    errors.push(`Unknown applied condition "${def.appliedCondition}".`);
+  }
+  if (def.failedSaveCondition && !isCondition(def.failedSaveCondition)) {
+    errors.push(`Unknown failed-save condition "${def.failedSaveCondition}".`);
   }
 
   return errors;

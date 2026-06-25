@@ -28,6 +28,9 @@
  *     Mind Spike, Heat Metal, Maximilian's Earthen Grasp, Phantasmal Force,
  *     Vampiric Touch, Spirit Guardians, Hunger of Hadar.
  *   - Batch 5 (ENG-13): Bless, Shield, Hunter's Mark (appliedEffects proof set).
+ *   - Batch 8 (ENG-2 / Rung 2): Lightning Bolt, Invisibility, Hold Person, Web,
+ *     Entangle, Flame Strike, Phantasmal Killer, Stinking Cloud, Haste,
+ *     Hypnotic Pattern — plus ENG-13 condition-on-failed-save + Blur disadvantage.
  *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
  * a malformed registry entry fails CI rather than at cast time, and every
@@ -1415,12 +1418,12 @@ const BLUR: SpellDefinition = {
     {
       name: "Blur",
       scope: "caster",
-      modifier: { type: "ac_bonus", amount: 2 },
+      modifier: { type: "attacks_against_disadvantage" },
       concentration: true,
     },
   ],
   description:
-    "Your form shifts; attacks against you have disadvantage (tracer: +2 AC instead).",
+    "Your form shifts; attacks against you have disadvantage for the duration.",
 };
 
 const AID: SpellDefinition = {
@@ -1559,6 +1562,203 @@ const RAY_OF_ENFEEBLEMENT: SpellDefinition = {
     "Ranged spell attack for 2d8 necrotic; on a hit the target's attacks deal half damage (tracer: damage only).",
 };
 
+/** Lightning Bolt — 100-ft line tracer as a 10-ft sphere at a point; Dex save half 8d6 lightning. */
+const LIGHTNING_BOLT: SpellDefinition = {
+  id: "lightning-bolt",
+  name: "Lightning Bolt",
+  level: 3,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 10 } },
+  components: { verbal: true, somatic: true, material: "a bit of fur and a rod of amber, crystal, or glass" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "8d6", type: "lightning" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "A stroke of lightning forming a line 100 feet long and 5 feet wide (tracer: 10-ft sphere at a point). Each creature in the area makes a Dexterity save, taking 8d6 lightning on a failure or half on a success.",
+};
+
+const INVISIBILITY: SpellDefinition = {
+  id: "invisibility",
+  name: "Invisibility",
+  level: 2,
+  school: "illusion",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true, material: "an eyelash encased in gum arabic" },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedCondition: "invisible",
+  description:
+    "A creature you touch becomes invisible until the spell ends. Anything it wears or carries is invisible as long as it stays on the target.",
+};
+
+const HOLD_PERSON: SpellDefinition = {
+  id: "hold-person",
+  name: "Hold Person",
+  level: 2,
+  school: "enchantment",
+  classes: ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "a small, straight piece of iron" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "paralyzed",
+  description:
+    "Choose a humanoid you can see. The target must succeed on a Wisdom saving throw or be paralyzed for the duration.",
+};
+
+const WEB: SpellDefinition = {
+  id: "web",
+  name: "Web",
+  level: 2,
+  school: "conjuration",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true, material: "a bit of spiderweb" },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "restrained",
+  description:
+    "Thick, sticky webs fill a 20-foot cube. Each creature that starts its turn in the webs or enters them must succeed on a Dexterity saving throw or become restrained.",
+};
+
+const ENTANGLE: SpellDefinition = {
+  id: "entangle",
+  name: "Entangle",
+  level: 1,
+  school: "conjuration",
+  classes: ["Druid", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 90, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "str", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "restrained",
+  description:
+    "Grasping weeds sprout in a 20-foot square. A creature in the area must succeed on a Strength saving throw or be restrained.",
+};
+
+const FLAME_STRIKE: SpellDefinition = {
+  id: "flame-strike",
+  name: "Flame Strike",
+  level: 5,
+  school: "evocation",
+  classes: ["Cleric"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 10 } },
+  components: { verbal: true, somatic: true, material: "pinch of sulfur" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "8d6", type: "fire" }],
+  description:
+    "A vertical column of divine flame roars down in a 10-foot-radius, 40-foot-high cylinder (tracer: 10-ft sphere). Each creature in the area makes a Dexterity save, taking 8d6 fire damage on a failure or half on a success (4d6 fire + 4d6 radiant combined as 8d6 fire at tracer depth).",
+};
+
+const PHANTASMAL_KILLER: SpellDefinition = {
+  id: "phantasmal-killer",
+  name: "Phantasmal Killer",
+  level: 4,
+  school: "illusion",
+  classes: ["Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "4d10", type: "psychic" }],
+  description:
+    "You tap into a creature's nightmares. The target makes a Wisdom saving throw, taking 4d10 psychic damage on a failure (ongoing fright save each turn narrated).",
+};
+
+const STINKING_CLOUD: SpellDefinition = {
+  id: "stinking-cloud",
+  name: "Stinking Cloud",
+  level: 3,
+  school: "conjuration",
+  classes: ["Bard", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 90, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true, material: "a rotten egg or several skunk cabbage leaves" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "poisoned",
+  description:
+    "You create a 20-foot-radius sphere of yellow, nauseating gas. Each creature in the area must succeed on a Constitution saving throw or spend its action retching (tracer: poisoned on a failed save).",
+};
+
+const HASTE: SpellDefinition = {
+  id: "haste",
+  name: "Haste",
+  level: 3,
+  school: "transmutation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a shaving of licorice root" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Haste",
+      scope: "targets",
+      modifier: { type: "ac_bonus", amount: 2 },
+      concentration: true,
+    },
+  ],
+  description:
+    "Choose a willing creature. Until the spell ends, its speed is doubled, it gains +2 AC, it has advantage on Dexterity saving throws, and it gains an additional action (tracer: +2 AC only).",
+};
+
+const HYPNOTIC_PATTERN: SpellDefinition = {
+  id: "hypnotic-pattern",
+  name: "Hypnotic Pattern",
+  level: 3,
+  school: "illusion",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 30 } },
+  components: { somatic: true, material: "a glowing stick of incense or a crystal vial filled with phosphorescent material" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "You create a twisting pattern of colors in a 30-foot cube. Each creature in the area who sees the pattern must succeed on a Wisdom saving throw or become charmed for the duration.",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -1632,6 +1832,16 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [CLOUD_OF_DAGGERS.id]: CLOUD_OF_DAGGERS,
   [MAGIC_WEAPON.id]: MAGIC_WEAPON,
   [RAY_OF_ENFEEBLEMENT.id]: RAY_OF_ENFEEBLEMENT,
+  [LIGHTNING_BOLT.id]: LIGHTNING_BOLT,
+  [INVISIBILITY.id]: INVISIBILITY,
+  [HOLD_PERSON.id]: HOLD_PERSON,
+  [WEB.id]: WEB,
+  [ENTANGLE.id]: ENTANGLE,
+  [FLAME_STRIKE.id]: FLAME_STRIKE,
+  [PHANTASMAL_KILLER.id]: PHANTASMAL_KILLER,
+  [STINKING_CLOUD.id]: STINKING_CLOUD,
+  [HASTE.id]: HASTE,
+  [HYPNOTIC_PATTERN.id]: HYPNOTIC_PATTERN,
 };
 
 /** Look up an authored spell definition by slug id. */

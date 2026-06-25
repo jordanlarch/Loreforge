@@ -12,7 +12,8 @@ export type EffectModifier =
   | { type: "attack_roll_bonus"; dice: string }
   | { type: "attack_roll_penalty"; dice: string }
   | { type: "hunters_mark"; dice: string; markedBy: EntityRef }
-  | { type: "attacks_against_advantage" };
+  | { type: "attacks_against_advantage" }
+  | { type: "attacks_against_disadvantage" };
 
 export type ActiveEffect = {
   id: string;
@@ -62,6 +63,13 @@ export function attacksAgainstHaveAdvantage(target: EntityState): boolean {
   );
 }
 
+/** Blur — attacks against this creature have disadvantage. */
+export function attacksAgainstHaveDisadvantage(target: EntityState): boolean {
+  return (target.effects ?? []).some(
+    (fx) => fx.modifier.type === "attacks_against_disadvantage",
+  );
+}
+
 /** Active Hunter's Mark on `target` placed by `attacker`, if any. */
 export function huntersMarkOn(
   target: EntityState,
@@ -94,6 +102,8 @@ export function effectFromSpec(
     modifier = { type: "attack_roll_penalty", dice: spec.modifier.dice };
   } else if (spec.modifier.type === "attacks_against_advantage") {
     modifier = { type: "attacks_against_advantage" };
+  } else if (spec.modifier.type === "attacks_against_disadvantage") {
+    modifier = { type: "attacks_against_disadvantage" };
   } else {
     modifier = {
       type: "hunters_mark",

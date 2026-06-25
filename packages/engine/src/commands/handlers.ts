@@ -33,6 +33,7 @@ import {
   effectiveSpeed,
   isCondition,
   isIncapacitated,
+  isProne,
   ownAttackMode,
   saveResolution,
   type RollAdjust,
@@ -42,6 +43,7 @@ import {
   attackRollBonusDice,
   attackRollPenaltyDice,
   attacksAgainstHaveAdvantage,
+  attacksAgainstHaveDisadvantage,
   effectFromSpec,
   effectiveAc,
   huntersMarkOn,
@@ -880,6 +882,7 @@ function handleAttack(
     ownAttackMode(attacker.conditions),
     attackedMode(target.conditions),
     attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
+    attacksAgainstHaveDisadvantage(target) ? "disadvantage" : "normal",
     proneMode,
   );
 
@@ -2033,11 +2036,60 @@ function handleCastSpell(
     // Single-target spell attack (Guiding Bolt).
     const target = ctx.world.entities[targets[0]!]!;
     const bonus = spellAttackBonus(caster)!;
-    const mode = (cmd.mode ?? "normal") as RollMode;
-    const d20 = ctx.roll("1d20", `spell-attack:${caster.id}->${target.id}`, mode);
+    let proneMode: RollAdjust = "normal";
+    if (
+      spell.attackAgainst.type === "melee" &&
+      caster.position &&
+      target.position
+    ) {
+      const adjacent =
+        distanceFeet(caster.position, target.position) <= 5;
+      if (isProne(target.conditions)) {
+        proneMode = adjacent ? "advantage" : "disadvantage";
+      }
+    }
+    const mode = combineMode(
+      (cmd.mode ?? "normal") as RollAdjust,
+      ownAttackMode(caster.conditions),
+      attackedMode(target.conditions),
+      attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
+      attacksAgainstHaveDisadvantage(target) ? "disadvantage" : "normal",
+      proneMode,
+    );
+    const d20 = ctx.roll(
+      "1d20",
+      `spell-attack:${caster.id}->${target.id}`,
+      mode as RollMode,
+    );
     const natural = d20.total;
-    const total = natural + bonus;
-    const { hit, critical } = resolveHit(natural, total, effectiveAc(target));
+    let blessBonus = 0;
+    for (const dice of attackRollBonusDice(caster)) {
+      const roll = ctx.roll(
+        dice,
+        `spell-attack-bless:${caster.id}->${target.id}`,
+      );
+      events.push(rollDiceEvent(ctx, roll));
+      blessBonus += roll.total;
+    }
+    let banePenalty = 0;
+    for (const dice of attackRollPenaltyDice(caster)) {
+      const roll = ctx.roll(
+        dice,
+        `spell-attack-bane:${caster.id}->${target.id}`,
+      );
+      events.push(rollDiceEvent(ctx, roll));
+      banePenalty += roll.total;
+    }
+    const total = natural + bonus + blessBonus - banePenalty;
+    const adjacentCrit =
+      spell.attackAgainst.type === "melee" &&
+      caster.position &&
+      target.position &&
+      distanceFeet(caster.position, target.position) <= 5 &&
+      critsWhenAdjacent(target.conditions);
+    const { hit, critical } = resolveHit(natural, total, effectiveAc(target), {
+      forceCrit: adjacentCrit,
+    });
     events.push(rollDiceEvent(ctx, d20));
 
     let damage: number | undefined;
@@ -2059,7 +2111,7 @@ function handleCastSpell(
       payload: {
         attacker: caster.id,
         target: target.id,
-        attackRoll: { natural, total, mode },
+        attackRoll: { natural, total, mode: mode as RollMode },
         targetAc: effectiveAc(target),
         hit,
         critical,
@@ -2110,6 +2162,17 @@ function handleCastSpell(
         amount = onSuccess === "half_damage" ? Math.floor(rolled.amount / 2) : 0;
       } else {
         failures += 1;
+        if (spell.failedSaveCondition) {
+          events.push({
+            type: "ConditionApplied",
+            ...meta(ctx, caster.id),
+            payload: {
+              target: target.id,
+              condition: spell.failedSaveCondition,
+              source: caster.id,
+            },
+          });
+        }
       }
       if (amount > 0) {
         events.push(
@@ -2204,6 +2267,17 @@ function handleCastSpell(
       events.push(...save.events);
       if (!save.success) {
         failures += 1;
+        if (spell.failedSaveCondition) {
+          events.push({
+            type: "ConditionApplied",
+            ...meta(ctx, caster.id),
+            payload: {
+              target: target.id,
+              condition: spell.failedSaveCondition,
+              source: caster.id,
+            },
+          });
+        }
         if (spell.appliedEffects?.length) {
           for (const spec of spell.appliedEffects) {
             const recipients =
@@ -2268,6 +2342,23 @@ function handleCastSpell(
       }
     }
     Object.assign(summary, { effectsApplied: spell.appliedEffects.length });
+  }
+
+  if (spell.appliedCondition) {
+    const conditionTargets =
+      spell.targeting === "self" ? [caster.id] : [...targets];
+    for (const targetId of conditionTargets) {
+      events.push({
+        type: "ConditionApplied",
+        ...meta(ctx, caster.id),
+        payload: {
+          target: targetId,
+          condition: spell.appliedCondition,
+          source: caster.id,
+        },
+      });
+    }
+    Object.assign(summary, { conditionApplied: spell.appliedCondition });
   }
 
   return { accepted: true, events, summary };

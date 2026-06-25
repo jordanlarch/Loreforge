@@ -9,7 +9,7 @@
 **Code progress (Jun 2026): P0–P5 substantially complete ahead of calendar.** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World, M5 First Campaign (tracer depth), M6 Tutorial E2E.** Memory tier (MEM-1–MEM-8) is Done. **`docs/deferrals.md` is the single source of truth for everything deferred.**
 
 Highlights of what's built:
-- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**49** spells + golden harness), **ENG-13 active effects** (Bless/Shield/Hunter's Mark). ~391 engine tests.
+- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**81** spells + golden harness), **ENG-13 active effects** (Bless/Shield/Hunter's Mark/Blur/Faerie Fire). ~398 engine tests.
 - **Tier 4 sync:** `@app/ws-server` Hocuspocus Yjs server + PixiJS battle map; persisted per-campaign live play. Invite links shipped at tracer depth (#211, CAMP-14); **multiplayer depth parked** until solo prod polish.
 - **Product surfaces:** six-item nav; Codex (spells, species/classes, backgrounds/feats, monsters, items, rules); Characters; Smithy; Realms (7 rich generators + AI pipeline); **9-tab Campaign workspace** (all tabs at tracer+ depth, World Map included); Live Play (chat/HUD/combat/AoE/enemy AI/reactions/party rail/top bar).
 - **Tutorial:** *Lantern's Last Flicker* E2E (#169–#178) with launch gate.
@@ -57,7 +57,7 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 | **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
 | **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
-**Recently shipped (#212–214, Jun 2026):** `llm_usage_events` + Settings AI usage panel · ENG-6 fixture expansion · ENG-2 batches 4–7 (**71** registry spells) · ENG-12 prepared-cast gate · ENG-13 active effects (Bless/Shield/Hex/Bane/Faerie Fire + penalty/advantage modifiers) · mid-campaign **roster → live sync** (`sync_party` + `add_combatant`) · PLAY-4 party sheet peek · Bless multi-target + Shield reaction tracer · CAMP-6 Sessions deep view (Recap/Transcript/Combat/Stats/Loot/Media) · Characters Combat tab · migration 0030.
+**Recently shipped (#212–214, Jun 2026):** `llm_usage_events` + Settings AI usage panel · ENG-6 fixture expansion · ENG-2 batches 4–8 (**81** registry spells) · ENG-12 prepared-cast gate · ENG-13 active effects (Bless/Shield/Hex/Bane/Faerie Fire/Blur + spell-attack modifiers + condition-on-save) · mid-campaign **roster → live sync** (`sync_party` + `add_combatant`) · PLAY-4 party sheet peek · Bless multi-target + Shield reaction tracer · CAMP-6 Sessions deep view (Recap/Transcript/Combat/Stats/Loot/Media) · Characters Combat tab · migration 0030 · **Rung 1 dogfood fixes** (recap poll, Run Now chat clear, WS chat dedupe).
 
 **Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
 

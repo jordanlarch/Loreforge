@@ -141,7 +141,11 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
   };
   if (spell.targeting === "area") {
     const origin =
-      spell.range.area?.shape === "cone" ? { x: 1, y: 0 } : { x: 10, y: 10 };
+      spell.range.type === "self"
+        ? { x: 0, y: 0 }
+        : spell.range.area?.shape === "cone"
+          ? { x: 1, y: 0 }
+          : { x: 10, y: 10 };
     return { ...base, origin };
   }
   if (spell.healing) {

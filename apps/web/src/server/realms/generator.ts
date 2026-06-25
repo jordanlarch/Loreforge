@@ -24,6 +24,7 @@ import {
 } from "@app/db";
 import {
   createAnthropicClient,
+  estimateLlmCostUsd,
   generateEntity,
   type GenerateEntityResult,
   type LlmClient,
@@ -600,6 +601,12 @@ export async function logGeneration(
       model: args.model ?? "",
       inputTokens: args.usage?.inputTokens ?? 0,
       outputTokens: args.usage?.outputTokens ?? 0,
+      costUsd: args.usage
+        ? (() => {
+            const usd = estimateLlmCostUsd(args.model ?? "", args.usage);
+            return usd != null ? String(usd) : null;
+          })()
+        : null,
       errorMessage: args.errorMessage ?? null,
     });
   } catch {

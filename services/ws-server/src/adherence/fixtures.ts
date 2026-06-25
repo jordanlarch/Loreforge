@@ -153,6 +153,31 @@ export const ADHERENCE_FIXTURES: readonly AdherenceFixture[] = [
     mock: { ability: "str", skill: "Athletics", dc: 15, proficient: false },
   },
 
+  {
+    kind: "check",
+    id: "check/forged-papers",
+    playerLine: "I examine the merchant's travel papers for signs of forgery.",
+    expect: {
+      abilities: ["int", "wis"],
+      dcMin: 12,
+      dcMax: 25,
+      skillIncludes: ["investigation", "insight"],
+    },
+    mock: { ability: "int", skill: "Investigation", dc: 17, proficient: true },
+  },
+  {
+    kind: "check",
+    id: "check/track-in-mud",
+    playerLine: "I follow the muddy tracks leading away from the campsite.",
+    expect: {
+      abilities: ["wis"],
+      dcMin: 10,
+      dcMax: 22,
+      skillIncludes: ["survival", "nature"],
+    },
+    mock: { ability: "wis", skill: "Survival", dc: 14, proficient: true },
+  },
+
   // ── Monster target selection ────────────────────────────────────────────
   {
     kind: "target",
@@ -175,6 +200,29 @@ export const ADHERENCE_FIXTURES: readonly AdherenceFixture[] = [
     candidates: [{ id: "pc:thorin", name: "Thorin (Fighter)", hp: 34 }],
     expect: { allowed: ["pc:thorin"] },
     mock: { targetId: "pc:thorin" },
+  },
+
+  {
+    kind: "target",
+    id: "target/wounded-caster",
+    monsterName: "Hobgoblin Captain",
+    candidates: [
+      { id: "pc:fighter", name: "Thorin (Fighter)", hp: 28 },
+      { id: "pc:wizard", name: "Elara (Wizard)", hp: 4 },
+    ],
+    expect: { allowed: ["pc:fighter", "pc:wizard"] },
+    mock: { targetId: "pc:wizard" },
+  },
+  {
+    kind: "target",
+    id: "target/bruiser-vs-archer",
+    monsterName: "Bugbear",
+    candidates: [
+      { id: "pc:archer", name: "Wren (Ranger)", hp: 22 },
+      { id: "pc:cleric", name: "Mira (Cleric)", hp: 18 },
+    ],
+    expect: { allowed: ["pc:archer", "pc:cleric"] },
+    mock: { targetId: "pc:archer" },
   },
 
   // ── Narration stays fiction-only ────────────────────────────────────────
@@ -202,6 +250,34 @@ export const ADHERENCE_FIXTURES: readonly AdherenceFixture[] = [
       narration:
         "You kneel before the cracked altar, tracing fingers over worn reliefs of robed figures bowing to something vast and many-eyed; the stone is cold, and the air tastes faintly of old incense and older fear.",
       mentions: ["Cracked Altar"],
+    },
+  },
+  {
+    kind: "narrate",
+    id: "narrate/successful-check",
+    playerLine: "Did my lockpick work?",
+    mode: "check",
+    state: miniScene("Treasure Vault", ["Iron Chest"]),
+    outcome:
+      "Mira's Dexterity (Thieves' Tools) check succeeds (rolled 18 vs DC 15).",
+    expect: { mentionsSubsetOf: ["Iron Chest"] },
+    mock: {
+      narration:
+        "The tumblers click home under your careful touch; the iron chest lid lifts with a soft groan, and stale air spills out into the torchlight.",
+      mentions: ["Iron Chest"],
+    },
+  },
+  {
+    kind: "narrate",
+    id: "narrate/ooc-question",
+    playerLine: "((How dark is it in here?))",
+    mode: "ooc",
+    state: miniScene("Collapsed Tunnel", ["Rubble Pile"]),
+    expect: { mentionsSubsetOf: ["Rubble Pile"] },
+    mock: {
+      narration:
+        "Torchlight dies a few paces ahead where the ceiling has fallen in; beyond that, the tunnel is pitch black and tight with dust.",
+      mentions: ["Rubble Pile"],
     },
   },
 ];

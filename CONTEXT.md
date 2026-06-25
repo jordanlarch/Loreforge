@@ -6,17 +6,15 @@
 
 **Design phase complete (19 architectural decisions locked).** Roadmap locked (May 2026). Engineering started May 2026 (solo engineer).
 
-**Code progress (Jun 2026): P0–P4 substantially complete; P5 (Tutorial + Memory) largely shipped early.** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World, M5 First Campaign (~complete at tracer depth), M6 Tutorial E2E (shipped).** Memory tier (MEM-1–MEM-8) is Done. **`docs/deferrals.md` is the single source of truth for everything deferred** (per-surface gaps, unbuilt generators, engine/infra items).
+**Code progress (Jun 2026): P0–P5 substantially complete ahead of calendar.** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World, M5 First Campaign (tracer depth), M6 Tutorial E2E.** Memory tier (MEM-1–MEM-8) is Done. **`docs/deferrals.md` is the single source of truth for everything deferred.**
 
 Highlights of what's built:
-- **Engine (`packages/engine`, E1–E3):** seeded deterministic dice, append-only event store, `WorldState` projection + rebuild, typed Command API + serialized per-campaign queue, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range enforcement), and a spell-cast pipeline with a growing spell registry + golden harness. **Per-campaign events persist to Postgres** (`engine_events` + `PgEventStore`; `engine.submit`/`state`). ~381 engine + ~159 ws-server tests.
-- **Tier 4 multiplayer:** `@app/ws-server` Hocuspocus Yjs sync server (authoritative engine host) + PixiJS battle map with token drag/movement; persisted per-campaign live play. Owner-only rooms today (CAMP-14 invites pending).
-- **Product surfaces:** Home shell, Codex (SRD spells, species/classes, backgrounds/feats, monsters/animals with preset filters, items), Characters (create/view/inline-edit/level-up slices), Smithy MVP (homebrew items + declarative spells), Realms (Grid/List/Graph + relationship panels + AI generator pipeline), Campaigns browser + **9-tab workspace** (7/9 built — World Map tab missing) + live play.
-- **Realms AI generator pipeline:** `@app/llm` package, `generation_events` audit table, rich sectioned generators for all 7 types (Settlement tab depth partial), synchronous + Trigger.dev cascade routes, Advanced Form at `/realms/generate/[type]`.
-- **Campaign workspace (M5 spine):** Overview, Party, World, Hooks, Sessions, Combat, Notes, Settings tabs shipped; authored encounter → Live Play seam (CAMP-8); hook lifecycle (CAMP-5); memory export + pins + recaps.
-- **Live Play:** chat/HUD/combat overlay, real sheet weapons/spells, AoE targeting, enemy AI orchestrator, timed OA prompts + AI auto-reactions, readied actions, party rail, top bar, scene transitions, map zoom/layers, async affordances, pacing controls, tutorial E2E ("Lantern's Last Flicker").
-- **Memory tier (P5):** rolling summaries, session recaps, pinned memories, RAG embed/search, live-turn context assembly — all shipped (MEM-1–8).
-- **Background jobs:** nightly Open5e SRD ingest + character-options seed + nightly re-embed as scheduled Trigger.dev jobs; runtime task dispatch gated on `TRIGGER_SECRET_KEY` (INFRA-1 for prod/Vercel).
+- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**46** spells + golden harness). ~388 engine + ~161 ws-server tests.
+- **Tier 4 sync:** `@app/ws-server` Hocuspocus Yjs server + PixiJS battle map; persisted per-campaign live play. Invite links shipped at tracer depth (#211, CAMP-14); **multiplayer depth parked** until solo prod polish.
+- **Product surfaces:** six-item nav; Codex (spells, species/classes, backgrounds/feats, monsters, items, rules); Characters; Smithy; Realms (7 rich generators + AI pipeline); **9-tab Campaign workspace** (all tabs at tracer+ depth, World Map included); Live Play (chat/HUD/combat/AoE/enemy AI/reactions/party rail/top bar).
+- **Tutorial:** *Lantern's Last Flicker* E2E (#169–#178) with launch gate.
+- **Memory tier (P5):** rolling summaries, recaps, pins, RAG, live-turn context — shipped.
+- **Background jobs:** nightly Open5e ingest + re-embed via Trigger.dev.
 
 ## What This Is
 
@@ -25,92 +23,53 @@ A web app at the intersection of:
 - **AI Dungeon Master** — an LLM-driven GM that narrates, runs NPCs, and improvises
 - **Roll20 / Foundry VTT** — real-time multiplayer with a battle map, tokens, and dice
 - **D&D Beyond** — SRD reference, character sheets, level-up wizards
-- **World Anvil / Char-Gen** — procedural worldbuilding generators (Regions, Settlements, Buildings, Taverns, Shops, Dungeons, Factions, NPCs)
-- **A 5E rules engine** — deterministic mechanics for HP, AC, conditions, and all ~360 SRD spells
+- **World Anvil / Char-Gen** — procedural worldbuilding generators
+- **A 5E rules engine** — deterministic mechanics for HP, AC, conditions, and spells
 
-**The wedge**: a server-authoritative deterministic engine owns all mechanical state; the LLM proposes commands via tool calls and owns prose only. Mechanics are always faithful while narration stays fluid.
+**The wedge**: a server-authoritative deterministic engine owns all mechanical state; the LLM proposes commands via tool calls and owns prose only.
 
 ## Tech Stack (Approved Wholesale)
 
-- **Frontend**: Next.js 14+ (App Router) · React · Tailwind · shadcn/ui · Radix · PixiJS (maps)
-- **State**: Zustand · React Query · engine state via WebSocket
-- **Backend**: Node + tRPC (TypeScript end-to-end)
-- **DB**: Postgres + pgvector · Drizzle ORM
-- **Sync**: Yjs CRDT over WebSocket
-- **Auth**: Supabase Auth
-- **LLM**: Anthropic Claude (Sonnet narration / Opus generation) + OpenAI fallback
-- **Embeddings**: OpenAI `text-embedding-3-large`
-- **TTS**: ElevenLabs / OpenAI TTS
-- **Image gen** (v1.5): Flux via Replicate/fal
-- **Map libs**: rot-js · honeycomb-grid · d3-voronoi · custom Watabou-style ports
-- **Storage**: S3-compatible (Supabase Storage / R2)
-- **Hosting**: Vercel (frontend) + Railway/Fly.io (backend) + Supabase (DB/Auth/Storage)
-- **Jobs**: Trigger.dev (async generation, recaps, embeddings)
-- **Monitoring**: Sentry + PostHog
+- **Frontend**: Next.js (App Router) · React · Tailwind · shadcn/ui · PixiJS (maps)
+- **Backend**: Node + tRPC · Drizzle ORM · Postgres + pgvector
+- **Sync**: Yjs CRDT over WebSocket · Supabase Auth
+- **LLM**: Anthropic Claude (Sonnet narration / routing) · OpenAI embeddings
+- **Jobs**: Trigger.dev · **Hosting**: Vercel + Supabase (+ ws-server on Railway/Fly when needed)
 
-Full rationale per-choice (with alternatives considered) in `docs/01-tech-stack.md`. External services and data sources (LLM providers, embeddings, TTS, image gen, SRD ingest, map libraries) in `docs/data-sources.md`. Locked decisions summarized in `docs/00-consolidated-plan.md`.
+Full rationale in `docs/01-tech-stack.md`. Locked decisions in `docs/00-consolidated-plan.md`.
 
-**Implemented packages of note:** `@app/engine` (deterministic 5E engine), `@app/ws-server` (Yjs/Hocuspocus sync), `@app/llm` (provider-agnostic LLM generation), `@app/db` (Drizzle schema + migrations + `PgEventStore`), `@app/config` (env validation), `@app/memory` (embeddings + RAG retrieval).
-
-## Core Architecture
-
-- **AI-GM model** — there is no human DM tier; the AI is the GM for every campaign
-- **Deterministic rules engine** — server-authoritative; the LLM proposes commands via structured tool calls; engine validates, executes, and emits events; the LLM owns prose only
-- **Event-sourced state** — every mutation is an immutable event; full replay, retcon, and audit log for free
-- **Six top-level navigation** — Home / Characters / Campaigns / Codex / Smithy / Realms
-- **Three content libraries** — **Codex** (official SRD 5.2 reference) · **Smithy** (your homebrew rules content) · **Realms** (your worldbuilding entities)
-- **Always-on map** — current scene map is rendered above the chat during play; tokens dragged or moved via text command
-- **Tier 4 multiplayer combat** — real-time sync via Yjs CRDT over WebSocket
-- **Full SRD 5.2 spell automation** — all ~360 spells deterministically resolved (declarative schema + imperative escape hatch)
-- **Hybrid play tempo** — async by default, with opt-in Live Session Mode (combat auto-routes to Live)
-- **Cascading stub creation** — every generator emits child stubs (NPCs, child entities); higher-tier entities cascade automatically; child generators expand stubs
+**Implemented packages:** `@app/engine`, `@app/ws-server`, `@app/llm`, `@app/db`, `@app/config`, `@app/memory`.
 
 ## Documentation Map
 
-Read `docs/00-consolidated-plan.md` first. Then drill into whatever surface you need.
-
-- **`docs/00-consolidated-plan.md`** — the 19 locked architectural decisions
-- **`docs/deferrals.md`** — **single source of truth for all deferred/backlog items** (generator-pipeline deferrals, per-surface UI-flow gaps, unbuilt generators, engine/infra, v1.5+ cuts). Add new deferrals here.
-- **`docs/02-implementation-roadmap.md`** — v1 phased roadmap: milestones, dependency graph, beta gates, solo calendar (~28–34 months to GA)
-- **`docs/03-m5-completion-plan.md`** — M5 sequencing plan; Workstreams A/B/C all marked complete (Jun 2026)
-- **`docs/01-tech-stack.md`** — application-layer technology choices with rationale and alternatives per choice
-- **`docs/data-sources.md`** — external services and data sources
-- **`docs/product-spec.md`** — personas, success metrics, v1 out-of-scope, assumptions
-- **`docs/ui-flows/`** — per-surface UI specifications
-- **`docs/generators/forms-and-pages.md`** — the 7 worldbuilding generators
-- **`docs/generators/samples/`** — sample generator outputs
-- **`docs/engine/architecture.md`** — the deterministic 5E rules engine
-- **`docs/onboarding/tutorial-adventure.md`** — the "Lantern's Last Flicker" tutorial micro-campaign
+Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` for the live backlog.
 
 ## Current Goal
 
-**M7 closed-alpha prep** per `docs/02-implementation-roadmap.md` §7. M5 DoD met at tracer/vertical-slice depth; M6 tutorial E2E shipped and verified.
+**M6.5 — Solo prod polish** (Jun 2026). Jordan dogfoods in **Vercel prod as a solo player**. Multiplayer seat auth, ws-server hosting for guests, and Stripe/billing are **explicitly parked** until the single-player loop feels production-grade.
 
-**Active frontier** (all tracked in `docs/deferrals.md`):
+**Active tracks** (priority order):
 
-| Priority | Item | ID |
+| Track | Focus | Key IDs |
 |---|---|---|
-| Combat polish | Multiattack in enemy AI | PLAY-15 |
-| Combat polish | Reach-weapon OA provoke | ENG-10 |
-| Alpha gate | Top-120 spell batch 3 | ENG-2 |
-| Tier 4 promise | Multiplayer invites + seat auth | CAMP-14 |
-| Workspace | World Map tab | CAMP-7 |
-| Infra | Trigger `tr_prod_` on Vercel | INFRA-1 |
-| Post-M6 | Real reputation system | REP-1 |
+| **1 — Engine + spells** | Top-120 push, effect system, known/prepared gate | ENG-2, ENG-13, ENG-12 |
+| **2 — LLM observability** | Usage audit, adherence harness, model routing | ENG-6, `llm_usage_events` (Sprint 1 shipped) |
+| **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
+| **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
-**Closed-alpha gates still open:** top-120 golden coverage (ENG-2 partial), LLM tool-adherence ≥98% (ENG-6 skeleton shipped), 6-client sync stress (ENG-7 harness shipped), tutorial E2E ✅, billing + 10 DM chats (M8).
+**Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 (31 spells) · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
 
-**Branch:** `main`, clean. Package manager is **npm**.
+**In progress (Sprint 1–2, uncommitted):** `llm_usage_events` + Settings AI usage panel + model routing (migration 0030) · ENG-6 fixture battery expansion · ENG-2 batch 4 (31→46 spells).
 
-Roadmap and product locks live in `docs/02-implementation-roadmap.md` and `docs/product-spec.md` §5.
+**Parked until polish pass done:** CAMP-14 multiplayer depth · PLAY-9 multi-client reaction sync · INFRA-4 billing · M8 closed beta.
+
+**Branch:** `main`. Package manager is **npm**.
 
 ## Critical Risks (Acknowledged)
 
-1. **Full SRD spell automation** is the single largest engineering subproject — ~4–6 engineer-months alone
-2. **Tier 4 multiplayer + real-time sync infra** — sync layer shipped; invite/seat auth still needed (CAMP-14)
-3. **LLM cost per session** — $0.50–$3 each; needs usage-based pricing if commercial
-4. **TTS latency** — pre-generate and cache aggressively
-5. **Combined v1 scope** — realistic estimate is **12–18 months** with a small team to ship the full v1 as designed
+1. **Full SRD spell automation** — largest engineering subproject (~4–6 engineer-months)
+2. **LLM cost per session** — observability in progress; pricing deferred to M8
+3. **Combined v1 scope** — realistic 12–18 months with a small team for full v1 as designed
 
 ## Repository
 

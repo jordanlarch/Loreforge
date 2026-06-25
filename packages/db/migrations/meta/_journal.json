@@ -204,6 +204,20 @@
       "when": 1782319200000,
       "tag": "0028_codex_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782322800000,
+      "tag": "0029_multiplayer_reputation",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1782326400000,
+      "tag": "0030_llm_usage_events",
+      "breakpoints": true
     }
   ]
 }

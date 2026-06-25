@@ -4,5 +4,6 @@ export * from "./codex";
 export * from "./engine";
 export * from "./memory";
 export * from "./onboarding";
+export * from "./observability";
 export * from "./realms";
 export * from "./smithy";

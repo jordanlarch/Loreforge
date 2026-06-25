@@ -59,9 +59,7 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 **Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 (31 spells) · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
 
-**In progress (Sprint 1–2, uncommitted):** `llm_usage_events` + Settings AI usage panel + model routing (migration 0030) · ENG-6 fixture battery expansion · ENG-2 batch 4 (31→46 spells).
-
-**Recently shipped (this PR):** Sprint 1–3 solo prod polish — LLM observability, spell batches 4–5 (49 registry spells), ENG-13 effect system, Characters Combat tab.
+**This PR (#212):** Sprint 1–3 solo prod polish — LLM observability, spell batches 4–5 (49 registry spells), ENG-13 effect system, Characters Combat tab.
 
 **Parked until polish pass done:** CAMP-14 multiplayer depth · PLAY-9 multi-client reaction sync · INFRA-4 billing · M8 closed beta.
 

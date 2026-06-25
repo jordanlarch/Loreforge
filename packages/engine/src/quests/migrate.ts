@@ -145,10 +145,14 @@ export function normalizeEntityQuests(
 function bindQuestsToLocation(
   quests: QuestTemplate[],
   locationEntityId: string,
+  options?: { force?: boolean },
 ): QuestTemplate[] {
+  const force = options?.force ?? false;
   return quests.map((q) => ({
     ...q,
-    startingLocationEntityId: q.startingLocationEntityId ?? locationEntityId,
+    startingLocationEntityId: force
+      ? locationEntityId
+      : (q.startingLocationEntityId ?? locationEntityId),
     triggers: (q.triggers ?? defaultTracerTriggers(locationEntityId)).map(
       (t) =>
         t.type === "on_enter_location"
@@ -156,13 +160,22 @@ function bindQuestsToLocation(
               ...t,
               config: {
                 ...t.config,
-                locationEntityId:
-                  t.config?.locationEntityId ?? locationEntityId,
+                locationEntityId: force
+                  ? locationEntityId
+                  : (t.config?.locationEntityId ?? locationEntityId),
               },
             }
           : t,
     ),
   }));
+}
+
+/** Force rebind location-scoped quest fields when copying to a child location. */
+export function rebindQuestsToLocation(
+  quests: QuestTemplate[],
+  locationEntityId: string,
+): QuestTemplate[] {
+  return bindQuestsToLocation(quests, locationEntityId, { force: true });
 }
 
 /** Merge normalized quests back into entity data; keeps legacy hooks in sync. */

@@ -5,6 +5,7 @@ import {
   locationHasQuestContent,
   resolveQuestTeaseTextWithInheritance,
 } from "./inherit";
+import { enrichEntityDataWithQuests } from "./migrate";
 
 const TAVERN_ID = "11111111-1111-4111-8111-111111111111";
 const REGION_ID = "22222222-2222-4222-8222-222222222222";
@@ -55,5 +56,19 @@ describe("resolveQuestTeaseTextWithInheritance", () => {
       },
     );
     expect(tease).toBe("Someone stole the sign.");
+  });
+
+  it("inherits when parent quests are already bound to the region id", () => {
+    const parentData = enrichEntityDataWithQuests(
+      { hooks: ["A merchant's daughter vanished."] },
+      REGION_ID,
+    );
+    const tease = resolveQuestTeaseTextWithInheritance(
+      {},
+      "on_session_start",
+      { locationEntityId: TAVERN_ID },
+      parentData,
+    );
+    expect(tease).toBe("A merchant's daughter vanished.");
   });
 });

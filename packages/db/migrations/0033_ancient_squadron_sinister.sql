@@ -1,0 +1,1 @@
+ALTER TABLE "plot_hooks" ALTER COLUMN "source_template_id" SET DATA TYPE text;

@@ -1207,3 +1207,27 @@ export async function awardTutorialReputation(campaignId: string): Promise<void>
     note: "The village is in your debt after relighting the beacon.",
   });
 }
+
+/** Campaign quest instances for Live Play trigger evaluation (Phase B/C). */
+export async function loadCampaignQuestInstances(campaignId: string) {
+  return getDb()
+    .select({
+      id: plotHooks.id,
+      status: plotHooks.status,
+      title: plotHooks.title,
+      data: plotHooks.data,
+    })
+    .from(plotHooks)
+    .where(eq(plotHooks.campaignId, campaignId));
+}
+
+/** Update quest instance jsonb (briefing dedupe, step progress). */
+export async function updatePlotHookData(
+  hookId: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  await getDb()
+    .update(plotHooks)
+    .set({ data, updatedAt: new Date() })
+    .where(eq(plotHooks.id, hookId));
+}

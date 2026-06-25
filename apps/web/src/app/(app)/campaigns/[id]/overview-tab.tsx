@@ -257,10 +257,10 @@ export function OverviewTab({
           onClick={() => onOpenTab("world")}
         />
         <StatCard
-          label="Hooks"
+          label="Quests"
           value={hooks.isLoading ? "…" : hookCount}
           hint={hookHint}
-          onClick={() => onOpenTab("hooks")}
+          onClick={() => onOpenTab("quests")}
         />
         <StatCard
           label="Sessions"

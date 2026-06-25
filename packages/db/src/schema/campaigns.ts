@@ -150,6 +150,11 @@ type PlotHookStatus =
 export type PlotHookQuestData = {
   templateSnapshot?: Record<string, unknown>;
   currentStepId?: string;
+  completedStepIds?: string[];
+  briefingDelivered?: boolean;
+  acceptedAt?: string;
+  resolvedAt?: string;
+  outcomeNotes?: string;
   lastTeasedAt?: string;
 };
 

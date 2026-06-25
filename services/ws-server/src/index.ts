@@ -135,6 +135,11 @@ import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.
 import {
   tryCampaignTravelFromChat,
 } from "./campaign-travel.js";
+import {
+  activeQuestContextForCampaign,
+  appendPendingQuestBriefings,
+  tryQuestOfferFromChat,
+} from "./quest-runtime.js";
 import { TutorialRoom } from "./tutorial-room.js";
 import { namesReferencedInNarration } from "./world-reveal.js";
 
@@ -410,6 +415,7 @@ async function composeGmReply(
   priorChat: ChatEntry[],
   message: { mode?: string; text: string },
   client: LlmClient,
+  questContext?: string,
 ): Promise<ChatEntry> {
   try {
     const usageCtx = await buildUsageCtx(documentName, "narrate");
@@ -421,6 +427,7 @@ async function composeGmReply(
       mode: message.mode,
       knowledge: await gmKnowledge(documentName, message.text),
       summary: await gmSessionSummary(documentName),
+      questContext,
       usageCtx,
     });
     return await gmEntryWithReveal(documentName, result);
@@ -446,11 +453,19 @@ async function runCheck(
   priorChat: ChatEntry[],
   message: { mode?: string; text: string },
   client: LlmClient,
+  questContext?: string,
 ): Promise<void> {
   const state = await room.getState();
   const actor = activePlayerEntity(state);
   if (!actor) {
-    const gm = await composeGmReply(room, documentName, priorChat, message, client);
+    const gm = await composeGmReply(
+      room,
+      documentName,
+      priorChat,
+      message,
+      client,
+      questContext,
+    );
     await appendAndPersist(document, documentName, [gm]);
     return;
   }
@@ -464,7 +479,14 @@ async function runCheck(
       usageCtx: await buildUsageCtx(documentName, "check_route"),
     });
   } catch {
-    const gm = await composeGmReply(room, documentName, priorChat, message, client);
+    const gm = await composeGmReply(
+      room,
+      documentName,
+      priorChat,
+      message,
+      client,
+      questContext,
+    );
     await appendAndPersist(document, documentName, [gm]);
     return;
   }
@@ -480,7 +502,14 @@ async function runCheck(
     | { total?: number; success?: boolean }
     | undefined;
   if (!applied.accepted || !summary || typeof summary.total !== "number") {
-    const gm = await composeGmReply(room, documentName, priorChat, message, client);
+    const gm = await composeGmReply(
+      room,
+      documentName,
+      priorChat,
+      message,
+      client,
+      questContext,
+    );
     await appendAndPersist(document, documentName, [gm]);
     return;
   }
@@ -514,6 +543,7 @@ async function runCheck(
       outcome,
       knowledge: await gmKnowledge(documentName, message.text),
       summary: await gmSessionSummary(documentName),
+      questContext,
       usageCtx: await buildUsageCtx(documentName, "narrate"),
     });
     gm = await gmEntryWithReveal(documentName, narration);
@@ -1667,6 +1697,22 @@ const server = new Hocuspocus({
           ]);
           return;
         }
+        if (parsedChat?.kind === "campaign" && room instanceof CampaignRoom) {
+          await appendPendingQuestBriefings(parsedChat.campaignId, (entries) =>
+            appendAndPersist(document, documentName, entries),
+          chatDeps,
+          );
+          const offer = await tryQuestOfferFromChat(
+            parsedChat.campaignId,
+            room,
+            message,
+            chatDeps,
+          );
+          if (offer) {
+            await appendAndPersist(document, documentName, [offer]);
+            return;
+          }
+        }
         await appendAndPersist(document, documentName, [
           gmEntry(gmEcho(message.mode, message.text), chatDeps),
         ]);
@@ -1676,8 +1722,37 @@ const server = new Hocuspocus({
       // Real LLM work follows: signal "GM is thinking" until it resolves (#97).
       setThinking(document, true);
       try {
+        if (parsedChat?.kind === "campaign" && room instanceof CampaignRoom) {
+          await appendPendingQuestBriefings(parsedChat.campaignId, (entries) =>
+            appendAndPersist(document, documentName, entries),
+          chatDeps,
+          );
+          const offer = await tryQuestOfferFromChat(
+            parsedChat.campaignId,
+            room,
+            message,
+            chatDeps,
+          );
+          if (offer) {
+            await appendAndPersist(document, documentName, [offer]);
+          }
+        }
+
+        const questContext =
+          parsedChat?.kind === "campaign"
+            ? await activeQuestContextForCampaign(parsedChat.campaignId)
+            : undefined;
+
         if (message.mode === "check") {
-          await runCheck(room, document, documentName, priorChat, message, client);
+          await runCheck(
+            room,
+            document,
+            documentName,
+            priorChat,
+            message,
+            client,
+            questContext,
+          );
         } else {
           const gm = await composeGmReply(
             room,
@@ -1685,6 +1760,7 @@ const server = new Hocuspocus({
             priorChat,
             message,
             client,
+            questContext,
           );
           await appendAndPersist(document, documentName, [gm]);
         }

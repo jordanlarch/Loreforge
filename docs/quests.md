@@ -313,8 +313,8 @@ One-time migration script + Drizzle migration for `data` jsonb column / table re
 |-------|--------|---------------|
 | **A — Structured template + tease runtime** | `QuestTemplate` schema; Realms `data.quests`; generator tracer output; auto-migration; triggers `on_session_start` + `on_enter_location`; tease delivery; deprecate string hooks | Fresh Quick Forge → enter tavern → tease fires from structured quest |
 | **A.1 — Cascade quest inheritance** ✅ | Parent region quests propagate to location stubs on forge; ws-server read-time fallback via `located_in` parent chain; force-rebind `startingLocationEntityId` on inherit (#222, #223, #224) | Fresh Quick Forge → session start at tavern → `Word reaches you:` tease fires — **prod verified Jun 2026** |
-| **B — Quest editor** | Realms Quests section CRUD; Campaign Quests tab detail edit; accept → snapshot; Kanban rename Hooks→Quests | Author full quest in Realms; accept; see on board |
-| **C — Talk + accept runtime** | `on_talk_to_npc`, `on_quest_accept`; offer/briefing delivery; hot context for Active quests; step list UI (no auto-advance) | Talk to giver → offer; accept → briefing in Live Play |
+| **B — Quest editor** ✅ | Realms Quests section CRUD; Campaign Quests tab detail + accept snapshot; Kanban rename Hooks→Quests | Author full quest in Realms; accept; see on board with template snapshot |
+| **C — Talk + accept runtime** ✅ | `on_talk_to_npc` offer + `on_quest_accept` briefing in Live Play; hot context for Active quests; step list in detail panel | Talk to giver → offer; Start → Active → briefing; AI gets GM instructions |
 | **D — Rewards + branches** | Step completion triggers; optional branch graph UI; engine XP/loot on Resolve; encounter links | Resolve quest → engine XP event; branch choice stored |
 
 **Explicitly not in v1 quest scope:** per-step engine XP, `on_combat_end` triggers, full F&F parity on first generator pass, quest editor on mobile.

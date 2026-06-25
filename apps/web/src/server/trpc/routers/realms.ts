@@ -259,7 +259,7 @@ export const realmsRouter = createTRPCRouter({
     .input(updateInput)
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const data = parseData(input.type, input.data);
+      const data = parseData(input.type, input.data, input.id);
       const [row] = await db
         .update(realmEntities)
         .set({

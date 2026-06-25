@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   FIXTURE_BATTLE_SCENE_ID,
   InMemoryEventStore,
+  resolveEncounterMap,
   type EventStore,
   type FoeSpec,
   type PartyMember,
@@ -167,7 +168,7 @@ describe("CampaignRoom", () => {
       CAMPAIGN,
       store,
       async () => [],
-      async () => ({ name: "Ogre Den", foes }),
+      async () => ({ name: "Ogre Den", foes, map: resolveEncounterMap("ambush") }),
     );
 
     const state = await room.getState();
@@ -215,7 +216,7 @@ describe("CampaignRoom", () => {
       async () => [],
       async () =>
         armed
-          ? { name: "Ogre Den", foes: ogreFoes }
+          ? { name: "Ogre Den", foes: ogreFoes, map: resolveEncounterMap("ambush") }
           : undefined,
     );
 

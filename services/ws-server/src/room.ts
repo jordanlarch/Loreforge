@@ -24,6 +24,7 @@ import {
   type BattleAction,
   type Command,
   type CommandSummary,
+  type EncounterMapDef,
   type EventStore,
   type FoeSpec,
   type PartyMember,
@@ -106,7 +107,9 @@ export type PartyLoader = (campaignId: string) => Promise<PartyMember[]>;
 /** Loads a campaign's armed encounter (scene name + foes), if any (CAMP-8). */
 export type EncounterLoader = (
   campaignId: string,
-) => Promise<{ name: string; foes: FoeSpec[] } | undefined>;
+) => Promise<
+  { name: string; foes: FoeSpec[]; map: EncounterMapDef } | undefined
+>;
 
 export class CampaignRoom implements LiveRoom {
   private engine: Engine;
@@ -140,7 +143,13 @@ export class CampaignRoom implements LiveRoom {
     if (party.length === 0 && !encounter) return FIXTURE_BATTLE_COMMANDS;
     return buildPartyBattleCommands(
       members,
-      encounter ? { foes: encounter.foes, sceneName: encounter.name } : undefined,
+      encounter
+        ? {
+            foes: encounter.foes,
+            sceneName: encounter.name,
+            map: encounter.map,
+          }
+        : undefined,
     );
   }
 

@@ -218,6 +218,13 @@
       "when": 1782326400000,
       "tag": "0030_llm_usage_events",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1782330000000,
+      "tag": "0031_encounter_map_preset",
+      "breakpoints": true
     }
   ]
 }

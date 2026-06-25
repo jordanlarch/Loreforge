@@ -89,6 +89,8 @@ export const encounters = pgTable(
     ownerId: uuid("owner_id").notNull(),
     name: text("name").notNull(),
     foes: jsonb("foes").$type<EncounterFoe[]>().notNull().default([]),
+    /** Battle map preset slug (CAMP-8); see `@app/engine` ENCOUNTER_MAP_PRESETS. */
+    mapPreset: text("map_preset").notNull().default("ambush"),
     /** The Realms entity this encounter was built from, if any. */
     sourceEntityId: uuid("source_entity_id"),
     createdAt: timestamp("created_at", { withTimezone: true })

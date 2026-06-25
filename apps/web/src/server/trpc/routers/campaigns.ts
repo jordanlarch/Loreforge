@@ -59,6 +59,8 @@ const foeRowSchema = z.object({
   name: z.string().trim().max(60).optional(),
 });
 
+const mapPresetSchema = z.enum(["ambush", "arena", "corridor"]);
+
 import { createTRPCRouter, protectedProcedure } from "../init";
 
 /** Throw unless the campaign exists and belongs to the given user. */
@@ -680,6 +682,7 @@ export const campaignsRouter = createTRPCRouter({
         campaignId: z.string().uuid(),
         name: z.string().trim().min(1).max(120),
         foes: z.array(foeRowSchema).min(1).max(MAX_ENCOUNTER_FOE_ROWS),
+        mapPreset: mapPresetSchema.default("ambush"),
         sourceEntityId: z.string().uuid().optional(),
       }),
     )
@@ -693,6 +696,7 @@ export const campaignsRouter = createTRPCRouter({
           ownerId: ctx.user.id,
           name: input.name,
           foes: input.foes,
+          mapPreset: input.mapPreset,
           sourceEntityId: input.sourceEntityId ?? null,
         })
         .returning();

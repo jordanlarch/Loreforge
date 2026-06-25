@@ -6,12 +6,17 @@ import { useMemo, useState } from "react";
 import {
   MONSTER_TEMPLATES,
   MONSTER_TEMPLATE_LIST,
+  ENCOUNTER_MAP_PRESET_LIST,
+  resolveEncounterMap,
   rateEncounter,
   totalLevel,
   type EncounterDifficulty,
+  type EncounterMapPresetId,
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
+
+import { BattleMapPreview } from "./battle-map-preview";
 
 type FoeRow = { template: string; count: number; name?: string };
 
@@ -19,6 +24,7 @@ type Encounter = {
   id: string;
   name: string;
   foes: FoeRow[];
+  mapPreset: string;
   active: boolean;
 };
 
@@ -169,6 +175,9 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
                 <p className="mt-1 text-sm text-lore-muted">
                   {foeSummary(enc.foes)}
                 </p>
+                <p className="mt-0.5 text-xs text-lore-muted">
+                  Map: {resolveEncounterMap(enc.mapPreset).label}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -210,9 +219,12 @@ function NewEncounterForm({
   onCreated: () => Promise<void>;
 }) {
   const [name, setName] = useState("");
+  const [mapPreset, setMapPreset] = useState<EncounterMapPresetId>("ambush");
   const [rows, setRows] = useState<FoeRow[]>([
     { template: MONSTER_TEMPLATE_LIST[0]!.slug, count: 1 },
   ]);
+
+  const map = useMemo(() => resolveEncounterMap(mapPreset), [mapPreset]);
 
   const rating = useMemo(
     () => rateEncounter(partyLevels, foeXps(rows)),
@@ -237,6 +249,7 @@ function NewEncounterForm({
     create.mutate({
       campaignId,
       name: trimmed,
+      mapPreset,
       foes: rows.map((r) => ({
         template: r.template,
         count: r.count,
@@ -261,6 +274,28 @@ function NewEncounterForm({
           maxLength={120}
           className="min-w-[14rem] flex-1 rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-sm outline-none focus:border-lore-accent"
         />
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-6">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-xs uppercase tracking-widest text-lore-muted">
+            Battle map
+          </span>
+          <select
+            value={mapPreset}
+            onChange={(e) =>
+              setMapPreset(e.target.value as EncounterMapPresetId)
+            }
+            className="rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-sm outline-none focus:border-lore-accent"
+          >
+            {ENCOUNTER_MAP_PRESET_LIST.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label} ({preset.width}×{preset.height})
+              </option>
+            ))}
+          </select>
+        </label>
+        <BattleMapPreview map={map} />
       </div>
 
       <div className="flex flex-col gap-2">

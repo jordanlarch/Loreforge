@@ -316,6 +316,13 @@ export {
   type PartyMember,
 } from "./fixtures/battle";
 export {
+  ENCOUNTER_MAP_PRESETS,
+  ENCOUNTER_MAP_PRESET_LIST,
+  resolveEncounterMap,
+  type EncounterMapDef,
+  type EncounterMapPresetId,
+} from "./fixtures/battle-maps";
+export {
   buildPartyMemberJoinCommands,
   findPartyJoinPosition,
   partyMemberToEntityInit,

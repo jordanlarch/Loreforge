@@ -34,6 +34,11 @@ import type {
 } from "../entities/types";
 import type { RollMode } from "../rng/dice";
 import type { WorldState } from "../projections/world-state";
+import {
+  ENCOUNTER_MAP_PRESETS,
+  resolveEncounterMap,
+  type EncounterMapDef,
+} from "./battle-maps";
 import { FIXTURE_CHARACTERS } from "./party";
 
 /** Stable seed/campaign id; the RNG (initiative) is keyed off this. */
@@ -66,12 +71,7 @@ export type PartyMember = {
 };
 
 /** A short pillar wall down the middle with a gap, to make movement interesting. */
-const WALLS: GridPosition[] = [
-  { x: 6, y: 2 },
-  { x: 6, y: 3 },
-  { x: 6, y: 7 },
-  { x: 6, y: 8 },
-];
+const WALLS: GridPosition[] = ENCOUNTER_MAP_PRESETS.ambush.blockedCells;
 
 /** Left-column starting cells for the party; caps the seed at four PCs. */
 const PARTY_POSITIONS: readonly GridPosition[] = [
@@ -180,11 +180,14 @@ export function buildPartyBattleCommands(
     foes?: readonly FoeSpec[];
     /** Scene title; defaults to the goblin-ambush name. */
     sceneName?: string;
+    /** Battle map layout (CAMP-8); defaults to road ambush. */
+    map?: EncounterMapDef;
   },
 ): Command[] {
   const members = party.slice(0, MAX_BATTLE_PARTY);
   const foes = (opts?.foes ?? DEFAULT_FOES).slice(0, MAX_BATTLE_FOES);
   const sceneName = opts?.sceneName ?? "Salt Way Ambush";
+  const map = opts?.map ?? resolveEncounterMap("ambush");
   const sides: Record<EntityRef, string> = {};
   for (const m of members) sides[m.id] = FIXTURE_BATTLE_PARTY_SIDE;
   for (const f of foes) sides[f.id] = FIXTURE_BATTLE_FOES_SIDE;
@@ -195,8 +198,12 @@ export function buildPartyBattleCommands(
       scene: {
         id: FIXTURE_BATTLE_SCENE_ID,
         name: sceneName,
-        description: "A muddy stretch of road, foes lurking behind cairns.",
-        map: { width: 12, height: 10, blockedCells: WALLS },
+        description: map.description,
+        map: {
+          width: map.width,
+          height: map.height,
+          blockedCells: map.blockedCells,
+        },
       },
     },
     { type: "change_scene", sceneId: FIXTURE_BATTLE_SCENE_ID },

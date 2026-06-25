@@ -32,6 +32,7 @@ import {
   getSpell,
   meleeReachFromEquipment,
   monsterTemplate,
+  resolveEncounterMap,
   spellNameToId,
   totalLevel,
   xpForLevel,
@@ -181,7 +182,9 @@ export async function getCampaignParty(
  */
 export async function getCampaignEncounter(
   campaignId: string,
-): Promise<{ name: string; foes: FoeSpec[] } | undefined> {
+): Promise<
+  { name: string; foes: FoeSpec[]; map: ReturnType<typeof resolveEncounterMap> } | undefined
+> {
   const db = getDb();
   const [campaign] = await db
     .select({ activeEncounterId: campaigns.activeEncounterId })
@@ -191,7 +194,11 @@ export async function getCampaignEncounter(
   if (!campaign?.activeEncounterId) return undefined;
 
   const [encounter] = await db
-    .select({ name: encounters.name, foes: encounters.foes })
+    .select({
+      name: encounters.name,
+      foes: encounters.foes,
+      mapPreset: encounters.mapPreset,
+    })
     .from(encounters)
     .where(
       and(
@@ -203,7 +210,12 @@ export async function getCampaignEncounter(
   if (!encounter) return undefined;
 
   const foes = expandEncounterFoes(encounter.foes ?? [], monsterTemplate);
-  return foes.length > 0 ? { name: encounter.name, foes } : undefined;
+  if (foes.length === 0) return undefined;
+  return {
+    name: encounter.name,
+    foes,
+    map: resolveEncounterMap(encounter.mapPreset),
+  };
 }
 
 /* ------------------------------------------------------------------------- *

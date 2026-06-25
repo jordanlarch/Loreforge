@@ -81,6 +81,8 @@ import {
   loadChatMessages,
   loadRollingSummary,
   persistChatMessages,
+  loadCampaignWorldEntities,
+  revealCampaignWorldEntities,
   resetTutorialState,
   resolveTutorialHook,
   setTutorialScene,
@@ -99,6 +101,7 @@ import {
   getNarrationClient,
   narrate,
   narrateEnemyTurn,
+  type NarrationResult,
 } from "./narration.js";
 import {
   activeEnemy,
@@ -124,6 +127,7 @@ import {
 } from "./world-knowledge.js";
 import { BattleRoom, CampaignRoom, isBattleAction, type LiveRoom } from "./room.js";
 import { TutorialRoom } from "./tutorial-room.js";
+import { namesReferencedInNarration } from "./world-reveal.js";
 
 const PORT = Number(process.env.PORT ?? process.env.WS_PORT ?? 1234);
 const SUPABASE_URL =
@@ -148,6 +152,46 @@ async function buildUsageCtx(
   const ownerId = await getCampaignOwnerId(parsed.campaignId);
   if (!ownerId) return undefined;
   return { ownerId, campaignId: parsed.campaignId, surface };
+}
+
+/** Q11 / CAMP-4: flip discovery when GM narration references a world entity. */
+async function autoRevealWorldEntities(
+  documentName: string,
+  narration: { text: string; mentions: readonly string[] },
+): Promise<void> {
+  const parsed = parseRoom(documentName);
+  if (parsed?.kind !== "campaign") return;
+  const ownerId = await getCampaignOwnerId(parsed.campaignId);
+  if (!ownerId) return;
+  try {
+    const members = await loadCampaignWorldEntities(
+      parsed.campaignId,
+      ownerId,
+    );
+    const entityIds = namesReferencedInNarration(
+      narration.text,
+      narration.mentions,
+      members,
+    );
+    await revealCampaignWorldEntities(
+      parsed.campaignId,
+      ownerId,
+      entityIds,
+    );
+  } catch {
+    // Best-effort — narration must never fail because discovery update failed.
+  }
+}
+
+/** Stamp a GM chat row after running auto-reveal for campaign rooms. */
+async function gmEntryWithReveal(
+  documentName: string,
+  narration: { text: string; mentions: readonly string[] },
+): Promise<ChatEntry> {
+  await autoRevealWorldEntities(documentName, narration);
+  const mentions =
+    narration.mentions.length > 0 ? [...narration.mentions] : undefined;
+  return gmEntry(narration.text, chatDeps, { mentions });
 }
 
 /** A scripted tutorial trigger from the client (TUT-1). */
@@ -362,7 +406,7 @@ async function composeGmReply(
       summary: await gmSessionSummary(documentName),
       usageCtx,
     });
-    return gmEntry(result.text, chatDeps, { mentions: result.mentions });
+    return await gmEntryWithReveal(documentName, result);
   } catch {
     if (room instanceof TutorialRoom) {
       const sceneId = (await room.getState()).currentSceneId;
@@ -455,7 +499,7 @@ async function runCheck(
       summary: await gmSessionSummary(documentName),
       usageCtx: await buildUsageCtx(documentName, "narrate"),
     });
-    gm = gmEntry(narration.text, chatDeps, { mentions: narration.mentions });
+    gm = await gmEntryWithReveal(documentName, narration);
   } catch {
     gm = gmEntry(success ? "Your effort pays off." : "It doesn't work.", chatDeps);
   }
@@ -565,7 +609,7 @@ async function runEnemyReactions(
             usageCtx: await buildUsageCtx(documentName, "enemy_turn"),
           });
           await appendAndPersist(document, documentName, [
-            gmEntry(narration.text, chatDeps, { mentions: narration.mentions }),
+            await gmEntryWithReveal(documentName, narration),
           ]);
         } catch {
           // Narration is optional; the engine row already told the story.
@@ -625,7 +669,7 @@ async function runReadiedTriggers(
             usageCtx: await buildUsageCtx(documentName, "enemy_turn"),
           });
           await appendAndPersist(document, documentName, [
-            gmEntry(narration.text, chatDeps, { mentions: narration.mentions }),
+            await gmEntryWithReveal(documentName, narration),
           ]);
         } catch {
           // Narration is optional; the engine row already told the story.
@@ -943,7 +987,10 @@ async function tutorialVictory(
     await setTutorialScene(parsed.campaignId, result.sceneId);
   }
   await appendAndPersist(document, documentName, [
-    gmEntry(result.narration, chatDeps, { mentions: result.mentions }),
+    await gmEntryWithReveal(documentName, {
+      text: result.narration,
+      mentions: result.mentions ?? [],
+    }),
   ]);
 }
 
@@ -1180,7 +1227,10 @@ async function handleTutorialInner(
       await setTutorialScene(parsed.campaignId, result.sceneId);
     }
     await appendAndPersist(document, documentName, [
-      gmEntry(result.narration, chatDeps, { mentions: result.mentions }),
+      await gmEntryWithReveal(documentName, {
+        text: result.narration,
+        mentions: result.mentions ?? [],
+      }),
     ]);
     // Entering a combat scene: signal the combat coachmarks and let any
     // combatant ahead of the lead in initiative act before her first turn.
@@ -1199,7 +1249,10 @@ async function handleTutorialInner(
     if (!beat) return;
     if (!room.markOnce(`say:${topic}`)) return;
     await appendAndPersist(document, documentName, [
-      gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
+      await gmEntryWithReveal(documentName, {
+        text: beat.text,
+        mentions: beat.mentions ?? [],
+      }),
     ]);
     if (beat.offersHook) tutorialSignal(document, "hook-offered");
     return;
@@ -1247,7 +1300,10 @@ async function handleTutorialInner(
       await setTutorialScene(parsed.campaignId, result.sceneId);
     }
     await appendAndPersist(document, documentName, [
-      gmEntry(result.narration, chatDeps, { mentions: result.mentions }),
+      await gmEntryWithReveal(documentName, {
+        text: result.narration,
+        mentions: result.mentions ?? [],
+      }),
     ]);
     if (result.combat) {
       tutorialSignal(document, "combat");
@@ -1347,7 +1403,10 @@ async function handleTutorialChat(
     const beat = room.say(topic);
     if (beat && room.markOnce(`chat:say:${topic}`)) {
       await appendAndPersist(document, documentName, [
-        gmEntry(beat.text, chatDeps, { mentions: beat.mentions }),
+        await gmEntryWithReveal(documentName, {
+          text: beat.text,
+          mentions: beat.mentions ?? [],
+        }),
       ]);
       if (beat.offersHook) tutorialSignal(document, "hook-offered");
       return true;
@@ -1425,7 +1484,10 @@ const server = new Hocuspocus({
         const opening = tutorialScene((await room.getState()).currentSceneId);
         if (opening) {
           await appendAndPersist(document, documentName, [
-            gmEntry(opening.narration, chatDeps, { mentions: opening.mentions }),
+            await gmEntryWithReveal(documentName, {
+              text: opening.narration,
+              mentions: opening.mentions ?? [],
+            }),
           ]);
         }
       }
@@ -1604,7 +1666,10 @@ const server = new Hocuspocus({
       const opening = tutorialScene((await room.getState()).currentSceneId);
       if (opening) {
         await appendAndPersist(document, documentName, [
-          gmEntry(opening.narration, chatDeps, { mentions: opening.mentions }),
+          await gmEntryWithReveal(documentName, {
+            text: opening.narration,
+            mentions: opening.mentions ?? [],
+          }),
         ]);
       }
       // Nudge connected tabs to refetch the tutorial DB state + clear local

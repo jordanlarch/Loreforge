@@ -15,12 +15,14 @@ import {
   PgEventStore,
   campaignCharacters,
   campaignReputation,
+  campaignWorldEntities,
   campaigns,
   characters,
   chatMessages,
   encounters,
   pinnedMemories,
   plotHooks,
+  realmEntities,
   rollingSummaries,
   tutorialProgress,
   type EquipmentItem,
@@ -281,6 +283,57 @@ export async function getCampaignOwnerId(
     .where(eq(campaigns.id, campaignId))
     .limit(1);
   return row?.ownerId ?? null;
+}
+
+/** Campaign world-tab members for auto-reveal matching (CAMP-4). */
+export async function loadCampaignWorldEntities(
+  campaignId: string,
+  ownerId: string,
+): Promise<
+  { entityId: string; name: string; discovered: boolean }[]
+> {
+  return getDb()
+    .select({
+      entityId: campaignWorldEntities.entityId,
+      name: realmEntities.name,
+      discovered: campaignWorldEntities.discovered,
+    })
+    .from(campaignWorldEntities)
+    .innerJoin(
+      realmEntities,
+      eq(realmEntities.id, campaignWorldEntities.entityId),
+    )
+    .where(
+      and(
+        eq(campaignWorldEntities.campaignId, campaignId),
+        eq(campaignWorldEntities.ownerId, ownerId),
+      ),
+    );
+}
+
+/**
+ * Mark campaign world entities discovered (Q11 auto-reveal). Idempotent for
+ * already-discovered rows; returns the number of rows updated.
+ */
+export async function revealCampaignWorldEntities(
+  campaignId: string,
+  ownerId: string,
+  entityIds: readonly string[],
+): Promise<number> {
+  if (entityIds.length === 0) return 0;
+  const rows = await getDb()
+    .update(campaignWorldEntities)
+    .set({ discovered: true })
+    .where(
+      and(
+        eq(campaignWorldEntities.campaignId, campaignId),
+        eq(campaignWorldEntities.ownerId, ownerId),
+        inArray(campaignWorldEntities.entityId, [...entityIds]),
+        eq(campaignWorldEntities.discovered, false),
+      ),
+    )
+    .returning({ id: campaignWorldEntities.id });
+  return rows.length;
 }
 
 /**

@@ -1748,7 +1748,7 @@ const HYPNOTIC_PATTERN: SpellDefinition = {
   classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
   castingTime: { unit: "action", amount: 1 },
   range: { type: "feet", amount: 120, area: { shape: "sphere", size: 30 } },
-  components: { somatic: true, material: "a glowing stick of incense or a crystal vial filled with phosphorescent material" },
+  components: { verbal: false, somatic: true, material: "a glowing stick of incense or a crystal vial filled with phosphorescent material" },
   duration: { unit: "minute", amount: 1 },
   concentration: true,
   ritual: false,

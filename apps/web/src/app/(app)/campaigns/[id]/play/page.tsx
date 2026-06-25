@@ -10,10 +10,16 @@ export default async function PlayPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ arm?: string }>;
+  searchParams: Promise<{ arm?: string; enter?: string }>;
 }) {
   const { id } = await params;
-  const { arm } = await searchParams;
+  const { arm, enter } = await searchParams;
   if (id === "sandbox") return <SandboxPlaySurface />;
-  return <CampaignPlaySurface campaignId={id} reloadKey={arm} />;
+  return (
+    <CampaignPlaySurface
+      campaignId={id}
+      reloadKey={arm}
+      enterEntityId={enter}
+    />
+  );
 }

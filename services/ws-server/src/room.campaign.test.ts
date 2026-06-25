@@ -276,6 +276,37 @@ describe("CampaignRoom", () => {
     expect(second.entities["npc:goblin-a"]).toBeUndefined();
   });
 
+  it("enters another World-tab location via enterLocation (Rung 4 Slice 2)", async () => {
+    const store = new InMemoryEventStore();
+    const settlement = {
+      entityId: "22222222-2222-4222-8222-222222222222",
+      name: "Ferryrest",
+      summary: "A humble hamlet.",
+      type: "settlement" as const,
+    };
+    const tavern = {
+      entityId: TAVERN_ID,
+      name: "The Crooked Tankard",
+      summary: "Smoke and laughter.",
+      type: "tavern" as const,
+    };
+    const room = new CampaignRoom(
+      CAMPAIGN,
+      store,
+      async () => [],
+      async () => undefined,
+      async () => settlement,
+    );
+    await room.getState();
+
+    const { changed } = await room.enterLocation(tavern);
+    expect(changed).toBe(true);
+
+    const state = await room.getState();
+    expect(state.currentSceneId).toBe(sceneIdForRealmEntity(TAVERN_ID));
+    expect(state.scenes[state.currentSceneId!]?.name).toBe("The Crooked Tankard");
+  });
+
   it("rejects an illegal move (into a wall) and leaves state unchanged", async () => {
     const store = new InMemoryEventStore();
     const room = new CampaignRoom(CAMPAIGN, store);

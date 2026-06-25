@@ -232,6 +232,13 @@
       "when": 1782421374492,
       "tag": "0032_plot_hooks_quest_data",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782430419336,
+      "tag": "0033_ancient_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

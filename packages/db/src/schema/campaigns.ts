@@ -177,7 +177,7 @@ export const plotHooks = pgTable(
     /** Quest instance fields (template snapshot, step progress — Phase A schema). */
     data: jsonb("data").$type<PlotHookQuestData>().notNull().default({}),
     /** Realms quest template id when accepted from structured `data.quests`. */
-    sourceTemplateId: uuid("source_template_id"),
+    sourceTemplateId: text("source_template_id"),
     /** The Realms entity this hook was accepted from, if any. */
     sourceEntityId: uuid("source_entity_id"),
     createdAt: timestamp("created_at", { withTimezone: true })

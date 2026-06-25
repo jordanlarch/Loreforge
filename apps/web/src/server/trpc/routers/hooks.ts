@@ -259,7 +259,8 @@ export const hooksRouter = createTRPCRouter({
         entityId: z.string().uuid(),
         title: z.string().trim().min(1).max(200),
         summary: z.string().trim().max(2000).default(""),
-        templateId: z.string().uuid().optional(),
+        /** Engine ULID from `data.quests` — not a Postgres uuid. */
+        templateId: z.string().trim().min(1).max(64).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

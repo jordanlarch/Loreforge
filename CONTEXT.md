@@ -52,14 +52,14 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 | Track | Focus | Key IDs |
 |---|---|---|
-| **1 — Engine + spells** | Top-120 push, effect system, known/prepared gate | ENG-2, ENG-13, ENG-12 |
-| **2 — LLM observability** | Usage audit, adherence harness, model routing | ENG-6, `llm_usage_events` (Sprint 1 shipped) |
+| **1 — Engine + spells** | Top-120 push, effect riders, known/prepared gate | ENG-2, ENG-13 (tracer), ENG-12 |
+| **2 — LLM observability** | Usage audit, adherence harness, model routing | ENG-6, `llm_usage_events` (#212) |
 | **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
 | **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
-**Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 (31 spells) · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
+**Recently shipped (#212, merged Jun 2026):** `llm_usage_events` + Settings AI usage panel · ENG-6 fixture expansion · ENG-2 batches 4–5 (49 spells) · ENG-13 active effects (Bless/Shield/Hunter's Mark) · Characters Combat tab · migration 0030.
 
-**This PR (#212):** Sprint 1–3 solo prod polish — LLM observability, spell batches 4–5 (49 registry spells), ENG-13 effect system, Characters Combat tab.
+**Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
 
 **Parked until polish pass done:** CAMP-14 multiplayer depth · PLAY-9 multi-client reaction sync · INFRA-4 billing · M8 closed beta.
 

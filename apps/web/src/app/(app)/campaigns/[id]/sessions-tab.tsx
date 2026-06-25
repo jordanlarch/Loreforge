@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { recapDisplay, sessionMessageCount } from "@/lib/sessions";
+import { isRecapPending, recapDisplay, sessionMessageCount } from "@/lib/sessions";
 import { trpc } from "@/lib/trpc/client";
 
 import {
@@ -28,7 +28,15 @@ type DetailTab = (typeof DETAIL_TABS)[number];
  */
 export function SessionsTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
-  const sessions = trpc.sessions.list.useQuery({ campaignId });
+  const sessions = trpc.sessions.list.useQuery(
+    { campaignId },
+    {
+      refetchInterval: (query) => {
+        const rows = (query.state.data ?? []) as Session[];
+        return rows.some((s) => isRecapPending(s.recap, s.endedAt)) ? 2000 : false;
+      },
+    },
+  );
   const [ended, setEnded] = useState<EndedSessionState | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -36,6 +44,7 @@ export function SessionsTab({ campaignId }: { campaignId: string }) {
     onSuccess: async (res) => {
       await utils.sessions.list.invalidate({ campaignId });
       setEnded({
+        sessionId: res.session.id,
         recap: res.session.recap ?? "",
         pending: res.recapPending,
       });
@@ -125,7 +134,9 @@ function SessionCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const recap = recapDisplay(session.recap);
+  const recap = recapDisplay(session.recap, {
+    pending: isRecapPending(session.recap, session.endedAt),
+  });
   const messages = sessionMessageCount(session.startSeq, session.endSeq);
   const ended = new Date(session.endedAt);
 
@@ -169,7 +180,16 @@ function SessionDetail({
   sessionId: string;
 }) {
   const [tab, setTab] = useState<DetailTab>("Recap");
-  const detail = trpc.sessions.get.useQuery({ campaignId, sessionId });
+  const detail = trpc.sessions.get.useQuery(
+    { campaignId, sessionId },
+    {
+      refetchInterval: (query) => {
+        const session = query.state.data?.session;
+        if (!session) return false;
+        return isRecapPending(session.recap ?? "", session.endedAt) ? 2000 : false;
+      },
+    },
+  );
 
   if (detail.isLoading) {
     return (
@@ -187,7 +207,9 @@ function SessionDetail({
   }
 
   const { session, messages } = detail.data;
-  const recap = recapDisplay(session.recap);
+  const recap = recapDisplay(session.recap, {
+    pending: isRecapPending(session.recap, session.endedAt),
+  });
   const narrative = messages.filter(
     (m) => m.kind === "player" || m.kind === "gm" || m.kind === "ooc",
   );

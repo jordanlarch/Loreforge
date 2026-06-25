@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { recapDisplay } from "@/lib/sessions";
 import { trpc } from "@/lib/trpc/client";
 
 /** The just-ended session shown in the post-session memory-pin step (PLAY-12). */
-export type EndedSessionState = { recap: string; pending: boolean };
+export type EndedSessionState = {
+  sessionId: string;
+  recap: string;
+  pending: boolean;
+};
 
 /**
  * Memory-pin step after ending a session (PLAY-12): surfaces the fresh recap
@@ -24,6 +29,22 @@ export function PostSessionPins({
   const [content, setContent] = useState("");
   const [pinned, setPinned] = useState<string[]>([]);
 
+  const live = trpc.sessions.get.useQuery(
+    { campaignId, sessionId: ended.sessionId },
+    {
+      enabled: ended.pending,
+      refetchInterval: (query) =>
+        query.state.data?.session.recap?.trim() ? false : 2000,
+    },
+  );
+
+  useEffect(() => {
+    const recap = live.data?.session.recap?.trim();
+    if (recap) {
+      void utils.sessions.list.invalidate({ campaignId });
+    }
+  }, [live.data?.session.recap, campaignId, utils.sessions.list]);
+
   const pin = trpc.pins.create.useMutation({
     onSuccess: async (row) => {
       if (row) setPinned((prev) => [row.content, ...prev]);
@@ -39,7 +60,9 @@ export function PostSessionPins({
     pin.mutate({ campaignId, content: trimmed });
   }
 
-  const recap = ended.recap.trim();
+  const recapText = live.data?.session.recap ?? ended.recap;
+  const recapPending = ended.pending && !recapText.trim();
+  const recap = recapDisplay(recapText, { pending: recapPending });
 
   return (
     <section className="rounded-lg border border-lore-accent bg-lore-accent-dim p-5">
@@ -65,14 +88,10 @@ export function PostSessionPins({
         </span>
         <p
           className={`mt-1 whitespace-pre-wrap text-sm ${
-            ended.pending || !recap
-              ? "italic text-lore-muted"
-              : "text-lore-text"
+            recap.muted ? "italic text-lore-muted" : "text-lore-text"
           }`}
         >
-          {ended.pending && !recap
-            ? "The recap is being generated…"
-            : recap || "No recap was generated for this session."}
+          {recap.text}
         </p>
       </div>
 

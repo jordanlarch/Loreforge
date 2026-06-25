@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { recapDisplay, sessionMessageCount } from "./sessions";
+import { recapDisplay, isRecapPending, sessionMessageCount } from "./sessions";
 
 describe("sessionMessageCount", () => {
   it("counts the [startSeq, endSeq) span", () => {
@@ -30,5 +30,28 @@ describe("recapDisplay", () => {
     const blank = recapDisplay("   ");
     expect(blank.muted).toBe(true);
     expect(blank.text.length).toBeGreaterThan(0);
+  });
+
+  it("shows a generating state while async recap is pending", () => {
+    expect(recapDisplay("", { pending: true })).toEqual({
+      text: "Generating recap…",
+      muted: true,
+    });
+  });
+});
+
+describe("isRecapPending", () => {
+  it("is true for a fresh session with no recap text", () => {
+    const now = Date.parse("2026-06-25T12:00:00Z");
+    expect(isRecapPending("", "2026-06-25T11:59:00Z", now)).toBe(true);
+  });
+
+  it("is false once recap text lands", () => {
+    expect(isRecapPending("The ogre fell.", "2026-06-25T11:59:00Z")).toBe(false);
+  });
+
+  it("stops pending after the poll window", () => {
+    const now = Date.parse("2026-06-25T13:00:00Z");
+    expect(isRecapPending("", "2026-06-25T11:59:00Z", now)).toBe(false);
   });
 });

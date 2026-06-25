@@ -55,6 +55,7 @@ import {
   chatArray,
   checkEntry,
   clearChat,
+  replaceChat,
   composePlayerInput,
   gmEcho,
   gmEntry,
@@ -1417,9 +1418,8 @@ const server = new Hocuspocus({
     const parsed = parseRoom(documentName);
     if (parsed?.kind === "campaign") {
       const history = await loadChatMessages(parsed.campaignId);
-      if (history.length > 0) {
-        appendChat(document, history);
-      } else if (room instanceof TutorialRoom) {
+      replaceChat(document, history);
+      if (history.length === 0 && room instanceof TutorialRoom) {
         // First load of a fresh tutorial: open with the scripted GM hook (TUT-1)
         // so the player lands in-fiction, even with the LLM unconfigured.
         const opening = tutorialScene((await room.getState()).currentSceneId);

@@ -34,7 +34,10 @@ import {
 import { MONSTER_TEMPLATES } from "@app/engine";
 
 import { edgesWithin } from "@/lib/campaign-world";
-import { resetCampaignLog } from "@/server/engine/runtime";
+import {
+  clearCampaignChatLog,
+  resetCampaignLog,
+} from "@/server/engine/runtime";
 import {
   generateNewEntity,
   isConfigured as isGeneratorConfigured,
@@ -772,6 +775,7 @@ export const campaignsRouter = createTRPCRouter({
           ),
         );
       await resetCampaignLog(input.campaignId);
+      await clearCampaignChatLog(input.campaignId);
       return { ok: true };
     }),
 

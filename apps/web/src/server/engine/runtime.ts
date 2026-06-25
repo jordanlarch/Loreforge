@@ -8,7 +8,8 @@
  * previous one. The same Command surface serves UI actions and (later) LLM tool
  * calls — one gate, equal validation (`docs/engine/architecture.md` §4).
  */
-import { getDb, PgEventStore } from "@app/db";
+import { chatMessages, getDb, PgEventStore } from "@app/db";
+import { eq } from "drizzle-orm";
 import {
   CampaignCommandQueue,
   Engine,
@@ -63,4 +64,11 @@ export async function resetCampaignLog(campaignId: string): Promise<void> {
   await new PgEventStore(getDb()).truncate(campaignId, 0);
   queues.delete(campaignId);
   engine = undefined;
+}
+
+/** Wipe persisted live-play chat when arming a fresh encounter (CAMP-8 Run Now). */
+export async function clearCampaignChatLog(campaignId: string): Promise<void> {
+  await getDb()
+    .delete(chatMessages)
+    .where(eq(chatMessages.campaignId, campaignId));
 }

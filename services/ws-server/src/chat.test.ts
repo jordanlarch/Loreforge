@@ -10,6 +10,7 @@ import {
   gmEntry,
   isChatInput,
   isOoc,
+  replaceChat,
   resolutionEntry,
   rollDice,
   stripOoc,
@@ -361,5 +362,24 @@ describe("clearChat", () => {
     const doc = new Y.Doc();
     expect(() => clearChat(doc)).not.toThrow();
     expect(chatArray(doc).toArray()).toHaveLength(0);
+  });
+});
+
+describe("replaceChat", () => {
+  it("replaces existing entries so reconnect hydration does not duplicate", () => {
+    const doc = new Y.Doc();
+    appendChat(
+      doc,
+      composePlayerInput({ author: "Player", text: "stale" }, deps()).entries,
+    );
+    const fresh = composePlayerInput(
+      { author: "Player", text: "hello again" },
+      deps(),
+    ).entries;
+
+    replaceChat(doc, fresh);
+
+    expect(chatArray(doc).toArray()).toHaveLength(1);
+    expect(chatArray(doc).get(0)?.text).toBe("hello again");
   });
 });

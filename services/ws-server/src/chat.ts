@@ -75,6 +75,12 @@ export function clearChat(doc: Y.Doc): void {
   doc.transact(() => arr.delete(0, arr.length));
 }
 
+/** Replace the in-memory chat log with persisted history (no duplicate rows on reconnect). */
+export function replaceChat(doc: Y.Doc, entries: ChatEntry[]): void {
+  clearChat(doc);
+  appendChat(doc, entries);
+}
+
 const DICE_RE = /^(\d{1,3})?d(\d{1,3})([+-]\d{1,4})?$/i;
 
 /**

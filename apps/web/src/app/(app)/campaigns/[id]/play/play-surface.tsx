@@ -310,6 +310,7 @@ function LiveBattle({
   const endSession = trpc.sessions.end.useMutation({
     onSuccess: (res) => {
       setEndedSession({
+        sessionId: res.session.id,
         recap: res.session.recap ?? "",
         pending: res.recapPending,
       });

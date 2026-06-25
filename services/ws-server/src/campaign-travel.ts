@@ -10,14 +10,20 @@ import {
 
 import {
   getCampaignExplorableLocations,
+  getCampaignLocationEnterExtras,
 } from "./db.js";
 import { CampaignRoom } from "./room.js";
+
+export type CampaignTravelResult = {
+  destination: CampaignStartingLocation;
+  startedCombat: boolean;
+};
 
 export async function tryCampaignTravelFromChat(
   room: CampaignRoom,
   campaignId: string,
   message: { mode?: string; text: string },
-): Promise<CampaignStartingLocation | undefined> {
+): Promise<CampaignTravelResult | undefined> {
   if (message.mode && message.mode !== "speak" && message.mode !== "action") {
     return undefined;
   }
@@ -34,6 +40,11 @@ export async function tryCampaignTravelFromChat(
   );
   if (!destination) return undefined;
 
-  const { changed } = await room.enterLocation(destination);
-  return changed ? destination : undefined;
+  const extras = await getCampaignLocationEnterExtras(
+    campaignId,
+    destination.entityId,
+  );
+  const { changed, startedCombat } = await room.enterLocation(destination, extras);
+  if (!changed) return undefined;
+  return { destination, startedCombat };
 }

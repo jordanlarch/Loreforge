@@ -16,6 +16,11 @@ import {
   type FoeSpec,
   type PartyMember,
 } from "./battle";
+import {
+  formatQuestTeaseLine,
+  resolveQuestTeaseText,
+  type QuestTeaseTrigger,
+} from "../quests";
 
 /** Realms types that can host an explorable interior/overland map in Live Play. */
 export type ExplorableRealmType =
@@ -181,35 +186,27 @@ function defaultBlurb(type: ExplorableRealmType): string {
   }
 }
 
+export type OpeningHookOptions = {
+  trigger?: QuestTeaseTrigger;
+  locationEntityId?: string;
+};
+
 /**
- * Extract the first plot-hook string from a Realms entity `data` payload.
- * Handles plain strings and structured generator objects with title/description.
+ * Resolve quest tease copy for Live Play (Phase A trigger evaluator).
+ * Auto-migrates legacy `data.hooks` strings via {@link resolveQuestTeaseText}.
  */
-export function extractOpeningHookText(data: unknown): string | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const hooks = (data as Record<string, unknown>).hooks;
-  if (!Array.isArray(hooks) || hooks.length === 0) return undefined;
-  const first = hooks[0];
-  if (typeof first === "string") {
-    const trimmed = first.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }
-  if (first && typeof first === "object") {
-    const obj = first as { title?: unknown; description?: unknown };
-    const title = typeof obj.title === "string" ? obj.title.trim() : "";
-    const description =
-      typeof obj.description === "string" ? obj.description.trim() : "";
-    const combined = [title, description].filter(Boolean).join(": ");
-    return combined.length > 0 ? combined : undefined;
-  }
-  return undefined;
+export function extractOpeningHookText(
+  data: unknown,
+  options?: OpeningHookOptions,
+): string | undefined {
+  const trigger = options?.trigger ?? "on_session_start";
+  const locationEntityId = options?.locationEntityId ?? "";
+  return resolveQuestTeaseText(data, trigger, { locationEntityId });
 }
 
 function hookTease(hook: string | undefined): string {
   if (!hook?.trim()) return "";
-  const trimmed = hook.trim();
-  const sentence = trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
-  return `Word reaches you: ${sentence} `;
+  return formatQuestTeaseLine(hook);
 }
 
 /**

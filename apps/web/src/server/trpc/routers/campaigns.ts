@@ -104,7 +104,6 @@ async function forgeEntityIntoCampaign(
     concept,
     ownerId,
   });
-  const data = parseData(type, envelope.data);
   const [parent] = await db
     .insert(realmEntities)
     .values({
@@ -113,10 +112,16 @@ async function forgeEntityIntoCampaign(
       name: envelope.name,
       summary: envelope.summary,
       isStub: false,
-      data,
+      data: parseData(type, envelope.data),
     })
     .returning({ id: realmEntities.id });
   if (!parent) return 0;
+
+  const enrichedData = parseData(type, envelope.data, parent.id);
+  await db
+    .update(realmEntities)
+    .set({ data: enrichedData, updatedAt: new Date() })
+    .where(eq(realmEntities.id, parent.id));
 
   const childCount = envelope.children?.length
     ? await persistChildren(db, ownerId, parent.id, envelope.children)

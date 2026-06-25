@@ -111,6 +111,7 @@ describe("Realms suggested feed", () => {
         entityName: "Salt Way",
         title: "Smugglers",
         summary: "Smugglers",
+        templateId: pending[0]?.templateId,
       },
     ]);
   });

@@ -335,7 +335,23 @@ export {
   type CampaignStartingLocation,
   type ExplorableRealmType,
   type LocationNpcSpec,
+  type OpeningHookOptions,
 } from "./fixtures/exploration";
+export {
+  formatQuestTeaseLine,
+  enrichEntityDataWithQuests,
+  migrateHookStringToTemplate,
+  normalizeEntityQuests,
+  resolveQuestTeaseText,
+  defaultTracerTriggers,
+  QUEST_TRIGGER_TYPES,
+  type QuestDelivery,
+  type QuestStep,
+  type QuestTeaseTrigger,
+  type QuestTemplate,
+  type QuestTrigger,
+  type QuestTriggerType,
+} from "./quests";
 export {
   ENCOUNTER_MAP_PRESETS,
   ENCOUNTER_MAP_PRESET_LIST,

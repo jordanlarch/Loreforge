@@ -587,7 +587,7 @@ export const realmsRouter = createTRPCRouter({
           ownerId: ctx.user.id,
           entityId: entity.id,
         });
-        const data = parseData(type, rawData);
+        const data = parseData(type, rawData, entity.id);
         const [row] = await db
           .update(realmEntities)
           .set({ data, isStub: false, updatedAt: new Date() })

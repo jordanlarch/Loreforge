@@ -71,6 +71,8 @@ const DDL = `
     title text NOT NULL,
     summary text NOT NULL DEFAULT '',
     status text NOT NULL DEFAULT 'suggested',
+    data jsonb NOT NULL DEFAULT '{}'::jsonb,
+    source_template_id uuid,
     source_entity_id uuid,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()

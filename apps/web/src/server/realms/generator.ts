@@ -202,6 +202,7 @@ const SYSTEM_PROMPT = [
   "The app's deterministic rules engine computes all derived values (ability modifiers, saving throws, proficiency bonus, AC math) — provide only the raw inputs the schema asks for and never pre-compute or narrate math.",
   "Prefer official SRD species, classes, and terminology. Keep names evocative and concise; summaries are a single vivid sentence.",
   "When the schema includes a `hooks` field, always provide at least 1–2 concrete adventure seeds — short strings a GM can tease at session start.",
+  "Each hook should read as a one-line quest tease (rumor, mystery, or trouble) suitable for `on_session_start` / `on_enter_location` delivery.",
 ].join("\n");
 
 function fieldGuidance(type: RealmEntityType): string {

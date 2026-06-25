@@ -98,7 +98,9 @@ export function CombatActionBar({
         ? `Pick a target for ${armed.attack.label}`
         : armed.kind === "ready"
           ? `Pick a foe to ready ${armed.attack.label} against — it fires when they enter range`
-          : `Pick a target for ${armed.spell.name}`;
+          : armed.spell.targetKind === "ally"
+            ? `Pick an ally for ${armed.spell.name}`
+            : `Pick a target for ${armed.spell.name}`;
     return (
       <div className="mb-3 flex items-center justify-between rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm">
         <span className="text-lore-text">

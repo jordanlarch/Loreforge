@@ -28,6 +28,9 @@ export const MELEE_REACH_FT = FEET_PER_CELL;
 /** Area shape for an AoE spell — mirrors the engine spell registry (#99). */
 export type SpellArea = { shape: "sphere" | "cone"; sizeFt: number };
 
+/** Who the live cast picker should offer when arming a spell. */
+export type CastTargetKind = "enemy" | "ally" | "self";
+
 /**
  * Offensive spells the cast menu can fire — a subset of the engine registry
  * (`packages/engine/src/content/spell-registry.ts`). Single-target spells arm
@@ -43,15 +46,17 @@ export type CastableSpell = {
   rangeFt: number;
   /** Present → AoE spell needing the aim picker rather than a target pick. */
   area?: SpellArea;
+  /** Who can be picked on the map; defaults to hostile enemies in range. */
+  targetKind?: CastTargetKind;
 };
 
 export const CASTABLE_SPELLS: readonly CastableSpell[] = [
   { id: "fire-bolt", name: "Fire Bolt", level: 0, rangeFt: 120 },
   { id: "sacred-flame", name: "Sacred Flame", level: 0, rangeFt: 60 },
   { id: "guiding-bolt", name: "Guiding Bolt", level: 1, rangeFt: 120 },
-  { id: "bless", name: "Bless", level: 1, rangeFt: 30 },
+  { id: "bless", name: "Bless", level: 1, rangeFt: 30, targetKind: "ally" },
   { id: "hunters-mark", name: "Hunter's Mark", level: 1, rangeFt: 90 },
-  { id: "shield", name: "Shield", level: 1, rangeFt: 0 },
+  { id: "shield", name: "Shield", level: 1, rangeFt: 0, targetKind: "self" },
   {
     id: "burning-hands",
     name: "Burning Hands",
@@ -129,6 +134,51 @@ export function targetsInRange(
       areHostile(mySide, encounter.sides[e.id]) &&
       gridDistanceFeet(attacker.position!, e.position) <= rangeFt,
   );
+}
+
+/**
+ * Same-side allies within `rangeFt` (Bless, Cure Wounds, …). Optionally includes
+ * the caster (Bless may target self). Neutral/unassigned sides are excluded.
+ */
+export function alliesInRange(
+  state: WorldState,
+  casterId: string,
+  rangeFt: number,
+  options: { includeSelf?: boolean } = {},
+): EntityState[] {
+  const caster = state.entities[casterId];
+  const encounter = state.encounter;
+  if (!caster?.position || !encounter) return [];
+  const mySide = encounter.sides[caster.id];
+  if (mySide === undefined) return [];
+  return Object.values(state.entities).filter((e) => {
+    if (!e.alive || e.position === undefined || e.sceneId !== caster.sceneId) {
+      return false;
+    }
+    if (e.id === casterId) {
+      return options.includeSelf === true;
+    }
+    const theirSide = encounter.sides[e.id];
+    if (theirSide !== mySide || areHostile(mySide, theirSide)) return false;
+    return gridDistanceFeet(caster.position!, e.position) <= rangeFt;
+  });
+}
+
+/** Valid single-target cast recipients for the map picker. */
+export function castTargetCandidates(
+  state: WorldState,
+  casterId: string,
+  spell: CastableSpell,
+): EntityState[] {
+  const kind = spell.targetKind ?? "enemy";
+  if (kind === "self") {
+    const caster = state.entities[casterId];
+    return caster?.alive ? [caster] : [];
+  }
+  if (kind === "ally") {
+    return alliesInRange(state, casterId, spell.rangeFt, { includeSelf: true });
+  }
+  return targetsInRange(state, casterId, spell.rangeFt);
 }
 
 /**

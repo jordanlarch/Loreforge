@@ -286,7 +286,7 @@ function Composer({
       </div>
       <div className="flex items-end gap-2">
         <textarea
-          value={text}
+          value={text ?? ""}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -300,7 +300,7 @@ function Composer({
               ? intent === "slash"
                 ? "Slash command — e.g. /roll 2d6+1"
                 : "Out-of-character aside…"
-              : `${modeLabel(mode)}…  (Enter to send, Shift+Enter for a new line)`
+              : `${modeLabel(mode) ?? "Speak"}…  (Enter to send, Shift+Enter for a new line)`
           }
           className="min-h-[2.5rem] min-w-0 flex-1 resize-none rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
         />

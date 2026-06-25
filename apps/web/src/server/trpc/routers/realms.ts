@@ -35,6 +35,7 @@ import {
 } from "@/server/memory/cross-link";
 import { embedRealmEntityOnWrite } from "@/server/memory/embed";
 import { parseData } from "@/server/realms/schemas";
+import { wireCascadeNpcLocations } from "@/server/realms/cascade-wiring";
 import {
   GeneratorNotConfiguredError,
   expandStubData,
@@ -515,6 +516,9 @@ export const realmsRouter = createTRPCRouter({
         const childCount = envelope.children?.length
           ? await persistChildren(db, ctx.user.id, row.id, envelope.children)
           : 0;
+        if (childCount > 0) {
+          await wireCascadeNpcLocations(db, ctx.user.id, row.id);
+        }
         await logGeneration(db, {
           ownerId: ctx.user.id,
           entityId: row.id,

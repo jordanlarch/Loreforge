@@ -165,6 +165,11 @@ function ForgeUnavailableNote() {
   );
 }
 
+/** Coerce controlled input values — never let `undefined` stringify into the field. */
+function inputValue(value: string): string {
+  return value ?? "";
+}
+
 function QuickForge({
   forgeConfigured,
   onDone,
@@ -196,7 +201,7 @@ function QuickForge({
       {!forgeConfigured && <ForgeUnavailableNote />}
       <Field label="Campaign name">
         <input
-          value={name}
+          value={inputValue(name)}
           onChange={(e) => setName(e.target.value)}
           maxLength={120}
           className={inputCls}
@@ -205,7 +210,7 @@ function QuickForge({
       </Field>
       <Field label="Pitch your world in a paragraph">
         <textarea
-          value={pitch}
+          value={inputValue(pitch)}
           onChange={(e) => setPitch(e.target.value)}
           maxLength={2000}
           rows={5}
@@ -298,7 +303,7 @@ function GuidedSetup({
         <div className="flex flex-col gap-4">
           <Field label="Campaign name">
             <input
-              value={name}
+              value={inputValue(name)}
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
               className={inputCls}
@@ -307,7 +312,7 @@ function GuidedSetup({
           </Field>
           <Field label="Pitch paragraph">
             <textarea
-              value={pitch}
+              value={inputValue(pitch)}
               onChange={(e) => setPitch(e.target.value)}
               maxLength={2000}
               rows={4}
@@ -434,7 +439,7 @@ function EmptyWorld({ onDone }: { onDone: (id: string) => Promise<void> }) {
     >
       <Field label="Campaign name">
         <input
-          value={name}
+          value={inputValue(name)}
           onChange={(e) => setName(e.target.value)}
           maxLength={120}
           className={inputCls}
@@ -443,7 +448,7 @@ function EmptyWorld({ onDone }: { onDone: (id: string) => Promise<void> }) {
       </Field>
       <Field label="Pitch (optional)">
         <textarea
-          value={pitch}
+          value={inputValue(pitch)}
           onChange={(e) => setPitch(e.target.value)}
           maxLength={2000}
           rows={4}

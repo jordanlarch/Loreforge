@@ -369,7 +369,10 @@ function sortExplorableLocations<
       name: row.name,
       summary: row.summary,
       type: row.type as ExplorableRealmType,
-      openingHook: extractOpeningHookText(row.data),
+      openingHook: extractOpeningHookText(row.data, {
+        trigger: "on_session_start",
+        locationEntityId: row.entityId,
+      }),
     }));
 }
 
@@ -444,7 +447,10 @@ export async function getCampaignLocationByEntityId(
     name: row.name,
     summary: row.summary,
     type: row.type as ExplorableRealmType,
-    openingHook: extractOpeningHookText(row.data),
+    openingHook: extractOpeningHookText(row.data, {
+      trigger: "on_enter_location",
+      locationEntityId: row.entityId,
+    }),
   };
 }
 

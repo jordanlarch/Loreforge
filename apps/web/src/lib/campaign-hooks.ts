@@ -3,6 +3,8 @@
  * UI and the tRPC validator share one definition of the five lifecycle stages.
  */
 
+import { normalizeEntityQuests } from "@app/engine";
+
 export const HOOK_STATUSES = [
   "suggested",
   "open",
@@ -42,6 +44,7 @@ export type AcceptedHookRef = {
   sourceEntityId: string | null;
   title: string;
   summary: string;
+  sourceTemplateId?: string | null;
 };
 
 /** Whether a Realms-embedded hook was already promoted into the campaign. */
@@ -49,13 +52,18 @@ export function isRealmHookAccepted(
   entityId: string,
   hookText: string,
   accepted: readonly AcceptedHookRef[],
+  templateId?: string,
 ): boolean {
   const trimmed = hookText.trim();
   const title = trimmed.slice(0, 200);
   return accepted.some(
     (hook) =>
       hook.sourceEntityId === entityId &&
-      (hook.title === title || hook.summary === trimmed),
+      (templateId != null &&
+      hook.sourceTemplateId != null &&
+      hook.sourceTemplateId === templateId
+        ? true
+        : hook.title === title || hook.summary === trimmed),
   );
 }
 
@@ -64,6 +72,7 @@ export type PendingRealmHook = {
   entityName: string;
   title: string;
   summary: string;
+  templateId?: string;
 };
 
 /**
@@ -80,6 +89,35 @@ export function pendingRealmHooks(input: {
 
   for (const entity of input.entities) {
     if (!worldIds.has(entity.id)) continue;
+
+    const quests = normalizeEntityQuests(entity.data, entity.id);
+    if (quests.length > 0) {
+      for (const quest of quests) {
+        const summary =
+          quest.teaseText?.trim() ||
+          quest.description?.trim() ||
+          quest.title.trim();
+        if (
+          isRealmHookAccepted(
+            entity.id,
+            summary,
+            input.accepted,
+            quest.id,
+          )
+        ) {
+          continue;
+        }
+        pending.push({
+          entityId: entity.id,
+          entityName: entity.name,
+          title: quest.title.slice(0, 200),
+          summary,
+          templateId: quest.id,
+        });
+      }
+      continue;
+    }
+
     for (const hookText of extractEntityHookTexts(entity.data)) {
       if (isRealmHookAccepted(entity.id, hookText, input.accepted)) continue;
       const trimmed = hookText.trim();

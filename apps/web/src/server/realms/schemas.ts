@@ -11,6 +11,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { enrichEntityDataWithQuests } from "@app/engine";
+
 import {
   REALM_FIELDS,
   type RealmEntityType,
@@ -97,6 +99,10 @@ function buildFieldsSchema(fields: readonly RealmFieldDescriptor[]) {
   return z.object(shape);
 }
 
+function typeHasHooks(type: RealmEntityType): boolean {
+  return type !== "npc" && REALM_FIELDS[type].some((f) => f.key === "hooks");
+}
+
 /** The `data` zod schema for a given type (NPC mechanical, others descriptive). */
 export function dataSchemaFor(
   type: RealmEntityType,
@@ -112,6 +118,7 @@ export function dataSchemaFor(
 export function parseData(
   type: RealmEntityType,
   raw: unknown,
+  entityId?: string,
 ): Record<string, unknown> {
   const result = dataSchemaFor(type).safeParse(raw ?? {});
   if (!result.success) {
@@ -120,5 +127,9 @@ export function parseData(
       message: result.error.issues[0]?.message ?? "Invalid entity data.",
     });
   }
-  return result.data as Record<string, unknown>;
+  let data = result.data as Record<string, unknown>;
+  if (typeHasHooks(type)) {
+    data = enrichEntityDataWithQuests(data, entityId) as Record<string, unknown>;
+  }
+  return data;
 }

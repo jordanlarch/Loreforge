@@ -225,6 +225,13 @@
       "when": 1782330000000,
       "tag": "0031_encounter_map_preset",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782421374492,
+      "tag": "0032_plot_hooks_quest_data",
+      "breakpoints": true
     }
   ]
 }

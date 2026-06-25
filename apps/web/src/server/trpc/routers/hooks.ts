@@ -135,6 +135,7 @@ export const hooksRouter = createTRPCRouter({
         entityId: z.string().uuid(),
         title: z.string().trim().min(1).max(200),
         summary: z.string().trim().max(2000).default(""),
+        templateId: z.string().uuid().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -162,6 +163,7 @@ export const hooksRouter = createTRPCRouter({
           summary: input.summary,
           status: "open",
           sourceEntityId: input.entityId,
+          sourceTemplateId: input.templateId,
         })
         .returning();
       return row;

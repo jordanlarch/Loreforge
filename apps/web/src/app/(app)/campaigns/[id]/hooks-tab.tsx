@@ -128,6 +128,7 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
                   entityId: pending.entityId,
                   title: pending.title,
                   summary: pending.summary,
+                  templateId: pending.templateId,
                 })
               }
               acceptBusy={accept.isPending}

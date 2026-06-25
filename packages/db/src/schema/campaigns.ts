@@ -146,6 +146,13 @@ type PlotHookStatus =
   | "resolved"
   | "abandoned";
 
+/** Quest instance payload on `plot_hooks.data` (Phase A forward-compat). */
+export type PlotHookQuestData = {
+  templateSnapshot?: Record<string, unknown>;
+  currentStepId?: string;
+  lastTeasedAt?: string;
+};
+
 /**
  * First-class, campaign-scoped plot hooks (#59, Q7). Hooks live embedded on
  * Realms entities until *accepted* into a campaign, at which point they become a
@@ -162,6 +169,10 @@ export const plotHooks = pgTable(
     title: text("title").notNull(),
     summary: text("summary").notNull().default(""),
     status: text("status").notNull().$type<PlotHookStatus>().default("suggested"),
+    /** Quest instance fields (template snapshot, step progress — Phase A schema). */
+    data: jsonb("data").$type<PlotHookQuestData>().notNull().default({}),
+    /** Realms quest template id when accepted from structured `data.quests`. */
+    sourceTemplateId: uuid("source_template_id"),
     /** The Realms entity this hook was accepted from, if any. */
     sourceEntityId: uuid("source_entity_id"),
     createdAt: timestamp("created_at", { withTimezone: true })

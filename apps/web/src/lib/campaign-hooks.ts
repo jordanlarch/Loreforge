@@ -28,6 +28,92 @@ export function isHookStatus(value: unknown): value is HookStatus {
   );
 }
 
+/** Plot-hook strings embedded on a Realms entity (`data.hooks`). */
+export function extractEntityHookTexts(data: unknown): string[] {
+  if (!data || typeof data !== "object") return [];
+  const hooks = (data as Record<string, unknown>).hooks;
+  if (!Array.isArray(hooks)) return [];
+  return hooks.filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+  );
+}
+
+export type AcceptedHookRef = {
+  sourceEntityId: string | null;
+  title: string;
+  summary: string;
+};
+
+/** Whether a Realms-embedded hook was already promoted into the campaign. */
+export function isRealmHookAccepted(
+  entityId: string,
+  hookText: string,
+  accepted: readonly AcceptedHookRef[],
+): boolean {
+  const trimmed = hookText.trim();
+  const title = trimmed.slice(0, 200);
+  return accepted.some(
+    (hook) =>
+      hook.sourceEntityId === entityId &&
+      (hook.title === title || hook.summary === trimmed),
+  );
+}
+
+export type PendingRealmHook = {
+  entityId: string;
+  entityName: string;
+  title: string;
+  summary: string;
+};
+
+/**
+ * Realms hooks on campaign-linked entities that are not yet first-class plot
+ * hooks (Q7 Suggested column auto-feed, CAMP-5 tracer).
+ */
+export function pendingRealmHooks(input: {
+  worldEntityIds: readonly string[];
+  entities: readonly { id: string; name: string; data: unknown }[];
+  accepted: readonly AcceptedHookRef[];
+}): PendingRealmHook[] {
+  const worldIds = new Set(input.worldEntityIds);
+  const pending: PendingRealmHook[] = [];
+
+  for (const entity of input.entities) {
+    if (!worldIds.has(entity.id)) continue;
+    for (const hookText of extractEntityHookTexts(entity.data)) {
+      if (isRealmHookAccepted(entity.id, hookText, input.accepted)) continue;
+      const trimmed = hookText.trim();
+      pending.push({
+        entityId: entity.id,
+        entityName: entity.name,
+        title: trimmed.slice(0, 200),
+        summary: trimmed,
+      });
+    }
+  }
+
+  return pending;
+}
+
+/**
+ * Map a timestamp to a 1-based session index by `endedAt` (approximate hook
+ * timeline when explicit hook↔session links are deferred).
+ */
+export function sessionIndexForDate(
+  sessions: readonly { endedAt: Date | string }[],
+  date: Date | string,
+): number | null {
+  if (sessions.length === 0) return null;
+  const t = new Date(date).getTime();
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(a.endedAt).getTime() - new Date(b.endedAt).getTime(),
+  );
+  for (let i = 0; i < sorted.length; i += 1) {
+    if (t <= new Date(sorted[i]!.endedAt).getTime()) return i + 1;
+  }
+  return sorted.length;
+}
+
 /**
  * Bucket hooks into the five Kanban columns, preserving input order within each
  * column. Returns a record keyed by every status (empty arrays included) so the

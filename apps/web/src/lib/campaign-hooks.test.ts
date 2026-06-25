@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   HOOK_STATUSES,
   HOOK_STATUS_LABEL,
+  extractEntityHookTexts,
   groupHooksByStatus,
   isHookStatus,
+  isRealmHookAccepted,
+  pendingRealmHooks,
+  sessionIndexForDate,
 } from "./campaign-hooks";
 
 describe("plot-hook lifecycle", () => {
@@ -50,5 +54,82 @@ describe("groupHooksByStatus", () => {
     for (const status of HOOK_STATUSES) {
       expect(grouped[status]).toEqual([]);
     }
+  });
+});
+
+describe("Realms suggested feed", () => {
+  it("extracts hook strings from entity data", () => {
+    expect(extractEntityHookTexts({ hooks: ["  A clue ", "", 3] })).toEqual([
+      "  A clue ",
+    ]);
+    expect(extractEntityHookTexts(null)).toEqual([]);
+  });
+
+  it("detects accepted Realms hooks by entity + title/summary", () => {
+    const accepted = [
+      {
+        sourceEntityId: "ent-1",
+        title: "The missing ledger",
+        summary: "The missing ledger",
+      },
+    ];
+    expect(
+      isRealmHookAccepted("ent-1", "The missing ledger", accepted),
+    ).toBe(true);
+    expect(isRealmHookAccepted("ent-1", "Another hook", accepted)).toBe(false);
+    expect(isRealmHookAccepted("ent-2", "The missing ledger", accepted)).toBe(
+      false,
+    );
+  });
+
+  it("lists pending hooks only for campaign world entities", () => {
+    const pending = pendingRealmHooks({
+      worldEntityIds: ["ent-1"],
+      entities: [
+        {
+          id: "ent-1",
+          name: "Salt Way",
+          data: { hooks: ["Washout", "Smugglers"] },
+        },
+        {
+          id: "ent-2",
+          name: "Other",
+          data: { hooks: ["Hidden"] },
+        },
+      ],
+      accepted: [
+        {
+          sourceEntityId: "ent-1",
+          title: "Washout",
+          summary: "Washout",
+        },
+      ],
+    });
+    expect(pending).toEqual([
+      {
+        entityId: "ent-1",
+        entityName: "Salt Way",
+        title: "Smugglers",
+        summary: "Smugglers",
+      },
+    ]);
+  });
+});
+
+describe("sessionIndexForDate", () => {
+  const sessions = [
+    { endedAt: "2026-06-20T12:00:00Z" },
+    { endedAt: "2026-06-22T12:00:00Z" },
+    { endedAt: "2026-06-24T12:00:00Z" },
+  ];
+
+  it("maps dates to session numbers by endedAt", () => {
+    expect(sessionIndexForDate(sessions, "2026-06-19T12:00:00Z")).toBe(1);
+    expect(sessionIndexForDate(sessions, "2026-06-21T12:00:00Z")).toBe(2);
+    expect(sessionIndexForDate(sessions, "2026-06-25T12:00:00Z")).toBe(3);
+  });
+
+  it("returns null when there are no sessions", () => {
+    expect(sessionIndexForDate([], "2026-06-21T12:00:00Z")).toBeNull();
   });
 });

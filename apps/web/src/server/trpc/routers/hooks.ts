@@ -82,6 +82,34 @@ export const hooksRouter = createTRPCRouter({
       return row;
     }),
 
+  /** Edit hook title/summary (CAMP-5 detail panel). */
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        title: z.string().trim().min(1).max(200),
+        summary: z.string().trim().max(2000).default(""),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .update(plotHooks)
+        .set({
+          title: input.title,
+          summary: input.summary,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(plotHooks.id, input.id), eq(plotHooks.ownerId, ctx.user.id)),
+        )
+        .returning();
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Hook not found." });
+      }
+      return row;
+    }),
+
   /** Delete a hook (owner-scoped, idempotent). */
   remove: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))

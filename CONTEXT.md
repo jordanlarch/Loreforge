@@ -57,7 +57,7 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 | **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
 | **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
-**Recently shipped (#212, merged Jun 2026):** `llm_usage_events` + Settings AI usage panel · ENG-6 fixture expansion · ENG-2 batches 4–5 (49 spells) · ENG-13 active effects (Bless/Shield/Hunter's Mark) · Characters Combat tab · migration 0030.
+**Recently shipped (#212–214, Jun 2026):** `llm_usage_events` + Settings AI usage panel · ENG-6 fixture expansion · ENG-2 batches 4–7 (**71** registry spells) · ENG-12 prepared-cast gate · ENG-13 active effects (Bless/Shield/Hex/Bane/Faerie Fire + penalty/advantage modifiers) · mid-campaign **roster → live sync** (`sync_party` + `add_combatant`) · PLAY-4 party sheet peek · Bless multi-target + Shield reaction tracer · CAMP-6 Sessions deep view (Recap/Transcript/Combat/Stats/Loot/Media) · Characters Combat tab · migration 0030.
 
 **Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
 

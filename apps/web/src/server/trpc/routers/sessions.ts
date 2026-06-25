@@ -11,7 +11,7 @@
  */
 import { tasks } from "@trigger.dev/sdk/v3";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, max } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, max } from "drizzle-orm";
 import { z } from "zod";
 
 import { chatMessages, getDb, sessions } from "@app/db";
@@ -44,6 +44,48 @@ export const sessionsRouter = createTRPCRouter({
           ),
         )
         .orderBy(desc(sessions.endedAt));
+    }),
+
+  /** One ended session plus its chat transcript span (CAMP-6 deep view). */
+  get: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        sessionId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const [session] = await db
+        .select()
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.campaignId, input.campaignId),
+            eq(sessions.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found.",
+        });
+      }
+      const messages = await db
+        .select()
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.campaignId, input.campaignId),
+            gte(chatMessages.seq, session.startSeq),
+            lt(chatMessages.seq, session.endSeq),
+          ),
+        )
+        .orderBy(asc(chatMessages.seq));
+      return { session, messages };
     }),
 
   /**

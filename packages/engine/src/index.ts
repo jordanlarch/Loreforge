@@ -226,6 +226,7 @@ export {
 } from "./content/weapons";
 export { fullCasterSlots } from "./content/spell-slots";
 export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
+export { isSpellPrepared, spellNameToId } from "./content/spell-id";
 export {
   cantripDamageDice,
   spellAttackBonus,
@@ -314,6 +315,11 @@ export {
   type FoeSpec,
   type PartyMember,
 } from "./fixtures/battle";
+export {
+  buildPartyMemberJoinCommands,
+  findPartyJoinPosition,
+  partyMemberToEntityInit,
+} from "./fixtures/party-join";
 export type {
   CharacterSheet,
   CharacterSheetInput,

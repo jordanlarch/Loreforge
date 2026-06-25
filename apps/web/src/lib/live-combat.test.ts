@@ -5,7 +5,9 @@ import type { EntityState, WorldState } from "@app/engine";
 import {
   aoeAffectedCells,
   aoeCaughtIds,
+  alliesInRange,
   castableSpellsFor,
+  castTargetCandidates,
   controllableReactors,
   deriveStrike,
   gridDistanceFeet,
@@ -120,6 +122,60 @@ describe("targetsInRange", () => {
     expect(ranged).toContain("goblin-near");
     expect(ranged).toContain("goblin-far");
     expect(ranged).not.toContain("ally");
+  });
+});
+
+describe("alliesInRange", () => {
+  const hero = entity({ id: "hero", position: { x: 0, y: 0 } });
+  const ally = entity({ id: "ally", position: { x: 1, y: 0 } });
+  const foe = entity({ id: "goblin", position: { x: 1, y: 1 } });
+  const w = world([hero, ally, foe], {
+    hero: "party",
+    ally: "party",
+    goblin: "foes",
+  });
+
+  it("includes same-side allies within range", () => {
+    expect(alliesInRange(w, "hero", 30).map((e) => e.id)).toEqual(["ally"]);
+  });
+
+  it("can include the caster for self-buffs like Bless", () => {
+    expect(
+      alliesInRange(w, "hero", 30, { includeSelf: true }).map((e) => e.id),
+    ).toEqual(["hero", "ally"]);
+  });
+});
+
+describe("castTargetCandidates", () => {
+  const hero = entity({ id: "hero", position: { x: 0, y: 0 } });
+  const ally = entity({ id: "ally", position: { x: 1, y: 0 } });
+  const foe = entity({ id: "goblin", position: { x: 2, y: 0 } });
+  const w = world([hero, ally, foe], {
+    hero: "party",
+    ally: "party",
+    goblin: "foes",
+  });
+
+  it("routes Bless to allies", () => {
+    const ids = castTargetCandidates(w, "hero", {
+      id: "bless",
+      name: "Bless",
+      level: 1,
+      rangeFt: 30,
+      targetKind: "ally",
+    }).map((e) => e.id);
+    expect(ids).toEqual(["hero", "ally"]);
+  });
+
+  it("routes Shield to self only", () => {
+    const ids = castTargetCandidates(w, "hero", {
+      id: "shield",
+      name: "Shield",
+      level: 1,
+      rangeFt: 0,
+      targetKind: "self",
+    }).map((e) => e.id);
+    expect(ids).toEqual(["hero"]);
   });
 });
 

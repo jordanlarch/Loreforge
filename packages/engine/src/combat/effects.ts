@@ -10,7 +10,9 @@ import type { SpellAppliedEffect } from "../content/spells";
 export type EffectModifier =
   | { type: "ac_bonus"; amount: number }
   | { type: "attack_roll_bonus"; dice: string }
-  | { type: "hunters_mark"; dice: string; markedBy: EntityRef };
+  | { type: "attack_roll_penalty"; dice: string }
+  | { type: "hunters_mark"; dice: string; markedBy: EntityRef }
+  | { type: "attacks_against_advantage" };
 
 export type ActiveEffect = {
   id: string;
@@ -41,6 +43,25 @@ export function attackRollBonusDice(attacker: EntityState): string[] {
     .map((fx) => fx.modifier.dice);
 }
 
+/** Bane-style d4 (etc.) dice to subtract from an attack total. */
+export function attackRollPenaltyDice(attacker: EntityState): string[] {
+  return (attacker.effects ?? [])
+    .filter(
+      (
+        fx,
+      ): fx is ActiveEffect & { modifier: { type: "attack_roll_penalty"; dice: string } } =>
+        fx.modifier.type === "attack_roll_penalty",
+    )
+    .map((fx) => fx.modifier.dice);
+}
+
+/** Faerie Fire — attacks against this creature have advantage. */
+export function attacksAgainstHaveAdvantage(target: EntityState): boolean {
+  return (target.effects ?? []).some(
+    (fx) => fx.modifier.type === "attacks_against_advantage",
+  );
+}
+
 /** Active Hunter's Mark on `target` placed by `attacker`, if any. */
 export function huntersMarkOn(
   target: EntityState,
@@ -69,6 +90,10 @@ export function effectFromSpec(
     modifier = { type: "ac_bonus", amount: spec.modifier.amount };
   } else if (spec.modifier.type === "attack_roll_bonus") {
     modifier = { type: "attack_roll_bonus", dice: spec.modifier.dice };
+  } else if (spec.modifier.type === "attack_roll_penalty") {
+    modifier = { type: "attack_roll_penalty", dice: spec.modifier.dice };
+  } else if (spec.modifier.type === "attacks_against_advantage") {
+    modifier = { type: "attacks_against_advantage" };
   } else {
     modifier = {
       type: "hunters_mark",

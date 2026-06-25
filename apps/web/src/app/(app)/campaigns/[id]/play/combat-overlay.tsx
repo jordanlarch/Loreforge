@@ -23,7 +23,7 @@ export function CombatOverlay({
   order: InitiativeChip[];
 }) {
   return (
-    <div className="mb-3 rounded-lg border border-lore-border bg-lore-surface px-3 py-2">
+    <div className="rounded-lg border border-lore-border bg-lore-surface px-3 py-2">
       <div className="mb-2 flex items-center gap-2">
         <span className="rounded bg-lore-accent-dim px-2 py-0.5 text-xs font-semibold uppercase tracking-widest text-lore-accent">
           Round {round}

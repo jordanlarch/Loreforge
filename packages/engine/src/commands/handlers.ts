@@ -16,6 +16,7 @@ import {
   withinCone,
 } from "../combat/grid";
 import { getSpell } from "../content/spell-registry";
+import { isSpellPrepared } from "../content/spell-id";
 import {
   cantripDamageDice,
   spellAttackBonus,
@@ -39,6 +40,8 @@ import {
 import { concentrationDC, resolveDeathSave } from "../combat/death";
 import {
   attackRollBonusDice,
+  attackRollPenaltyDice,
+  attacksAgainstHaveAdvantage,
   effectFromSpec,
   effectiveAc,
   huntersMarkOn,
@@ -56,6 +59,7 @@ import type { ExecutionContext } from "./context";
 import {
   reject,
   type AbilityCheckCommand,
+  type AddCombatantCommand,
   type ApplyConditionCommand,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
@@ -600,6 +604,95 @@ function handleRollInitiative(
   };
 }
 
+function handleAddCombatant(
+  cmd: AddCombatantCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const encounter = ctx.world.encounter;
+  if (!encounter) {
+    return reject("NO_ENCOUNTER", "No encounter is in progress.");
+  }
+  if (!encounter.initiativeRolled) {
+    return reject(
+      "INITIATIVE_NOT_ROLLED",
+      "Initiative must be rolled before adding combatants.",
+    );
+  }
+  if (encounter.combatants.includes(cmd.entityId)) {
+    return reject(
+      "COMBATANT_ALREADY_PRESENT",
+      `${cmd.entityId} is already in this encounter.`,
+      { entity: cmd.entityId },
+    );
+  }
+  const entity = ctx.world.entities[cmd.entityId];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entityId} does not exist.`, {
+      entity: cmd.entityId,
+    });
+  }
+  if (!entity.alive) {
+    return reject("TARGET_DEAD", `${entity.name} cannot join combat.`, {
+      entity: cmd.entityId,
+    });
+  }
+  if (entity.sceneId !== encounter.sceneId) {
+    return reject(
+      "INVALID_PAYLOAD",
+      `${entity.name} must be in the encounter scene.`,
+      { entity: cmd.entityId },
+    );
+  }
+
+  const events: DraftEvent[] = [];
+  const inputs: InitiativeRollInput[] = [];
+  for (const entry of encounter.order) {
+    const combatant = ctx.world.entities[entry.entity];
+    if (!combatant) continue;
+    inputs.push({
+      entity: entry.entity,
+      initiative: entry.initiative,
+      dexScore: combatant.abilityScores.dex,
+      tiebreak: 0,
+    });
+  }
+  const dexScore = entity.abilityScores.dex;
+  const roll = ctx.roll("1d20", `initiative:${cmd.entityId}`);
+  events.push(rollDiceEvent(ctx, roll));
+  const tiebreak = ctx.roll("1d20", `initiative-tiebreak:${cmd.entityId}`);
+  events.push(rollDiceEvent(ctx, tiebreak));
+  inputs.push({
+    entity: cmd.entityId,
+    initiative: roll.total + abilityModifier(dexScore),
+    dexScore,
+    tiebreak: tiebreak.total,
+  });
+
+  const order = sortInitiative(inputs);
+  const oldActive = encounter.order[encounter.activeIndex]?.entity;
+  let activeIndex = oldActive
+    ? order.findIndex((e) => e.entity === oldActive)
+    : encounter.activeIndex;
+  if (activeIndex < 0) activeIndex = encounter.activeIndex;
+
+  events.push({
+    type: "CombatantAdded",
+    ...meta(ctx, "system"),
+    payload: { entityId: cmd.entityId, side: cmd.side, order, activeIndex },
+  });
+
+  return {
+    accepted: true,
+    events,
+    summary: {
+      entityId: cmd.entityId,
+      side: cmd.side,
+      order,
+      activeIndex,
+    },
+  };
+}
+
 function handleEndEncounter(
   _cmd: EndEncounterCommand,
   ctx: ExecutionContext,
@@ -786,6 +879,7 @@ function handleAttack(
     (cmd.mode ?? "normal") as RollAdjust,
     ownAttackMode(attacker.conditions),
     attackedMode(target.conditions),
+    attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
     proneMode,
   );
 
@@ -800,7 +894,13 @@ function handleAttack(
     events.push(rollDiceEvent(ctx, roll));
     blessBonus += roll.total;
   }
-  const total = natural + cmd.attackBonus + blessBonus;
+  let banePenalty = 0;
+  for (const dice of attackRollPenaltyDice(attacker)) {
+    const roll = ctx.roll(dice, `attack-bane:${cmd.attacker}->${cmd.target}`);
+    events.push(rollDiceEvent(ctx, roll));
+    banePenalty += roll.total;
+  }
+  const total = natural + cmd.attackBonus + blessBonus - banePenalty;
   const targetAc = effectiveAc(target);
   const forceCrit =
     adjacent === true && critsWhenAdjacent(target.conditions);
@@ -1639,6 +1739,13 @@ function handleCastSpell(
   if (!caster.spellcasting) {
     return reject("NOT_A_SPELLCASTER", `${caster.name} cannot cast spells.`);
   }
+  if (!isSpellPrepared(caster.spellcasting.preparedSpellIds, spell.id)) {
+    return reject(
+      "SPELL_NOT_PREPARED",
+      `${caster.name} does not have ${spell.name} prepared or known.`,
+      { spellId: spell.id },
+    );
+  }
   const casterLevel = totalLevel(caster.classes);
 
   // Bonus-action spells (Healing Word) cost the bonus action while in combat;
@@ -1658,6 +1765,17 @@ function handleCastSpell(
   // Action-cost spells spend the single action. Gate it on the owner's turn so
   // you can't both attack and cast (or cast twice) in one turn; out of combat
   // (no economy) casting is unbudgeted. Reaction/longer cast times are exempt.
+  const usesReaction = spell.castingTime.unit === "reaction";
+  if (
+    usesReaction &&
+    caster.reaction !== undefined &&
+    caster.reaction !== "available"
+  ) {
+    return reject(
+      "NO_REACTION",
+      `${caster.name} has no reaction available this round.`,
+    );
+  }
   const usesAction = spell.castingTime.unit === "action";
   if (
     usesAction &&
@@ -1719,6 +1837,17 @@ function handleCastSpell(
   } else if (spell.targeting === "single") {
     if (targets.length !== 1) {
       return reject("INVALID_PAYLOAD", `${spell.name} targets a single creature.`);
+    }
+  } else if (spell.targeting === "multi") {
+    if (targets.length < 1) {
+      return reject("INVALID_PAYLOAD", `${spell.name} needs at least one target.`);
+    }
+    if (targets.length > 3) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `${spell.name} targets at most three creatures.`,
+        { provided: targets.length },
+      );
     }
   } else if (targets.length < 1) {
     return reject("INVALID_PAYLOAD", `${spell.name} needs at least one target.`);
@@ -1868,6 +1997,13 @@ function handleCastSpell(
       type: "ActionSpent",
       ...meta(ctx, cmd.caster),
       payload: { entity: cmd.caster, action: true },
+    });
+  }
+  if (usesReaction && caster.reaction !== undefined) {
+    events.push({
+      type: "ReactionTaken",
+      ...meta(ctx, cmd.caster),
+      payload: { reactor: cmd.caster, trigger: "spell" },
     });
   }
   if (spell.concentration) {
@@ -2055,9 +2191,58 @@ function handleCastSpell(
       totalHealing += rolled.amount;
     }
     Object.assign(summary, { targets: targets.length, healing: totalHealing });
+  } else if (spell.saveAgainst && !spell.damage) {
+    const affected =
+      spell.targeting === "area"
+        ? (areaAffected ?? [])
+        : targets.map((id) => ctx.world.entities[id]!);
+    const dc = spellSaveDC(caster)!;
+    const ability = spell.saveAgainst.ability;
+    let failures = 0;
+    for (const target of affected) {
+      const save = rollSpellSave(ctx, target, ability, dc);
+      events.push(...save.events);
+      if (!save.success) {
+        failures += 1;
+        if (spell.appliedEffects?.length) {
+          for (const spec of spell.appliedEffects) {
+            const recipients =
+              spec.scope === "caster" ? [caster.id] : [target.id];
+            for (const targetId of recipients) {
+              const effect = effectFromSpec(spec, {
+                id: `${ctx.commandId}:${spell.id}:${targetId}`,
+                source: caster.id,
+                concentrationHolder: spec.concentration ? caster.id : undefined,
+                concentrationSpell: spec.concentration ? spell.name : undefined,
+                markedBy:
+                  spec.modifier.type === "hunters_mark" ? caster.id : undefined,
+                expiresStartOfTurn: spec.expiresStartOfNextTurn
+                  ? targetId
+                  : undefined,
+              });
+              events.push({
+                type: "EffectApplied",
+                ...meta(ctx, caster.id),
+                payload: { target: targetId, effect },
+              });
+            }
+          }
+        }
+      }
+    }
+    Object.assign(summary, {
+      targets: affected.length,
+      failures,
+      save: ability,
+      dc,
+      effectsApplied: spell.appliedEffects?.length ?? 0,
+    });
   }
 
-  if (spell.appliedEffects?.length) {
+  if (
+    spell.appliedEffects?.length &&
+    !(spell.saveAgainst && !spell.damage)
+  ) {
     const effectTargets =
       spell.targeting === "self" ? [caster.id] : [...targets];
     for (const spec of spell.appliedEffects) {
@@ -2114,6 +2299,8 @@ export function handleCommand(
       return handleStartEncounter(command, ctx);
     case "roll_initiative":
       return handleRollInitiative(command, ctx);
+    case "add_combatant":
+      return handleAddCombatant(command, ctx);
     case "end_encounter":
       return handleEndEncounter(command, ctx);
     case "end_turn":

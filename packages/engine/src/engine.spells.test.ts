@@ -297,6 +297,48 @@ describe("Spells: slot gating, range & line of sight", () => {
     if (!unknown.accepted) expect(unknown.reason.code).toBe("SPELL_NOT_FOUND");
   });
 
+  it("rejects a spell not on the caster's prepared list (ENG-12)", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setup(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:prep",
+        kind: "character",
+        name: "Prepared-only",
+        abilityScores: SCORES,
+        maxHp: 30,
+        baseAc: 13,
+        sceneId: "s:1",
+        classes: [{ class: "Wizard", level: 5 }],
+        spellcasting: {
+          ability: "int",
+          casterLevel: 5,
+          preparedSpellIds: ["fire-bolt"],
+        },
+        position: { x: 0, y: 0 },
+      },
+    });
+    const ok = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:prep",
+      spellId: "fire-bolt",
+      slotLevel: 0,
+      targets: ["npc:dummy"],
+    });
+    expect(ok.accepted).toBe(true);
+
+    const blocked = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:prep",
+      spellId: "magic-missile",
+      slotLevel: 1,
+      targets: ["npc:dummy"],
+    });
+    expect(blocked.accepted).toBe(false);
+    if (!blocked.accepted) expect(blocked.reason.code).toBe("SPELL_NOT_PREPARED");
+  });
+
   it("rejects a target beyond the spell's range", async () => {
     const engine = new Engine({ now: () => 1 });
     // Guiding Bolt range 120 ft = 24 cells; place the target 30 cells away.

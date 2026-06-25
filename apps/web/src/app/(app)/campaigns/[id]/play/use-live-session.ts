@@ -12,7 +12,7 @@
  * PixiJS renderer are unchanged.
  */
 import { HocuspocusProvider } from "@hocuspocus/provider";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as Y from "yjs";
 
 import type {
@@ -282,6 +282,12 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
     provider.sendStateless(JSON.stringify({ t: "tutorial", action: "wrap" }));
   }
 
+  const syncParty = useCallback(() => {
+    const provider = providerRef.current;
+    if (!provider) return;
+    provider.sendStateless(JSON.stringify({ t: "sync_party" }));
+  }, []);
+
   return {
     state,
     isLoading: status === "connecting" && state === undefined,
@@ -387,5 +393,6 @@ export function useLiveSession({ campaignId }: LiveSessionOptions = {}) {
         },
       }),
     reset: () => send({ t: "reset" }),
+    syncParty,
   };
 }

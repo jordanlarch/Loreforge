@@ -207,7 +207,24 @@ export function sheetCastableSpells(
   const known = new Set(spellNames.map((n) => n.trim().toLowerCase()));
   const slots = entity.spellcasting.slots;
   return CASTABLE_SPELLS.filter((spell) => {
+    if (spell.reaction) return false;
     if (!known.has(spell.name.toLowerCase())) return false;
+    if (spell.level === 0) return true;
+    const slot = slots[spell.level];
+    return slot !== undefined && slot.current > 0;
+  });
+}
+
+/** Prepared reaction spells (Shield) when a reaction and slot are available. */
+export function sheetReactionSpells(
+  entity: EntityState,
+  spellNames: readonly string[],
+): CastableSpell[] {
+  if (!entity.spellcasting || entity.reaction !== "available") return [];
+  const known = new Set(spellNames.map((n) => n.trim().toLowerCase()));
+  const slots = entity.spellcasting.slots;
+  return CASTABLE_SPELLS.filter((spell) => {
+    if (!spell.reaction || !known.has(spell.name.toLowerCase())) return false;
     if (spell.level === 0) return true;
     const slot = slots[spell.level];
     return slot !== undefined && slot.current > 0;

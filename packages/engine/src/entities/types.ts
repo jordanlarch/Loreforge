@@ -170,6 +170,12 @@ export type SpellSlots = Record<number, SpellSlotState>;
 export type SpellcastingState = {
   ability: Ability;
   slots: SpellSlots;
+  /**
+   * Registry spell ids the caster may cast (ENG-12). Cantrips + prepared +
+   * always-prepared from the character sheet. When omitted (monsters, fixtures,
+   * golden tests), any registry spell is allowed.
+   */
+  preparedSpellIds?: string[];
 };
 
 /** The action a Ready'd creature will take when its trigger fires. */
@@ -211,6 +217,8 @@ export type SceneState = {
 export type SpellcastingInit = {
   ability: Ability;
   casterLevel?: number;
+  /** See {@link SpellcastingState.preparedSpellIds}. */
+  preparedSpellIds?: string[];
 };
 
 /** Input shape for creating an entity (defaults filled by the factory). */

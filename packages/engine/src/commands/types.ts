@@ -101,6 +101,13 @@ export type RollInitiativeCommand = {
   bonuses?: Record<EntityRef, number>;
 };
 
+/** Add a living entity to an in-progress encounter after initiative (#98). */
+export type AddCombatantCommand = {
+  type: "add_combatant";
+  entityId: EntityRef;
+  side: string;
+};
+
 /** End the active combatant's turn, advancing the order (and round on wrap). */
 export type EndTurnCommand = {
   type: "end_turn";
@@ -267,6 +274,7 @@ export type Command =
   | StartEncounterCommand
   | EndEncounterCommand
   | RollInitiativeCommand
+  | AddCombatantCommand
   | EndTurnCommand
   | AttackCommand
   | ApplyConditionCommand
@@ -299,6 +307,7 @@ export type ValidationCode =
   | "NOT_IN_ENCOUNTER"
   | "INITIATIVE_NOT_ROLLED"
   | "INITIATIVE_ALREADY_ROLLED"
+  | "COMBATANT_ALREADY_PRESENT"
   | "OUT_OF_BOUNDS"
   | "CELL_BLOCKED"
   | "CELL_OCCUPIED"
@@ -314,6 +323,7 @@ export type ValidationCode =
   | "NOT_PROVOKED"
   | "NO_READIED_ACTION"
   | "SPELL_NOT_FOUND"
+  | "SPELL_NOT_PREPARED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "OUT_OF_RANGE";

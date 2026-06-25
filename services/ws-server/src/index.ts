@@ -1655,7 +1655,10 @@ const server = new Hocuspocus({
           return;
         }
         if (travelResult) {
-          const arrival = arrivalNarrationForLocation(travelResult.destination);
+          const arrival = arrivalNarrationForLocation(
+            travelResult.destination,
+            travelResult.entityData,
+          );
           await appendAndPersist(document, documentName, [
             await gmEntryWithReveal(documentName, {
               text: arrival.text,
@@ -1716,7 +1719,7 @@ const server = new Hocuspocus({
       const { changed, startedCombat } = await room.enterLocation(location, extras);
       if (changed) {
         writeProjection(document, await room.getState());
-        const arrival = arrivalNarrationForLocation(location);
+        const arrival = arrivalNarrationForLocation(location, extras.entityData);
         await appendAndPersist(document, documentName, [
           await gmEntryWithReveal(documentName, {
             text: arrival.text,

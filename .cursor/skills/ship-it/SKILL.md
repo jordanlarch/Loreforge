@@ -126,6 +126,8 @@ Do not scatter deferrals outside `deferrals.md`.
 
 After merge **and** deploy (Vercel for web; redeploy **ws-server** when Live Play behavior changed):
 
+**Agent rule:** when prod verify requires a ws-server deploy, the agent redeploys (Railway: `npx @railway/cli redeploy --from-source -y` from repo root with the linked `@app/ws-server` service) before browser verification — do not hand off redeploy to Jordan unless CLI auth is missing.
+
 1. Write a **1–3 step** prod checklist in the PR body or handoff (specific URL, campaign, tab, expected UI).
 2. Run it on prod (browser dogfood) or hand the checklist to Jordan with deploy confirmation.
 3. **Stop** — do not start the next slice until verify passes or Jordan defers.

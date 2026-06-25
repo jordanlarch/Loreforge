@@ -91,6 +91,7 @@ The following alternatives came up during design and were explicitly considered 
 - All design docs live under `docs/`. Code (when written) lives under `apps/` or `src/`.
 - **All deferrals go in `docs/deferrals.md`** — the single source of truth for deferred/backlog/scoped-out items. When you punt a feature or leave a TODO, add a row there first; don't re-scatter deferrals across docs. Mark shipped items `Done` (don't delete). GitHub-issue mirroring is opportunistic (local file is canonical).
 - **Post-implementation ship workflow:** after code is done, follow `.cursor/skills/ship-it/SKILL.md` — verify CI, commit, PR, merge, migrations (if any), and update `deferrals.md` / `CONTEXT.md` when applicable.
+- **Slice verify gate (strict):** UI/workspace slices must **ship → prod verify (1–3 checklist steps) → only then next slice**. Engine-only slices: **CI/tests = verify**; prod verify only when the change touches Live Play or a campaign workspace tab (or other user-visible surface). Do not start the next slice until verify for the current one is complete.
 - Architectural changes that contradict the consolidated plan require an explicit decision update + bump to `docs/00-consolidated-plan.md` with rationale.
 - New design docs should follow the structure of existing ones: clear headings, wireframe-style ASCII mockups where useful, concrete examples over abstractions, engineering effort estimates at the end.
 - The transcripts that produced these docs are not in this repo (they live in the user's local Cursor session history). The docs in `docs/` are canonical; the transcripts are background.
@@ -98,6 +99,7 @@ The following alternatives came up during design and were explicitly considered 
 ## Working With the User
 
 - **Jordan** is the product owner and (currently) the only contributor.
+- **Slice sequencing:** one slice at a time. **UI/workspace slices** — ship, then run a **1–3 step prod verify checklist** on Vercel prod (or report blockers); **do not** start the next slice until verify passes or Jordan explicitly defers. **Engine-only slices** — green CI + relevant unit tests count as verify; prod dogfood only when the diff touches Live Play, a workspace tab, or another user-visible surface.
 - The design work was done via the `grill-me` skill — one-question-at-a-time interview style with the assistant providing recommended answers.
 - For new design decisions, prefer the same `grill-me` skill — it produced this design baseline.
 - Jordan's tools of choice: Cursor IDE, PowerShell (Windows), GitHub. Do not assume Bash.

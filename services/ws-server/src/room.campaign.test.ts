@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_STARTING_LOCATION,
   FIXTURE_BATTLE_SCENE_ID,
   InMemoryEventStore,
   resolveEncounterMap,
+  sceneIdForRealmEntity,
   type EventStore,
   type FoeSpec,
   type PartyMember,
@@ -12,11 +14,22 @@ import {
 import { CampaignRoom } from "./room.js";
 
 const CAMPAIGN = "00000000-0000-4000-8000-0000000000aa";
+const TAVERN_ID = "11111111-1111-4111-8111-111111111111";
 
 async function activeEntity(room: CampaignRoom) {
   const state = await room.getState();
   const active = state.encounter!.order[state.encounter!.activeIndex]!.entity;
   return { state, active, from: state.entities[active]!.position! };
+}
+
+async function explorationPc(room: CampaignRoom) {
+  const state = await room.getState();
+  expect(state.encounter).toBeUndefined();
+  const pc = Object.values(state.entities).find(
+    (e) => e.kind === "character" && !e.id.startsWith("npc:"),
+  );
+  expect(pc?.position).toBeDefined();
+  return { state, active: pc!.id, from: pc!.position! };
 }
 
 describe("CampaignRoom", () => {
@@ -76,7 +89,7 @@ describe("CampaignRoom", () => {
     expect((await room.getState()).entities[active]?.position).toEqual(from);
   });
 
-  it("seeds the real campaign roster when a party loader returns members (#98)", async () => {
+  it("seeds exploration (no combat) when a party loader returns members (#98, Rung 4)", async () => {
     const store = new InMemoryEventStore();
     const party: PartyMember[] = [
       {
@@ -94,21 +107,22 @@ describe("CampaignRoom", () => {
     const state = await room.getState();
 
     expect(state.entities["char:hero"]?.name).toBe("Bridged Hero");
-    // Roster PC + the two goblin foes.
-    expect(state.encounter?.combatants).toContain("char:hero");
-    expect(state.encounter?.combatants).toHaveLength(3);
+    expect(state.encounter).toBeUndefined();
+    expect(state.entities["npc:goblin-a"]).toBeUndefined();
   });
 
-  it("falls back to the fixture when the roster is empty", async () => {
+  it("seeds exploration with the fixture party when the roster is empty (Rung 4)", async () => {
     const store = new InMemoryEventStore();
     const room = new CampaignRoom(CAMPAIGN, store, async () => []);
 
     const state = await room.getState();
 
-    expect(state.encounter?.order).toHaveLength(4); // fixture: 2 PCs + 2 goblins
+    expect(state.encounter).toBeUndefined();
+    expect(Object.keys(state.entities).length).toBeGreaterThan(0);
+    expect(state.entities["npc:goblin-a"]).toBeUndefined();
   });
 
-  it("reset replays the roster-seeded baseline (not the fixture's)", async () => {
+  it("reset replays the roster-seeded exploration baseline (not the fixture combat)", async () => {
     const store = new InMemoryEventStore();
     const party: PartyMember[] = [
       {
@@ -125,18 +139,19 @@ describe("CampaignRoom", () => {
     await room.getState();
     const baseline = await store.lastSequence(CAMPAIGN);
 
-    const { active, from } = await activeEntity(room);
+    const { active, from } = await explorationPc(room);
     await room.apply({ type: "move_entity", entity: active, to: { x: from.x, y: from.y + 1 } });
     expect(await store.lastSequence(CAMPAIGN)).toBeGreaterThan(baseline);
 
     await room.reset();
 
     expect(await store.lastSequence(CAMPAIGN)).toBe(baseline);
-    // The roster member is still present after a reset (3 combatants, not 4).
-    expect((await room.getState()).encounter?.combatants).toHaveLength(3);
+    const after = await room.getState();
+    expect(after.encounter).toBeUndefined();
+    expect(after.entities["char:solo"]).toBeDefined();
   });
 
-  it("seeds an armed authored encounter's foes instead of the goblins (#115)", async () => {
+  it("seeds an armed authored encounter's foes instead of exploration (#115)", async () => {
     const store = new InMemoryEventStore();
     const foes: FoeSpec[] = [
       {
@@ -182,19 +197,46 @@ describe("CampaignRoom", () => {
     expect(state.entities["npc:goblin-a"]).toBeUndefined();
   });
 
-  it("falls back to the default ambush when no encounter is armed (#115)", async () => {
+  it("opens in exploration at a World-tab tavern when no encounter is armed (Rung 4)", async () => {
     const store = new InMemoryEventStore();
     const room = new CampaignRoom(
       CAMPAIGN,
       store,
       async () => [],
       async () => undefined,
+      async () => ({
+        entityId: TAVERN_ID,
+        name: "The Crooked Tankard",
+        summary: "Smoke and laughter spill from the open door.",
+        type: "tavern",
+      }),
     );
 
     const state = await room.getState();
+    const sceneId = sceneIdForRealmEntity(TAVERN_ID);
 
-    expect(state.entities["npc:goblin-a"]).toBeDefined();
-    expect(state.encounter?.order).toHaveLength(4);
+    expect(state.currentSceneId).toBe(sceneId);
+    expect(state.scenes[sceneId]?.name).toBe("The Crooked Tankard");
+    expect(state.encounter).toBeUndefined();
+    expect(state.entities["npc:goblin-a"]).toBeUndefined();
+  });
+
+  it("falls back to the generic starting location when world lookup is empty (Rung 4)", async () => {
+    const store = new InMemoryEventStore();
+    const room = new CampaignRoom(
+      CAMPAIGN,
+      store,
+      async () => [],
+      async () => undefined,
+      async () => undefined,
+    );
+
+    const state = await room.getState();
+    const sceneId = sceneIdForRealmEntity(DEFAULT_STARTING_LOCATION.entityId);
+
+    expect(state.currentSceneId).toBe(sceneId);
+    expect(state.scenes[sceneId]?.name).toBe(DEFAULT_STARTING_LOCATION.name);
+    expect(state.encounter).toBeUndefined();
   });
 
   it("re-seeds after an external log truncate (Run Now from combat tab)", async () => {
@@ -218,10 +260,12 @@ describe("CampaignRoom", () => {
         armed
           ? { name: "Ogre Den", foes: ogreFoes, map: resolveEncounterMap("ambush") }
           : undefined,
+      async () => undefined,
     );
 
     const first = await room.getState();
-    expect(first.entities["npc:goblin-a"]).toBeDefined();
+    expect(first.encounter).toBeUndefined();
+    expect(first.entities["npc:goblin-a"]).toBeUndefined();
 
     armed = true;
     await store.truncate(CAMPAIGN, 0);

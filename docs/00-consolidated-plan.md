@@ -134,6 +134,12 @@
 - First login: choice between **30-minute tutorial adventure** (pre-built character + micro-campaign that demos every primary feature) OR **fresh start**.
 - Tutorial uses contextual tooltips on first encounter with each system.
 
+## Realms ↔ Live Play integration
+
+- **Realms is prep; Live Play is play.** World-tab entities (Region, Settlement, Building, Tavern, Shop, Dungeon) should be explorable via **map + chat** — not only a combat fixture on load.
+- **Default campaign bootstrap:** open in the first World-tab tavern/settlement (or generic fallback), with GM opening narration — **no combat** until fiction requires it (armed encounter / Run Now, dungeon foes, travel hazards, social hostility, etc.).
+- **Do not** spend further v1 effort on Ladder 3 campaign-tab polish (Overview/Hooks/Sessions depth) ahead of this integration ladder — see `docs/deferrals.md` (Rung 4).
+
 ---
 
 ## Critical risks I flagged that you accepted

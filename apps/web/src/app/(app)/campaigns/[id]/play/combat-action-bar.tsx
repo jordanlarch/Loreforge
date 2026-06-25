@@ -35,6 +35,7 @@ export function CombatActionBar({
   castTargetCount,
   castTargetMax,
   onConfirmMulti,
+  layout = "stacked",
 }: {
   weapons: WeaponAttack[];
   spells: CastableSpell[];
@@ -61,7 +62,10 @@ export function CombatActionBar({
   castTargetCount?: number;
   castTargetMax?: number;
   onConfirmMulti?: () => void;
+  /** When inline, sits in the horizontal turn bar (no outer margin). */
+  layout?: "stacked" | "inline";
 }) {
+  const inline = layout === "inline";
   const [castOpen, setCastOpen] = useState(false);
   const [attackOpen, setAttackOpen] = useState(false);
   const [readyOpen, setReadyOpen] = useState(false);
@@ -74,7 +78,9 @@ export function CombatActionBar({
           ? `${armed.spell.area.sizeFt}-ft cone`
           : `${armed.spell.area.sizeFt}-ft radius`;
       return (
-        <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm">
+        <div
+          className={`flex items-center justify-between gap-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm ${inline ? "" : "mb-3"}`}
+        >
           <span className="text-lore-text">
             💥 Aim {armed.spell.name} ({shape}) —{" "}
             {aimReady ? "confirm to unleash" : "tap a cell to place it"}
@@ -115,7 +121,9 @@ export function CombatActionBar({
               ? `Pick an ally for ${armed.spell.name}`
               : `Pick a target for ${armed.spell.name}`;
     return (
-      <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm">
+      <div
+        className={`flex items-center justify-between gap-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm ${inline ? "" : "mb-3"}`}
+      >
         <span className="text-lore-text">
           {armed.kind === "ready" ? "⏳" : "🎯"} {label}
         </span>
@@ -143,11 +151,25 @@ export function CombatActionBar({
   }
 
   return (
-    <div className="mb-3 space-y-2">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2">
+    <div
+      className={
+        inline
+          ? "flex flex-wrap items-center gap-2"
+          : "mb-3 space-y-2"
+      }
+    >
+      <div
+        className={
+          inline
+            ? "flex flex-wrap items-center gap-2"
+            : "flex flex-wrap items-center gap-2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2"
+        }
+      >
+      {!inline && (
       <span className="text-xs uppercase tracking-widest text-lore-muted">
         Actions
       </span>
+      )}
       {weapons.length <= 1 ? (
         <button
           type="button"
@@ -261,17 +283,35 @@ export function CombatActionBar({
       )}
       </div>
       {attacksLeft > 1 && (
-        <p className="rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-xs text-lore-muted">
+        <p
+          className={
+            inline
+              ? "text-xs text-lore-muted"
+              : "rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-xs text-lore-muted"
+          }
+        >
           ⚔️ {attacksLeft} attacks left this turn (Extra Attack).
         </p>
       )}
       {!canAttack && !canAct && (
-        <p className="rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-xs text-lore-muted">
+        <p
+          className={
+            inline
+              ? "text-xs text-lore-muted"
+              : "rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-xs text-lore-muted"
+          }
+        >
           Action used — move if you like, then End turn.
         </p>
       )}
       {readiedNote && (
-        <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200">
+        <p
+          className={
+            inline
+              ? "text-xs text-amber-200"
+              : "rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200"
+          }
+        >
           ⏳ {readiedNote}
         </p>
       )}

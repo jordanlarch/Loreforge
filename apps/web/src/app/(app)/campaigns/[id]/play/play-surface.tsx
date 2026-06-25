@@ -75,15 +75,14 @@ import {
 } from "@/lib/sheet-loadout";
 import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
 import { ChatZone } from "./chat-zone";
-import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
-import { CharacterHud } from "./character-hud";
+import { type ArmedAction } from "./combat-action-bar";
+import { CombatTurnBar } from "./combat-turn-bar";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { GraduationModal } from "./graduation-modal";
 import { LivePlayTopBar } from "./live-top-bar";
 import { MapViewport } from "./map-viewport";
 import { PartyRail } from "./party-rail";
 import { PlaySurfaceLayout } from "./play-surface-layout";
-import { ReactionPrompt } from "./reaction-prompt";
 import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
 import { useSceneTransition, useCombatTransition } from "./use-scene-transition";
@@ -555,6 +554,70 @@ function LiveBattle({
 
   const viewPartySheet = (characterId: string) => setSheetPeekId(characterId);
 
+  function onCastFromBar(spell: CastableSpell) {
+    if (spell.targetKind === "self" && !spell.reaction && activeEntity) {
+      session.castSpell(
+        activeEntity.id,
+        spell.id,
+        spell.level,
+        [activeEntity.id],
+      );
+      return;
+    }
+    setArmed({ kind: "cast", spell });
+  }
+
+  function onReactionAttack() {
+    if (!reaction) return;
+    const strike = reactorSheet
+      ? (deriveWeaponAttacks(
+          reaction.reactor,
+          reactorSheet.equipment,
+        )[0] ?? genericStrike(reaction.reactor))
+      : genericStrike(reaction.reactor);
+    session.opportunityAttack(
+      reaction.reactor.id,
+      reaction.mover.id,
+      strike.attackBonus,
+      strike.damage,
+      strike.rangeFt,
+    );
+    if (reactionKey) setDismissedReaction(reactionKey);
+  }
+
+  function onReactionPassHandler() {
+    if (reactionKey) setDismissedReaction(reactionKey);
+    onReactionPass?.();
+  }
+
+  function onCastShieldReaction() {
+    if (!reaction || !reactorReactionSpells[0]) return;
+    const spell = reactorReactionSpells[0];
+    session.castSpell(
+      reaction.reactor.id,
+      spell.id,
+      spell.level,
+      [reaction.reactor.id],
+    );
+    if (reactionKey) setDismissedReaction(reactionKey);
+  }
+
+  function onCastShieldSelf() {
+    if (!activeEntity || !activeReactionSpells[0]) return;
+    const spell = activeReactionSpells[0];
+    session.castSpell(
+      activeEntity.id,
+      spell.id,
+      spell.level,
+      [activeEntity.id],
+    );
+  }
+
+  const quickItems =
+    controllableTurn && activeSheet
+      ? quickUseItems(activeSheet.equipment)
+      : undefined;
+
   if (session.error) {
     return (
       <p className="px-4 py-16 text-center text-lore-muted">
@@ -723,7 +786,6 @@ function LiveBattle({
     ? session.state.scenes[session.state.currentSceneId]?.name
     : undefined;
 
-  const openSheet = pcCharacterId ? () => setSheetOpen(true) : undefined;
 
   return (
     <>
@@ -734,17 +796,11 @@ function LiveBattle({
               title={title}
               sceneName={sceneName ?? context}
               peers={session.peers}
-              round={vm.round}
-              activeName={vm.activeName}
-              movementLeft={
-                vm.movement ? vm.movement.total - vm.movement.used : undefined
-              }
-              movementTotal={vm.movement?.total}
               backHref={backHref}
               paused={paused}
               onTogglePause={() => setPaused((p) => !p)}
               isBusy={session.isBusy}
-              showTurnActions={controllableTurn}
+              showTurnActions={false}
               onEndTurn={session.endTurn}
               onReset={session.reset}
               onEndSession={
@@ -764,6 +820,9 @@ function LiveBattle({
                 disabled: session.isBusy || paused,
               }}
             />
+            {tutorialControls ? (
+              <div className="mt-2">{tutorialControls}</div>
+            ) : null}
             {joinPrompt && (
               <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
                 <span>⚡ {joinPrompt}</span>
@@ -777,6 +836,15 @@ function LiveBattle({
               </div>
             )}
           </>
+        }
+        combatStrip={
+          <div data-coachmark="tut-combat">
+            <CombatOverlay
+              round={vm.round}
+              activeName={vm.activeName}
+              order={vm.order}
+            />
+          </div>
         }
         partyRail={
           <div className="h-full" data-coachmark="tut-party">
@@ -826,152 +894,52 @@ function LiveBattle({
                   : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready in the panel. The engine validates everything."}
           </p>
         }
-        sidebar={
-          <>
-            {tutorialControls}
-
-            <div data-coachmark="tut-combat">
-              <CombatOverlay
-                round={vm.round}
-                activeName={vm.activeName}
-                order={vm.order}
-              />
-            </div>
-
-            {controllableTurn && !paused && (
-              <CombatActionBar
-                weapons={weapons}
-                spells={castableSpells}
-                armed={armed}
-                disabled={session.isBusy}
-                aimReady={aimCell !== null}
-                readiedNote={readiedNote}
-                canAttack={canAttack}
-                canAct={canAct}
-                attacksLeft={attacksLeft}
-                onAttack={(attack) => setArmed({ kind: "attack", attack })}
-                onCast={(spell) => {
-                  if (
-                    spell.targetKind === "self" &&
-                    !spell.reaction &&
-                    activeEntity
-                  ) {
-                    session.castSpell(
-                      activeEntity.id,
-                      spell.id,
-                      spell.level,
-                      [activeEntity.id],
-                    );
-                    return;
-                  }
-                  setArmed({ kind: "cast", spell });
-                }}
-                onReady={(attack) => setArmed({ kind: "ready", attack })}
-                onConfirm={onConfirmAim}
-                onCancel={() => {
-                  setArmed(null);
-                  setCastTargets([]);
-                }}
-                castTargetCount={castTargets.length}
-                castTargetMax={
-                  armed?.kind === "cast" ? armed.spell.maxTargets : undefined
-                }
-                onConfirmMulti={onConfirmMultiCast}
-              />
-            )}
-
-            {paused && (
-              <div className="rounded-lg border border-lore-accent bg-lore-accent-dim px-2.5 py-2 text-xs text-lore-text">
-                ⏸ Session paused — turn actions are frozen. Press Resume to
-                continue.
-              </div>
-            )}
-
-            {showReaction && reaction && (
-              <ReactionPrompt
-                reactorName={reaction.reactor.name}
-                moverName={reaction.mover.name}
-                shieldLabel={
-                  reactorReactionSpells[0]
-                    ? `Cast ${reactorReactionSpells[0].name} (+5 AC)`
-                    : undefined
-                }
-                onCastShield={
-                  reactorReactionSpells[0]
-                    ? () => {
-                        const spell = reactorReactionSpells[0]!;
-                        session.castSpell(
-                          reaction.reactor.id,
-                          spell.id,
-                          spell.level,
-                          [reaction.reactor.id],
-                        );
-                        if (reactionKey) setDismissedReaction(reactionKey);
-                      }
-                    : undefined
-                }
-                onTake={() => {
-                  const reactorSheet = loadouts?.[reaction.reactor.id];
-                  const strike = reactorSheet
-                    ? (deriveWeaponAttacks(
-                        reaction.reactor,
-                        reactorSheet.equipment,
-                      )[0] ?? genericStrike(reaction.reactor))
-                    : genericStrike(reaction.reactor);
-                  session.opportunityAttack(
-                    reaction.reactor.id,
-                    reaction.mover.id,
-                    strike.attackBonus,
-                    strike.damage,
-                    strike.rangeFt,
-                  );
-                  if (reactionKey) setDismissedReaction(reactionKey);
-                }}
-                onPass={() => {
-                  if (reactionKey) setDismissedReaction(reactionKey);
-                  onReactionPass?.();
-                }}
-              />
-            )}
-
-            {!showReaction && activeReactionSpells[0] && activeEntity ? (
-              <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-2">
-                <p className="mb-2 text-[11px] text-lore-muted">
-                  Reaction ready — cast before your next turn (tracer: not tied to
-                  incoming hits yet).
-                </p>
-                <button
-                  type="button"
-                  disabled={session.isBusy}
-                  onClick={() => {
-                    const spell = activeReactionSpells[0]!;
-                    session.castSpell(
-                      activeEntity.id,
-                      spell.id,
-                      spell.level,
-                      [activeEntity.id],
-                    );
-                  }}
-                  className="rounded border border-sky-500/60 bg-sky-500/20 px-3 py-1 text-xs text-sky-100 transition-colors hover:border-sky-400 disabled:opacity-40"
-                >
-                  Cast {activeReactionSpells[0].name} (+5 AC)
-                </button>
-              </div>
-            ) : null}
-
-            {activeEntity ? (
-              <CharacterHud
-                session={session}
-                weapons={weapons}
-                items={
-                  activeSheet
-                    ? quickUseItems(activeSheet.equipment)
-                    : undefined
-                }
-                onViewSheet={openSheet}
-              />
-            ) : null}
-          </>
+        actionBar={
+          <CombatTurnBar
+            activeEntity={activeEntity}
+            activeName={vm.activeName}
+            controllableTurn={controllableTurn}
+            paused={paused}
+            isBusy={session.isBusy}
+            onEndTurn={session.endTurn}
+            weapons={weapons}
+            spells={castableSpells}
+            armed={armed}
+            aimReady={aimCell !== null}
+            readiedNote={readiedNote}
+            canAttack={canAttack}
+            canAct={canAct}
+            attacksLeft={attacksLeft}
+            onAttack={(attack) => setArmed({ kind: "attack", attack })}
+            onCast={onCastFromBar}
+            onReady={(attack) => setArmed({ kind: "ready", attack })}
+            onConfirmAim={onConfirmAim}
+            onCancelArmed={() => {
+              setArmed(null);
+              setCastTargets([]);
+            }}
+            castTargetCount={castTargets.length}
+            castTargetMax={
+              armed?.kind === "cast" ? armed.spell.maxTargets : undefined
+            }
+            onConfirmMultiCast={onConfirmMultiCast}
+            items={quickItems}
+            onQuickUse={(name) =>
+              session.sendChat(`uses ${name}`, "use_item")
+            }
+            showReaction={showReaction}
+            reaction={reaction}
+            reactorReactionSpells={reactorReactionSpells}
+            onReactionAttack={onReactionAttack}
+            onReactionPass={onReactionPassHandler}
+            onCastShield={
+              reactorReactionSpells[0] ? onCastShieldReaction : undefined
+            }
+            activeReactionSpells={activeReactionSpells}
+            onCastShieldSelf={
+              activeReactionSpells[0] ? onCastShieldSelf : undefined
+            }
+          />
         }
         chat={
           <ChatZone

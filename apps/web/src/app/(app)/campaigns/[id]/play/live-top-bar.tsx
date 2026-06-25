@@ -5,7 +5,7 @@
  * breadcrumb back to the workspace, the campaign + current-scene label, the
  * Live/Async presence chip, a scene breadcrumb (location · round · turn ·
  * movement), a live-ticking real-time session clock with a Pause toggle, the
- * turn actions (End turn / Reset), and the tools row.
+ * turn actions (End turn lives in the combat turn bar during encounters),
  *
  * Driven by props the play surface derives from the synced `WorldState`. The
  * in-game clock, server-side pause *freeze*, named connection roster, and the

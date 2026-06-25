@@ -15,6 +15,14 @@ import {
 } from "@app/llm";
 import type { Ability, EntityState, WorldState } from "@app/engine";
 import type { ChatEntry } from "./chat.js";
+import {
+  logLlmUsage,
+  narrationModel,
+  routingModel,
+  type LlmUsageContext,
+} from "./llm-usage.js";
+
+export type { LlmUsageContext };
 
 const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
@@ -194,6 +202,8 @@ export async function narrate(args: {
   /** Rolling session summary (MEM-3): the "story so far" for this session.
    * Optional; empty before the first summary or when unconfigured. */
   summary?: string;
+  /** When set, token usage is persisted for cost observability. */
+  usageCtx?: LlmUsageContext;
 }): Promise<NarrationResult> {
   const names = sceneEntityNames(args.state);
   const scene = sceneSummary(args.state);
@@ -215,7 +225,7 @@ export async function narrate(args: {
     .filter(Boolean)
     .join("\n");
 
-  return runNarration(args.client, prompt, names);
+  return runNarration(args.client, prompt, names, args.usageCtx);
 }
 
 /**
@@ -227,12 +237,18 @@ async function runNarration(
   client: LlmClient,
   prompt: string,
   names: string[],
+  usageCtx?: LlmUsageContext,
 ): Promise<NarrationResult> {
   const res = await client.callTool({
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],
     tool: NARRATE_TOOL,
+    model: narrationModel(),
   });
+
+  if (usageCtx) {
+    await logLlmUsage({ ctx: usageCtx, model: res.model, usage: res.usage });
+  }
 
   const input = res.input as { narration?: unknown; mentions?: unknown };
   const text = typeof input.narration === "string" ? input.narration.trim() : "";
@@ -268,6 +284,7 @@ export async function narrateEnemyTurn(args: {
   /** Framing line for the situation; defaults to "it is <actor>'s turn". A
    * reaction (e.g. an opportunity attack) passes its own framing instead. */
   situation?: string;
+  usageCtx?: LlmUsageContext;
 }): Promise<NarrationResult> {
   const names = sceneEntityNames(args.state);
   const scene = sceneSummary(args.state);
@@ -287,7 +304,7 @@ export async function narrateEnemyTurn(args: {
     .filter(Boolean)
     .join("\n");
 
-  return runNarration(args.client, prompt, names);
+  return runNarration(args.client, prompt, names, args.usageCtx);
 }
 
 /* -------------------------------------------------------------------------- *
@@ -350,6 +367,7 @@ export async function decideCheck(args: {
   client: LlmClient;
   state: WorldState | undefined;
   playerLine: string;
+  usageCtx?: LlmUsageContext;
 }): Promise<CheckDecision> {
   const scene = sceneSummary(args.state);
   const prompt = [
@@ -364,7 +382,16 @@ export async function decideCheck(args: {
     system: DECIDE_SYSTEM,
     messages: [{ role: "user", content: prompt }],
     tool: CALL_FOR_CHECK_TOOL,
+    model: routingModel(),
   });
+
+  if (args.usageCtx) {
+    await logLlmUsage({
+      ctx: args.usageCtx,
+      model: res.model,
+      usage: res.usage,
+    });
+  }
 
   const input = res.input as {
     ability?: unknown;
@@ -426,6 +453,7 @@ export async function decideMonsterTarget(args: {
   state: WorldState | undefined;
   monsterName: string;
   candidates: readonly MonsterTargetOption[];
+  usageCtx?: LlmUsageContext;
 }): Promise<string | undefined> {
   if (args.candidates.length === 0) return undefined;
   const scene = sceneSummary(args.state);
@@ -445,7 +473,16 @@ export async function decideMonsterTarget(args: {
     system: TARGET_SYSTEM,
     messages: [{ role: "user", content: prompt }],
     tool: CHOOSE_TARGET_TOOL,
+    model: routingModel(),
   });
+
+  if (args.usageCtx) {
+    await logLlmUsage({
+      ctx: args.usageCtx,
+      model: res.model,
+      usage: res.usage,
+    });
+  }
 
   const input = res.input as { targetId?: unknown };
   const chosen = typeof input.targetId === "string" ? input.targetId : undefined;

@@ -49,6 +49,9 @@ export const CASTABLE_SPELLS: readonly CastableSpell[] = [
   { id: "fire-bolt", name: "Fire Bolt", level: 0, rangeFt: 120 },
   { id: "sacred-flame", name: "Sacred Flame", level: 0, rangeFt: 60 },
   { id: "guiding-bolt", name: "Guiding Bolt", level: 1, rangeFt: 120 },
+  { id: "bless", name: "Bless", level: 1, rangeFt: 30 },
+  { id: "hunters-mark", name: "Hunter's Mark", level: 1, rangeFt: 90 },
+  { id: "shield", name: "Shield", level: 1, rangeFt: 0 },
   {
     id: "burning-hands",
     name: "Burning Hands",

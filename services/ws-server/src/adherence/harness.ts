@@ -68,6 +68,7 @@ export type NarrateFixture = {
   playerLine: string;
   mode?: string;
   state?: WorldState;
+  outcome?: string;
   expect?: { mentionsSubsetOf?: readonly string[] };
   mock: { narration: string; mentions?: string[] };
 };
@@ -197,6 +198,7 @@ export async function runAdherence(opts: {
           recentChat: [],
           playerLine: fx.playerLine,
           mode: fx.mode,
+          outcome: fx.outcome,
         });
         grade = gradeNarration(result, fx);
       }

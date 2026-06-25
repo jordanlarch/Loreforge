@@ -23,6 +23,11 @@
  *   - Batch 3 (ENG-2): Eldritch Blast, Chromatic Orb, Scorching Ray, Toll the
  *     Dead, Dissonant Whispers, Ray of Sickness, Melf's Acid Arrow, Moonbeam,
  *     Mind Sliver, Chaos Bolt.
+ *   - Batch 4 (ENG-2): Thunderclap, Word of Radiance, Lightning Lure, Arms of
+ *     Hadar, Witch Bolt, Hellish Rebuke, Catapult, Snilloc's Snowball Swarm,
+ *     Mind Spike, Heat Metal, Maximilian's Earthen Grasp, Phantasmal Force,
+ *     Vampiric Touch, Spirit Guardians, Hunger of Hadar.
+ *   - Batch 5 (ENG-13): Bless, Shield, Hunter's Mark (appliedEffects proof set).
  *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
  * a malformed registry entry fails CI rather than at cast time, and every
@@ -680,6 +685,401 @@ const CHAOS_BOLT: SpellDefinition = {
     "Make a ranged spell attack. On a hit, the target takes 2d8 force damage (random type + bounce narrated, not yet mechanized).",
 };
 
+// ───────────────────────── Batch 4 (ENG-2) ─────────────────────────
+
+/** Thunderclap — 5-ft emanation, Con save or 1d6 thunder. */
+const THUNDERCLAP: SpellDefinition = {
+  id: "thunderclap",
+  name: "Thunderclap",
+  level: 0,
+  school: "evocation",
+  classes: ["Bard", "Druid", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "sphere", size: 5 } },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d6", type: "thunder" }],
+  description:
+    "Each creature other than you within 5 feet makes a Constitution saving throw, taking 1d6 thunder damage on a failed save (the caster is excluded narratively; the burst is centered on you).",
+};
+
+/** Word of Radiance — Con save or 1d6 radiant to chosen creatures within 5 ft. */
+const WORD_OF_RADIANCE: SpellDefinition = {
+  id: "word-of-radiance",
+  name: "Word of Radiance",
+  level: 0,
+  school: "evocation",
+  classes: ["Cleric"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 5 },
+  components: { verbal: true, somatic: true, material: "a holy symbol" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d6", type: "radiant" }],
+  description:
+    "Each creature of your choice within 5 feet makes a Constitution saving throw, taking 1d6 radiant damage on a failed save.",
+};
+
+/** Lightning Lure — Str save or 1d8 lightning (pull narrated). */
+const LIGHTNING_LURE: SpellDefinition = {
+  id: "lightning-lure",
+  name: "Lightning Lure",
+  level: 0,
+  school: "evocation",
+  classes: ["Artificer", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 15 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "str", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d8", type: "lightning" }],
+  description:
+    "The target makes a Strength saving throw, taking 1d8 lightning damage on a failed save and being pulled up to 10 feet closer (pull narrated, not yet mechanized).",
+};
+
+/** Arms of Hadar — 10-ft cone, Str save or 2d6 necrotic. */
+const ARMS_OF_HADAR: SpellDefinition = {
+  id: "arms-of-hadar",
+  name: "Arms of Hadar",
+  level: 1,
+  school: "conjuration",
+  classes: ["Warlock"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "cone", size: 10 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "str", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "2d6", type: "necrotic" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "Each creature in a 10-foot cone makes a Strength saving throw, taking 2d6 necrotic damage on a failed save (can't take reactions rider narrated).",
+};
+
+/** Witch Bolt — ranged spell attack for 1d12 lightning (ongoing turns narrated). */
+const WITCH_BOLT: SpellDefinition = {
+  id: "witch-bolt",
+  name: "Witch Bolt",
+  level: 1,
+  school: "evocation",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a twig from a tree struck by lightning" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d12", type: "lightning" }],
+  upcastScaling: { perSlotDice: "1d12", appliesTo: "damage" },
+  description:
+    "Make a ranged spell attack. On a hit, the target takes 1d12 lightning damage (bonus-action re-zap on later turns narrated, not yet mechanized).",
+};
+
+/** Hellish Rebuke — reaction, Dex save or 2d10 fire. */
+const HELLISH_REBUKE: SpellDefinition = {
+  id: "hellish-rebuke",
+  name: "Hellish Rebuke",
+  level: 1,
+  school: "evocation",
+  classes: ["Warlock"],
+  castingTime: { unit: "reaction", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "2d10", type: "fire" }],
+  upcastScaling: { perSlotDice: "1d10", appliesTo: "damage" },
+  description:
+    "The attacker makes a Dexterity saving throw, taking 2d10 fire damage on a failed save (reaction trigger narrated, not yet mechanized).",
+};
+
+/** Catapult — Str save or 3d8 bludgeoning. */
+const CATAPULT: SpellDefinition = {
+  id: "catapult",
+  name: "Catapult",
+  level: 1,
+  school: "transmutation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: false, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "str", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "3d8", type: "bludgeoning" }],
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
+  description:
+    "The target makes a Strength saving throw, taking 3d8 bludgeoning damage on a failed save (object-flight setup narrated).",
+};
+
+/** Snilloc's Snowball Swarm — 5-ft sphere, Dex save or 3d6 cold. */
+const SNILLOCS_SNOWBALL_SWARM: SpellDefinition = {
+  id: "snillocs-snowball-swarm",
+  name: "Snilloc's Snowball Swarm",
+  level: 2,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 90, area: { shape: "sphere", size: 5 } },
+  components: { verbal: true, somatic: true, material: "a piece of ice or a small white rock chip" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "3d6", type: "cold" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "Each creature in a 5-foot-radius sphere centered on a point within range makes a Dexterity saving throw, taking 3d6 cold damage on a failed save.",
+};
+
+/** Mind Spike — Int save or 3d6 psychic. */
+const MIND_SPIKE: SpellDefinition = {
+  id: "mind-spike",
+  name: "Mind Spike",
+  level: 2,
+  school: "divination",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: false, somatic: true },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "int", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "3d6", type: "psychic" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "The target makes an Intelligence saving throw, taking 3d6 psychic damage on a failed save (always-know-location rider narrated).",
+};
+
+/** Heat Metal — 2d8 fire to a metal-clad target (no save). */
+const HEAT_METAL: SpellDefinition = {
+  id: "heat-metal",
+  name: "Heat Metal",
+  level: 2,
+  school: "transmutation",
+  classes: ["Bard", "Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "a piece of iron and a flame" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  damage: [{ dice: "2d8", type: "fire" }],
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
+  description:
+    "Choose a manufactured metal object; a creature in contact with it takes 2d8 fire damage (ongoing turns + drop-object riders narrated).",
+};
+
+/** Maximilian's Earthen Grasp — Str save or 2d6 bludgeoning. */
+const MAXIMILIANS_EARTHEN_GRASP: SpellDefinition = {
+  id: "maximilians-earthen-grasp",
+  name: "Maximilian's Earthen Grasp",
+  level: 2,
+  school: "transmutation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a miniature hand sculpted from clay" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "str", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "2d6", type: "bludgeoning" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "The target makes a Strength saving throw, taking 2d6 bludgeoning damage on a failed save and being restrained (restraint + bonus-action crush narrated).",
+};
+
+/** Phantasmal Force — Int save or 1d6 psychic (first-turn simplified). */
+const PHANTASMAL_FORCE: SpellDefinition = {
+  id: "phantasmal-force",
+  name: "Phantasmal Force",
+  level: 2,
+  school: "illusion",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "a bit of fleece" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "int", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d6", type: "psychic" }],
+  description:
+    "The target makes an Intelligence saving throw, taking 1d6 psychic damage on a failed save (ongoing illusion damage narrated; first-turn only mechanized).",
+};
+
+/** Vampiric Touch — melee spell attack for 3d6 necrotic. */
+const VAMPIRIC_TOUCH: SpellDefinition = {
+  id: "vampiric-touch",
+  name: "Vampiric Touch",
+  level: 3,
+  school: "necromancy",
+  classes: ["Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "melee" },
+  damage: [{ dice: "3d6", type: "necrotic" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "Make a melee spell attack. On a hit, the target takes 3d6 necrotic damage and you regain hit points equal to half the damage dealt (heal-to-caster narrated, not yet mechanized).",
+};
+
+/** Spirit Guardians — 15-ft aura, Wis save-for-half, 3d8 radiant. */
+const SPIRIT_GUARDIANS: SpellDefinition = {
+  id: "spirit-guardians",
+  name: "Spirit Guardians",
+  level: 3,
+  school: "conjuration",
+  classes: ["Cleric"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "sphere", size: 15 } },
+  components: {
+    verbal: true,
+    somatic: true,
+    material: "a holy symbol",
+  },
+  duration: { unit: "minute", amount: 10 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "3d8", type: "radiant" }],
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
+  description:
+    "Each creature in a 15-foot-radius aura makes a Wisdom saving throw, taking 3d8 radiant damage on a failed save, or half as much on a success (ongoing turns narrated).",
+};
+
+/** Hunger of Hadar — 20-ft sphere, Dex save or 2d6 cold on cast. */
+const HUNGER_OF_HADAR: SpellDefinition = {
+  id: "hunger-of-hadar",
+  name: "Hunger of Hadar",
+  level: 3,
+  school: "conjuration",
+  classes: ["Warlock"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 150, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true, material: "a pickled octopus tentacle" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "2d6", type: "cold" }],
+  description:
+    "Each creature in a 20-foot-radius sphere makes a Dexterity saving throw when the spell is cast, taking 2d6 cold damage on a failed save (blindness + acid on later turns narrated).",
+};
+
+// ───────────────────────── Batch 5 (ENG-13 proof spells) ─────────────────
+
+/** Bless — up to three allies gain +1d4 on attack rolls (concentration). */
+const BLESS: SpellDefinition = {
+  id: "bless",
+  name: "Bless",
+  level: 1,
+  school: "enchantment",
+  classes: ["Cleric", "Paladin"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a sprinkling of holy water" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "multi",
+  appliedEffects: [
+    {
+      name: "Blessed",
+      scope: "targets",
+      modifier: { type: "attack_roll_bonus", dice: "1d4" },
+      concentration: true,
+    },
+  ],
+  description:
+    "Up to three creatures of your choice gain a +1d4 bonus to attack rolls for the duration.",
+};
+
+/** Shield — reaction; +5 AC until the start of your next turn. */
+const SHIELD: SpellDefinition = {
+  id: "shield",
+  name: "Shield",
+  level: 1,
+  school: "abjuration",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "reaction", amount: 1 },
+  range: { type: "self" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "round", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "self",
+  appliedEffects: [
+    {
+      name: "Shield",
+      scope: "caster",
+      modifier: { type: "ac_bonus", amount: 5 },
+      expiresStartOfNextTurn: true,
+    },
+  ],
+  description:
+    "An invisible barrier grants you a +5 bonus to AC until the start of your next turn (including against the triggering attack narratively).",
+};
+
+/** Hunter's Mark — mark a foe; weapon hits from you deal +1d6 force. */
+const HUNTERS_MARK: SpellDefinition = {
+  id: "hunters-mark",
+  name: "Hunter's Mark",
+  level: 1,
+  school: "divination",
+  classes: ["Ranger"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "feet", amount: 90 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Hunter's Mark",
+      scope: "targets",
+      modifier: { type: "hunters_mark", dice: "1d6" },
+      concentration: true,
+    },
+  ],
+  description:
+    "The target is mystically marked; you deal an extra 1d6 force damage to it whenever you hit it with a weapon attack.",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -713,6 +1113,24 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MOONBEAM.id]: MOONBEAM,
   [MIND_SLIVER.id]: MIND_SLIVER,
   [CHAOS_BOLT.id]: CHAOS_BOLT,
+  [THUNDERCLAP.id]: THUNDERCLAP,
+  [WORD_OF_RADIANCE.id]: WORD_OF_RADIANCE,
+  [LIGHTNING_LURE.id]: LIGHTNING_LURE,
+  [ARMS_OF_HADAR.id]: ARMS_OF_HADAR,
+  [WITCH_BOLT.id]: WITCH_BOLT,
+  [HELLISH_REBUKE.id]: HELLISH_REBUKE,
+  [CATAPULT.id]: CATAPULT,
+  [SNILLOCS_SNOWBALL_SWARM.id]: SNILLOCS_SNOWBALL_SWARM,
+  [MIND_SPIKE.id]: MIND_SPIKE,
+  [HEAT_METAL.id]: HEAT_METAL,
+  [MAXIMILIANS_EARTHEN_GRASP.id]: MAXIMILIANS_EARTHEN_GRASP,
+  [PHANTASMAL_FORCE.id]: PHANTASMAL_FORCE,
+  [VAMPIRIC_TOUCH.id]: VAMPIRIC_TOUCH,
+  [SPIRIT_GUARDIANS.id]: SPIRIT_GUARDIANS,
+  [HUNGER_OF_HADAR.id]: HUNGER_OF_HADAR,
+  [BLESS.id]: BLESS,
+  [SHIELD.id]: SHIELD,
+  [HUNTERS_MARK.id]: HUNTERS_MARK,
 };
 
 /** Look up an authored spell definition by slug id. */

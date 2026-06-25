@@ -141,7 +141,11 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
   };
   if (spell.targeting === "area") {
     const origin =
-      spell.range.area?.shape === "cone" ? { x: 1, y: 0 } : { x: 10, y: 10 };
+      spell.range.type === "self"
+        ? { x: 0, y: 0 }
+        : spell.range.area?.shape === "cone"
+          ? { x: 1, y: 0 }
+          : { x: 10, y: 10 };
     return { ...base, origin };
   }
   if (spell.healing) {
@@ -149,6 +153,9 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
       ...base,
       targets: spell.targeting === "multi" ? ["a1", "a2"] : ["a1"],
     };
+  }
+  if (spell.targeting === "self") {
+    return { ...base, targets: ["pc:caster"] };
   }
   if (spell.projectiles) {
     return {

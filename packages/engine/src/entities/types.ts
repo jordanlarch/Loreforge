@@ -9,6 +9,7 @@
  */
 
 import type { ConditionState } from "../combat/conditions";
+import type { ActiveEffect } from "../combat/effects";
 
 export type AbilityScores = {
   str: number;
@@ -117,6 +118,8 @@ export type EntityState = {
   actionEconomy?: ActionEconomyState;
   /** Active SRD conditions (`combat/conditions.ts`). */
   conditions: ConditionState[];
+  /** Timed / concentration-bound modifiers (ENG-13). */
+  effects?: ActiveEffect[];
   /**
    * True once truly dead (three death-save failures). Distinct from being downed
    * at 0 HP (`alive === false` but `dead === false`), which is recoverable.

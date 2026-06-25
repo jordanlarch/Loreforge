@@ -205,7 +205,24 @@ export type SpellDefinition = {
   damage?: DamageComponent[];
   healing?: HealingComponent;
   upcastScaling?: UpcastScaling;
+  /** Effects applied when the spell resolves (ENG-13). */
+  appliedEffects?: SpellAppliedEffect[];
   description: string;
+};
+
+/** Declarative effect rider attached by a spell at cast time. */
+export type SpellAppliedEffect = {
+  name: string;
+  /** Who receives the effect. */
+  scope: "targets" | "caster";
+  modifier:
+    | { type: "ac_bonus"; amount: number }
+    | { type: "attack_roll_bonus"; dice: string }
+    | { type: "hunters_mark"; dice: string };
+  /** Effect ends when the caster loses concentration on this spell. */
+  concentration?: true;
+  /** Effect ends at the start of the bearer's next turn. */
+  expiresStartOfNextTurn?: true;
 };
 
 function isValidDice(notation: unknown): boolean {

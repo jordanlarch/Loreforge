@@ -19,6 +19,7 @@ import {
   saveRollingSummary,
   type RollingSummary,
 } from "./db.js";
+import { logLlmUsage, narrationModel, type LlmUsageContext } from "./llm-usage.js";
 
 /** Regenerate the summary once this many new chat entries have accumulated. */
 export const SUMMARY_EVERY = 8;
@@ -80,7 +81,11 @@ const SUMMARY_SYSTEM = [
  */
 export async function summarizeSession(
   client: LlmClient,
-  args: { priorSummary?: string; lines: readonly string[] },
+  args: {
+    priorSummary?: string;
+    lines: readonly string[];
+    usageCtx?: LlmUsageContext;
+  },
 ): Promise<string> {
   const prior = args.priorSummary?.trim();
   const prompt = [
@@ -98,7 +103,16 @@ export async function summarizeSession(
     system: SUMMARY_SYSTEM,
     messages: [{ role: "user", content: prompt }],
     tool: SUMMARIZE_TOOL,
+    model: narrationModel(),
   });
+
+  if (args.usageCtx) {
+    await logLlmUsage({
+      ctx: args.usageCtx,
+      model: res.model,
+      usage: res.usage,
+    });
+  }
   const input = res.input as { summary?: unknown };
   const text = typeof input.summary === "string" ? input.summary.trim() : "";
   if (!text) throw new Error("Model returned an empty session summary.");
@@ -130,6 +144,7 @@ export async function maybeUpdateRollingSummary(args: {
   client: LlmClient;
   /** The full current chat (from the live doc), after the latest turn. */
   chat: readonly ChatEntry[];
+  usageCtx?: LlmUsageContext;
   deps?: RollingSummaryDeps;
 }): Promise<void> {
   const deps = args.deps ?? defaultDeps;
@@ -144,6 +159,7 @@ export async function maybeUpdateRollingSummary(args: {
     const summary = await summarizeSession(args.client, {
       priorSummary: existing?.summary,
       lines,
+      usageCtx: args.usageCtx,
     });
     await deps.save(args.campaignId, { summary, coveredSeq: length });
   } catch {

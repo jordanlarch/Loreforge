@@ -33,3 +33,4 @@ export {
   type FakeLlmClient,
   type FakeResponse,
 } from "./testing";
+export { estimateLlmCostUsd } from "./cost";

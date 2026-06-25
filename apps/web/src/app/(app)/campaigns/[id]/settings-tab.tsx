@@ -139,6 +139,7 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
       </form>
 
       <InvitesSection campaignId={campaignId} />
+      <AiUsageSection campaignId={campaignId} />
       <ReputationSection campaignId={campaignId} />
 
       <MemorySection campaignId={campaignId} name={campaign.data.name} />
@@ -159,12 +160,18 @@ function inviteUrl(token: string): string {
 /** Multiplayer invite links (CAMP-14). */
 function InvitesSection({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
+  const [error, setError] = useState<string | null>(null);
   const invites = trpc.campaigns.listInvites.useQuery({ campaignId });
   const create = trpc.campaigns.createInvite.useMutation({
-    onSuccess: () => utils.campaigns.listInvites.invalidate({ campaignId }),
+    onSuccess: () => {
+      setError(null);
+      void utils.campaigns.listInvites.invalidate({ campaignId });
+    },
+    onError: (err) => setError(err.message),
   });
   const revoke = trpc.campaigns.revokeInvite.useMutation({
     onSuccess: () => utils.campaigns.listInvites.invalidate({ campaignId }),
+    onError: (err) => setError(err.message),
   });
 
   return (
@@ -177,12 +184,16 @@ function InvitesSection({ campaignId }: { campaignId: string }) {
       </p>
       <button
         type="button"
-        onClick={() => create.mutate({ campaignId, label: "Player" })}
+        onClick={() => {
+          setError(null);
+          create.mutate({ campaignId, label: "Player" });
+        }}
         disabled={create.isPending}
         className="mt-4 rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm disabled:opacity-40"
       >
         {create.isPending ? "Creating…" : "Create invite link"}
       </button>
+      {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
       <ul className="mt-4 space-y-2 text-sm">
         {(invites.data ?? []).map((inv) => (
           <li
@@ -220,10 +231,62 @@ function InvitesSection({ campaignId }: { campaignId: string }) {
   );
 }
 
+/** Estimated LLM spend for this campaign (play + account-wide generation). */
+function AiUsageSection({ campaignId }: { campaignId: string }) {
+  const usage = trpc.llm.usageSummary.useQuery({ campaignId, days: 30 });
+
+  return (
+    <section className="rounded-lg border border-lore-border bg-lore-surface p-5">
+      <h3 className="font-display text-lg">AI usage (30 days)</h3>
+      <p className="mt-1 text-sm text-lore-muted">
+        Estimated token spend for Live Play on this campaign plus Realms
+        generation on your account. Costs are approximate from published model
+        rates.
+      </p>
+      {usage.isLoading ? (
+        <p className="mt-4 text-sm text-lore-muted">Loading usage…</p>
+      ) : usage.data ? (
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+          <div className="rounded border border-lore-border px-3 py-2">
+            <dt className="text-lore-muted">This campaign (play)</dt>
+            <dd className="mt-1 font-medium">
+              ${usage.data.playCostUsd.toFixed(4)} · {usage.data.playCalls} calls
+            </dd>
+          </div>
+          <div className="rounded border border-lore-border px-3 py-2">
+            <dt className="text-lore-muted">Generation (account)</dt>
+            <dd className="mt-1 font-medium">
+              ${usage.data.generationCostUsd.toFixed(4)} ·{" "}
+              {usage.data.generationCalls} runs
+            </dd>
+          </div>
+          <div className="rounded border border-lore-border px-3 py-2">
+            <dt className="text-lore-muted">Combined estimate</dt>
+            <dd className="mt-1 font-medium text-lore-accent">
+              ${usage.data.totalCostUsd.toFixed(4)}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+      {usage.data && usage.data.bySurface.length > 0 ? (
+        <ul className="mt-4 space-y-1 text-xs text-lore-muted">
+          {usage.data.bySurface.map((row) => (
+            <li key={row.surface} className="flex justify-between gap-4">
+              <span className="capitalize">{row.surface.replace(/_/g, " ")}</span>
+              <span>
+                {row.calls} · ${row.costUsd.toFixed(4)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
 /** Campaign reputation standings (REP-1). */
 function ReputationSection({ campaignId }: { campaignId: string }) {
   const rep = trpc.campaigns.reputation.useQuery({ campaignId });
-
   return (
     <section className="rounded-lg border border-lore-border bg-lore-surface p-5">
       <h3 className="font-display text-lg">Reputation</h3>

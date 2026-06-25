@@ -16,6 +16,7 @@ import type {
 } from "../entities/types";
 import type { InitiativeEntry } from "../combat/initiative";
 import type { Condition } from "../combat/conditions";
+import type { ActiveEffect } from "../combat/effects";
 import type { Ability } from "../entities/types";
 import type { RollMode } from "../rng/dice";
 
@@ -189,6 +190,16 @@ export type ConcentrationBrokenPayload = {
   reason: "damage" | "ended" | "incapacitated" | "downed" | "recast";
 };
 
+export type EffectAppliedPayload = {
+  target: EntityRef;
+  effect: ActiveEffect;
+};
+
+export type EffectRemovedPayload = {
+  target: EntityRef;
+  effectId: string;
+};
+
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
   /** The creature whose movement opened the window. */
@@ -301,7 +312,9 @@ export type EngineEvent =
   | (EventMeta & {
       type: "SpellSlotsRestored";
       payload: SpellSlotsRestoredPayload;
-    });
+    })
+  | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
+  | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload });
 
 export type EngineEventType = EngineEvent["type"];
 

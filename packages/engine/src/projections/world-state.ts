@@ -9,6 +9,10 @@
 import { freshActionEconomy, type InitiativeEntry } from "../combat/initiative";
 import { distanceFeet } from "../combat/grid";
 import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
+import {
+  expireStartOfTurnEffects,
+  stripConcentrationEffects,
+} from "../combat/effects";
 import { attacksPerAction, createEntityState } from "../entities/abilities";
 import type {
   EntityRef,
@@ -267,9 +271,11 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       const actor = next.entities[event.payload.entity];
       if (actor) {
+        const effects = expireStartOfTurnEffects(actor, actor.id);
         // Fresh turn: refresh the reaction budget; a readied action lapses.
         next.entities[actor.id] = syncEconomy({
           ...actor,
+          effects,
           actionEconomy: freshActionEconomy(
             effectiveSpeed(actor.speed, actor.conditions),
             attacksPerAction(actor),
@@ -371,7 +377,37 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "ConcentrationBroken": {
       const target = next.entities[event.payload.entity];
       if (target) {
+        const spell = target.concentration?.spell;
         next.entities[target.id] = { ...target, concentration: undefined };
+        if (spell) {
+          next.entities = stripConcentrationEffects(
+            next.entities,
+            target.id,
+            spell,
+          );
+        }
+      }
+      break;
+    }
+    case "EffectApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        next.entities[target.id] = {
+          ...target,
+          effects: [...(target.effects ?? []), event.payload.effect],
+        };
+      }
+      break;
+    }
+    case "EffectRemoved": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        next.entities[target.id] = {
+          ...target,
+          effects: (target.effects ?? []).filter(
+            (fx) => fx.id !== event.payload.effectId,
+          ),
+        };
       }
       break;
     }

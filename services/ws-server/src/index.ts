@@ -68,6 +68,7 @@ import {
   clearCampaignChat,
   consumeTutorialItem,
   getCampaignEncounter,
+  getCampaignOwnerId,
   getCampaignParty,
   getEventStore,
   getTutorialHookStatus,
@@ -87,6 +88,8 @@ import {
   isSummaryConfigured,
   maybeUpdateRollingSummary,
 } from "./session-summary.js";
+import type { LlmUsageContext } from "./llm-usage.js";
+import type { LlmUsageSurface } from "@app/db";
 import {
   abilityLabel,
   activePlayerEntity,
@@ -133,6 +136,18 @@ const verifier = buildVerifier({
   legacySecret: LEGACY_SECRET || undefined,
 });
 const authConfigured = Boolean(SUPABASE_URL || LEGACY_SECRET);
+
+/** Resolve owner + campaign for LLM usage audit rows (campaign rooms only). */
+async function buildUsageCtx(
+  documentName: string,
+  surface: LlmUsageSurface,
+): Promise<LlmUsageContext | undefined> {
+  const parsed = parseRoom(documentName);
+  if (parsed?.kind !== "campaign") return undefined;
+  const ownerId = await getCampaignOwnerId(parsed.campaignId);
+  if (!ownerId) return undefined;
+  return { ownerId, campaignId: parsed.campaignId, surface };
+}
 
 /** A scripted tutorial trigger from the client (TUT-1). */
 type TutorialAction =
@@ -311,10 +326,12 @@ async function refreshSessionSummary(
   if (!isSummaryConfigured()) return;
   const parsed = parseRoom(documentName);
   if (parsed?.kind !== "campaign") return;
+  const usageCtx = await buildUsageCtx(documentName, "session_summary");
   await maybeUpdateRollingSummary({
     campaignId: parsed.campaignId,
     client,
     chat: chatArray(document).toArray(),
+    usageCtx,
   });
 }
 
@@ -332,6 +349,7 @@ async function composeGmReply(
   client: LlmClient,
 ): Promise<ChatEntry> {
   try {
+    const usageCtx = await buildUsageCtx(documentName, "narrate");
     const result = await narrate({
       client,
       state: await room.getState(),
@@ -340,6 +358,7 @@ async function composeGmReply(
       mode: message.mode,
       knowledge: await gmKnowledge(documentName, message.text),
       summary: await gmSessionSummary(documentName),
+      usageCtx,
     });
     return gmEntry(result.text, chatDeps, { mentions: result.mentions });
   } catch {
@@ -375,7 +394,12 @@ async function runCheck(
 
   let decision;
   try {
-    decision = await decideCheck({ client, state, playerLine: message.text });
+    decision = await decideCheck({
+      client,
+      state,
+      playerLine: message.text,
+      usageCtx: await buildUsageCtx(documentName, "check_route"),
+    });
   } catch {
     const gm = await composeGmReply(room, documentName, priorChat, message, client);
     await appendAndPersist(document, documentName, [gm]);
@@ -427,6 +451,7 @@ async function runCheck(
       outcome,
       knowledge: await gmKnowledge(documentName, message.text),
       summary: await gmSessionSummary(documentName),
+      usageCtx: await buildUsageCtx(documentName, "narrate"),
     });
     gm = gmEntry(narration.text, chatDeps, { mentions: narration.mentions });
   } catch {
@@ -535,6 +560,7 @@ async function runEnemyReactions(
             actorName: reactor.name,
             outcome: opportunityOutcome(reactor.name, mover.name, detail),
             situation: `${reactor.name} takes an opportunity attack as ${mover.name} leaves its reach.`,
+            usageCtx: await buildUsageCtx(documentName, "enemy_turn"),
           });
           await appendAndPersist(document, documentName, [
             gmEntry(narration.text, chatDeps, { mentions: narration.mentions }),
@@ -594,6 +620,7 @@ async function runReadiedTriggers(
             actorName: reactor.name,
             outcome: opportunityOutcome(reactor.name, target.name, detail),
             situation: `${reactor.name}'s readied strike triggers as ${target.name} advances into range.`,
+            usageCtx: await buildUsageCtx(documentName, "enemy_turn"),
           });
           await appendAndPersist(document, documentName, [
             gmEntry(narration.text, chatDeps, { mentions: narration.mentions }),
@@ -649,6 +676,7 @@ async function runEnemyTurns(
               state,
               monsterName: enemy.name,
               candidates,
+              usageCtx: await buildUsageCtx(documentName, "monster_target"),
             });
           } catch {
             // Best-effort; the deterministic planner still picks a target.
@@ -690,6 +718,7 @@ async function runEnemyTurns(
               recentChat: chatArray(document).toArray(),
               actorName: enemy.name,
               outcome,
+              usageCtx: await buildUsageCtx(documentName, "enemy_turn"),
             });
             await appendAndPersist(document, documentName, [
               gmEntry(narration.text, chatDeps, {

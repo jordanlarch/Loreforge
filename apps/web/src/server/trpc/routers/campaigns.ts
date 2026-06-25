@@ -44,6 +44,7 @@ import {
   logGeneration,
   persistChildren,
 } from "@/server/realms/generator";
+import { wireCascadeNpcLocations } from "@/server/realms/cascade-wiring";
 import { parseData } from "@/server/realms/schemas";
 
 /** Max foe rows + total foes per authored encounter (map seat / sanity caps). */
@@ -120,6 +121,10 @@ async function forgeEntityIntoCampaign(
   const childCount = envelope.children?.length
     ? await persistChildren(db, ownerId, parent.id, envelope.children)
     : 0;
+
+  if (childCount > 0) {
+    await wireCascadeNpcLocations(db, ownerId, parent.id);
+  }
 
   // Collect the children just linked under the parent so they join the world.
   const childRows = childCount

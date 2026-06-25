@@ -201,6 +201,7 @@ const SYSTEM_PROMPT = [
   "You MUST respond by calling the emit_entity tool with data matching its schema exactly.",
   "The app's deterministic rules engine computes all derived values (ability modifiers, saving throws, proficiency bonus, AC math) — provide only the raw inputs the schema asks for and never pre-compute or narrate math.",
   "Prefer official SRD species, classes, and terminology. Keep names evocative and concise; summaries are a single vivid sentence.",
+  "When the schema includes a `hooks` field, always provide at least 1–2 concrete adventure seeds — short strings a GM can tease at session start.",
 ].join("\n");
 
 function fieldGuidance(type: RealmEntityType): string {
@@ -272,7 +273,7 @@ function relatedLoreBlock(relatedLore: readonly string[]): string {
 /** Type-specific nudge for what the child stubs should be. */
 const CHILD_HINTS: Partial<Record<RealmEntityType, string>> = {
   region:
-    "For a Region propose its contained places as stubs: 2-4 Settlements (type 'settlement', relationshipKind 'located_in') plus optionally a notable Dungeon (type 'dungeon', 'located_in'), a Faction operating in the region (type 'faction', 'related_to'), and 1-2 notable NPCs (type 'npc', 'related_to'). Favor settlements so the region reads as populated.",
+    "For a Region propose its contained places as stubs: 2-4 Settlements (type 'settlement', relationshipKind 'located_in'), at least one notable Tavern (type 'tavern', 'located_in'), optionally a Dungeon (type 'dungeon', 'located_in'), a Faction (type 'faction', 'related_to'), and 1-2 notable NPCs (type 'npc', 'related_to'). NPC summaries MUST name the tavern or settlement they belong at (e.g. 'barkeep of the Silver Eel'). Favor settlements so the region reads as populated.",
   tavern:
     "For a Tavern these are NPCs (type 'npc'): the tavernkeeper plus 1-3 memorable regular patrons, each related to the tavern (relationshipKind 'related_to').",
   shop:

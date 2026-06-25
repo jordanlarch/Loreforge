@@ -100,7 +100,10 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
   }
 
   const run = trpc.campaigns.runEncounter.useMutation({
-    onSuccess: () => router.push(`/campaigns/${campaignId}/play`),
+    onSuccess: (_data, { encounterId }) =>
+      router.push(
+        `/campaigns/${campaignId}/play?arm=${encodeURIComponent(encounterId)}`,
+      ),
   });
   const remove = trpc.campaigns.deleteEncounter.useMutation({
     onSuccess: refresh,

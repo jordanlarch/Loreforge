@@ -7,10 +7,13 @@ import { CampaignPlaySurface, SandboxPlaySurface } from "./play-surface";
  */
 export default async function PlayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ arm?: string }>;
 }) {
   const { id } = await params;
+  const { arm } = await searchParams;
   if (id === "sandbox") return <SandboxPlaySurface />;
-  return <CampaignPlaySurface campaignId={id} />;
+  return <CampaignPlaySurface campaignId={id} reloadKey={arm} />;
 }

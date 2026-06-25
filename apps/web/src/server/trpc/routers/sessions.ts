@@ -129,7 +129,9 @@ export const sessionsRouter = createTRPCRouter({
 
       const endSeq = rows[rows.length - 1]!.seq + 1;
       const lines = rows
-        .filter((r) => r.kind === "player" || r.kind === "gm")
+        .filter(
+          (r) => r.kind === "player" || r.kind === "gm" || r.kind === "event",
+        )
         .map((r) => `${r.author}: ${r.text}`);
 
       const [session] = await db

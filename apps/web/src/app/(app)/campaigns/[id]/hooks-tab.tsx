@@ -14,6 +14,7 @@ import {
   type PendingRealmHook,
 } from "@/lib/campaign-hooks";
 import { trpc } from "@/lib/trpc/client";
+import { parseQuestInstanceData } from "@app/engine";
 
 type Hook = {
   id: string;
@@ -21,6 +22,7 @@ type Hook = {
   summary: string;
   status: string;
   sourceEntityId: string | null;
+  data?: unknown;
   createdAt: Date | string;
   updatedAt: Date | string;
 };
@@ -87,7 +89,7 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl">Plot Hooks</h2>
+        <h2 className="font-display text-2xl">Quests</h2>
         <div className="flex rounded border border-lore-border text-sm">
           <ViewToggle
             active={view === "kanban"}
@@ -420,7 +422,7 @@ function NewHookForm({
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="New hook title"
+        placeholder="New quest title"
         maxLength={200}
         className="min-w-[12rem] flex-1 rounded border border-lore-border bg-lore-bg px-3 py-1.5 text-sm outline-none focus:border-lore-accent"
       />
@@ -436,7 +438,7 @@ function NewHookForm({
         disabled={create.isPending || title.trim().length === 0}
         className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
       >
-        {create.isPending ? "Adding…" : "Add hook"}
+        {create.isPending ? "Adding…" : "Add quest"}
       </button>
     </form>
   );
@@ -462,6 +464,8 @@ function HookDetail({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(hook.title);
   const [summary, setSummary] = useState(hook.summary);
+  const instance = parseQuestInstanceData(hook.data);
+  const template = instance.templateSnapshot;
 
   const update = trpc.hooks.update.useMutation({
     onSuccess: async () => {
@@ -557,6 +561,52 @@ function HookDetail({
             Open linked entity →
           </Link>
         </p>
+      )}
+
+      {!editing && template && (
+        <div className="mt-4 space-y-3 border-t border-lore-border pt-4 text-sm">
+          {template.gmInstructions && (
+            <div>
+              <p className="text-xs uppercase tracking-widest text-lore-muted">
+                GM instructions
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-lore-muted">
+                {template.gmInstructions}
+              </p>
+            </div>
+          )}
+          {(template.steps ?? []).length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-widest text-lore-muted">
+                Steps
+              </p>
+              <ol className="mt-1 list-decimal space-y-1 pl-5 text-lore-muted">
+                {(template.steps ?? []).map((step) => (
+                  <li
+                    key={step.id}
+                    className={
+                      step.id === instance.currentStepId
+                        ? "font-medium text-lore-text"
+                        : undefined
+                    }
+                  >
+                    {step.title}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {hook.status === "open" && (
+            <button
+              type="button"
+              onClick={() => onSetStatus("active")}
+              disabled={statusBusy}
+              className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm disabled:opacity-40"
+            >
+              Start quest → Active
+            </button>
+          )}
+        </div>
       )}
 
       {!editing && (

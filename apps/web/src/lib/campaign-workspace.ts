@@ -11,7 +11,7 @@ export type CampaignTabSlug =
   | "overview"
   | "party"
   | "world"
-  | "hooks"
+  | "quests"
   | "sessions"
   | "map"
   | "combat"
@@ -27,7 +27,7 @@ export const CAMPAIGN_WORKSPACE_TABS: readonly CampaignTab[] = [
   { slug: "overview", label: "Overview" },
   { slug: "party", label: "Party" },
   { slug: "world", label: "World" },
-  { slug: "hooks", label: "Hooks" },
+  { slug: "quests", label: "Quests" },
   { slug: "sessions", label: "Sessions" },
   { slug: "map", label: "World Map" },
   { slug: "combat", label: "Combat" },
@@ -39,6 +39,7 @@ export const DEFAULT_CAMPAIGN_TAB: CampaignTabSlug = "overview";
 
 /** Resolve a raw `?tab=` value to a known slug, falling back to the default. */
 export function resolveCampaignTab(raw: string | null | undefined): CampaignTabSlug {
+  if (raw === "hooks") return "quests";
   const match = CAMPAIGN_WORKSPACE_TABS.find((t) => t.slug === raw);
   return match ? match.slug : DEFAULT_CAMPAIGN_TAB;
 }

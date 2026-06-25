@@ -202,6 +202,8 @@ export async function narrate(args: {
   /** Rolling session summary (MEM-3): the "story so far" for this session.
    * Optional; empty before the first summary or when unconfigured. */
   summary?: string;
+  /** Active quest GM instructions (Phase C hot context). */
+  questContext?: string;
   /** When set, token usage is persisted for cost observability. */
   usageCtx?: LlmUsageContext;
 }): Promise<NarrationResult> {
@@ -213,6 +215,7 @@ export async function narrate(args: {
   const prompt = [
     scene ? `Scene: ${scene}` : "",
     summaryBlock(args.summary),
+    args.questContext?.trim() ? args.questContext.trim() : "",
     names.length > 0 ? `Entities present: ${names.join(", ")}.` : "",
     knowledgeBlock(args.knowledge),
     history.length > 0 ? `Recent exchange:\n${history.join("\n")}` : "",

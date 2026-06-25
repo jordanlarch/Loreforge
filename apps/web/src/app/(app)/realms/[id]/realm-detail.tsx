@@ -16,6 +16,7 @@ import {
 } from "@/lib/realms";
 
 import { EntityForm } from "../entity-form";
+import { QuestsSection } from "./quests-section";
 import { RelationshipPanel } from "./relationship-panel";
 
 const ABILITY_LABELS: Record<Ability, string> = {
@@ -194,16 +195,26 @@ export function RealmEntityDetail({ id }: { id: string }) {
           regenerating={regenerate.isPending}
         />
       ) : (
-        <DescriptiveView
-          type={type}
-          data={entity.data}
-          onRegenerate={
-            configured && !entity.isStub
-              ? (fields) => regenerate.mutate({ id: entity.id, fields })
-              : undefined
-          }
-          regenerating={regenerate.isPending}
-        />
+        <>
+          <QuestsSection
+            entityId={entity.id}
+            entityType={type}
+            name={entity.name}
+            summary={entity.summary}
+            isStub={entity.isStub}
+            data={entity.data as Record<string, unknown>}
+          />
+          <DescriptiveView
+            type={type}
+            data={entity.data}
+            onRegenerate={
+              configured && !entity.isStub
+                ? (fields) => regenerate.mutate({ id: entity.id, fields })
+                : undefined
+            }
+            regenerating={regenerate.isPending}
+          />
+        </>
       )}
 
       {!editing && <RelationshipPanel entityId={entity.id} />}

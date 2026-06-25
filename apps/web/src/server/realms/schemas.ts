@@ -96,7 +96,10 @@ function buildFieldsSchema(fields: readonly RealmFieldDescriptor[]) {
       shape[field.key] = scalarSchema(field);
     }
   }
-  return z.object(shape);
+  return z.object(shape).extend({
+    /** Structured quest templates (Phase B); coexists with legacy `hooks` strings. */
+    quests: z.array(z.record(z.string(), z.unknown())).max(50).optional(),
+  });
 }
 
 function typeHasHooks(type: RealmEntityType): boolean {

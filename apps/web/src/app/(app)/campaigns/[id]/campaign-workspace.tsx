@@ -139,7 +139,7 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
           <PartyTab campaignId={campaignId} />
         ) : active === "world" ? (
           <WorldTab campaignId={campaignId} />
-        ) : active === "hooks" ? (
+        ) : active === "quests" ? (
           <HooksTab campaignId={campaignId} />
         ) : active === "sessions" ? (
           <SessionsTab campaignId={campaignId} />

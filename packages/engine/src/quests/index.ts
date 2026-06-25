@@ -19,3 +19,21 @@ export {
   resolveQuestTeaseTextWithInheritance,
 } from "./inherit";
 export { formatQuestTeaseLine, resolveQuestTeaseText } from "./triggers";
+export {
+  buildQuestInstanceDataFromTemplate,
+  parseQuestInstanceData,
+  snapshotQuestTemplate,
+  templateFromInstance,
+  type QuestInstanceData,
+  type QuestInstanceRef,
+  type QuestInstanceStatus,
+} from "./instance";
+export {
+  buildActiveQuestHotContext,
+  formatQuestBriefingLine,
+  formatQuestOfferLine,
+  markBriefingDelivered,
+  pendingQuestBriefings,
+  playerTextReferencesNpc,
+  resolveQuestOfferForNpc,
+} from "./runtime";

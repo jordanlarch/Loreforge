@@ -226,6 +226,7 @@ export {
 } from "./content/weapons";
 export { fullCasterSlots } from "./content/spell-slots";
 export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
+export { isSpellPrepared, spellNameToId } from "./content/spell-id";
 export {
   cantripDamageDice,
   spellAttackBonus,

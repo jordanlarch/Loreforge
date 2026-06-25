@@ -102,6 +102,9 @@ export function createEntityState(init: EntityInit): EntityState {
           spellcasting: {
             ability: init.spellcasting.ability,
             slots: fullCasterSlots(init.spellcasting.casterLevel ?? level),
+            ...(init.spellcasting.preparedSpellIds
+              ? { preparedSpellIds: [...init.spellcasting.preparedSpellIds] }
+              : {}),
           },
         }
       : {}),

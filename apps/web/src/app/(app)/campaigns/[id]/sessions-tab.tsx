@@ -5,6 +5,11 @@ import { useState } from "react";
 import { recapDisplay, sessionMessageCount } from "@/lib/sessions";
 import { trpc } from "@/lib/trpc/client";
 
+import {
+  PostSessionPins,
+  type EndedSessionState,
+} from "./post-session-pins";
+
 type Session = {
   id: string;
   startSeq: number;
@@ -13,25 +18,28 @@ type Session = {
   endedAt: Date | string;
 };
 
-/** The just-ended session shown in the post-session memory-pin step (PLAY-12). */
-type EndedSession = { recap: string; pending: boolean };
+const DETAIL_TABS = ["Recap", "Transcript", "Combat"] as const;
+type DetailTab = (typeof DETAIL_TABS)[number];
 
 /**
- * Sessions tab (#151, CAMP-6): the session log + recap cards, driven by the
- * MEM-4 `sessions` API. Lists ended sessions newest-first and lets the DM end the
- * current session (records the chat span + generates/embeds a recap). Ending a
- * session opens the memory-pin step (PLAY-12) to capture durable facts. The
- * per-session deep view (Transcript/Combat/Events/Loot/Media) is a later slice.
+ * Sessions tab (#151, CAMP-6): session log + recap cards + per-session deep view
+ * (Recap / Transcript / Combat). Ending a session opens the memory-pin step
+ * (PLAY-12).
  */
 export function SessionsTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
   const sessions = trpc.sessions.list.useQuery({ campaignId });
-  const [ended, setEnded] = useState<EndedSession | null>(null);
+  const [ended, setEnded] = useState<EndedSessionState | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const end = trpc.sessions.end.useMutation({
     onSuccess: async (res) => {
       await utils.sessions.list.invalidate({ campaignId });
-      setEnded({ recap: res.session.recap ?? "", pending: res.recapPending });
+      setEnded({
+        recap: res.session.recap ?? "",
+        pending: res.recapPending,
+      });
+      setSelectedId(res.session.id);
     },
   });
 
@@ -77,152 +85,185 @@ export function SessionsTab({ campaignId }: { campaignId: string }) {
           No sessions yet. End a live session to record its recap here.
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {list.map((session, i) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              ordinal={list.length - i}
-            />
-          ))}
-        </ul>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <ul className="flex flex-col gap-3">
+            {list.map((session, i) => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                ordinal={list.length - i}
+                selected={selectedId === session.id}
+                onSelect={() =>
+                  setSelectedId((prev) =>
+                    prev === session.id ? null : session.id,
+                  )
+                }
+              />
+            ))}
+          </ul>
+          {selectedId ? (
+            <SessionDetail campaignId={campaignId} sessionId={selectedId} />
+          ) : (
+            <p className="hidden rounded-lg border border-dashed border-lore-border p-8 text-center text-sm text-lore-muted lg:block">
+              Select a session to view its recap and transcript.
+            </p>
+          )}
+        </div>
       )}
     </div>
-  );
-}
-
-/**
- * Memory-pin step shown right after a session ends (PLAY-12): surfaces the
- * fresh recap and lets the DM quickly capture durable facts as pinned memories
- * (MEM-8) the AI-GM will keep in mind next session. Reuses `pins.create`.
- */
-function PostSessionPins({
-  campaignId,
-  ended,
-  onClose,
-}: {
-  campaignId: string;
-  ended: EndedSession;
-  onClose: () => void;
-}) {
-  const utils = trpc.useUtils();
-  const [content, setContent] = useState("");
-  const [pinned, setPinned] = useState<string[]>([]);
-
-  const pin = trpc.pins.create.useMutation({
-    onSuccess: async (row) => {
-      if (row) setPinned((prev) => [row.content, ...prev]);
-      setContent("");
-      await utils.pins.list.invalidate({ campaignId });
-    },
-  });
-
-  function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    const trimmed = content.trim();
-    if (trimmed.length === 0) return;
-    pin.mutate({ campaignId, content: trimmed });
-  }
-
-  const recap = recapDisplay(ended.recap);
-
-  return (
-    <section className="rounded-lg border border-lore-accent bg-lore-accent-dim p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-display text-lg text-lore-text">Session ended</h3>
-          <p className="mt-1 text-sm text-lore-muted">
-            Pin any key facts the AI-GM should keep in mind next session.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="shrink-0 rounded border border-lore-border px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
-        >
-          Done
-        </button>
-      </div>
-
-      <div className="mt-3 rounded border border-lore-border bg-lore-bg p-3">
-        <span className="text-xs uppercase tracking-widest text-lore-muted">
-          Recap
-        </span>
-        <p
-          className={`mt-1 whitespace-pre-wrap text-sm ${
-            ended.pending || recap.muted
-              ? "italic text-lore-muted"
-              : "text-lore-text"
-          }`}
-        >
-          {ended.pending && !ended.recap
-            ? "The recap is being generated…"
-            : recap.text}
-        </p>
-      </div>
-
-      <form onSubmit={onSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          maxLength={2000}
-          placeholder="e.g. The party swore an oath to the Ashen Hand."
-          className="min-w-0 flex-1 rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
-        />
-        <button
-          type="submit"
-          disabled={pin.isPending || content.trim().length === 0}
-          className="shrink-0 rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
-        >
-          {pin.isPending ? "Pinning…" : "📌 Pin fact"}
-        </button>
-      </form>
-      {pin.error && (
-        <p className="mt-2 text-sm text-red-400">{pin.error.message}</p>
-      )}
-
-      {pinned.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1.5">
-          {pinned.map((text, idx) => (
-            <li key={idx} className="text-sm text-lore-text">
-              📌 {text}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 
 function SessionCard({
   session,
   ordinal,
+  selected,
+  onSelect,
 }: {
   session: Session;
   ordinal: number;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const recap = recapDisplay(session.recap);
   const messages = sessionMessageCount(session.startSeq, session.endSeq);
   const ended = new Date(session.endedAt);
 
   return (
-    <li className="rounded-lg border border-lore-border bg-lore-surface p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-display text-lg text-lore-text">
-          Session {ordinal}
-        </h3>
-        <span className="text-xs text-lore-muted">
-          {ended.toLocaleString()} · {messages}{" "}
-          {messages === 1 ? "message" : "messages"}
-        </span>
-      </div>
-      <p
-        className={`mt-2 whitespace-pre-wrap text-sm ${
-          recap.muted ? "italic text-lore-muted" : "text-lore-text"
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`w-full rounded-lg border p-4 text-left transition-colors ${
+          selected
+            ? "border-lore-accent bg-lore-accent-dim"
+            : "border-lore-border bg-lore-surface hover:border-lore-accent/60"
         }`}
       >
-        {recap.text}
-      </p>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="font-display text-lg text-lore-text">
+            Session {ordinal}
+          </h3>
+          <span className="text-xs text-lore-muted">
+            {ended.toLocaleString()} · {messages}{" "}
+            {messages === 1 ? "message" : "messages"}
+          </span>
+        </div>
+        <p
+          className={`mt-2 line-clamp-3 whitespace-pre-wrap text-sm ${
+            recap.muted ? "italic text-lore-muted" : "text-lore-text"
+          }`}
+        >
+          {recap.text}
+        </p>
+      </button>
     </li>
+  );
+}
+
+function SessionDetail({
+  campaignId,
+  sessionId,
+}: {
+  campaignId: string;
+  sessionId: string;
+}) {
+  const [tab, setTab] = useState<DetailTab>("Recap");
+  const detail = trpc.sessions.get.useQuery({ campaignId, sessionId });
+
+  if (detail.isLoading) {
+    return (
+      <p className="text-sm text-lore-muted lg:sticky lg:top-4">
+        Loading session…
+      </p>
+    );
+  }
+  if (!detail.data) {
+    return (
+      <p className="text-sm text-lore-muted lg:sticky lg:top-4">
+        Session not found.
+      </p>
+    );
+  }
+
+  const { session, messages } = detail.data;
+  const recap = recapDisplay(session.recap);
+  const narrative = messages.filter(
+    (m) => m.kind === "player" || m.kind === "gm" || m.kind === "ooc",
+  );
+  const combat = messages.filter(
+    (m) => m.kind === "event" || m.kind === "roll",
+  );
+
+  return (
+    <section className="rounded-lg border border-lore-border bg-lore-surface p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+      <div className="mb-3 flex flex-wrap gap-2">
+        {DETAIL_TABS.map((label) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setTab(label)}
+            className={`rounded border px-3 py-1 text-xs transition-colors ${
+              tab === label
+                ? "border-lore-accent bg-lore-accent-dim text-lore-text"
+                : "border-lore-border text-lore-muted hover:text-lore-text"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "Recap" && (
+        <p
+          className={`whitespace-pre-wrap text-sm ${
+            recap.muted ? "italic text-lore-muted" : "text-lore-text"
+          }`}
+        >
+          {recap.text}
+        </p>
+      )}
+
+      {tab === "Transcript" && (
+        <TranscriptList
+          rows={narrative}
+          empty="No player or GM messages in this session span."
+        />
+      )}
+
+      {tab === "Combat" && (
+        <TranscriptList
+          rows={combat}
+          empty="No engine events or rolls recorded for this session."
+        />
+      )}
+    </section>
+  );
+}
+
+function TranscriptList({
+  rows,
+  empty,
+}: {
+  rows: { author: string; text: string; kind: string }[];
+  empty: string;
+}) {
+  if (rows.length === 0) {
+    return <p className="text-sm italic text-lore-muted">{empty}</p>;
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {rows.map((row, i) => (
+        <li
+          key={i}
+          className="rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm"
+        >
+          <span className="text-xs uppercase tracking-wide text-lore-muted">
+            {row.kind === "gm" ? "GM" : row.kind === "player" ? row.author : row.kind}
+          </span>
+          <p className="mt-0.5 whitespace-pre-wrap text-lore-text">{row.text}</p>
+        </li>
+      ))}
+    </ul>
   );
 }

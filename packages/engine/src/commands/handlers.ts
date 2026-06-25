@@ -16,6 +16,7 @@ import {
   withinCone,
 } from "../combat/grid";
 import { getSpell } from "../content/spell-registry";
+import { isSpellPrepared } from "../content/spell-id";
 import {
   cantripDamageDice,
   spellAttackBonus,
@@ -1638,6 +1639,13 @@ function handleCastSpell(
   }
   if (!caster.spellcasting) {
     return reject("NOT_A_SPELLCASTER", `${caster.name} cannot cast spells.`);
+  }
+  if (!isSpellPrepared(caster.spellcasting.preparedSpellIds, spell.id)) {
+    return reject(
+      "SPELL_NOT_PREPARED",
+      `${caster.name} does not have ${spell.name} prepared or known.`,
+      { spellId: spell.id },
+    );
   }
   const casterLevel = totalLevel(caster.classes);
 

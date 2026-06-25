@@ -66,12 +66,14 @@ import {
   deriveWeaponAttacks,
   genericStrike,
   preparedSpellNames,
+  quickUseItems,
   sheetCastableSpells,
   type WeaponAttack,
 } from "@/lib/sheet-loadout";
 import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
 import { ChatZone } from "./chat-zone";
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
+import { CharacterHud } from "./character-hud";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { GraduationModal } from "./graduation-modal";
 import { LivePlayTopBar } from "./live-top-bar";
@@ -83,6 +85,11 @@ import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
 import { useSceneTransition, useCombatTransition } from "./use-scene-transition";
 import { useLiveSession } from "./use-live-session";
+
+import {
+  PostSessionPins,
+  type EndedSessionState,
+} from "../post-session-pins";
 import { mergeChatEntries } from "@/lib/scene-transition-chat";
 import type { ChatEntry } from "@/lib/live-chat";
 import { TUTORIAL_SHOP } from "@/lib/tutorial-shop";
@@ -293,9 +300,15 @@ function LiveBattle({
   // then return to the workspace Sessions tab where the recap appears. Only for
   // real campaigns (the sandbox has nothing to record against).
   const router = useRouter();
+  const [endedSession, setEndedSession] = useState<EndedSessionState | null>(
+    null,
+  );
   const endSession = trpc.sessions.end.useMutation({
-    onSettled: () => {
-      if (campaignId) router.push(`/campaigns/${campaignId}?tab=sessions`);
+    onSuccess: (res) => {
+      setEndedSession({
+        recap: res.session.recap ?? "",
+        pending: res.recapPending,
+      });
     },
   });
 
@@ -808,10 +821,15 @@ function LiveBattle({
             )}
 
             {activeEntity ? (
-              <CompactCharacterHud
-                pc={activeEntity}
-                openSheet={openSheet}
-                hudExtra={hudExtra}
+              <CharacterHud
+                session={session}
+                weapons={weapons}
+                items={
+                  activeSheet
+                    ? quickUseItems(activeSheet.equipment)
+                    : undefined
+                }
+                onViewSheet={openSheet}
               />
             ) : null}
           </>
@@ -833,6 +851,20 @@ function LiveBattle({
           characterId={pcCharacterId}
           onClose={() => setSheetOpen(false)}
         />
+      ) : null}
+      {endedSession && campaignId ? (
+        <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-[8vh]">
+          <div className="w-full max-w-xl">
+            <PostSessionPins
+              campaignId={campaignId}
+              ended={endedSession}
+              onClose={() => {
+                setEndedSession(null);
+                router.push(`/campaigns/${campaignId}?tab=sessions`);
+              }}
+            />
+          </div>
+        </div>
       ) : null}
     </>
   );
@@ -900,6 +932,7 @@ export function CampaignPlaySurface({ campaignId }: { campaignId: string }) {
       loadouts={loadouts}
       campaignId={campaignId}
       pcCharacterId={pcCharacterId}
+      partyRoster={partyQuery.data}
     />
   );
 }

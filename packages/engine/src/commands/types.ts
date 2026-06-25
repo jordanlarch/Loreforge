@@ -314,6 +314,7 @@ export type ValidationCode =
   | "NOT_PROVOKED"
   | "NO_READIED_ACTION"
   | "SPELL_NOT_FOUND"
+  | "SPELL_NOT_PREPARED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "OUT_OF_RANGE";

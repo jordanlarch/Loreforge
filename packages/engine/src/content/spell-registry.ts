@@ -1000,6 +1000,245 @@ const HUNGER_OF_HADAR: SpellDefinition = {
     "Each creature in a 20-foot-radius sphere makes a Dexterity saving throw when the spell is cast, taking 2d6 cold damage on a failed save (blindness + acid on later turns narrated).",
 };
 
+// ───────────────────────── Batch 6 (ENG-2) ─────────────────────────
+
+/** Frostbite — Con save or 1d6 cold (cantrip). */
+const FROSTBITE: SpellDefinition = {
+  id: "frostbite",
+  name: "Frostbite",
+  level: 0,
+  school: "evocation",
+  classes: ["Druid", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d6", type: "cold" }],
+  description:
+    "The target makes a Constitution saving throw, taking 1d6 cold damage on a failed save (disadvantage on the next weapon attack narrated).",
+};
+
+/** Sapping Sting — Con save or 1d4 necrotic (cantrip). */
+const SAPPING_STING: SpellDefinition = {
+  id: "sapping-sting",
+  name: "Sapping Sting",
+  level: 0,
+  school: "necromancy",
+  classes: ["Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d4", type: "necrotic" }],
+  description:
+    "The target makes a Constitution saving throw, taking 1d4 necrotic damage on a failed save (prone if Large or smaller narrated).",
+};
+
+/** Create Bonfire — 5-ft cube, Dex save or 1d8 fire (concentration cantrip). */
+const CREATE_BONFIRE: SpellDefinition = {
+  id: "create-bonfire",
+  name: "Create Bonfire",
+  level: 0,
+  school: "conjuration",
+  classes: ["Druid", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "cube", size: 5 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d8", type: "fire" }],
+  description:
+    "Creatures in the 5-foot cube when the spell appears make a Dexterity saving throw, taking 1d8 fire damage on a failed save (ongoing damage narrated).",
+};
+
+/** Green-Flame Blade — melee spell attack for 1d8 fire. */
+const GREEN_FLAME_BLADE: SpellDefinition = {
+  id: "green-flame-blade",
+  name: "Green-Flame Blade",
+  level: 0,
+  school: "evocation",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true, material: "a melee weapon worth at least 1 sp" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "melee" },
+  damage: [{ dice: "1d8", type: "fire" }],
+  description:
+    "Make a melee spell attack. On a hit, the target takes 1d8 fire damage (leaping flame to a second target narrated).",
+};
+
+/** Booming Blade — melee spell attack for 1d8 thunder. */
+const BOOMING_BLADE: SpellDefinition = {
+  id: "booming-blade",
+  name: "Booming Blade",
+  level: 0,
+  school: "evocation",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 5 },
+  components: { verbal: true, somatic: true, material: "a melee weapon worth at least 1 sp" },
+  duration: { unit: "round", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "melee" },
+  damage: [{ dice: "1d8", type: "thunder" }],
+  description:
+    "Make a melee spell attack. On a hit, the target takes 1d8 thunder damage (extra damage if it willingly moves narrated).",
+};
+
+/** Thunderwave — 15-ft emanation, Con save or 2d8 thunder. */
+const THUNDERWAVE: SpellDefinition = {
+  id: "thunderwave",
+  name: "Thunderwave",
+  level: 1,
+  school: "evocation",
+  classes: ["Bard", "Druid", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "sphere", size: 15 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "2d8", type: "thunder" }],
+  description:
+    "Each creature in a 15-foot cube originating from you makes a Constitution saving throw, taking 2d8 thunder damage on a failed save (push narrated).",
+};
+
+/** Ice Knife — ranged spell attack for 1d10 piercing. */
+const ICE_KNIFE: SpellDefinition = {
+  id: "ice-knife",
+  name: "Ice Knife",
+  level: 1,
+  school: "conjuration",
+  classes: ["Druid", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "a drop of water or piece of ice" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d10", type: "piercing" }],
+  upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
+  description:
+    "Make a ranged spell attack. On a hit, the target takes 1d10 piercing damage (Dex-save splash narrated).",
+};
+
+/** Shield of Faith — +2 AC on one ally (concentration). */
+const SHIELD_OF_FAITH: SpellDefinition = {
+  id: "shield-of-faith",
+  name: "Shield of Faith",
+  level: 1,
+  school: "abjuration",
+  classes: ["Cleric", "Paladin"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "a small parchment with a bit of holy text" },
+  duration: { unit: "minute", amount: 10 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Shield of Faith",
+      scope: "targets",
+      modifier: { type: "ac_bonus", amount: 2 },
+      concentration: true,
+    },
+  ],
+  description:
+    "A shimmering field surrounds a creature, granting a +2 bonus to AC for the duration.",
+};
+
+/** Mage Armor — +3 AC on self (8 hours). */
+const MAGE_ARMOR: SpellDefinition = {
+  id: "mage-armor",
+  name: "Mage Armor",
+  level: 1,
+  school: "abjuration",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true, material: "a piece of cured leather" },
+  duration: { unit: "hour", amount: 8 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Mage Armor",
+      scope: "targets",
+      modifier: { type: "ac_bonus", amount: 3 },
+    },
+  ],
+  description:
+    "The target's base AC becomes 13 + its Dexterity modifier (simplified as +3 AC bonus at tracer depth).",
+};
+
+/** Barkskin — +2 AC on one ally (concentration; min AC 16 narrated). */
+const BARKSKIN: SpellDefinition = {
+  id: "barkskin",
+  name: "Barkskin",
+  level: 2,
+  school: "transmutation",
+  classes: ["Druid", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true, material: "a handful of oak bark" },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Barkskin",
+      scope: "targets",
+      modifier: { type: "ac_bonus", amount: 2 },
+      concentration: true,
+    },
+  ],
+  description:
+    "The target's skin becomes bark-like; its AC can't be less than 16 (simplified as +2 AC at tracer depth).",
+};
+
+/** Goodberry — up to six creatures regain 1 HP each. */
+const GOODBERRY: SpellDefinition = {
+  id: "goodberry",
+  name: "Goodberry",
+  level: 1,
+  school: "transmutation",
+  classes: ["Druid", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a sprig of mistletoe" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  healing: { dice: "1d1", addSpellMod: false },
+  description:
+    "Up to six creatures regain 1 hit point each (berries as rations narrated).",
+};
+
 // ───────────────────────── Batch 5 (ENG-13 proof spells) ─────────────────
 
 /** Bless — up to three allies gain +1d4 on attack rolls (concentration). */
@@ -1128,6 +1367,17 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [VAMPIRIC_TOUCH.id]: VAMPIRIC_TOUCH,
   [SPIRIT_GUARDIANS.id]: SPIRIT_GUARDIANS,
   [HUNGER_OF_HADAR.id]: HUNGER_OF_HADAR,
+  [FROSTBITE.id]: FROSTBITE,
+  [SAPPING_STING.id]: SAPPING_STING,
+  [CREATE_BONFIRE.id]: CREATE_BONFIRE,
+  [GREEN_FLAME_BLADE.id]: GREEN_FLAME_BLADE,
+  [BOOMING_BLADE.id]: BOOMING_BLADE,
+  [THUNDERWAVE.id]: THUNDERWAVE,
+  [ICE_KNIFE.id]: ICE_KNIFE,
+  [SHIELD_OF_FAITH.id]: SHIELD_OF_FAITH,
+  [MAGE_ARMOR.id]: MAGE_ARMOR,
+  [BARKSKIN.id]: BARKSKIN,
+  [GOODBERRY.id]: GOODBERRY,
   [BLESS.id]: BLESS,
   [SHIELD.id]: SHIELD,
   [HUNTERS_MARK.id]: HUNTERS_MARK,

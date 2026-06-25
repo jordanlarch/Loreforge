@@ -27,8 +27,10 @@ import {
 } from "@app/db";
 import {
   expandEncounterFoes,
+  getSpell,
   meleeReachFromEquipment,
   monsterTemplate,
+  spellNameToId,
   totalLevel,
   xpForLevel,
   TUTORIAL_CHEST_LOOT,
@@ -77,6 +79,31 @@ function castingAbilityFor(classes: { class: string }[]): Ability {
   return "cha";
 }
 
+/** ENG-12: cantrips + prepared registry ids from a character spell loadout. */
+function preparedSpellIdsFromSheet(
+  loadout:
+    | {
+        spells?: {
+          name: string;
+          level: number;
+          prepared: boolean;
+          alwaysPrepared?: boolean;
+        }[];
+      }
+    | null
+    | undefined,
+): string[] | undefined {
+  const list = loadout?.spells ?? [];
+  if (list.length === 0) return undefined;
+  const ids: string[] = [];
+  for (const row of list) {
+    if (row.level !== 0 && !row.prepared && !row.alwaysPrepared) continue;
+    const id = spellNameToId(row.name);
+    if (getSpell(id)) ids.push(id);
+  }
+  return ids.length > 0 ? ids : undefined;
+}
+
 /**
  * The active party roster for a campaign, as engine-ready {@link PartyMember}s
  * (#98). Joins `campaign_characters` (active PCs + companions) to `characters`
@@ -118,6 +145,9 @@ export async function getCampaignParty(
     const meleeReachFt = meleeReachFromEquipment(
       Array.isArray(row.equipment) ? row.equipment : [],
     );
+    const preparedSpellIds = isCaster
+      ? preparedSpellIdsFromSheet(row.spells)
+      : undefined;
     return {
       id: row.id,
       name: row.name,
@@ -132,6 +162,7 @@ export async function getCampaignParty(
             spellcasting: {
               ability: castingAbilityFor(row.classes),
               casterLevel: totalLevel(row.classes),
+              ...(preparedSpellIds ? { preparedSpellIds } : {}),
             },
           }
         : {}),

@@ -40,7 +40,9 @@ import {
   TUTORIAL_FIRST_SCENE_ID,
   TUTORIAL_OIL_NAME,
   type Ability,
+  type CampaignStartingLocation,
   type EventStore,
+  type ExplorableRealmType,
   type FoeSpec,
   type PartyMember,
   type TutorialLootItem,
@@ -178,7 +180,7 @@ export async function getCampaignParty(
  * scene name + engine-ready {@link FoeSpec}s. Reads `campaigns.activeEncounterId`
  * → the `encounters` row → expands its template×count roster through the engine
  * monster catalog. Returns `undefined` when no encounter is armed (or it resolves
- * to no foes), so the room falls back to the default goblin ambush.
+ * to no foes), so the room opens in exploration mode instead.
  */
 export async function getCampaignEncounter(
   campaignId: string,
@@ -321,6 +323,75 @@ export async function loadCampaignWorldEntities(
         eq(campaignWorldEntities.ownerId, ownerId),
       ),
     );
+}
+
+const EXPLORABLE_REALM_TYPES: ExplorableRealmType[] = [
+  "tavern",
+  "settlement",
+  "building",
+  "shop",
+  "region",
+  "dungeon",
+];
+
+const STARTING_LOCATION_PRIORITY: Record<ExplorableRealmType, number> = {
+  tavern: 0,
+  settlement: 1,
+  building: 2,
+  shop: 3,
+  region: 4,
+  dungeon: 5,
+};
+
+/**
+ * The first explorable World-tab location for a campaign's Live Play bootstrap
+ * (Rung 4). Prefers tavern → settlement → building → shop → region → dungeon;
+ * among ties, earliest `addedAt` wins. Returns `undefined` when the campaign
+ * has no qualifying world members (caller should use `DEFAULT_STARTING_LOCATION`).
+ */
+export async function getCampaignStartingLocation(
+  campaignId: string,
+): Promise<CampaignStartingLocation | undefined> {
+  const ownerId = await getCampaignOwnerId(campaignId);
+  if (!ownerId) return undefined;
+
+  const rows = await getDb()
+    .select({
+      entityId: campaignWorldEntities.entityId,
+      addedAt: campaignWorldEntities.addedAt,
+      name: realmEntities.name,
+      summary: realmEntities.summary,
+      type: realmEntities.type,
+    })
+    .from(campaignWorldEntities)
+    .innerJoin(
+      realmEntities,
+      eq(realmEntities.id, campaignWorldEntities.entityId),
+    )
+    .where(
+      and(
+        eq(campaignWorldEntities.campaignId, campaignId),
+        eq(campaignWorldEntities.ownerId, ownerId),
+        inArray(realmEntities.type, EXPLORABLE_REALM_TYPES),
+      ),
+    );
+
+  if (rows.length === 0) return undefined;
+
+  rows.sort((a, b) => {
+    const pa = STARTING_LOCATION_PRIORITY[a.type as ExplorableRealmType] ?? 99;
+    const pb = STARTING_LOCATION_PRIORITY[b.type as ExplorableRealmType] ?? 99;
+    if (pa !== pb) return pa - pb;
+    return a.addedAt.getTime() - b.addedAt.getTime();
+  });
+
+  const pick = rows[0]!;
+  return {
+    entityId: pick.entityId,
+    name: pick.name,
+    summary: pick.summary,
+    type: pick.type as ExplorableRealmType,
+  };
 }
 
 /**

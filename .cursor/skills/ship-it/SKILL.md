@@ -11,6 +11,16 @@ description: >-
 Run this checklist after implementation is code-complete and tests pass locally.
 Do not skip steps; execute them in order.
 
+## 0. Classify the slice (before you ship)
+
+| Slice type | Verify bar | Start next slice when… |
+|------------|------------|-------------------------|
+| **UI / workspace** (campaign tabs, Live Play chrome, generators UI, etc.) | **Prod verify** — 1–3 concrete steps on deployed prod (Vercel web + WS server if Live Play) | Checklist passes on prod (or Jordan explicitly defers) |
+| **Engine-only** (spells, handlers, pure `@app/engine` helpers) | **CI + relevant unit tests** | CI green locally / on PR |
+| **Engine + Live Play or tab** (WS seed, projection consumed by a tab, etc.) | **CI/tests + prod verify** for the user-visible part | Both pass |
+
+**Strict rule:** never begin the next UI/workspace slice until the current one's prod verify is done.
+
 ## 1. Verify locally
 
 ```powershell
@@ -112,9 +122,19 @@ Skip this section entirely when the PR has **no** new files in `packages/db/migr
 
 Do not scatter deferrals outside `deferrals.md`.
 
-## 8. Tell the user what to verify
+## 8. Prod verify (UI/workspace slices — required)
 
-After merge, give concrete manual verification steps (URLs, flows, env vars if any). If step 6 was skipped because env was missing, **explicitly remind the user to run `npm run migrate` in `packages/db`** before testing features that depend on new columns.
+After merge **and** deploy (Vercel for web; redeploy **ws-server** when Live Play behavior changed):
+
+1. Write a **1–3 step** prod checklist in the PR body or handoff (specific URL, campaign, tab, expected UI).
+2. Run it on prod (browser dogfood) or hand the checklist to Jordan with deploy confirmation.
+3. **Stop** — do not start the next slice until verify passes or Jordan defers.
+
+**Engine-only slices:** skip this section unless the change affects Live Play or a workspace tab; CI green on the PR is sufficient.
+
+## 9. Tell the user what to verify
+
+After merge, give concrete manual verification steps (URLs, flows, env vars if any). For UI/workspace slices, these steps **are** the prod verify gate (§8) — complete them before picking up the next slice. If step 6 was skipped because env was missing, **explicitly remind the user to run `npm run migrate` in `packages/db`** before testing features that depend on new columns.
 
 ## Quick reference — Jordan's environment
 

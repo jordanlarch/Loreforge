@@ -29,7 +29,9 @@ import {
   classifyScene2Topic,
   classifyTutorialLeaveIntent,
   classifyTutorialRelightIntent,
+  DEFAULT_STARTING_LOCATION,
   isTutorialFriendlyFireTarget,
+  openingNarrationForLocation,
   opportunityAttackAction,
   REACH_FEET,
   triggerReadiedAction,
@@ -71,6 +73,7 @@ import {
   getCampaignEncounter,
   getCampaignOwnerId,
   getCampaignParty,
+  getCampaignStartingLocation,
   getEventStore,
   getTutorialHookStatus,
   grantTutorialLoot,
@@ -283,6 +286,7 @@ async function roomFor(documentName: string): Promise<LiveRoom> {
             getEventStore(),
             getCampaignParty,
             getCampaignEncounter,
+            getCampaignStartingLocation,
           );
     } else {
       room = new BattleRoom();
@@ -1490,6 +1494,17 @@ const server = new Hocuspocus({
             }),
           ]);
         }
+      } else if (history.length === 0 && room instanceof CampaignRoom) {
+        const location =
+          (await getCampaignStartingLocation(parsed.campaignId)) ??
+          DEFAULT_STARTING_LOCATION;
+        const opening = openingNarrationForLocation(location);
+        await appendAndPersist(document, documentName, [
+          await gmEntryWithReveal(documentName, {
+            text: opening.text,
+            mentions: opening.mentions,
+          }),
+        ]);
       }
     }
     // If a foe won initiative, let it act before the first player join sees the

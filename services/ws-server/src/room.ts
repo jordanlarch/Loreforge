@@ -19,9 +19,12 @@ import {
   FIXTURE_BATTLE_CAMPAIGN_ID,
   FIXTURE_BATTLE_COMMANDS,
   FIXTURE_PARTY,
+  buildCampaignExplorationCommands,
   buildPartyBattleCommands,
   buildPartyMemberJoinCommands,
+  DEFAULT_STARTING_LOCATION,
   type BattleAction,
+  type CampaignStartingLocation,
   type Command,
   type CommandSummary,
   type EncounterMapDef,
@@ -111,6 +114,10 @@ export type EncounterLoader = (
   { name: string; foes: FoeSpec[]; map: EncounterMapDef } | undefined
 >;
 
+export type StartingLocationLoader = (
+  campaignId: string,
+) => Promise<CampaignStartingLocation | undefined>;
+
 export class CampaignRoom implements LiveRoom {
   private engine: Engine;
   private seeded = false;
@@ -120,17 +127,18 @@ export class CampaignRoom implements LiveRoom {
     private readonly store: EventStore,
     /** Optional roster loader; absent → always seed the fixture (tests, demos). */
     private readonly loadParty?: PartyLoader,
-    /** Optional authored-encounter loader; absent → default goblin ambush. */
+    /** Optional authored-encounter loader; absent → legacy fixture combat. */
     private readonly loadEncounter?: EncounterLoader,
+    /** Optional World-tab location loader for exploration bootstrap (Rung 4). */
+    private readonly loadStartingLocation?: StartingLocationLoader,
   ) {
     this.engine = new Engine({ store });
   }
 
   /**
-   * The seed command list for this campaign (#98, CAMP-8): the campaign's real
-   * roster (or the fixture party) versus the armed authored encounter's foes (or
-   * the default goblin ambush). Both lookups are deterministic enough to also
-   * recompute the reset baseline.
+   * The seed command list for this campaign (#98, CAMP-8, Rung 4): armed encounter
+   * → combat; otherwise exploration at the first World-tab location (or generic
+   * fallback). Unit tests without DB loaders keep the legacy goblin fixture.
    */
   private async seedCommands(): Promise<Command[]> {
     const party = this.loadParty ? await this.loadParty(this.campaignId) : [];
@@ -138,26 +146,30 @@ export class CampaignRoom implements LiveRoom {
     const encounter = this.loadEncounter
       ? await this.loadEncounter(this.campaignId)
       : undefined;
-    // Untouched campaigns with no roster and no armed encounter reproduce the
-    // exact legacy fixture command list (keeps existing baselines stable).
-    if (party.length === 0 && !encounter) return FIXTURE_BATTLE_COMMANDS;
-    return buildPartyBattleCommands(
-      members,
-      encounter
-        ? {
-            foes: encounter.foes,
-            sceneName: encounter.name,
-            map: encounter.map,
-          }
-        : undefined,
-    );
+
+    if (encounter) {
+      return buildPartyBattleCommands(members, {
+        foes: encounter.foes,
+        sceneName: encounter.name,
+        map: encounter.map,
+      });
+    }
+
+    if (this.loadParty || this.loadStartingLocation) {
+      const location =
+        (this.loadStartingLocation
+          ? await this.loadStartingLocation(this.campaignId)
+          : undefined) ?? DEFAULT_STARTING_LOCATION;
+      return buildCampaignExplorationCommands(members, location);
+    }
+
+    return FIXTURE_BATTLE_COMMANDS;
   }
 
   /**
-   * Load the campaign. If its log is empty (a brand-new campaign), seed the
-   * goblin-ambush encounter populated with the real party so there is something
-   * to play; otherwise the engine rebuilds the persisted state lazily on first
-   * access. Idempotent.
+   * Load the campaign. If its log is empty (a brand-new campaign), seed an
+   * exploration scene (or armed encounter when set); otherwise the engine
+   * rebuilds the persisted state lazily on first access. Idempotent.
    */
   async ensureSeeded(): Promise<void> {
     const lastSeq = await this.store.lastSequence(this.campaignId);

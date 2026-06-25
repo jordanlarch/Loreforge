@@ -46,6 +46,7 @@ export function PartyRail({
   roster,
   layout = "column",
   companionExpected = false,
+  onViewSheet,
 }: {
   state: WorldState;
   /** DB roster rows backfill chips when the engine entity hasn't synced yet. */
@@ -53,6 +54,8 @@ export function PartyRail({
   layout?: "column" | "row";
   /** When true, show Old Brennar if the hook was accepted but sync is lagging. */
   companionExpected?: boolean;
+  /** PLAY-4: open a read-only sheet peek for a roster member. */
+  onViewSheet?: (characterId: string) => void;
 }) {
   const members = partyMembersWithRoster(state, roster, { companionExpected });
   if (members.length === 0) return null;
@@ -74,7 +77,12 @@ export function PartyRail({
         }
       >
         {members.map((m) => (
-          <PartyChip key={m.id} member={m} active={m.id === activeId} />
+          <PartyChip
+            key={m.id}
+            member={m}
+            active={m.id === activeId}
+            onViewSheet={onViewSheet}
+          />
         ))}
       </ul>
     </section>
@@ -84,9 +92,11 @@ export function PartyRail({
 function PartyChip({
   member,
   active,
+  onViewSheet,
 }: {
   member: EntityState;
   active: boolean;
+  onViewSheet?: (characterId: string) => void;
 }) {
   const pct = hpPercent(member.hp);
   const icon = member.kind === "character" ? "🛡" : "👤";
@@ -99,12 +109,15 @@ function PartyChip({
 
   return (
     <li className="group/chip relative">
-      <div
-        className={`flex w-full flex-col gap-1 rounded border px-2 py-1.5 text-xs transition-colors ${
+      <button
+        type="button"
+        onClick={() => onViewSheet?.(member.id)}
+        disabled={!onViewSheet}
+        className={`flex w-full flex-col gap-1 rounded border px-2 py-1.5 text-left text-xs transition-colors ${
           active
             ? "border-lore-accent bg-lore-accent-dim shadow-[0_0_0_1px_var(--tw-shadow-color)] shadow-lore-accent/40"
             : "border-lore-border bg-lore-bg"
-        } ${downed ? "opacity-60" : ""}`}
+        } ${downed ? "opacity-60" : ""} ${onViewSheet ? "cursor-pointer hover:border-lore-accent/70" : "cursor-default"}`}
       >
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1 font-medium text-lore-text">
@@ -142,7 +155,7 @@ function PartyChip({
             </span>
           )}
         </div>
-      </div>
+      </button>
 
       <MiniHud member={member} />
     </li>

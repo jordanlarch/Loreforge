@@ -315,6 +315,11 @@ export {
   type FoeSpec,
   type PartyMember,
 } from "./fixtures/battle";
+export {
+  buildPartyMemberJoinCommands,
+  findPartyJoinPosition,
+  partyMemberToEntityInit,
+} from "./fixtures/party-join";
 export type {
   CharacterSheet,
   CharacterSheetInput,

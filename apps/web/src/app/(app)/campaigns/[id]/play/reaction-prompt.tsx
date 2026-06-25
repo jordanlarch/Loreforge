@@ -17,11 +17,16 @@ export function ReactionPrompt({
   moverName,
   onTake,
   onPass,
+  shieldLabel,
+  onCastShield,
 }: {
   reactorName: string;
   moverName: string;
   onTake: () => void;
   onPass: () => void;
+  /** Tracer: optional Shield reaction when the reactor can cast it. */
+  shieldLabel?: string;
+  onCastShield?: () => void;
 }) {
   const [remaining, setRemaining] = useState(WINDOW_SECONDS);
 
@@ -48,7 +53,7 @@ export function ReactionPrompt({
       <p className="mb-2 text-xs text-lore-muted">
         {moverName} left {reactorName}&apos;s reach. Strike as a reaction?
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onTake}
@@ -56,6 +61,15 @@ export function ReactionPrompt({
         >
           Opportunity Attack
         </button>
+        {shieldLabel && onCastShield ? (
+          <button
+            type="button"
+            onClick={onCastShield}
+            className="rounded border border-sky-500/60 bg-sky-500/20 px-3 py-1 text-xs text-sky-100 transition-colors hover:border-sky-400"
+          >
+            {shieldLabel}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onPass}

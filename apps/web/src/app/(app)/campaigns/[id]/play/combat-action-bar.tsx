@@ -32,6 +32,9 @@ export function CombatActionBar({
   onReady,
   onConfirm,
   onCancel,
+  castTargetCount,
+  castTargetMax,
+  onConfirmMulti,
 }: {
   weapons: WeaponAttack[];
   spells: CastableSpell[];
@@ -54,6 +57,10 @@ export function CombatActionBar({
   /** Fire the armed AoE cast at the placed aim cell (#99). */
   onConfirm: () => void;
   onCancel: () => void;
+  /** Multi-target cast: how many allies are selected so far. */
+  castTargetCount?: number;
+  castTargetMax?: number;
+  onConfirmMulti?: () => void;
 }) {
   const [castOpen, setCastOpen] = useState(false);
   const [attackOpen, setAttackOpen] = useState(false);
@@ -93,26 +100,44 @@ export function CombatActionBar({
       );
     }
 
+    const multi =
+      armed.kind === "cast" &&
+      armed.spell.maxTargets !== undefined &&
+      armed.spell.maxTargets > 1;
     const label =
       armed.kind === "attack"
         ? `Pick a target for ${armed.attack.label}`
         : armed.kind === "ready"
           ? `Pick a foe to ready ${armed.attack.label} against — it fires when they enter range`
-          : armed.spell.targetKind === "ally"
-            ? `Pick an ally for ${armed.spell.name}`
-            : `Pick a target for ${armed.spell.name}`;
+          : multi
+            ? `Pick up to ${armed.spell.maxTargets} allies for ${armed.spell.name} (${castTargetCount ?? 0}/${armed.spell.maxTargets})`
+            : armed.spell.targetKind === "ally"
+              ? `Pick an ally for ${armed.spell.name}`
+              : `Pick a target for ${armed.spell.name}`;
     return (
-      <div className="mb-3 flex items-center justify-between rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm">
+      <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm">
         <span className="text-lore-text">
           {armed.kind === "ready" ? "⏳" : "🎯"} {label}
         </span>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent"
-        >
-          Cancel
-        </button>
+        <div className="flex items-center gap-2">
+          {multi ? (
+            <button
+              type="button"
+              onClick={onConfirmMulti}
+              disabled={disabled || !castTargetCount || castTargetCount < 1}
+              className="rounded border border-lore-accent bg-lore-accent px-2 py-1 text-xs font-semibold text-lore-bg transition-colors disabled:opacity-40"
+            >
+              Confirm
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     );
   }

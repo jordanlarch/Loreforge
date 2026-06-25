@@ -164,6 +164,7 @@ type TutorialAction =
 type ClientMessage =
   | { t: "cmd"; action: unknown }
   | { t: "reset" }
+  | { t: "sync_party" }
   | { t: "chat"; mode?: string; text: string }
   | { t: "tutorial"; action: TutorialAction; topic?: string; help?: boolean };
 
@@ -176,7 +177,7 @@ function parseMessage(payload: string): ClientMessage | null {
   }
   if (typeof value !== "object" || value === null) return null;
   const message = value as { t?: unknown };
-  if (message.t === "cmd" || message.t === "reset") {
+  if (message.t === "cmd" || message.t === "reset" || message.t === "sync_party") {
     return message as ClientMessage;
   }
   if (message.t === "chat") {
@@ -1576,6 +1577,16 @@ const server = new Hocuspocus({
         await refreshSessionSummary(document, documentName, client);
       } finally {
         setThinking(document, false);
+      }
+      return;
+    }
+
+    if (message.t === "sync_party") {
+      if (room instanceof CampaignRoom) {
+        const applied = await room.syncMissingPartyMembers();
+        if (applied > 0) {
+          writeProjection(document, await room.getState());
+        }
       }
       return;
     }

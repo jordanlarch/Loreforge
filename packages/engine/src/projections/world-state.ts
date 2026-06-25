@@ -261,6 +261,30 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "CombatantAdded": {
+      if (next.encounter) {
+        const combatants = [...next.encounter.combatants, event.payload.entityId];
+        const sides = {
+          ...next.encounter.sides,
+          [event.payload.entityId]: event.payload.side,
+        };
+        const newcomer = next.entities[event.payload.entityId];
+        if (newcomer) {
+          next.entities[event.payload.entityId] = {
+            ...newcomer,
+            reaction: "available",
+          };
+        }
+        next.encounter = {
+          ...next.encounter,
+          combatants,
+          sides,
+          order: event.payload.order.map((e) => ({ ...e })),
+          activeIndex: event.payload.activeIndex,
+        };
+      }
+      break;
+    }
     case "TurnStarted": {
       if (next.encounter) {
         next.encounter = {

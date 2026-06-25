@@ -18,7 +18,7 @@ type Session = {
   endedAt: Date | string;
 };
 
-const DETAIL_TABS = ["Recap", "Transcript", "Combat"] as const;
+const DETAIL_TABS = ["Recap", "Transcript", "Combat", "Stats", "Loot", "Media"] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 
 /**
@@ -194,6 +194,11 @@ function SessionDetail({
   const combat = messages.filter(
     (m) => m.kind === "event" || m.kind === "roll",
   );
+  const rolls = messages.filter((m) => m.kind === "roll");
+  const attacks = combat.filter((m) =>
+    m.text.toLowerCase().includes("attack"),
+  );
+  const spells = combat.filter((m) => m.text.toLowerCase().includes("cast"));
 
   return (
     <section className="rounded-lg border border-lore-border bg-lore-surface p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
@@ -237,7 +242,42 @@ function SessionDetail({
           empty="No engine events or rolls recorded for this session."
         />
       )}
+
+      {tab === "Stats" && (
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <Stat label="Messages" value={messages.length} />
+          <Stat label="Narrative lines" value={narrative.length} />
+          <Stat label="Combat events" value={combat.length} />
+          <Stat label="Dice rolls" value={rolls.length} />
+          <Stat label="Attacks logged" value={attacks.length} />
+          <Stat label="Spell casts" value={spells.length} />
+        </dl>
+      )}
+
+      {tab === "Loot" && (
+        <p className="text-sm text-lore-muted">
+          Loot tracking is not wired yet — session chat mentions of treasure and
+          inventory changes will surface here in a later pass. For now, search the
+          transcript for item names or check character sheets after the session.
+        </p>
+      )}
+
+      {tab === "Media" && (
+        <p className="text-sm text-lore-muted">
+          Session media (maps, portraits, uploaded images) is deferred to v1.5.
+          Recaps and transcripts are the canonical record for this session.
+        </p>
+      )}
     </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded border border-lore-border bg-lore-bg px-3 py-2">
+      <dt className="text-xs uppercase tracking-wide text-lore-muted">{label}</dt>
+      <dd className="font-display text-xl text-lore-text">{value}</dd>
+    </div>
   );
 }
 

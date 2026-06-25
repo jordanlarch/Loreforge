@@ -151,7 +151,12 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
   if (spell.healing) {
     return {
       ...base,
-      targets: spell.targeting === "multi" ? ["a1", "a2"] : ["a1"],
+      targets:
+        spell.targeting === "self"
+          ? ["pc:caster"]
+          : spell.targeting === "multi"
+            ? ["a1", "a2"]
+            : ["a1"],
     };
   }
   if (spell.targeting === "self") {

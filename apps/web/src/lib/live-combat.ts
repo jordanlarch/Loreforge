@@ -48,15 +48,19 @@ export type CastableSpell = {
   area?: SpellArea;
   /** Who can be picked on the map; defaults to hostile enemies in range. */
   targetKind?: CastTargetKind;
+  /** Multi-target spells (Bless): max creatures per cast. */
+  maxTargets?: number;
+  /** Reaction-only — omitted from the action-phase cast menu. */
+  reaction?: boolean;
 };
 
 export const CASTABLE_SPELLS: readonly CastableSpell[] = [
   { id: "fire-bolt", name: "Fire Bolt", level: 0, rangeFt: 120 },
   { id: "sacred-flame", name: "Sacred Flame", level: 0, rangeFt: 60 },
   { id: "guiding-bolt", name: "Guiding Bolt", level: 1, rangeFt: 120 },
-  { id: "bless", name: "Bless", level: 1, rangeFt: 30, targetKind: "ally" },
+  { id: "bless", name: "Bless", level: 1, rangeFt: 30, targetKind: "ally", maxTargets: 3 },
   { id: "hunters-mark", name: "Hunter's Mark", level: 1, rangeFt: 90 },
-  { id: "shield", name: "Shield", level: 1, rangeFt: 0, targetKind: "self" },
+  { id: "shield", name: "Shield", level: 1, rangeFt: 0, targetKind: "self", reaction: true },
   {
     id: "burning-hands",
     name: "Burning Hands",
@@ -105,6 +109,19 @@ export function castableSpellsFor(entity: EntityState): CastableSpell[] {
   if (!entity.spellcasting) return [];
   const slots = entity.spellcasting.slots;
   return CASTABLE_SPELLS.filter((spell) => {
+    if (spell.reaction) return false;
+    if (spell.level === 0) return true;
+    const slot = slots[spell.level];
+    return slot !== undefined && slot.current > 0;
+  });
+}
+
+/** Reaction spells (Shield) when a reaction and slot are available. */
+export function reactionSpellsFor(entity: EntityState): CastableSpell[] {
+  if (!entity.spellcasting || entity.reaction !== "available") return [];
+  const slots = entity.spellcasting.slots;
+  return CASTABLE_SPELLS.filter((spell) => {
+    if (!spell.reaction) return false;
     if (spell.level === 0) return true;
     const slot = slots[spell.level];
     return slot !== undefined && slot.current > 0;

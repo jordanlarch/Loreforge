@@ -93,6 +93,15 @@ export type InitiativeRolledPayload = {
   order: InitiativeEntry[];
 };
 
+export type CombatantAddedPayload = {
+  entityId: EntityRef;
+  side: string;
+  /** Full initiative order after inserting the newcomer. */
+  order: InitiativeEntry[];
+  /** Preserved active turn index after the resort. */
+  activeIndex: number;
+};
+
 export type TurnStartedPayload = {
   entity: EntityRef;
   /** Index of this combatant within the initiative order. */
@@ -212,7 +221,7 @@ export type ReactionWindowOpenedPayload = {
 
 export type ReactionTakenPayload = {
   reactor: EntityRef;
-  trigger: "opportunity_attack" | "readied";
+  trigger: "opportunity_attack" | "readied" | "spell";
 };
 
 export type ActionReadiedPayload = {
@@ -275,6 +284,7 @@ export type EngineEvent =
   | (EventMeta & { type: "EncounterStarted"; payload: EncounterStartedPayload })
   | (EventMeta & { type: "EncounterEnded"; payload: EncounterEndedPayload })
   | (EventMeta & { type: "InitiativeRolled"; payload: InitiativeRolledPayload })
+  | (EventMeta & { type: "CombatantAdded"; payload: CombatantAddedPayload })
   | (EventMeta & { type: "TurnStarted"; payload: TurnStartedPayload })
   | (EventMeta & { type: "TurnEnded"; payload: TurnEndedPayload })
   | (EventMeta & { type: "RoundAdvanced"; payload: RoundAdvancedPayload })

@@ -20,6 +20,7 @@ import {
   FIXTURE_BATTLE_COMMANDS,
   FIXTURE_PARTY,
   buildPartyBattleCommands,
+  buildPartyMemberJoinCommands,
   type BattleAction,
   type Command,
   type CommandSummary,
@@ -180,6 +181,29 @@ export class CampaignRoom implements LiveRoom {
   async getState(): Promise<WorldState> {
     await this.ensureSeeded();
     return this.engine.getState(this.campaignId);
+  }
+
+  /**
+   * Place roster members who joined after the live session was seeded onto the
+   * current scene (and into an active encounter when one is running).
+   */
+  async syncMissingPartyMembers(): Promise<number> {
+    await this.ensureSeeded();
+    if (!this.loadParty) return 0;
+    const party = await this.loadParty(this.campaignId);
+    let state = await this.getState();
+    let applied = 0;
+    for (const member of party) {
+      const commands = buildPartyMemberJoinCommands(member, state);
+      for (const command of commands) {
+        const result = await this.engine.execute(this.campaignId, command);
+        if (result.accepted) applied += 1;
+      }
+      if (commands.length > 0) {
+        state = await this.engine.getState(this.campaignId);
+      }
+    }
+    return applied;
   }
 }
 

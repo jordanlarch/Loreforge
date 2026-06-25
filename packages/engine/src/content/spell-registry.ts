@@ -1319,6 +1319,246 @@ const HUNTERS_MARK: SpellDefinition = {
     "The target is mystically marked; you deal an extra 1d6 force damage to it whenever you hit it with a weapon attack.",
 };
 
+// ───────────────────────── Batch 7 (ENG-2 / ENG-13) ─────────────────────
+
+const HEX: SpellDefinition = {
+  id: "hex",
+  name: "Hex",
+  level: 1,
+  school: "enchantment",
+  classes: ["Warlock"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "feet", amount: 90 },
+  components: { verbal: true, somatic: true, material: "the petrified eye of a newt" },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Hex",
+      scope: "targets",
+      modifier: { type: "hunters_mark", dice: "1d6" },
+      concentration: true,
+    },
+  ],
+  description:
+    "The target is cursed; you deal an extra 1d6 necrotic damage when you hit it with an attack.",
+};
+
+const BANE: SpellDefinition = {
+  id: "bane",
+  name: "Bane",
+  level: 1,
+  school: "enchantment",
+  classes: ["Bard", "Cleric"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a drop of blood" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "multi",
+  saveAgainst: { ability: "cha", dc: "spellsave", onSuccess: "no_effect" },
+  appliedEffects: [
+    {
+      name: "Baned",
+      scope: "targets",
+      modifier: { type: "attack_roll_penalty", dice: "1d4" },
+      concentration: true,
+    },
+  ],
+  description:
+    "Up to three creatures make a Charisma save or subtract 1d4 from attack rolls for the duration.",
+};
+
+const FAERIE_FIRE: SpellDefinition = {
+  id: "faerie-fire",
+  name: "Faerie Fire",
+  level: 1,
+  school: "evocation",
+  classes: ["Bard", "Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  appliedEffects: [
+    {
+      name: "Faerie Fire",
+      scope: "targets",
+      modifier: { type: "attacks_against_advantage" },
+      concentration: true,
+    },
+  ],
+  description:
+    "Creatures in a 20-foot cube make a Dexterity save or shed light; attack rolls against them have advantage.",
+};
+
+const BLUR: SpellDefinition = {
+  id: "blur",
+  name: "Blur",
+  level: 2,
+  school: "illusion",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self" },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "self",
+  appliedEffects: [
+    {
+      name: "Blur",
+      scope: "caster",
+      modifier: { type: "ac_bonus", amount: 2 },
+      concentration: true,
+    },
+  ],
+  description:
+    "Your form shifts; attacks against you have disadvantage (tracer: +2 AC instead).",
+};
+
+const AID: SpellDefinition = {
+  id: "aid",
+  name: "Aid",
+  level: 2,
+  school: "abjuration",
+  classes: ["Bard", "Cleric", "Druid", "Paladin", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "a tiny strip of white cloth" },
+  duration: { unit: "hour", amount: 8 },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  healing: { dice: "1d1+4" },
+  description:
+    "Up to three creatures each gain 5 current and maximum hit points for 8 hours (tracer: flat 5 HP heal).",
+};
+
+const FALSE_LIFE: SpellDefinition = {
+  id: "false-life",
+  name: "False Life",
+  level: 1,
+  school: "necromancy",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self" },
+  components: { verbal: true, somatic: true, material: "a small amount of alcohol or distilled spirits" },
+  duration: { unit: "hour", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "self",
+  healing: { dice: "1d4+4" },
+  description: "You gain 1d4 + 4 temporary hit points for 1 hour (tracer: heals current HP).",
+};
+
+const COLOR_SPRAY: SpellDefinition = {
+  id: "color-spray",
+  name: "Color Spray",
+  level: 1,
+  school: "illusion",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "cone", size: 15 } },
+  components: { verbal: true, somatic: true, material: "a pinch of powder or sand" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "3d6", type: "psychic" }],
+  description:
+    "Each creature in a 15-foot cone makes a Constitution save or takes 3d6 psychic damage.",
+};
+
+const GREASE: SpellDefinition = {
+  id: "grease",
+  name: "Grease",
+  level: 1,
+  school: "conjuration",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 10 } },
+  components: { verbal: true, somatic: true, material: "a bit of pork rind or butter" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "1d4", type: "bludgeoning" }],
+  description:
+    "Creatures in a 10-foot square make a Dexterity save or fall prone (tracer: 1d4 bludgeoning on fail).",
+};
+
+const CLOUD_OF_DAGGERS: SpellDefinition = {
+  id: "cloud-of-daggers",
+  name: "Cloud of Daggers",
+  level: 2,
+  school: "conjuration",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 5 } },
+  components: { verbal: true, somatic: true, material: "a sliver of glass" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "4d4", type: "slashing" }],
+  description:
+    "Each creature in a 5-foot cube makes a Dexterity save, taking 4d4 slashing on a failure or half on a success.",
+};
+
+const MAGIC_WEAPON: SpellDefinition = {
+  id: "magic-weapon",
+  name: "Magic Weapon",
+  level: 2,
+  school: "transmutation",
+  classes: ["Paladin", "Ranger", "Sorcerer", "Wizard"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Magic Weapon",
+      scope: "targets",
+      modifier: { type: "attack_roll_bonus", dice: "1d1" },
+      concentration: true,
+    },
+  ],
+  description:
+    "One nonmagical weapon becomes +1 (tracer: +1 flat to attack rolls via a fixed bonus).",
+};
+
+const RAY_OF_ENFEEBLEMENT: SpellDefinition = {
+  id: "ray-of-enfeeblement",
+  name: "Ray of Enfeeblement",
+  level: 2,
+  school: "necromancy",
+  classes: ["Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "2d8", type: "necrotic" }],
+  description:
+    "Ranged spell attack for 2d8 necrotic; on a hit the target's attacks deal half damage (tracer: damage only).",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -1381,6 +1621,17 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [BLESS.id]: BLESS,
   [SHIELD.id]: SHIELD,
   [HUNTERS_MARK.id]: HUNTERS_MARK,
+  [HEX.id]: HEX,
+  [BANE.id]: BANE,
+  [FAERIE_FIRE.id]: FAERIE_FIRE,
+  [BLUR.id]: BLUR,
+  [AID.id]: AID,
+  [FALSE_LIFE.id]: FALSE_LIFE,
+  [COLOR_SPRAY.id]: COLOR_SPRAY,
+  [GREASE.id]: GREASE,
+  [CLOUD_OF_DAGGERS.id]: CLOUD_OF_DAGGERS,
+  [MAGIC_WEAPON.id]: MAGIC_WEAPON,
+  [RAY_OF_ENFEEBLEMENT.id]: RAY_OF_ENFEEBLEMENT,
 };
 
 /** Look up an authored spell definition by slug id. */

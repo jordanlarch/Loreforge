@@ -61,6 +61,7 @@ import {
   reactionWindowKey,
   targetsInRange,
   castTargetCandidates,
+  reactionSpellsFor,
   type CastableSpell,
 } from "@/lib/live-combat";
 import {
@@ -69,6 +70,7 @@ import {
   preparedSpellNames,
   quickUseItems,
   sheetCastableSpells,
+  sheetReactionSpells,
   type WeaponAttack,
 } from "@/lib/sheet-loadout";
 import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
@@ -278,6 +280,7 @@ function LiveBattle({
   companionExpected?: boolean;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetPeekId, setSheetPeekId] = useState<string | null>(null);
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
     [session.state],
@@ -291,6 +294,7 @@ function LiveBattle({
   // Combat-loop UI state: the armed action (driving the map target picker), the
   // AoE aim cell (#99), and the last reaction window the player already dismissed.
   const [armed, setArmed] = useState<ArmedAction>(null);
+  const [castTargets, setCastTargets] = useState<string[]>([]);
   const [aimCell, setAimCell] = useState<Cell | null>(null);
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
   // Client-side session pause (#101): freezes the local turn UI + clock. The
@@ -353,7 +357,14 @@ function LiveBattle({
   // A fresh arm clears any stale aim from a prior AoE cast.
   useEffect(() => {
     setAimCell(null);
+    setCastTargets([]);
   }, [armed]);
+
+  const rosterSyncKey = partyRoster?.map((m) => m.id).join(",") ?? "";
+  useEffect(() => {
+    if (!campaignId || !session.state) return;
+    session.syncParty();
+  }, [campaignId, session.state?.lastSequence, rosterSyncKey, session.syncParty]);
 
   const state = session.state;
 
@@ -387,7 +398,7 @@ function LiveBattle({
       : castableSpellsFor(activeEntity)
     : [];
 
-  // Action-economy gating for the action bar: how many attacks remain in the
+  // Action-economy gating for the action bar:
   // Attack action's budget (Extra Attack / Multiattack) and whether the single
   // action is still free (cast / ready). One attack per turn for most PCs.
   const econ = activeEntity?.actionEconomy;
@@ -453,6 +464,20 @@ function LiveBattle({
     };
   }, [state, armed, activeEntity, aimCell]);
 
+  function onConfirmMultiCast() {
+    if (!armed || armed.kind !== "cast" || !activeEntity || castTargets.length < 1) {
+      return;
+    }
+    session.castSpell(
+      activeEntity.id,
+      armed.spell.id,
+      armed.spell.level,
+      castTargets,
+    );
+    setArmed(null);
+    setCastTargets([]);
+  }
+
   function onPickTarget(targetId: string) {
     if (!armed || !activeEntity) return;
     if (armed.kind === "attack") {
@@ -474,6 +499,17 @@ function LiveBattle({
         armed.attack.rangeFt,
       );
     } else {
+      const maxTargets = armed.spell.maxTargets ?? 1;
+      if (maxTargets > 1) {
+        setCastTargets((prev) => {
+          if (prev.includes(targetId)) {
+            return prev.filter((id) => id !== targetId);
+          }
+          if (prev.length >= maxTargets) return prev;
+          return [...prev, targetId];
+        });
+        return;
+      }
       // Single-target spell (AoE casts confirm via the aim picker, not here).
       session.castSpell(activeEntity.id, armed.spell.id, armed.spell.level, [
         targetId,
@@ -502,6 +538,22 @@ function LiveBattle({
   const reactionKey = state ? reactionWindowKey(state) : null;
   const showReaction =
     !!reaction && !!reactionKey && reactionKey !== dismissedReaction;
+  const reactorSheet = reaction ? loadouts?.[reaction.reactor.id] : undefined;
+  const reactorReactionSpells = reaction
+    ? reactorSheet
+      ? sheetReactionSpells(
+          reaction.reactor,
+          preparedSpellNames(reactorSheet.spells),
+        )
+      : reactionSpellsFor(reaction.reactor)
+    : [];
+  const activeReactionSpells = activeEntity
+    ? activeSheet
+      ? sheetReactionSpells(activeEntity, preparedSpellNames(activeSheet.spells))
+      : reactionSpellsFor(activeEntity)
+    : [];
+
+  const viewPartySheet = (characterId: string) => setSheetPeekId(characterId);
 
   if (session.error) {
     return (
@@ -588,6 +640,7 @@ function LiveBattle({
                   roster={partyRoster}
                   layout="column"
                   companionExpected={companionExpected}
+                  onViewSheet={viewPartySheet}
                 />
               </div>
             }
@@ -647,6 +700,12 @@ function LiveBattle({
             <CharacterSheetOverlay
               characterId={pcCharacterId}
               onClose={() => setSheetOpen(false)}
+            />
+          ) : null}
+          {sheetPeekId ? (
+            <CharacterSheetOverlay
+              characterId={sheetPeekId}
+              onClose={() => setSheetPeekId(null)}
             />
           ) : null}
         </>
@@ -726,6 +785,7 @@ function LiveBattle({
               roster={partyRoster}
               layout="column"
               companionExpected={companionExpected}
+              onViewSheet={viewPartySheet}
             />
           </div>
         }
@@ -755,6 +815,10 @@ function LiveBattle({
               : armed?.kind === "ready"
                 ? "Tap a foe to hold your strike for — the engine fires it automatically when they enter range on their turn."
                 : armed?.kind === "cast" &&
+                    armed.spell.maxTargets !== undefined &&
+                    armed.spell.maxTargets > 1
+                  ? "Tap allies to bless (up to three) — selected chips highlight — then Confirm."
+                  : armed?.kind === "cast" &&
                     armed.spell.targetKind === "ally"
                   ? "Tap a highlighted ally (or yourself) to cast — the engine applies the effect."
                   : armed
@@ -789,6 +853,7 @@ function LiveBattle({
                 onCast={(spell) => {
                   if (
                     spell.targetKind === "self" &&
+                    !spell.reaction &&
                     activeEntity
                   ) {
                     session.castSpell(
@@ -803,7 +868,15 @@ function LiveBattle({
                 }}
                 onReady={(attack) => setArmed({ kind: "ready", attack })}
                 onConfirm={onConfirmAim}
-                onCancel={() => setArmed(null)}
+                onCancel={() => {
+                  setArmed(null);
+                  setCastTargets([]);
+                }}
+                castTargetCount={castTargets.length}
+                castTargetMax={
+                  armed?.kind === "cast" ? armed.spell.maxTargets : undefined
+                }
+                onConfirmMulti={onConfirmMultiCast}
               />
             )}
 
@@ -818,6 +891,25 @@ function LiveBattle({
               <ReactionPrompt
                 reactorName={reaction.reactor.name}
                 moverName={reaction.mover.name}
+                shieldLabel={
+                  reactorReactionSpells[0]
+                    ? `Cast ${reactorReactionSpells[0].name} (+5 AC)`
+                    : undefined
+                }
+                onCastShield={
+                  reactorReactionSpells[0]
+                    ? () => {
+                        const spell = reactorReactionSpells[0]!;
+                        session.castSpell(
+                          reaction.reactor.id,
+                          spell.id,
+                          spell.level,
+                          [reaction.reactor.id],
+                        );
+                        if (reactionKey) setDismissedReaction(reactionKey);
+                      }
+                    : undefined
+                }
                 onTake={() => {
                   const reactorSheet = loadouts?.[reaction.reactor.id];
                   const strike = reactorSheet
@@ -841,6 +933,31 @@ function LiveBattle({
                 }}
               />
             )}
+
+            {!showReaction && activeReactionSpells[0] && activeEntity ? (
+              <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-2">
+                <p className="mb-2 text-[11px] text-lore-muted">
+                  Reaction ready — cast before your next turn (tracer: not tied to
+                  incoming hits yet).
+                </p>
+                <button
+                  type="button"
+                  disabled={session.isBusy}
+                  onClick={() => {
+                    const spell = activeReactionSpells[0]!;
+                    session.castSpell(
+                      activeEntity.id,
+                      spell.id,
+                      spell.level,
+                      [activeEntity.id],
+                    );
+                  }}
+                  className="rounded border border-sky-500/60 bg-sky-500/20 px-3 py-1 text-xs text-sky-100 transition-colors hover:border-sky-400 disabled:opacity-40"
+                >
+                  Cast {activeReactionSpells[0].name} (+5 AC)
+                </button>
+              </div>
+            ) : null}
 
             {activeEntity ? (
               <CharacterHud
@@ -872,6 +989,12 @@ function LiveBattle({
         <CharacterSheetOverlay
           characterId={pcCharacterId}
           onClose={() => setSheetOpen(false)}
+        />
+      ) : null}
+      {sheetPeekId ? (
+        <CharacterSheetOverlay
+          characterId={sheetPeekId}
+          onClose={() => setSheetPeekId(null)}
         />
       ) : null}
       {endedSession && campaignId ? (

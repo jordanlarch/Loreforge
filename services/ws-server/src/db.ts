@@ -356,7 +356,7 @@ function sortExplorableLocations<
     summary: string;
     data: unknown;
   },
->(rows: T[]): CampaignStartingLocation[] {
+>(rows: T[], parentDataByEntityId: ReadonlyMap<string, unknown>): CampaignStartingLocation[] {
   return [...rows]
     .sort((a, b) => {
       const pa = STARTING_LOCATION_PRIORITY[a.type as ExplorableRealmType] ?? 99;
@@ -372,8 +372,32 @@ function sortExplorableLocations<
       openingHook: extractOpeningHookText(row.data, {
         trigger: "on_session_start",
         locationEntityId: row.entityId,
+        parentData: parentDataByEntityId.get(row.entityId),
       }),
     }));
+}
+
+/** Direct `located_in` parent data for cascade child locations (Phase A.1). */
+async function loadLocatedInParentData(
+  ownerId: string,
+  entityIds: readonly string[],
+): Promise<Map<string, unknown>> {
+  if (entityIds.length === 0) return new Map();
+  const edges = await getDb()
+    .select({
+      childId: realmRelationships.toId,
+      parentData: realmEntities.data,
+    })
+    .from(realmRelationships)
+    .innerJoin(realmEntities, eq(realmEntities.id, realmRelationships.fromId))
+    .where(
+      and(
+        eq(realmRelationships.ownerId, ownerId),
+        eq(realmRelationships.kind, "located_in"),
+        inArray(realmRelationships.toId, [...entityIds]),
+      ),
+    );
+  return new Map(edges.map((edge) => [edge.childId, edge.parentData]));
 }
 
 async function loadExplorableWorldRows(campaignId: string, ownerId: string) {
@@ -406,7 +430,12 @@ export async function getCampaignExplorableLocations(
 ): Promise<CampaignStartingLocation[]> {
   const ownerId = await getCampaignOwnerId(campaignId);
   if (!ownerId) return [];
-  return sortExplorableLocations(await loadExplorableWorldRows(campaignId, ownerId));
+  const rows = await loadExplorableWorldRows(campaignId, ownerId);
+  const parentData = await loadLocatedInParentData(
+    ownerId,
+    rows.map((r) => r.entityId),
+  );
+  return sortExplorableLocations(rows, parentData);
 }
 
 /** Resolve one World-tab entity to a travel destination, if explorable. */
@@ -442,6 +471,10 @@ export async function getCampaignLocationByEntityId(
     .limit(1);
 
   if (!row) return undefined;
+
+  const parentDataByEntityId = await loadLocatedInParentData(ownerId, [
+    row.entityId,
+  ]);
   return {
     entityId: row.entityId,
     name: row.name,
@@ -450,6 +483,7 @@ export async function getCampaignLocationByEntityId(
     openingHook: extractOpeningHookText(row.data, {
       trigger: "on_enter_location",
       locationEntityId: row.entityId,
+      parentData: parentDataByEntityId.get(row.entityId),
     }),
   };
 }

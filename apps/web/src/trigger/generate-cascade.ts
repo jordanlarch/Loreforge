@@ -8,7 +8,7 @@ import {
   logGeneration,
   persistChildren,
 } from "@/server/realms/generator";
-import { wireCascadeNpcLocations } from "@/server/realms/cascade-wiring";
+import { wireCascadeNpcLocations, wireCascadeQuestInheritance } from "@/server/realms/cascade-wiring";
 import { parseData } from "@/server/realms/schemas";
 
 export type GenerateCascadePayload = {
@@ -71,6 +71,7 @@ export const generateCascade = task({
 
       if (childCount > 0) {
         await wireCascadeNpcLocations(db, payload.ownerId, row.id);
+        await wireCascadeQuestInheritance(db, payload.ownerId, row.id);
       }
 
       await logGeneration(db, {

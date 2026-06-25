@@ -18,7 +18,7 @@ import {
 } from "./battle";
 import {
   formatQuestTeaseLine,
-  resolveQuestTeaseText,
+  resolveQuestTeaseTextWithInheritance,
   type QuestTeaseTrigger,
 } from "../quests";
 
@@ -189,11 +189,13 @@ function defaultBlurb(type: ExplorableRealmType): string {
 export type OpeningHookOptions = {
   trigger?: QuestTeaseTrigger;
   locationEntityId?: string;
+  /** Cascade parent data when the location stub has no quests (Phase A.1). */
+  parentData?: unknown;
 };
 
 /**
  * Resolve quest tease copy for Live Play (Phase A trigger evaluator).
- * Auto-migrates legacy `data.hooks` strings via {@link resolveQuestTeaseText}.
+ * Auto-migrates legacy `data.hooks` strings; inherits from parent when empty.
  */
 export function extractOpeningHookText(
   data: unknown,
@@ -201,7 +203,12 @@ export function extractOpeningHookText(
 ): string | undefined {
   const trigger = options?.trigger ?? "on_session_start";
   const locationEntityId = options?.locationEntityId ?? "";
-  return resolveQuestTeaseText(data, trigger, { locationEntityId });
+  return resolveQuestTeaseTextWithInheritance(
+    data,
+    trigger,
+    { locationEntityId },
+    options?.parentData,
+  );
 }
 
 function hookTease(hook: string | undefined): string {

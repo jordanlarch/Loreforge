@@ -13,6 +13,8 @@ import {
   type Database,
 } from "@app/db";
 
+import { inheritQuestDataFromParent, locationHasQuestContent } from "@app/engine";
+
 import type { RealmEntityType } from "@/lib/realms";
 
 const LOCATION_TYPES = new Set<RealmEntityType>([
@@ -144,4 +146,70 @@ export async function wireCascadeNpcLocations(
     created += 1;
   }
   return created;
+}
+
+/**
+ * Copy parent region quest templates onto cascade location stubs that have no
+ * quests yet (Phase A.1 — session-start tease at the default tavern).
+ */
+export async function wireCascadeQuestInheritance(
+  db: Database,
+  ownerId: string,
+  parentId: string,
+): Promise<number> {
+  const [parent] = await db
+    .select({ data: realmEntities.data })
+    .from(realmEntities)
+    .where(
+      and(eq(realmEntities.id, parentId), eq(realmEntities.ownerId, ownerId)),
+    )
+    .limit(1);
+  if (!parent || !locationHasQuestContent(parent.data)) return 0;
+
+  const rels = await db
+    .select({ toId: realmRelationships.toId })
+    .from(realmRelationships)
+    .where(
+      and(
+        eq(realmRelationships.ownerId, ownerId),
+        eq(realmRelationships.fromId, parentId),
+      ),
+    );
+  if (rels.length === 0) return 0;
+
+  const childIds = rels.map((r) => r.toId);
+  const children = await db
+    .select({
+      id: realmEntities.id,
+      type: realmEntities.type,
+      data: realmEntities.data,
+    })
+    .from(realmEntities)
+    .where(
+      and(eq(realmEntities.ownerId, ownerId), inArray(realmEntities.id, childIds)),
+    );
+
+  let updated = 0;
+  for (const child of children) {
+    if (!LOCATION_TYPES.has(child.type as RealmEntityType)) continue;
+    const existing =
+      child.data && typeof child.data === "object"
+        ? (child.data as Record<string, unknown>)
+        : {};
+    if (locationHasQuestContent(existing)) continue;
+    const inherited = inheritQuestDataFromParent(
+      parent.data,
+      child.id,
+      existing,
+    );
+    if (inherited === existing) continue;
+    await db
+      .update(realmEntities)
+      .set({ data: inherited, updatedAt: new Date() })
+      .where(
+        and(eq(realmEntities.id, child.id), eq(realmEntities.ownerId, ownerId)),
+      );
+    updated += 1;
+  }
+  return updated;
 }

@@ -13,4 +13,9 @@ export {
   migrateHookStringToTemplate,
   normalizeEntityQuests,
 } from "./migrate";
+export {
+  inheritQuestDataFromParent,
+  locationHasQuestContent,
+  resolveQuestTeaseTextWithInheritance,
+} from "./inherit";
 export { formatQuestTeaseLine, resolveQuestTeaseText } from "./triggers";

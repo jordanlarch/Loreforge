@@ -340,9 +340,12 @@ export {
 export {
   formatQuestTeaseLine,
   enrichEntityDataWithQuests,
+  inheritQuestDataFromParent,
+  locationHasQuestContent,
   migrateHookStringToTemplate,
   normalizeEntityQuests,
   resolveQuestTeaseText,
+  resolveQuestTeaseTextWithInheritance,
   defaultTracerTriggers,
   QUEST_TRIGGER_TYPES,
   type QuestDelivery,

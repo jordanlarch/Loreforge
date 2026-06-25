@@ -20,6 +20,7 @@ import {
   cellCenter,
   cellToPixel,
   clampCell,
+  mapCanvasPixelSize,
   pixelToCell,
   type Cell,
 } from "@/lib/battle-map/geometry";
@@ -160,13 +161,17 @@ export default function BattleMap(props: BattleMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redraw only when the view-model data actually changes. These fields come
-  // from a memoized view model, so their references stay stable across renders
-  // where the world state is unchanged (e.g. while a move mutation is pending).
-  // Keying on the whole `props` object instead would redraw on every render and
-  // briefly snap an optimistically-dragged token back to its stale position.
+  // Redraw when the view-model changes; resize the Pixi canvas when the scene
+  // grid dimensions change (travel between locations with different map sizes).
   useEffect(() => {
-    if (readyRef.current) redraw();
+    if (!readyRef.current) return;
+    const app = appRef.current;
+    if (app) {
+      const { width, height } = mapCanvasPixelSize(props.cols, props.rows);
+      app.renderer.resize(width, height);
+      app.stage.hitArea = app.screen;
+    }
+    redraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     props.cols,

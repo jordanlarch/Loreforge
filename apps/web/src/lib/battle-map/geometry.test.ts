@@ -5,6 +5,7 @@ import {
   cellToPixel,
   chebyshev,
   clampCell,
+  mapCanvasPixelSize,
   pixelToCell,
   reachableCells,
   sameCell,
@@ -12,6 +13,10 @@ import {
 } from "./geometry";
 
 describe("cell <-> pixel", () => {
+  it("derives canvas size from grid dimensions", () => {
+    expect(mapCanvasPixelSize(12, 10)).toEqual({ width: 528, height: 440 });
+  });
+
   it("maps a cell to its top-left and center", () => {
     expect(cellToPixel({ x: 2, y: 3 }, 40)).toEqual({ x: 80, y: 120 });
     expect(cellCenter({ x: 2, y: 3 }, 40)).toEqual({ x: 100, y: 140 });

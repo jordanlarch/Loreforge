@@ -217,11 +217,13 @@ Player can type anything reasonable. The AI accepts roughly four paths (all funn
   │                                  [Got it]        │
   └─────────────────────────────────────────────────┘
   ```
-- After 8 seconds → tooltip on character HUD:
+- After 8 seconds → tooltip on compact PC panel (exploration sidebar):
   ```
   ┌── You are Mira Thornwood. ────────────────────────┐
   │ Lvl 3 Ranger. Bow at range; shortswords up close. │
-  │ Your full sheet is here on the right.            │
+  │ HP, AC, and speed at a glance — open Sheet for    │
+  │ the full character. (During combat, use the       │
+  │ party column: hover for details, click for sheet.)│
   │                                  [Got it]        │
   └─────────────────────────────────────────────────┘
   ```
@@ -444,12 +446,13 @@ Tooltip:
 ┌── Items work mechanically. ──────────────────────────────┐
 │ Oil of Brightness has a real game effect — use it on    │
 │ the lantern later and it'll do something. Inventory     │
-│ lives in your sheet, right rail.                         │
+│ lives on your sheet — open Sheet from the exploration   │
+│ sidebar, or the party column during combat.             │
 │                                       [Got it]           │
 └──────────────────────────────────────────────────────────┘
 ```
 
-Inventory chip in the HUD briefly pulses gold to draw the eye.
+Inventory chip in the exploration HUD briefly pulses gold to draw the eye.
 
 If player skips the shop, AI doesn't punish (Marlowe's old lantern oil works fine at the spire — narratively rougher, mechanically identical). Both paths funnel forward.
 
@@ -550,24 +553,36 @@ When player heads upstairs:
 
 **Phase 1 — Initiative**:
 
-Auto-roll initiative. Visual:
+Auto-roll initiative. Visual (initiative strip above the map — shipped layout):
 ```
-  ⚔ COMBAT · Round 1 · Initiative
+  ROUND 1 · Mira's turn
   Mira(19) → Shade(14) → Brennar(11)
               ↑ now
 ```
 
-Tooltip:
+Tooltip (coachmark anchors the initiative strip):
 ```
 ┌── This is a real Tier-4 combat. ─────────────────────────┐
 │ Real positions on the grid. Real dice. The engine        │
-│ enforces every rule. Your action options will pop up     │
-│ on your turn.                                             │
+│ enforces every rule. On your turn, use the bar above     │
+│ chat to Attack, Cast, or End turn.                       │
 │                                       [Got it]           │
 └──────────────────────────────────────────────────────────┘
 ```
 
-**Phase 2 — Mira's first turn**:
+**Phase 2 — Mira's first turn** *(shipped UI — turn bar above chat, not a chat panel)*:
+
+```
+  [Turn bar]
+  Economy: Action · Bonus · Reaction · Move 0/30ft
+  [Attack ▾ Longbow / Shortswords] [Ready] [Cast ▾ …] [End turn]
+
+  Map: your token active; movement radius visible.
+```
+
+**Target design** — richer in-chat turn panel (Dodge/Dash/class features) not built; shipped actions are Attack, Ready, Cast, quick-use consumables, End turn.
+
+**Target design mockup** (not the running UI):
 
 ```
   ⚔ Round 1 · ▶ Your turn (Mira) · ✓Action ✓Bonus ✓Reaction · 0/30ft used
@@ -601,7 +616,8 @@ Tooltip:
 ┌── Concentration. ────────────────────────────────────────┐
 │ Hunter's Mark requires concentration. If you take damage │
 │ you'll roll a Constitution save to keep it; that's all   │
-│ automatic. Your HUD shows the concentration spell.       │
+│ automatic. Hover your chip in the party column to see    │
+│ the concentrating spell.                                 │
 │                                       [Got it]           │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -622,7 +638,7 @@ AI narrates:
   shadow recoils, hissing without lungs.
 ```
 
-`[End Turn]` button activates.
+**End turn** in the turn bar activates; turn passes.
 
 **Phase 3 — Shade's turn**:
 
@@ -1117,12 +1133,12 @@ The tutorial cannot ship before:
 - ✅ Engine (Phase 1-3 of engine plan)
 - ✅ Combat (Phase 2 of engine plan; needs Tier 4 sync for the demo)
 - ✅ At least 3 SRD spells fully automated (Hunter's Mark, Cure Wounds, Sacred Flame)
-- ✅ Live Play Surface (option #3)
+- ✅ Live Play Surface (exploration compact HUD + combat turn bar + party rail)
 - ✅ Realms library + Region/Settlement/Building/Faction/Dungeon/NPC entity types
 - ✅ Plot Hook lifecycle (Campaign workspace)
 - ✅ Shop minimal UX (inventory display + purchase flow)
 - ✅ Memory panel + pinning
-- ✅ Character HUD + inventory drawer
+- ✅ Party-rail mini-HUD + sheet peek + tutorial inventory affordance
 
 It's effectively a **gate on v1 launch readiness** — if the tutorial doesn't play smoothly end-to-end, the product isn't ready for public release.
 

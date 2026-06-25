@@ -1,6 +1,8 @@
 # Live Play Surface
 
-*The dedicated play interface at `/campaigns/[id]/play` — invoked from the workspace's `[▶ Start Live Session]` button. The single surface where humans play their characters under the AI-GM. Hybrid text-chat backbone with the **always-on map of the current location above the chat log**, a persistent character HUD in the right rail, and progressive visual panels that fold in for combat. Designed for solo async sessions on a laptop and live multiplayer sessions across multiple connected clients with real-time sync.*
+*The dedicated play interface at `/campaigns/[id]/play` — invoked from the workspace's `[▶ Start Live Session]` button. The single surface where humans play their characters under the AI-GM. Hybrid text-chat backbone with the **always-on map of the current location above the chat log**. **Exploration** scenes (map, no active encounter) show a compact PC panel in the right sidebar; **combat** scenes use an initiative strip above the map, a left party rail, and a horizontal turn bar above chat (no full character sidebar during fights). Designed for solo async sessions on a laptop and live multiplayer sessions across multiple connected clients with real-time sync.*
+
+> **Doc convention:** sections labeled **Shipped** match the running app today. Sections labeled **Target design** describe v1 intent that is not fully built yet — see `docs/deferrals.md` §3.7 (PLAY-*).
 
 ## Entry Points
 
@@ -22,7 +24,57 @@ The same UI shell runs in two distinct sync modes:
 
 The visual UI is identical. A small **`⚡ Live · 3 connected`** chip in the header indicates Live mode; **`◐ Async · You only`** indicates solo.
 
-## Persistent 5-Zone Layout
+## Render modes (exploration vs combat)
+
+The same shell hosts two render paths (see `play-surface.tsx`):
+
+| Mode | When | Chrome |
+|---|---|---|
+| **Exploration** | Mapped scene, no active `encounter` | Top bar · map · chat · **optional right sidebar** (compact PC HUD + tutorial controls) · **left party rail** |
+| **Combat** | Active encounter | Top bar · **initiative strip** · left party rail · map · **horizontal turn bar** · chat — **no right sidebar** |
+
+During combat, character vitals come from the **party rail** (hover mini-HUD, click for read-only sheet peek). The engine still owns all mechanics; the UI only surfaces what the synced `WorldState` exposes for party-side entities.
+
+## Layout — shipped (Jun 2026, #214)
+
+**Exploration** (desktop):
+
+```
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ ① TOP BAR (breadcrumb · title · Live/Async · scene · clock · Pause)   │
+  ├──────┬──────────────────────────────────────────────┬──────────────────┤
+  │      │  ② MAP (tactical grid when scene has a map)  │ ④ COMPACT PC HUD │
+  │ ⑤    │                                              │ (name · HP/AC/   │
+  │PARTY │                                              │  speed · Sheet)  │
+  │RAIL  ├──────────────────────────────────────────────┤ + tutorial panel │
+  │(left)│  ③ CHAT + moded composer                     │  when applicable │
+  │      │                                              │                  │
+  └──────┴──────────────────────────────────────────────┴──────────────────┘
+```
+
+**Combat**:
+
+```
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ ① TOP BAR (no End turn · no round/turn/movement during combat)        │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ INITIATIVE STRIP — Round N · active name · horizontal initiative chips  │
+  ├──────┬──────────────────────────────────────────────────────────────────┤
+  │ ⑤    │  ② MAP — tokens · movement radius · target/aim pickers           │
+  │PARTY │                                                                  │
+  │RAIL  ├──────────────────────────────────────────────────────────────────┤
+  │      │  TURN BAR — economy · Attack/Ready/Cast · quick-use · End turn   │
+  │      │            · reaction prompts (when open)                        │
+  │      ├──────────────────────────────────────────────────────────────────┤
+  │      │  ③ CHAT + moded composer                                         │
+  └──────┴──────────────────────────────────────────────────────────────────┘
+```
+
+**Shipped proportions:** viewport-fit column; map and chat share vertical space; party rail is a **fixed-width left column** (~8–10rem), not a bottom strip.
+
+### Target layout (v1 design intent — not fully built)
+
+The original five-zone sketch below remains the north star for polish passes. Items **not shipped** include: bottom party rail, draggable map/chat split, full right-rail Live Stats HUD during combat, hierarchical L0–L4 map zoom, fog of war, and in-game clock in the top bar.
 
 ```
   ┌─────────────────────────────────────────────────────────────────────────┐
@@ -47,19 +99,23 @@ The visual UI is identical. A small **`⚡ Live · 3 connected`** chip in the he
   │           │ [Input: text / slash commands / actions] │       │        │  │
   │           └──────────────────────────────────────────┘       │        │  │
   ├─────────────────────────────────────────────────────────────│        │  │
-  │ ⑤ PARTY RAIL (collapsed by default; expands on hover)        └────────┘  │
+  │ ⑤ PARTY RAIL (target: bottom slim strip)                     └────────┘  │
   └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Default proportions** (desktop, 1440px+): Map ≈ 45% vertical · Chat ≈ 50% vertical · Top bar ≈ 5%; Character HUD ≈ 280px right; Party Rail = bottom slim strip (collapsed).
+**Target proportions** (desktop, 1440px+): Map ≈ 45% vertical · Chat ≈ 50% vertical · Top bar ≈ 5%; Character HUD ≈ 280px right; Party Rail = bottom slim strip (collapsed).
 
-**User can resize**: the horizontal divider between Map and Chat is draggable. Each user's preference saved per campaign.
+**User can resize**: the horizontal divider between Map and Chat is draggable. Each user's preference saved per campaign. *(Not built.)*
 
 **Visual tone**: same dark-fantasy theme as the rest of the app. Map zone uses parchment-on-dark tile; chat uses warm dark with subtle texture; HUD reuses the character sheet's Live Stats HUD aesthetics.
 
 ---
 
 ## ① Top Bar
+
+**Shipped (B2 / #101):** `live-top-bar` — breadcrumb back to workspace, campaign title, Live/Async presence chip (peer count), current scene name, **real-time session clock**, client-side **Pause** (freezes local turn UI + map interactions), **Reset**, optional **End session** (campaigns), rejected-move hint, and a tools row. **🎚 Pacing** is live (style + soft turn timer + Continue/Hold/Skip). **End turn** lives in the **combat turn bar**, not here. During combat, round/turn/movement are **not** duplicated in the top bar (they appear in the initiative strip + turn bar). **Still placeholders:** 🔊 TTS, 🧠 Memory, 📋 Inventory. **Still deferred:** in-game clock, named connection roster, server-side pause freeze, `[Zoom Out ▲]`, session rename, ⚙ Session dropdown.
+
+**Target design** — full top bar mockup:
 
 ```
   ← [Workspace]    🜂 Curse of Strahd · Session 15      ⚡ Live · 3 connected
@@ -92,7 +148,9 @@ Top bar elements:
 
 The defining feature of the play surface. The map of the **current scene** is always rendered above the chat; player tokens are visible at their positions; the map *is* the spatial truth of where the party is.
 
-### Zoom Levels (hierarchical)
+**Shipped:** tactical grid for the current scene (`MapViewport`) — CSS zoom in/out/reset, grid + movement-radius layer toggles, token drag within reachable cells, target picker + AoE aim overlay during combat. Scene transition banner (#103).
+
+### Zoom Levels (hierarchical) — **Target design (PLAY-7, not built)**
 
 The map zone supports five vertical zoom levels, navigable via `[Zoom Out ▲] / [Zoom In ▼]` in the top bar OR mouse-wheel/pinch:
 
@@ -148,7 +206,7 @@ Every entity with a presence on the current map renders as a token:
 - **Hover**: tooltip with name + disposition + (in combat) HP bar + conditions
 - **Movement-from-chat**: typing *"I move behind the bar"* triggers the AI to issue a `move(target, position)` tool call → engine validates legality (speed, terrain) → token slides smoothly. Both drag and text input go through the same engine path; engine is canonical.
 
-### Fog of War
+### Fog of War — **Target design (PLAY-7, not built)**
 
 Per-token visibility computed from the map's wall geometry + line-of-sight from each PC's position:
 - **Unexplored**: solid dark — never been here
@@ -161,21 +219,31 @@ Default settings per campaign (Pacing-tied):
 
 Fog can be **revealed by the AI's narration** ("you peer around the corner and see…") — the AI calls `reveal_area(map, region)` tool which clears the fog client-side for all players.
 
-### Tactical Combat Overlay (L4)
+### Tactical Combat Overlay — **Shipped (#58, #214)**
 
-When combat starts, the map zone:
-1. Auto-zooms to L4 (5ft grid)
-2. Adds a **combat overlay** along the top of the map zone:
+When combat is active (`encounter` present):
+
+1. Map shows the scene's tactical grid with combatant tokens
+2. **Initiative strip** (full width, above map + party row): round badge, active combatant name, horizontal initiative chips (hostile chips styled differently; dead combatants dimmed)
+3. Active token highlighted on the map; **movement radius** for the active combatant (reachable cells)
+4. On a controllable party turn, **turn bar** above chat: action-economy chips, **Attack** (sheet weapons), **Ready**, **Cast** (prepared spells), consumable quick-use buttons (narrative `use_item` chat until SMITH-7), **End turn**
+5. Arming Attack/Cast/Ready activates the map **target picker** or **AoE aim cell**; engine resolves on confirm
+6. **Reaction prompts** appear in the turn bar when the engine opens a reaction window (Opportunity Attack + Pass; Shield tracer when available)
+
+**Target design (not built):** L4 auto-zoom from L3, token reveal animations, range rings on action hover, initiative strip *inside* the map zone only.
+
+**Target design** — overlay mockup along the top of the map zone:
+
    ```
    ⚔ COMBAT · Round 3 · ▶ Thorin's turn (Action available · 30ft moved/30ft)
    ────────────────────────────────────────────────────────────────────────
    Initiative: 🛡 Thorin(22) → 🎵 Elara(18) → 🗡 Bandit#1(15) → 🗡 Bandit#2(12)
                                           ↑ now
    ```
-3. Shows initiative order as a horizontal scroll of token avatars
-4. Highlights the active combatant with a pulsing gold ring on their token
-5. Displays movement remaining as a semi-transparent radius around the active token (you can see exactly where you can reach)
-6. Range rings appear when you mouse over an action button ("Fireball: 150ft" → ring shows 150ft)
+
+- Token avatars in initiative (vs name chips today)
+- Pulsing gold ring on active token *(partially shipped — active highlight + reachable cells)*
+- Range rings on action hover *(not built)*
 
 ---
 
@@ -353,9 +421,21 @@ This transparency is a deliberate design choice (Q15 player canon control) — p
 
 ---
 
-## ④ Character HUD (Right Rail)
+## ④ Character HUD
 
-The right rail reuses the **Live Stats HUD** component already designed in the Inline Editing spec — but enriched for live play.
+### Shipped (exploration + party rail)
+
+| Surface | What the player sees |
+|---|---|
+| **Exploration right sidebar** | Compact PC panel: name, HP/AC/speed, **Sheet** link to full overlay; tutorial inventory button when applicable. No ability grid, attacks, or action economy here. |
+| **Combat party rail hover** | Mini-HUD popover: ability mods, AC/speed/temp HP, conditions, concentration spell name, spell slot pips, death saves. Shown for **party-side** members only (engine-synced). |
+| **Combat sheet peek** | Click a party chip → read-only character sheet overlay (PLAY-4). |
+
+There is **no** full character sidebar during combat. The old `CharacterHud` component (active-combatant stats in the right rail) was removed in #214 — it surfaced whoever's turn was active, not necessarily the player's PC.
+
+### Target design — full right-rail Live Stats HUD
+
+The right rail would reuse the **Live Stats HUD** component already designed in the Inline Editing spec — enriched for live play during **all** play modes:
 
 ```
   ┌────────────────────────────────────┐
@@ -396,7 +476,7 @@ The right rail reuses the **Live Stats HUD** component already designed in the I
   └────────────────────────────────────┘
 ```
 
-**Live-only additions over the standard Character View HUD**:
+**Live-only additions over the standard Character View HUD** *(target — not shipped in live play)*:
 - **Active turn highlight**: when it's your turn in combat, the HUD gets a pulsing gold border
 - **Action economy chips** (combat only): `Action ✓ available · Bonus ✓ · Reaction ✓ · Move 30/30ft`
 - **Concentration tracker** (when you have a concentration spell active): `🧠 Concentrating: Bless · 9 rounds left · CON save DC 10 on damage`
@@ -409,9 +489,13 @@ The right rail reuses the **Live Stats HUD** component already designed in the I
 
 ---
 
-## ⑤ Party Rail (Bottom)
+## ⑤ Party Rail
 
-A horizontal strip at the bottom of the screen, slim by default, showing every party member at a glance.
+**Shipped (#100, #125, #214):** a **left column** (not a bottom strip) listing party-side members as vertical chips. Each chip shows name, HP bar, and (in combat) action/bonus/movement ticks; the active combatant gets a gold border + ▶ marker. **Hover** → mini-HUD (see §④). **Click** → read-only sheet peek when roster ids are bridged (PLAY-4). Tutorial companion backfill when hook accepted.
+
+**Target design (not built):** bottom horizontal strip; presence dots; cross-character assist pulses; chips reorder to initiative order.
+
+**Target design** — bottom strip mockup:
 
 ```
   ┌─ Party (collapsed) ──────────────────────────────────────────────────┐
@@ -420,11 +504,11 @@ A horizontal strip at the bottom of the screen, slim by default, showing every p
   └───────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Hover** any party member chip → expands to show full mini-HUD (their abilities, conditions, current spell concentration, etc.)
-- **Click** another player's chip → opens their character sheet in read-only mode (with the campaign-level permission rules)
-- **Presence indicators**: green dot connected · yellow typing · gray disconnected · zzz away
-- **Cross-character assist**: when an action requires another party member's involvement (e.g., Bardic Inspiration, Help action), their chip pulses
-- **Party initiative order indicator** in combat: chips reorder to show initiative; current actor pulses gold
+- **Hover** any party member chip → expands to show full mini-HUD *(shipped via left-column popover)*
+- **Click** another player's chip → opens their character sheet in read-only mode *(shipped)*
+- **Presence indicators**: green dot connected · yellow typing · gray disconnected · zzz away *(deferred)*
+- **Cross-character assist**: when an action requires another party member's involvement (e.g., Bardic Inspiration, Help action), their chip pulses *(deferred)*
+- **Party initiative order indicator** in combat: chips reorder to show initiative; current actor pulses gold *(deferred — initiative order is in the strip above the map)*
 
 ---
 
@@ -495,12 +579,34 @@ Combat is the highest-stakes interaction. When the engine receives an `encounter
 ```
 
 - Engine assembles encounter from declared combatants (party + new enemies the AI tool-called into the scene)
-- Map auto-zooms to L4 (battle grid)
-- Tokens for enemies appear with reveal animation
-- Initiative banner appears at top of map zone
-- **Multiplayer sync**: all clients see the same animation simultaneously; initiative rolls are dice-synced
+- **Shipped:** tactical map with tokens; **initiative strip** above map + party row when `encounter` is active; chat may show combat start divider (#103)
+- **Target design (not built):** L4 auto-zoom, token reveal animations, in-chat encounter-start panel with `[Roll Initiative]` button
+- **Multiplayer sync**: all clients share the same synced `WorldState` via Yjs; initiative order comes from the engine projection
 
 ### Phase 2 — Combat Loop
+
+**Shipped loop:**
+
+```
+  ┌─ Initiative (above map) ─────────────────────────────────────────────┐
+  │ ROUND 3 · Thorin's turn                                              │
+  │ Thorin(22) → Elara(18) → 🗡 Bandit#1(15) → …                         │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  ┌─ Turn bar (above chat, on your controllable turn) ───────────────────┐
+  │ Economy: Action · Bonus · Reaction · Move 30/30ft                    │
+  │ [Attack ▾] [Ready] [Cast ▾] [Healing Potion] …          [End turn]   │
+  └──────────────────────────────────────────────────────────────────────┘
+```
+
+On your turn:
+1. Your token is active on the map; **movement radius** shown (reachable cells)
+2. **Turn bar** shows action economy + **Attack / Ready / Cast** (sheet weapons + prepared spells) + consumable quick-use + **End turn** — not a chat-embedded panel and not a right-rail HUD
+3. Player arms an action → **map target picker** or **AoE aim cell** activates
+4. Engine validates and resolves; chat gets structured engine-event rows + GM narration
+5. **End turn** in the turn bar passes initiative
+
+**Target design** — richer turn affordances inside chat (Dodge/Dash/Help/class features as buttons, free-text turn panel):
 
 ```
   ⚔ Round 3 · ▶ Your turn (Thorin) · ✓Action ✓Bonus ✓Reaction · 0/30ft used
@@ -511,10 +617,10 @@ Combat is the highest-stakes interaction. When the engine receives an `encounter
   └───────────────────────────────────────────────────────────────────────┘
 ```
 
-On your turn:
+On your turn *(target flow)*:
 1. Your token glows gold on the map; movement radius shown
-2. Right-rail HUD shows action economy active
-3. Chat opens a turn-specific affordance:
+2. Right-rail HUD shows action economy active *(not shipped during combat)*
+3. Chat opens a turn-specific affordance *(not shipped — actions are in the turn bar)*:
 
 ```
   ┌─ Your Turn ──────────────────────────────────────────────────────────┐
@@ -533,6 +639,8 @@ On your turn:
   │                                                          [End Turn]  │
   └───────────────────────────────────────────────────────────────────────┘
 ```
+
+*(Target design — continued; engine resolution in steps 5–8 below matches shipped behavior. End turn and reactions live in the **turn bar** today, not chat.)*
 
 4. Player picks an action (button, slash command, free text, or map interaction)
 5. If a target is required, **map target picker activates** — valid targets glow; range rings visible; click to select
@@ -557,8 +665,8 @@ On your turn:
   └───────────────────────────────────────────────────────────────────────┘
 ```
 
-9. `[End Turn]` button activates; turn passes
-10. If a reaction trigger fires (Opportunity Attack, Counterspell, Shield, etc.), an inline reaction prompt interrupts:
+9. `[End Turn]` — **turn bar** (shipped) or chat panel (target); turn passes
+10. If a reaction trigger fires, a **turn-bar reaction prompt** (shipped for OA/Shield tracer) or inline chat modal (target):
 
 ```
   ┌─ ⚡ REACTION PROMPT (8s) ────────────────────────────────────────────┐

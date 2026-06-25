@@ -318,6 +318,7 @@ export {
 export {
   arrivalNarrationForLocation,
   buildCampaignExplorationCommands,
+  firstDungeonRoom,
   buildDungeonCombatStartCommands,
   buildDungeonEntryCommands,
   buildEnterLocationCommands,

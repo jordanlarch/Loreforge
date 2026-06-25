@@ -9,6 +9,7 @@ import {
   extractOpeningHookText,
   matchTravelDestination,
   openingNarrationForLocation,
+  arrivalNarrationForLocation,
   realmNpcEntityId,
   resolveDungeonFoes,
   sceneIdForRealmEntity,
@@ -218,5 +219,46 @@ describe("buildDungeonEntryCommands", () => {
     expect(after.currentSceneId).toBe(sceneIdForRealmEntity(dungeon.entityId));
     expect(after.encounter?.initiativeRolled).toBe(true);
     expect(Object.keys(after.entities).some((id) => id.startsWith("npc:dungeon:"))).toBe(true);
+  });
+});
+
+describe("resolveDungeonFoes", () => {
+  it("prefers the first room encounter over wandering monsters (GENR-5)", () => {
+    const foes = resolveDungeonFoes("33333333-3333-4333-8333-333333333333", {
+      rooms: [
+        {
+          name: "Flooded Antechamber",
+          encounter: "3 goblin scouts lurk in the shallows",
+        },
+      ],
+      wanderingMonsters: ["skeleton patrol"],
+    });
+    expect(foes).toHaveLength(3);
+    expect(foes[0]?.name.toLowerCase()).toContain("goblin");
+  });
+
+  it("falls back to wandering monsters when rooms have no encounter", () => {
+    const foes = resolveDungeonFoes("33333333-3333-4333-8333-333333333333", {
+      rooms: [{ name: "Empty Hall", encounter: "" }],
+      wanderingMonsters: ["wolf pack"],
+    });
+    expect(foes[0]?.name.toLowerCase()).toContain("wolf");
+  });
+});
+
+describe("arrivalNarrationForLocation", () => {
+  it("names the first dungeon room on entry when room data exists", () => {
+    const line = arrivalNarrationForLocation(
+      {
+        entityId: "33333333-3333-4333-8333-333333333333",
+        name: "Whisper Crypt",
+        summary: "Damp stone.",
+        type: "dungeon",
+      },
+      {
+        rooms: [{ name: "Flooded Antechamber", encounter: "2 skeletons" }],
+      },
+    );
+    expect(line.text).toContain("Flooded Antechamber");
   });
 });

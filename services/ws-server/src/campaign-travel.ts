@@ -17,6 +17,7 @@ import { CampaignRoom } from "./room.js";
 export type CampaignTravelResult = {
   destination: CampaignStartingLocation;
   startedCombat: boolean;
+  entityData?: Record<string, unknown>;
 };
 
 export async function tryCampaignTravelFromChat(
@@ -46,5 +47,5 @@ export async function tryCampaignTravelFromChat(
   );
   const { changed, startedCombat } = await room.enterLocation(destination, extras);
   if (!changed) return undefined;
-  return { destination, startedCombat };
+  return { destination, startedCombat, entityData: extras.entityData };
 }

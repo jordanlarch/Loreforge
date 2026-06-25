@@ -232,14 +232,19 @@ export function openingNarrationForLocation(loc: CampaignStartingLocation): {
 }
 
 /** GM line after the party travels to a new Realms location (Rung 4 Slice 2). */
-export function arrivalNarrationForLocation(loc: CampaignStartingLocation): {
+export function arrivalNarrationForLocation(
+  loc: CampaignStartingLocation,
+  entityData?: Record<string, unknown>,
+): {
   text: string;
   mentions: string[];
 } {
   if (loc.type === "dungeon") {
+    const room = firstDungeonRoom(entityData);
+    const roomLead = room ? `You reach ${room.name}. ` : "";
     return {
-      text: `You descend into ${loc.name}. ${loc.summary.trim() || defaultBlurb(loc.type)} Something hostile stirs in the dark.`,
-      mentions: [loc.name],
+      text: `${roomLead}You descend into ${loc.name}. ${loc.summary.trim() || defaultBlurb(loc.type)} Something hostile stirs in the dark.`,
+      mentions: room ? [room.name, loc.name] : [loc.name],
     };
   }
   const blurb = loc.summary.trim() || defaultBlurb(loc.type);
@@ -405,23 +410,50 @@ export function buildLocationNpcCommands(
   return commands;
 }
 
-/** Resolve dungeon foes from entity data; defaults to two skeletons. */
+/** Parse a monster slug from free-text encounter / wandering-monster labels. */
+function slugFromMonsterLabel(label: string): string {
+  const lower = label.toLowerCase();
+  if (lower.includes("goblin")) return "goblin";
+  if (lower.includes("wolf")) return "wolf";
+  if (lower.includes("orc")) return "orc";
+  if (lower.includes("skeleton")) return "skeleton";
+  return "skeleton";
+}
+
+/** First authored room on a dungeon entity (GENR-5 room promotion). */
+export function firstDungeonRoom(
+  data: unknown,
+): { name: string; encounter: string } | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const rooms = (data as Record<string, unknown>).rooms;
+  if (!Array.isArray(rooms) || rooms.length === 0) return undefined;
+  const room = rooms[0];
+  if (!room || typeof room !== "object") return undefined;
+  const obj = room as { name?: unknown; encounter?: unknown };
+  const encounter = typeof obj.encounter === "string" ? obj.encounter.trim() : "";
+  if (!encounter) return undefined;
+  const name = typeof obj.name === "string" ? obj.name.trim() : "Entry";
+  return { name: name || "Entry", encounter };
+}
+
+/** Resolve dungeon foes from the first room encounter, then wandering monsters. */
 export function resolveDungeonFoes(
   dungeonEntityId: string,
   data: unknown,
 ): FoeSpec[] {
-  let slug = "skeleton";
-  if (data && typeof data === "object") {
+  const room = firstDungeonRoom(data);
+  let label: string | undefined = room?.encounter;
+  if (!label && data && typeof data === "object") {
     const wanderers = (data as Record<string, unknown>).wanderingMonsters;
     if (Array.isArray(wanderers) && wanderers.length > 0) {
-      const label = String(wanderers[0]).toLowerCase();
-      if (label.includes("goblin")) slug = "goblin";
-      else if (label.includes("wolf")) slug = "wolf";
-      else if (label.includes("orc")) slug = "orc";
+      label = String(wanderers[0]);
     }
   }
+  const slug = label ? slugFromMonsterLabel(label) : "skeleton";
+  const countMatch = label?.match(/\b(\d+)\b/);
+  const count = countMatch ? Math.min(4, Math.max(1, Number(countMatch[1]))) : 2;
   const expanded = expandEncounterFoes(
-    [{ template: slug, count: 2 }],
+    [{ template: slug, count }],
     monsterTemplate,
   );
   return expanded.map((foe, i) => ({

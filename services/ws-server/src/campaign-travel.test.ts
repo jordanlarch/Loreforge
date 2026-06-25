@@ -29,6 +29,7 @@ const TAVERN: CampaignStartingLocation = {
 vi.mock("./db.js", () => ({
   getCampaignExplorableLocations: vi.fn(async () => [SETTLEMENT, TAVERN]),
   getCampaignLocationByEntityId: vi.fn(),
+  getCampaignLocationEnterExtras: vi.fn(async () => ({ npcs: [] })),
 }));
 
 describe("tryCampaignTravelFromChat", () => {
@@ -59,7 +60,8 @@ describe("tryCampaignTravelFromChat", () => {
       text: "I go to The Crooked Tankard",
     });
 
-    expect(destination).toEqual(TAVERN);
+    expect(destination?.destination).toEqual(TAVERN);
+    expect(destination?.startedCombat).toBe(false);
     const state = await room.getState();
     expect(state.currentSceneId).toBe(sceneIdForRealmEntity(TAVERN.entityId));
     expect(state.encounter).toBeUndefined();

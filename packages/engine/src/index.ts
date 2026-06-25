@@ -318,15 +318,22 @@ export {
 export {
   arrivalNarrationForLocation,
   buildCampaignExplorationCommands,
+  buildDungeonCombatStartCommands,
+  buildDungeonEntryCommands,
   buildEnterLocationCommands,
+  buildLocationNpcCommands,
   DEFAULT_STARTING_LOCATION,
   entityIdFromSceneId,
+  extractOpeningHookText,
   isExplorableRealmType,
   matchTravelDestination,
   openingNarrationForLocation,
+  realmNpcEntityId,
+  resolveDungeonFoes,
   sceneIdForRealmEntity,
   type CampaignStartingLocation,
   type ExplorableRealmType,
+  type LocationNpcSpec,
 } from "./fixtures/exploration";
 export {
   ENCOUNTER_MAP_PRESETS,

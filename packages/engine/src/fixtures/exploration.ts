@@ -5,9 +5,17 @@
  * begins when fiction requires it (armed encounter, Run Now, or in-fiction trigger).
  */
 import type { Command } from "../commands/types";
-import type { GridPosition } from "../entities/types";
+import type { AbilityScores, EntityRef, GridPosition } from "../entities/types";
 import type { WorldState } from "../projections/world-state";
-import { MAX_BATTLE_PARTY, type PartyMember } from "./battle";
+import { monsterTemplate } from "../content/monsters";
+import {
+  expandEncounterFoes,
+  FIXTURE_BATTLE_FOES_SIDE,
+  FIXTURE_BATTLE_PARTY_SIDE,
+  MAX_BATTLE_PARTY,
+  type FoeSpec,
+  type PartyMember,
+} from "./battle";
 
 /** Realms types that can host an explorable interior/overland map in Live Play. */
 export type ExplorableRealmType =
@@ -25,6 +33,8 @@ export type CampaignStartingLocation = {
   name: string;
   summary: string;
   type: ExplorableRealmType;
+  /** First Realms-embedded plot hook for opening/arrival narration (Rung 4 Slice 3). */
+  openingHook?: string;
 };
 
 /** Fallback when a campaign has no explorable World-tab entities yet. */
@@ -172,6 +182,37 @@ function defaultBlurb(type: ExplorableRealmType): string {
 }
 
 /**
+ * Extract the first plot-hook string from a Realms entity `data` payload.
+ * Handles plain strings and structured generator objects with title/description.
+ */
+export function extractOpeningHookText(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const hooks = (data as Record<string, unknown>).hooks;
+  if (!Array.isArray(hooks) || hooks.length === 0) return undefined;
+  const first = hooks[0];
+  if (typeof first === "string") {
+    const trimmed = first.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  if (first && typeof first === "object") {
+    const obj = first as { title?: unknown; description?: unknown };
+    const title = typeof obj.title === "string" ? obj.title.trim() : "";
+    const description =
+      typeof obj.description === "string" ? obj.description.trim() : "";
+    const combined = [title, description].filter(Boolean).join(": ");
+    return combined.length > 0 ? combined : undefined;
+  }
+  return undefined;
+}
+
+function hookTease(hook: string | undefined): string {
+  if (!hook?.trim()) return "";
+  const trimmed = hook.trim();
+  const sentence = trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
+  return `Word reaches you: ${sentence} `;
+}
+
+/**
  * Canned opening GM line for a fresh campaign load (LLM-free; the orchestrator
  * may replace it on the player's first message when configured).
  */
@@ -180,8 +221,12 @@ export function openingNarrationForLocation(loc: CampaignStartingLocation): {
   mentions: string[];
 } {
   const blurb = loc.summary.trim() || defaultBlurb(loc.type);
+  const hook = hookTease(loc.openingHook);
   return {
-    text: `You arrive at ${loc.name}. ${blurb} What do you do?`,
+    text: `You arrive at ${loc.name}. ${blurb} ${hook}What do you do?`.replace(
+      "  ",
+      " ",
+    ),
     mentions: [loc.name],
   };
 }
@@ -191,9 +236,16 @@ export function arrivalNarrationForLocation(loc: CampaignStartingLocation): {
   text: string;
   mentions: string[];
 } {
+  if (loc.type === "dungeon") {
+    return {
+      text: `You descend into ${loc.name}. ${loc.summary.trim() || defaultBlurb(loc.type)} Something hostile stirs in the dark.`,
+      mentions: [loc.name],
+    };
+  }
   const blurb = loc.summary.trim() || defaultBlurb(loc.type);
+  const hook = hookTease(loc.openingHook);
   return {
-    text: `You make your way to ${loc.name}. ${blurb}`,
+    text: `You make your way to ${loc.name}. ${blurb} ${hook}`.trim(),
     mentions: [loc.name],
   };
 }
@@ -292,6 +344,165 @@ export function buildEnterLocationCommands(
   });
 
   return commands;
+}
+
+/** Ambient NPC to place on an exploration map (Rung 4 Slice 3). */
+export type LocationNpcSpec = {
+  entityId: string;
+  name: string;
+  abilityScores: AbilityScores;
+  maxHp: number;
+  baseAc: number;
+  speed: number;
+};
+
+const NPC_SPOTS: readonly GridPosition[] = [
+  { x: 2, y: 3 },
+  { x: 7, y: 2 },
+  { x: 3, y: 5 },
+  { x: 8, y: 5 },
+];
+
+const DUNGEON_FOE_SPOTS: readonly GridPosition[] = [
+  { x: 9, y: 2 },
+  { x: 10, y: 4 },
+  { x: 9, y: 7 },
+  { x: 10, y: 6 },
+];
+
+export function realmNpcEntityId(realmEntityId: string): string {
+  return `npc:realm:${realmEntityId}`;
+}
+
+/** Place World-tab NPC tokens on the current scene (skips ids already present). */
+export function buildLocationNpcCommands(
+  sceneId: string,
+  npcs: readonly LocationNpcSpec[],
+  state: WorldState,
+): Command[] {
+  const commands: Command[] = [];
+  let slot = 0;
+  for (const npc of npcs) {
+    if (slot >= NPC_SPOTS.length) break;
+    const id = realmNpcEntityId(npc.entityId);
+    if (state.entities[id]) continue;
+    commands.push({
+      type: "create_entity",
+      entity: {
+        id,
+        kind: "npc",
+        name: npc.name,
+        abilityScores: npc.abilityScores,
+        maxHp: npc.maxHp,
+        baseAc: npc.baseAc,
+        speed: npc.speed,
+        sceneId,
+        position: NPC_SPOTS[slot]!,
+      },
+    });
+    slot += 1;
+  }
+  return commands;
+}
+
+/** Resolve dungeon foes from entity data; defaults to two skeletons. */
+export function resolveDungeonFoes(
+  dungeonEntityId: string,
+  data: unknown,
+): FoeSpec[] {
+  let slug = "skeleton";
+  if (data && typeof data === "object") {
+    const wanderers = (data as Record<string, unknown>).wanderingMonsters;
+    if (Array.isArray(wanderers) && wanderers.length > 0) {
+      const label = String(wanderers[0]).toLowerCase();
+      if (label.includes("goblin")) slug = "goblin";
+      else if (label.includes("wolf")) slug = "wolf";
+      else if (label.includes("orc")) slug = "orc";
+    }
+  }
+  const expanded = expandEncounterFoes(
+    [{ template: slug, count: 2 }],
+    monsterTemplate,
+  );
+  return expanded.map((foe, i) => ({
+    ...foe,
+    id: `npc:dungeon:${dungeonEntityId.slice(0, 8)}:${i}`,
+  }));
+}
+
+/**
+ * Enter a dungeon and immediately start combat with preset foes (Rung 4 Slice 3).
+ * Assumes party character entities already exist in engine state.
+ */
+function buildDungeonCombatCommands(
+  sceneId: string,
+  partyIds: readonly string[],
+  foes: readonly FoeSpec[],
+): Command[] {
+  const commands: Command[] = [];
+  const sides: Record<EntityRef, string> = {};
+  for (const id of partyIds) sides[id] = FIXTURE_BATTLE_PARTY_SIDE;
+  for (const f of foes) sides[f.id] = FIXTURE_BATTLE_FOES_SIDE;
+
+  for (const [i, foe] of foes.entries()) {
+    commands.push({
+      type: "create_entity",
+      entity: {
+        id: foe.id,
+        kind: "monster",
+        name: foe.name,
+        abilityScores: foe.abilityScores,
+        maxHp: foe.maxHp,
+        baseAc: foe.baseAc,
+        speed: foe.speed,
+        sceneId,
+        position: DUNGEON_FOE_SPOTS[i] ?? DUNGEON_FOE_SPOTS[0]!,
+        ...(foe.attacksPerAction !== undefined
+          ? { attacksPerAction: foe.attacksPerAction }
+          : {}),
+      },
+    });
+  }
+
+  commands.push({
+    type: "start_encounter",
+    sceneId,
+    combatants: [...partyIds, ...foes.map((f) => f.id)],
+    sides,
+  });
+  commands.push({ type: "roll_initiative" });
+  return commands;
+}
+
+/** Combat tail for a fresh campaign seed at a dungeon starting location. */
+export function buildDungeonCombatStartCommands(
+  location: CampaignStartingLocation,
+  partyIds: readonly string[],
+  foes: readonly FoeSpec[],
+): Command[] {
+  return buildDungeonCombatCommands(
+    sceneIdForRealmEntity(location.entityId),
+    partyIds,
+    foes,
+  );
+}
+
+export function buildDungeonEntryCommands(
+  location: CampaignStartingLocation,
+  state: WorldState,
+  foes: readonly FoeSpec[],
+): Command[] {
+  const partyIds = Object.values(state.entities)
+    .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
+    .map((e) => e.id);
+  return [
+    ...buildEnterLocationCommands(location, state),
+    ...buildDungeonCombatCommands(
+      sceneIdForRealmEntity(location.entityId),
+      partyIds,
+      foes,
+    ),
+  ];
 }
 
 /**

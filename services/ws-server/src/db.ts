@@ -8,7 +8,7 @@
  * store contract, one source of truth). Connection is env-driven (`DATABASE_URL`);
  * `getDb()` is lazy, so importing this module has no side effects.
  */
-import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or } from "drizzle-orm";
 
 import {
   getDb,
@@ -23,12 +23,14 @@ import {
   pinnedMemories,
   plotHooks,
   realmEntities,
+  realmRelationships,
   rollingSummaries,
   tutorialProgress,
   type EquipmentItem,
 } from "@app/db";
 import {
   expandEncounterFoes,
+  extractOpeningHookText,
   getSpell,
   meleeReachFromEquipment,
   monsterTemplate,
@@ -40,10 +42,12 @@ import {
   TUTORIAL_FIRST_SCENE_ID,
   TUTORIAL_OIL_NAME,
   type Ability,
+  type AbilityScores,
   type CampaignStartingLocation,
   type EventStore,
   type ExplorableRealmType,
   type FoeSpec,
+  type LocationNpcSpec,
   type PartyMember,
   type TutorialLootItem,
   tutorialSceneRequiresCompanion,
@@ -344,7 +348,14 @@ const STARTING_LOCATION_PRIORITY: Record<ExplorableRealmType, number> = {
 };
 
 function sortExplorableLocations<
-  T extends { type: string; addedAt: Date; entityId: string; name: string; summary: string },
+  T extends {
+    type: string;
+    addedAt: Date;
+    entityId: string;
+    name: string;
+    summary: string;
+    data: unknown;
+  },
 >(rows: T[]): CampaignStartingLocation[] {
   return [...rows]
     .sort((a, b) => {
@@ -358,6 +369,7 @@ function sortExplorableLocations<
       name: row.name,
       summary: row.summary,
       type: row.type as ExplorableRealmType,
+      openingHook: extractOpeningHookText(row.data),
     }));
 }
 
@@ -369,6 +381,7 @@ async function loadExplorableWorldRows(campaignId: string, ownerId: string) {
       name: realmEntities.name,
       summary: realmEntities.summary,
       type: realmEntities.type,
+      data: realmEntities.data,
     })
     .from(campaignWorldEntities)
     .innerJoin(
@@ -408,6 +421,7 @@ export async function getCampaignLocationByEntityId(
       name: realmEntities.name,
       summary: realmEntities.summary,
       type: realmEntities.type,
+      data: realmEntities.data,
     })
     .from(campaignWorldEntities)
     .innerJoin(
@@ -430,7 +444,140 @@ export async function getCampaignLocationByEntityId(
     name: row.name,
     summary: row.summary,
     type: row.type as ExplorableRealmType,
+    openingHook: extractOpeningHookText(row.data),
   };
+}
+
+const DEFAULT_NPC_STATS: AbilityScores = {
+  str: 10,
+  dex: 10,
+  con: 10,
+  int: 10,
+  wis: 10,
+  cha: 10,
+};
+
+function npcSpecFromRow(row: {
+  id: string;
+  name: string;
+  data: unknown;
+}): LocationNpcSpec {
+  const data = (row.data ?? {}) as Record<string, unknown>;
+  const abilityScores =
+    data.abilityScores && typeof data.abilityScores === "object"
+      ? (data.abilityScores as AbilityScores)
+      : DEFAULT_NPC_STATS;
+  return {
+    entityId: row.id,
+    name: row.name,
+    abilityScores,
+    maxHp: typeof data.maxHp === "number" ? data.maxHp : 10,
+    baseAc: typeof data.baseAc === "number" ? data.baseAc : 10,
+    speed: typeof data.speed === "number" ? data.speed : 30,
+  };
+}
+
+/** NPCs on the World tab related to a location entity (Rung 4 Slice 3). */
+export async function getCampaignNpcsAtLocation(
+  campaignId: string,
+  locationEntityId: string,
+): Promise<LocationNpcSpec[]> {
+  const ownerId = await getCampaignOwnerId(campaignId);
+  if (!ownerId) return [];
+
+  const worldRows = await getDb()
+    .select({ entityId: campaignWorldEntities.entityId })
+    .from(campaignWorldEntities)
+    .where(
+      and(
+        eq(campaignWorldEntities.campaignId, campaignId),
+        eq(campaignWorldEntities.ownerId, ownerId),
+      ),
+    );
+  const worldIds = new Set(worldRows.map((r) => r.entityId));
+  if (worldIds.size === 0) return [];
+
+  const rels = await getDb()
+    .select({
+      fromId: realmRelationships.fromId,
+      toId: realmRelationships.toId,
+    })
+    .from(realmRelationships)
+    .where(
+      and(
+        eq(realmRelationships.ownerId, ownerId),
+        or(
+          eq(realmRelationships.fromId, locationEntityId),
+          eq(realmRelationships.toId, locationEntityId),
+        ),
+      ),
+    );
+
+  const npcIds = new Set<string>();
+  for (const rel of rels) {
+    const other = rel.fromId === locationEntityId ? rel.toId : rel.fromId;
+    if (worldIds.has(other)) npcIds.add(other);
+  }
+  if (npcIds.size === 0) return [];
+
+  const rows = await getDb()
+    .select({
+      id: realmEntities.id,
+      name: realmEntities.name,
+      type: realmEntities.type,
+      data: realmEntities.data,
+    })
+    .from(realmEntities)
+    .where(
+      and(
+        eq(realmEntities.ownerId, ownerId),
+        inArray(realmEntities.id, [...npcIds]),
+        eq(realmEntities.type, "npc"),
+      ),
+    )
+    .orderBy(asc(realmEntities.name));
+
+  return rows.map(npcSpecFromRow);
+}
+
+/** NPCs + entity data for entering a World-tab location (Rung 4 Slice 3). */
+export async function getCampaignLocationEnterExtras(
+  campaignId: string,
+  locationEntityId: string,
+): Promise<{
+  npcs: LocationNpcSpec[];
+  entityData?: Record<string, unknown>;
+}> {
+  const [npcs, entityData] = await Promise.all([
+    getCampaignNpcsAtLocation(campaignId, locationEntityId),
+    getCampaignLocationEntityData(campaignId, locationEntityId),
+  ]);
+  return { npcs, entityData };
+}
+
+/** Entity data for a World-tab location (dungeon foes, hooks). */
+export async function getCampaignLocationEntityData(
+  campaignId: string,
+  entityId: string,
+): Promise<Record<string, unknown> | undefined> {
+  const ownerId = await getCampaignOwnerId(campaignId);
+  if (!ownerId) return undefined;
+  const [row] = await getDb()
+    .select({ data: realmEntities.data })
+    .from(campaignWorldEntities)
+    .innerJoin(
+      realmEntities,
+      eq(realmEntities.id, campaignWorldEntities.entityId),
+    )
+    .where(
+      and(
+        eq(campaignWorldEntities.campaignId, campaignId),
+        eq(campaignWorldEntities.ownerId, ownerId),
+        eq(campaignWorldEntities.entityId, entityId),
+      ),
+    )
+    .limit(1);
+  return (row?.data as Record<string, unknown> | undefined) ?? undefined;
 }
 
 /**

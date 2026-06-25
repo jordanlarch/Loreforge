@@ -73,6 +73,7 @@ import {
   consumeTutorialItem,
   getCampaignEncounter,
   getCampaignLocationByEntityId,
+  getCampaignLocationEnterExtras,
   getCampaignOwnerId,
   getCampaignParty,
   getCampaignStartingLocation,
@@ -298,6 +299,7 @@ async function roomFor(documentName: string): Promise<LiveRoom> {
             getCampaignParty,
             getCampaignEncounter,
             getCampaignStartingLocation,
+            getCampaignLocationEnterExtras,
           );
     } else {
       room = new BattleRoom();
@@ -1629,12 +1631,15 @@ const server = new Hocuspocus({
       }
 
       const parsedChat = parseRoom(documentName);
-      let traveledTo =
+      let travelResult =
         room instanceof CampaignRoom && parsedChat?.kind === "campaign"
           ? await tryCampaignTravelFromChat(room, parsedChat.campaignId, message)
           : undefined;
-      if (traveledTo) {
+      if (travelResult) {
         writeProjection(document, await room.getState());
+        if (travelResult.startedCombat) {
+          await runEnemyTurns(room, document, documentName, getNarrationClient());
+        }
       }
 
       if (!respond) return;
@@ -1649,8 +1654,8 @@ const server = new Hocuspocus({
           ]);
           return;
         }
-        if (traveledTo) {
-          const arrival = arrivalNarrationForLocation(traveledTo);
+        if (travelResult) {
+          const arrival = arrivalNarrationForLocation(travelResult.destination);
           await appendAndPersist(document, documentName, [
             await gmEntryWithReveal(documentName, {
               text: arrival.text,
@@ -1704,7 +1709,11 @@ const server = new Hocuspocus({
         clearClientBusy(document);
         return;
       }
-      const { changed } = await room.enterLocation(location);
+      const extras = await getCampaignLocationEnterExtras(
+        parsed.campaignId,
+        message.entityId,
+      );
+      const { changed, startedCombat } = await room.enterLocation(location, extras);
       if (changed) {
         writeProjection(document, await room.getState());
         const arrival = arrivalNarrationForLocation(location);
@@ -1714,6 +1723,9 @@ const server = new Hocuspocus({
             mentions: arrival.mentions,
           }),
         ]);
+        if (startedCombat) {
+          await runEnemyTurns(room, document, documentName, getNarrationClient());
+        }
       }
       clearClientBusy(document);
       return;

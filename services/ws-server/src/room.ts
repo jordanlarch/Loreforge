@@ -20,11 +20,16 @@ import {
   FIXTURE_BATTLE_COMMANDS,
   FIXTURE_PARTY,
   buildCampaignExplorationCommands,
+  buildDungeonCombatStartCommands,
+  buildDungeonEntryCommands,
   buildEnterLocationCommands,
+  buildLocationNpcCommands,
   buildPartyBattleCommands,
   buildPartyMemberJoinCommands,
   DEFAULT_STARTING_LOCATION,
   entityIdFromSceneId,
+  MAX_BATTLE_PARTY,
+  resolveDungeonFoes,
   sceneIdForRealmEntity,
   type BattleAction,
   type CampaignStartingLocation,
@@ -33,6 +38,7 @@ import {
   type EncounterMapDef,
   type EventStore,
   type FoeSpec,
+  type LocationNpcSpec,
   type PartyMember,
   type WorldState,
 } from "@app/engine";
@@ -121,6 +127,20 @@ export type StartingLocationLoader = (
   campaignId: string,
 ) => Promise<CampaignStartingLocation | undefined>;
 
+/** NPCs + entity data for location enter / exploration seed (Rung 4 Slice 3). */
+export type LocationExtrasLoader = (
+  campaignId: string,
+  locationEntityId: string,
+) => Promise<{
+  npcs: LocationNpcSpec[];
+  entityData?: Record<string, unknown>;
+}>;
+
+export type LocationEnterExtras = {
+  npcs?: readonly LocationNpcSpec[];
+  entityData?: Record<string, unknown>;
+};
+
 export class CampaignRoom implements LiveRoom {
   private engine: Engine;
   private seeded = false;
@@ -134,6 +154,8 @@ export class CampaignRoom implements LiveRoom {
     private readonly loadEncounter?: EncounterLoader,
     /** Optional World-tab location loader for exploration bootstrap (Rung 4). */
     private readonly loadStartingLocation?: StartingLocationLoader,
+    /** Optional NPC / dungeon-data loader for exploration maps (Rung 4 Slice 3). */
+    private readonly loadLocationExtras?: LocationExtrasLoader,
   ) {
     this.engine = new Engine({ store });
   }
@@ -163,7 +185,28 @@ export class CampaignRoom implements LiveRoom {
         (this.loadStartingLocation
           ? await this.loadStartingLocation(this.campaignId)
           : undefined) ?? DEFAULT_STARTING_LOCATION;
-      return buildCampaignExplorationCommands(members, location);
+      const commands = buildCampaignExplorationCommands(members, location);
+      const extras = this.loadLocationExtras
+        ? await this.loadLocationExtras(this.campaignId, location.entityId)
+        : undefined;
+
+      if (location.type === "dungeon") {
+        const foes = resolveDungeonFoes(
+          location.entityId,
+          extras?.entityData,
+        );
+        const partyIds = members.slice(0, MAX_BATTLE_PARTY).map((m) => m.id);
+        commands.push(
+          ...buildDungeonCombatStartCommands(location, partyIds, foes),
+        );
+      } else if (extras?.npcs.length) {
+        const sceneId = sceneIdForRealmEntity(location.entityId);
+        const emptyState = { scenes: {}, entities: {} } as WorldState;
+        commands.push(
+          ...buildLocationNpcCommands(sceneId, extras.npcs, emptyState),
+        );
+      }
+      return commands;
     }
 
     return FIXTURE_BATTLE_COMMANDS;
@@ -238,21 +281,55 @@ export class CampaignRoom implements LiveRoom {
   }
 
   /**
-   * Travel to a Realms World-tab location (Rung 4 Slice 2). Blocked during
-   * combat; no-op when already at the destination scene.
+   * Travel to a Realms World-tab location (Rung 4 Slice 2–3). Blocked during
+   * combat; no-op when already at the destination scene. Dungeons start combat
+   * on enter; other locations spawn ambient NPC tokens when available.
    */
-  async enterLocation(location: CampaignStartingLocation): Promise<{ changed: boolean }> {
+  async enterLocation(
+    location: CampaignStartingLocation,
+    extras?: LocationEnterExtras,
+  ): Promise<{ changed: boolean; startedCombat: boolean }> {
     await this.ensureSeeded();
     const state = await this.getState();
-    if (state.encounter) return { changed: false };
+    if (state.encounter) return { changed: false, startedCombat: false };
 
     const sceneId = sceneIdForRealmEntity(location.entityId);
-    if (state.currentSceneId === sceneId) return { changed: false };
+    if (state.currentSceneId === sceneId) {
+      return { changed: false, startedCombat: false };
+    }
+
+    const resolved =
+      extras ??
+      (this.loadLocationExtras
+        ? await this.loadLocationExtras(this.campaignId, location.entityId)
+        : undefined);
+
+    if (location.type === "dungeon") {
+      const foes = resolveDungeonFoes(
+        location.entityId,
+        resolved?.entityData,
+      );
+      for (const command of buildDungeonEntryCommands(location, state, foes)) {
+        await this.engine.execute(this.campaignId, command);
+      }
+      return { changed: true, startedCombat: true };
+    }
 
     for (const command of buildEnterLocationCommands(location, state)) {
       await this.engine.execute(this.campaignId, command);
     }
-    return { changed: true };
+    const afterEnter = await this.getState();
+    const npcs = resolved?.npcs ?? [];
+    if (npcs.length > 0) {
+      for (const command of buildLocationNpcCommands(
+        sceneId,
+        npcs,
+        afterEnter,
+      )) {
+        await this.engine.execute(this.campaignId, command);
+      }
+    }
+    return { changed: true, startedCombat: false };
   }
 }
 

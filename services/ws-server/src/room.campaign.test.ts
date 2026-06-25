@@ -5,6 +5,7 @@ import {
   FIXTURE_BATTLE_SCENE_ID,
   InMemoryEventStore,
   resolveEncounterMap,
+  realmNpcEntityId,
   sceneIdForRealmEntity,
   type EventStore,
   type FoeSpec,
@@ -305,6 +306,95 @@ describe("CampaignRoom", () => {
     const state = await room.getState();
     expect(state.currentSceneId).toBe(sceneIdForRealmEntity(TAVERN_ID));
     expect(state.scenes[state.currentSceneId!]?.name).toBe("The Crooked Tankard");
+  });
+
+  it("spawns World-tab NPC tokens when entering a location (Rung 4 Slice 3)", async () => {
+    const store = new InMemoryEventStore();
+    const npcEntityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const settlement = {
+      entityId: "22222222-2222-4222-8222-222222222222",
+      name: "Ferryrest",
+      summary: "A humble hamlet.",
+      type: "settlement" as const,
+    };
+    const tavern = {
+      entityId: TAVERN_ID,
+      name: "The Crooked Tankard",
+      summary: "Smoke and laughter.",
+      type: "tavern" as const,
+    };
+    const room = new CampaignRoom(
+      CAMPAIGN,
+      store,
+      async () => [],
+      async () => undefined,
+      async () => settlement,
+      async () => ({
+        npcs: [
+          {
+            entityId: npcEntityId,
+            name: "Barkeep",
+            abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 12 },
+            maxHp: 12,
+            baseAc: 10,
+            speed: 30,
+          },
+        ],
+      }),
+    );
+    await room.getState();
+
+    await room.enterLocation(tavern, {
+      npcs: [
+        {
+          entityId: npcEntityId,
+          name: "Barkeep",
+          abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 12 },
+          maxHp: 12,
+          baseAc: 10,
+          speed: 30,
+        },
+      ],
+    });
+
+    const state = await room.getState();
+    expect(state.entities[realmNpcEntityId(npcEntityId)]?.name).toBe("Barkeep");
+  });
+
+  it("starts combat when entering a dungeon (Rung 4 Slice 3)", async () => {
+    const store = new InMemoryEventStore();
+    const settlement = {
+      entityId: "22222222-2222-4222-8222-222222222222",
+      name: "Ferryrest",
+      summary: "A humble hamlet.",
+      type: "settlement" as const,
+    };
+    const dungeon = {
+      entityId: "33333333-3333-4333-8333-333333333333",
+      name: "Whisper Crypt",
+      summary: "Damp stone.",
+      type: "dungeon" as const,
+    };
+    const room = new CampaignRoom(
+      CAMPAIGN,
+      store,
+      async () => [],
+      async () => undefined,
+      async () => settlement,
+    );
+    await room.getState();
+
+    const { changed, startedCombat } = await room.enterLocation(dungeon, {
+      entityData: { wanderingMonsters: ["skeletons"] },
+    });
+    expect(changed).toBe(true);
+    expect(startedCombat).toBe(true);
+
+    const state = await room.getState();
+    expect(state.encounter?.initiativeRolled).toBe(true);
+    expect(Object.keys(state.entities).some((id) => id.startsWith("npc:dungeon:"))).toBe(
+      true,
+    );
   });
 
   it("rejects an illegal move (into a wall) and leaves state unchanged", async () => {

@@ -27,8 +27,9 @@ function formatDate(value: Date | string): string {
 /**
  * Overview tab (#55): the campaign "you are here" hub. Shows the hero (name +
  * pitch with inline edit), the entry points into Live Play, a party summary from
- * the membership link, and lightweight world/session stat cards. Widgets that
- * depend on later slices (hooks, sessions, activity feed) are shown as stubs.
+ * the membership link, and lightweight world/hooks/sessions stat cards wired to
+ * existing tRPC counts. Activity feed and AI next-step hints remain deferred
+ * (CAMP-13).
  */
 export function OverviewTab({
   campaignId,
@@ -41,6 +42,9 @@ export function OverviewTab({
 }) {
   const utils = trpc.useUtils();
   const party = trpc.campaigns.party.useQuery({ campaignId });
+  const world = trpc.campaigns.world.useQuery({ campaignId });
+  const hooks = trpc.hooks.list.useQuery({ campaignId });
+  const sessions = trpc.sessions.list.useQuery({ campaignId });
   const playState = trpc.engine.state.useQuery({ campaignId });
   const resume = resumeSummary(playState.data);
 
@@ -63,6 +67,38 @@ export function OverviewTab({
   }
 
   const partyCount = party.data?.length ?? 0;
+
+  const worldCount = world.data?.length ?? 0;
+  const worldDiscovered =
+    world.data?.filter((entity) => entity.discovered).length ?? 0;
+  const worldHint = world.isLoading
+    ? "loading…"
+    : worldCount === 0
+      ? "none added yet"
+      : `${worldDiscovered} discovered`;
+
+  const hookCount = hooks.data?.length ?? 0;
+  const openHooks =
+    hooks.data?.filter(
+      (hook) => hook.status === "active" || hook.status === "open",
+    ).length ?? 0;
+  const hookHint = hooks.isLoading
+    ? "loading…"
+    : hookCount === 0
+      ? "none yet"
+      : openHooks > 0
+        ? `${openHooks} open/active`
+        : `${hookCount} total`;
+
+  const sessionCount = sessions.data?.length ?? 0;
+  const lastSession = sessions.data?.[0];
+  const sessionHint = sessions.isLoading
+    ? "loading…"
+    : sessionCount === 0
+      ? "none yet"
+      : lastSession
+        ? `last ${formatDate(lastSession.endedAt)}`
+        : "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -214,9 +250,24 @@ export function OverviewTab({
           hint={partyCount === 1 ? "character" : "characters"}
           onClick={() => onOpenTab("party")}
         />
-        <StatCard label="World" value="—" hint="coming soon" onClick={() => onOpenTab("world")} />
-        <StatCard label="Hooks" value="—" hint="coming soon" onClick={() => onOpenTab("hooks")} />
-        <StatCard label="Sessions" value="—" hint="coming soon" onClick={() => onOpenTab("sessions")} />
+        <StatCard
+          label="World"
+          value={world.isLoading ? "…" : worldCount}
+          hint={worldHint}
+          onClick={() => onOpenTab("world")}
+        />
+        <StatCard
+          label="Hooks"
+          value={hooks.isLoading ? "…" : hookCount}
+          hint={hookHint}
+          onClick={() => onOpenTab("hooks")}
+        />
+        <StatCard
+          label="Sessions"
+          value={sessions.isLoading ? "…" : sessionCount}
+          hint={sessionHint}
+          onClick={() => onOpenTab("sessions")}
+        />
       </section>
 
       {/* —— Metadata —— */}

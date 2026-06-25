@@ -16,7 +16,7 @@ import { z } from "zod";
 
 import { chatMessages, getDb, sessions } from "@app/db";
 
-import { runAndStoreRecap } from "@/server/memory/recap";
+import { embedRecapBestEffort, runAndStoreRecap } from "@/server/memory/recap";
 import type { GenerateRecapPayload } from "@/trigger/generate-recap";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
@@ -86,6 +86,46 @@ export const sessionsRouter = createTRPCRouter({
         )
         .orderBy(asc(chatMessages.seq));
       return { session, messages };
+    }),
+
+  /** Edit a session recap after generation (CAMP-6); re-embeds best-effort. */
+  updateRecap: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        sessionId: z.string().uuid(),
+        recap: z.string().trim().max(8000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const [row] = await db
+        .update(sessions)
+        .set({ recap: input.recap })
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.campaignId, input.campaignId),
+            eq(sessions.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found.",
+        });
+      }
+      if (input.recap) {
+        await embedRecapBestEffort(db, {
+          sessionId: row.id,
+          campaignId: input.campaignId,
+          ownerId: ctx.user.id,
+          recap: input.recap,
+        });
+      }
+      return row;
     }),
 
   /**

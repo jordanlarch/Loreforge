@@ -1,8 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
-import { isRecapPending, recapDisplay, sessionMessageCount } from "@/lib/sessions";
+import {
+  HOOK_STATUS_LABEL,
+  isHookStatus,
+} from "@/lib/campaign-hooks";
+import {
+  computeSessionStats,
+  filterTranscriptMessages,
+  formatSessionDuration,
+  hooksTouchedInSession,
+  isRecapPending,
+  recapDisplay,
+  sessionMessageCount,
+  TRANSCRIPT_FILTER_LABEL,
+  TRANSCRIPT_FILTERS,
+  type TranscriptFilter,
+} from "@/lib/sessions";
 import { trpc } from "@/lib/trpc/client";
 
 import {
@@ -15,16 +31,25 @@ type Session = {
   startSeq: number;
   endSeq: number;
   recap: string;
+  startedAt: Date | string;
   endedAt: Date | string;
 };
 
-const DETAIL_TABS = ["Recap", "Transcript", "Combat", "Stats", "Loot", "Media"] as const;
+const DETAIL_TABS = [
+  "Recap",
+  "Transcript",
+  "Combat",
+  "Events",
+  "Stats",
+  "Loot",
+  "Media",
+] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 
 /**
  * Sessions tab (#151, CAMP-6): session log + recap cards + per-session deep view
- * (Recap / Transcript / Combat). Ending a session opens the memory-pin step
- * (PLAY-12).
+ * (Recap / Transcript / Combat / Events / Stats). Ending a session opens the
+ * memory-pin step (PLAY-12).
  */
 export function SessionsTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
@@ -63,14 +88,22 @@ export function SessionsTab({ campaignId }: { campaignId: string }) {
             A log of past sessions and their AI-generated recaps.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => end.mutate({ campaignId })}
-          disabled={end.isPending}
-          className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
-        >
-          {end.isPending ? "Ending…" : "End current session"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/campaigns/${campaignId}/play`}
+            className="rounded border border-lore-border px-3 py-1.5 text-sm transition-colors hover:border-lore-accent"
+          >
+            ▶ Start Live Session
+          </Link>
+          <button
+            type="button"
+            onClick={() => end.mutate({ campaignId })}
+            disabled={end.isPending}
+            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
+          >
+            {end.isPending ? "Ending…" : "End current session"}
+          </button>
+        </div>
       </div>
 
       {end.isError && (
@@ -138,6 +171,7 @@ function SessionCard({
     pending: isRecapPending(session.recap, session.endedAt),
   });
   const messages = sessionMessageCount(session.startSeq, session.endSeq);
+  const duration = formatSessionDuration(session.startedAt, session.endedAt);
   const ended = new Date(session.endedAt);
 
   return (
@@ -156,7 +190,7 @@ function SessionCard({
             Session {ordinal}
           </h3>
           <span className="text-xs text-lore-muted">
-            {ended.toLocaleString()} · {messages}{" "}
+            {ended.toLocaleString()} · {duration} · {messages}{" "}
             {messages === 1 ? "message" : "messages"}
           </span>
         </div>
@@ -179,7 +213,13 @@ function SessionDetail({
   campaignId: string;
   sessionId: string;
 }) {
+  const utils = trpc.useUtils();
   const [tab, setTab] = useState<DetailTab>("Recap");
+  const [transcriptFilter, setTranscriptFilter] =
+    useState<TranscriptFilter>("all");
+  const [editingRecap, setEditingRecap] = useState(false);
+  const [recapDraft, setRecapDraft] = useState("");
+
   const detail = trpc.sessions.get.useQuery(
     { campaignId, sessionId },
     {
@@ -190,6 +230,20 @@ function SessionDetail({
       },
     },
   );
+  const hooks = trpc.hooks.list.useQuery({ campaignId });
+
+  const updateRecap = trpc.sessions.updateRecap.useMutation({
+    onSuccess: async () => {
+      setEditingRecap(false);
+      await Promise.all([
+        utils.sessions.get.invalidate({ campaignId, sessionId }),
+        utils.sessions.list.invalidate({ campaignId }),
+      ]);
+    },
+  });
+  const pinRecap = trpc.pins.create.useMutation({
+    onSuccess: () => utils.pins.list.invalidate({ campaignId }),
+  });
 
   if (detail.isLoading) {
     return (
@@ -207,23 +261,58 @@ function SessionDetail({
   }
 
   const { session, messages } = detail.data;
-  const recap = recapDisplay(session.recap, {
-    pending: isRecapPending(session.recap, session.endedAt),
-  });
-  const narrative = messages.filter(
-    (m) => m.kind === "player" || m.kind === "gm" || m.kind === "ooc",
-  );
+  const recapPending = isRecapPending(session.recap ?? "", session.endedAt);
+  const recap = recapDisplay(session.recap, { pending: recapPending });
+  const duration = formatSessionDuration(session.startedAt, session.endedAt);
+  const stats = computeSessionStats(messages);
+  const engineEvents = messages.filter((m) => m.kind === "event");
   const combat = messages.filter(
     (m) => m.kind === "event" || m.kind === "roll",
   );
-  const rolls = messages.filter((m) => m.kind === "roll");
-  const attacks = combat.filter((m) =>
-    m.text.toLowerCase().includes("attack"),
+  const filteredTranscript = filterTranscriptMessages(
+    messages,
+    transcriptFilter,
   );
-  const spells = combat.filter((m) => m.text.toLowerCase().includes("cast"));
+  const touchedHooks = hooksTouchedInSession(
+    hooks.data ?? [],
+    session.startedAt,
+    session.endedAt,
+  );
+
+  function startEditRecap() {
+    setRecapDraft(session.recap ?? "");
+    setEditingRecap(true);
+  }
+
+  function onSaveRecap(event: React.FormEvent) {
+    event.preventDefault();
+    updateRecap.mutate({
+      campaignId,
+      sessionId,
+      recap: recapDraft,
+    });
+  }
+
+  function onPinRecap() {
+    const text = (session.recap ?? "").trim();
+    if (text.length === 0) return;
+    pinRecap.mutate({ campaignId, content: text.slice(0, 2000) });
+  }
 
   return (
     <section className="rounded-lg border border-lore-border bg-lore-surface p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-xs text-lore-muted">
+          {new Date(session.endedAt).toLocaleString()} · {duration}
+        </p>
+        <Link
+          href={`/campaigns/${campaignId}/play`}
+          className="text-xs text-lore-accent hover:underline"
+        >
+          Continue in Live Play →
+        </Link>
+      </div>
+
       <div className="mb-3 flex flex-wrap gap-2">
         {DETAIL_TABS.map((label) => (
           <button
@@ -242,20 +331,98 @@ function SessionDetail({
       </div>
 
       {tab === "Recap" && (
-        <p
-          className={`whitespace-pre-wrap text-sm ${
-            recap.muted ? "italic text-lore-muted" : "text-lore-text"
-          }`}
-        >
-          {recap.text}
-        </p>
+        <div className="flex flex-col gap-3">
+          {editingRecap ? (
+            <form onSubmit={onSaveRecap} className="flex flex-col gap-2">
+              <textarea
+                value={recapDraft}
+                onChange={(e) => setRecapDraft(e.target.value)}
+                maxLength={8000}
+                rows={8}
+                className="w-full rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={updateRecap.isPending}
+                  className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm disabled:opacity-40"
+                >
+                  {updateRecap.isPending ? "Saving…" : "Save recap"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingRecap(false)}
+                  className="rounded border border-lore-border px-3 py-1.5 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+              {updateRecap.error && (
+                <p className="text-sm text-red-400">{updateRecap.error.message}</p>
+              )}
+            </form>
+          ) : (
+            <>
+              <p
+                className={`whitespace-pre-wrap text-sm ${
+                  recap.muted ? "italic text-lore-muted" : "text-lore-text"
+                }`}
+              >
+                {recap.text}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={startEditRecap}
+                  disabled={recapPending}
+                  className="rounded border border-lore-border px-3 py-1.5 text-xs transition-colors hover:border-lore-accent disabled:opacity-40"
+                >
+                  Edit recap
+                </button>
+                <button
+                  type="button"
+                  onClick={onPinRecap}
+                  disabled={
+                    pinRecap.isPending || !(session.recap ?? "").trim()
+                  }
+                  className="rounded border border-lore-accent px-3 py-1.5 text-xs text-lore-accent transition-colors hover:bg-lore-accent-dim disabled:opacity-40"
+                >
+                  {pinRecap.isPending ? "Pinning…" : "📌 Pin recap to memory"}
+                </button>
+                {pinRecap.isSuccess && (
+                  <span className="self-center text-xs text-lore-muted">
+                    Pinned.
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {tab === "Transcript" && (
-        <TranscriptList
-          rows={narrative}
-          empty="No player or GM messages in this session span."
-        />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-1.5">
+            {TRANSCRIPT_FILTERS.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setTranscriptFilter(filter)}
+                className={`rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide transition-colors ${
+                  transcriptFilter === filter
+                    ? "border-lore-accent text-lore-accent"
+                    : "border-lore-border text-lore-muted hover:text-lore-text"
+                }`}
+              >
+                {TRANSCRIPT_FILTER_LABEL[filter]}
+              </button>
+            ))}
+          </div>
+          <TranscriptList
+            rows={filteredTranscript}
+            empty="No messages match this filter."
+          />
+        </div>
       )}
 
       {tab === "Combat" && (
@@ -265,15 +432,52 @@ function SessionDetail({
         />
       )}
 
+      {tab === "Events" && (
+        <TranscriptList
+          rows={engineEvents}
+          empty="No engine events recorded for this session."
+        />
+      )}
+
       {tab === "Stats" && (
-        <dl className="grid grid-cols-2 gap-3 text-sm">
-          <Stat label="Messages" value={messages.length} />
-          <Stat label="Narrative lines" value={narrative.length} />
-          <Stat label="Combat events" value={combat.length} />
-          <Stat label="Dice rolls" value={rolls.length} />
-          <Stat label="Attacks logged" value={attacks.length} />
-          <Stat label="Spell casts" value={spells.length} />
-        </dl>
+        <div className="flex flex-col gap-4">
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <Stat label="Messages" value={stats.messages} />
+            <Stat label="Narrative lines" value={stats.narrative} />
+            <Stat label="Engine events" value={stats.events} />
+            <Stat label="Combat rows" value={stats.combat} />
+            <Stat label="Dice rolls" value={stats.rolls} />
+            <Stat label="Attacks logged" value={stats.attacks} />
+            <Stat label="Spell casts" value={stats.spells} />
+            <Stat label="Duration" value={duration} text />
+          </dl>
+          <div>
+            <h4 className="text-xs uppercase tracking-widest text-lore-muted">
+              Hooks touched
+            </h4>
+            {touchedHooks.length === 0 ? (
+              <p className="mt-2 text-sm text-lore-muted">
+                No plot hooks were created or updated during this session window.
+              </p>
+            ) : (
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {touchedHooks.map((hook) => (
+                  <li
+                    key={hook.id}
+                    className="rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm"
+                  >
+                    <span className="text-lore-text">{hook.title}</span>
+                    <span className="ml-2 text-xs text-lore-muted">
+                      {isHookStatus(hook.status)
+                        ? HOOK_STATUS_LABEL[hook.status]
+                        : hook.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
 
       {tab === "Loot" && (
@@ -294,11 +498,27 @@ function SessionDetail({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  text,
+}: {
+  label: string;
+  value: number | string;
+  text?: boolean;
+}) {
   return (
     <div className="rounded border border-lore-border bg-lore-bg px-3 py-2">
       <dt className="text-xs uppercase tracking-wide text-lore-muted">{label}</dt>
-      <dd className="font-display text-xl text-lore-text">{value}</dd>
+      <dd
+        className={
+          text
+            ? "mt-0.5 text-sm text-lore-text"
+            : "font-display text-xl text-lore-text"
+        }
+      >
+        {value}
+      </dd>
     </div>
   );
 }
@@ -321,7 +541,11 @@ function TranscriptList({
           className="rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm"
         >
           <span className="text-xs uppercase tracking-wide text-lore-muted">
-            {row.kind === "gm" ? "GM" : row.kind === "player" ? row.author : row.kind}
+            {row.kind === "gm"
+              ? "GM"
+              : row.kind === "player"
+                ? row.author
+                : row.kind}
           </span>
           <p className="mt-0.5 whitespace-pre-wrap text-lore-text">{row.text}</p>
         </li>

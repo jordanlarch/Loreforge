@@ -32,6 +32,7 @@ import {
   expandEncounterFoes,
   extractOpeningHookText,
   getSpell,
+  locationHasQuestContent,
   meleeReachFromEquipment,
   monsterTemplate,
   resolveEncounterMap,
@@ -377,27 +378,55 @@ function sortExplorableLocations<
     }));
 }
 
-/** Direct `located_in` parent data for cascade child locations (Phase A.1). */
-async function loadLocatedInParentData(
+/** Walk `located_in` ancestors until quest content is found (Phase A.1). */
+async function loadQuestParentDataForEntity(
+  ownerId: string,
+  entityId: string,
+): Promise<unknown | undefined> {
+  let currentId = entityId;
+  for (let depth = 0; depth < 5; depth += 1) {
+    const [edge] = await getDb()
+      .select({ parentId: realmRelationships.fromId })
+      .from(realmRelationships)
+      .where(
+        and(
+          eq(realmRelationships.ownerId, ownerId),
+          eq(realmRelationships.kind, "located_in"),
+          eq(realmRelationships.toId, currentId),
+        ),
+      )
+      .limit(1);
+    if (!edge) return undefined;
+
+    const [parent] = await getDb()
+      .select({ id: realmEntities.id, data: realmEntities.data })
+      .from(realmEntities)
+      .where(
+        and(
+          eq(realmEntities.id, edge.parentId),
+          eq(realmEntities.ownerId, ownerId),
+        ),
+      )
+      .limit(1);
+    if (!parent) return undefined;
+    if (locationHasQuestContent(parent.data)) return parent.data;
+    currentId = parent.id;
+  }
+  return undefined;
+}
+
+async function loadQuestParentDataByEntityId(
   ownerId: string,
   entityIds: readonly string[],
 ): Promise<Map<string, unknown>> {
-  if (entityIds.length === 0) return new Map();
-  const edges = await getDb()
-    .select({
-      childId: realmRelationships.toId,
-      parentData: realmEntities.data,
-    })
-    .from(realmRelationships)
-    .innerJoin(realmEntities, eq(realmEntities.id, realmRelationships.fromId))
-    .where(
-      and(
-        eq(realmRelationships.ownerId, ownerId),
-        eq(realmRelationships.kind, "located_in"),
-        inArray(realmRelationships.toId, [...entityIds]),
-      ),
-    );
-  return new Map(edges.map((edge) => [edge.childId, edge.parentData]));
+  const map = new Map<string, unknown>();
+  await Promise.all(
+    entityIds.map(async (entityId) => {
+      const parentData = await loadQuestParentDataForEntity(ownerId, entityId);
+      if (parentData !== undefined) map.set(entityId, parentData);
+    }),
+  );
+  return map;
 }
 
 async function loadExplorableWorldRows(campaignId: string, ownerId: string) {
@@ -431,7 +460,7 @@ export async function getCampaignExplorableLocations(
   const ownerId = await getCampaignOwnerId(campaignId);
   if (!ownerId) return [];
   const rows = await loadExplorableWorldRows(campaignId, ownerId);
-  const parentData = await loadLocatedInParentData(
+  const parentData = await loadQuestParentDataByEntityId(
     ownerId,
     rows.map((r) => r.entityId),
   );
@@ -472,7 +501,7 @@ export async function getCampaignLocationByEntityId(
 
   if (!row) return undefined;
 
-  const parentDataByEntityId = await loadLocatedInParentData(ownerId, [
+  const parentDataByEntityId = await loadQuestParentDataByEntityId(ownerId, [
     row.entityId,
   ]);
   return {

@@ -1,6 +1,7 @@
 import {
   enrichEntityDataWithQuests,
   normalizeEntityQuests,
+  rebindQuestsToLocation,
 } from "./migrate";
 import { resolveQuestTeaseText } from "./triggers";
 import type { QuestTeaseTrigger } from "./types";
@@ -20,7 +21,10 @@ export function inheritQuestDataFromParent(
   childData: Record<string, unknown> = {},
 ): Record<string, unknown> {
   if (locationHasQuestContent(childData)) return childData;
-  const parentQuests = normalizeEntityQuests(parentData);
+  const parentQuests = rebindQuestsToLocation(
+    normalizeEntityQuests(parentData),
+    childEntityId,
+  );
   if (parentQuests.length === 0) return childData;
   return enrichEntityDataWithQuests(
     { ...childData, quests: parentQuests },

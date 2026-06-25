@@ -60,6 +60,7 @@ import {
   hostilesInScene,
   reactionWindowKey,
   targetsInRange,
+  castTargetCandidates,
   type CastableSpell,
 } from "@/lib/live-combat";
 import {
@@ -403,7 +404,11 @@ function LiveBattle({
     const targetableIds =
       armed.kind === "ready"
         ? hostilesInScene(state, activeEntity).map((e) => e.id)
-        : targetsInRange(state, activeEntity.id, rangeFt).map((e) => e.id);
+        : armed.kind === "cast"
+          ? castTargetCandidates(state, activeEntity.id, armed.spell).map(
+              (e) => e.id,
+            )
+          : targetsInRange(state, activeEntity.id, rangeFt).map((e) => e.id);
     return {
       origin: activeEntity.position,
       rangeCells: Math.floor(rangeFt / FEET_PER_CELL),
@@ -736,8 +741,11 @@ function LiveBattle({
               ? "Tap a cell to place the blast — the highlighted area shows who's caught — then Confirm. The engine resolves saves + damage."
               : armed?.kind === "ready"
                 ? "Tap a foe to hold your strike for — the engine fires it automatically when they enter range on their turn."
-                : armed
-                  ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
+                : armed?.kind === "cast" &&
+                    armed.spell.targetKind === "ally"
+                  ? "Tap a highlighted ally (or yourself) to cast — the engine applies the effect."
+                  : armed
+                    ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
                   : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready in the panel. The engine validates everything."}
           </p>
         }
@@ -765,7 +773,21 @@ function LiveBattle({
                 canAct={canAct}
                 attacksLeft={attacksLeft}
                 onAttack={(attack) => setArmed({ kind: "attack", attack })}
-                onCast={(spell) => setArmed({ kind: "cast", spell })}
+                onCast={(spell) => {
+                  if (
+                    spell.targetKind === "self" &&
+                    activeEntity
+                  ) {
+                    session.castSpell(
+                      activeEntity.id,
+                      spell.id,
+                      spell.level,
+                      [activeEntity.id],
+                    );
+                    return;
+                  }
+                  setArmed({ kind: "cast", spell });
+                }}
                 onReady={(attack) => setArmed({ kind: "ready", attack })}
                 onConfirm={onConfirmAim}
                 onCancel={() => setArmed(null)}

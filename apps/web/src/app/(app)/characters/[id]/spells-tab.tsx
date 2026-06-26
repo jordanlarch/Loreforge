@@ -9,7 +9,11 @@
 import { useMemo, useState } from "react";
 
 import type { CharacterSheet } from "@app/engine";
-import { spellcastingAbilityForClasses } from "@app/engine";
+import {
+  multiclassCasterLevel,
+  sheetSlotPoolsFromClasses,
+  spellcastingAbilityForClasses,
+} from "@app/engine";
 
 import {
   CodexSpellAddPicker,
@@ -124,6 +128,20 @@ export function SpellsTab({
           : { ability: "WIS", mod: sheet.abilityModifiers.wis }
         : null;
   const saveDc = spellMod ? 8 + sheet!.proficiencyBonus + spellMod.mod : null;
+  const casterLevel = classes ? multiclassCasterLevel(classes) : 0;
+
+  function applySuggestedSlots() {
+    if (!classes?.length) return;
+    const suggested = sheetSlotPoolsFromClasses(classes);
+    setDraft((d) => {
+      const slots = { ...d.slots };
+      for (const [level, pool] of Object.entries(suggested)) {
+        const prev = slots[level] ?? { max: 0, used: 0 };
+        slots[level] = { max: pool.max, used: Math.min(prev.used, pool.max) };
+      }
+      return { ...d, slots };
+    });
+  }
 
   return (
     <div>
@@ -168,9 +186,20 @@ export function SpellsTab({
 
       {/* Spell slot pools */}
       <section className="mb-6">
-        <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
-          Spell Slots
-        </h3>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-xs uppercase tracking-widest text-lore-muted">
+            Spell Slots
+          </h3>
+          {classes && casterLevel > 0 && (
+            <button
+              type="button"
+              onClick={applySuggestedSlots}
+              className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text"
+            >
+              Apply PHB slots (Lv {casterLevel})
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
           {SPELL_LEVELS.map((level) => {
             const slot = draft.slots[String(level)] ?? { max: 0, used: 0 };

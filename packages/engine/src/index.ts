@@ -250,6 +250,11 @@ export {
   meleeReachFromWeaponName,
 } from "./content/weapons";
 export { fullCasterSlots } from "./content/spell-slots";
+export {
+  multiclassCasterLevel,
+  sheetSlotPoolsFromClasses,
+  spellSlotsForClasses,
+} from "./content/multiclass-spell-slots";
 export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
 export { isSpellPrepared, spellNameToId } from "./content/spell-id";
 export {

@@ -24,6 +24,11 @@ import {
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
+import type { EquipmentItem } from "@/lib/character";
+import {
+  startingPackForClass,
+  type StartingPack,
+} from "@/lib/starting-equipment";
 
 import { SrdHint } from "@/components/srd-hint";
 
@@ -36,7 +41,14 @@ const ABILITY_LABELS: Record<Ability, string> = {
   cha: "CHA",
 };
 
-const STEPS = ["Species", "Class", "Abilities", "Skills", "Review"] as const;
+const STEPS = [
+  "Species",
+  "Class",
+  "Abilities",
+  "Skills",
+  "Equipment",
+  "Review",
+] as const;
 
 type AbilityMethod = "point-buy" | "standard-array" | "manual";
 
@@ -79,13 +91,10 @@ export function CreationWizard() {
   const species = trpc.codex.listSpecies.useQuery();
   const classes = trpc.codex.listClasses.useQuery();
 
-  const create = trpc.characters.create.useMutation({
-    onSuccess: async (row) => {
-      if (!row) return;
-      await utils.characters.list.invalidate();
-      router.push(`/characters/${row.id}`);
-    },
-  });
+  const create = trpc.characters.create.useMutation();
+  const addToCampaign = trpc.characters.addToCampaign.useMutation();
+
+  const campaignId = searchParams.get("campaignId");
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -94,6 +103,10 @@ export function CreationWizard() {
   const [method, setMethod] = useState<AbilityMethod>("point-buy");
   const [base, setBase] = useState<AbilityScores>(POINT_BUY_BASE);
   const [skills, setSkills] = useState<string[]>([]);
+  const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
+  const [equipmentPack, setEquipmentPack] = useState<StartingPack | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   // Codex deep links (CODEX-6): ?species=hill-dwarf&class=fighter
   useEffect(() => {
@@ -109,6 +122,13 @@ export function CreationWizard() {
       setStep(0);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!classSlug) return;
+    const pack = startingPackForClass(classSlug);
+    setEquipmentPack(pack);
+    setEquipment(pack.items);
+  }, [classSlug]);
 
   const selectedSpecies = useMemo(
     () => species.data?.find((s) => s.slug === speciesSlug) ?? null,
@@ -158,6 +178,7 @@ export function CreationWizard() {
     selectedClass != null,
     abilitiesValid,
     skillsValid,
+    equipment.length > 0,
     nameValid,
   ];
 
@@ -166,32 +187,56 @@ export function CreationWizard() {
     selectedClass != null &&
     abilitiesValid &&
     skillsValid &&
+    equipment.length > 0 &&
     nameValid;
 
-  function submit() {
+  async function submit() {
     if (!canCreate || !selectedSpecies || !selectedClass) return;
-    create.mutate({
-      name: name.trim(),
-      species: selectedSpecies.name,
-      background: "",
-      classes: [{ class: selectedClass.name, level: 1 }],
-      abilityScores: finalScores,
-      maxHp: maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con),
-      baseAc: baseArmorClass(finalScores.dex),
-      speed: selectedSpecies.speed,
-      saveProficiencies: selectedClass.savingThrows,
-      skillProficiencies: skills,
-    });
+    setCreateError(null);
+    setCreating(true);
+    try {
+      const row = await create.mutateAsync({
+        name: name.trim(),
+        species: selectedSpecies.name,
+        background: "",
+        classes: [{ class: selectedClass.name, level: 1 }],
+        abilityScores: finalScores,
+        maxHp: maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con),
+        baseAc: equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex),
+        speed: selectedSpecies.speed,
+        saveProficiencies: selectedClass.savingThrows,
+        skillProficiencies: skills,
+        equipment,
+      });
+      if (!row) return;
+      await utils.characters.list.invalidate();
+      if (campaignId) {
+        await addToCampaign.mutateAsync({
+          characterId: row.id,
+          campaignId,
+          role: "pc",
+        });
+        router.push(`/campaigns/${campaignId}?tab=party`);
+      } else {
+        router.push(`/characters/${row.id}`);
+      }
+    } catch (err) {
+      setCreateError(
+        err instanceof Error ? err.message : "Could not create character.",
+      );
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
         <Link
-          href="/characters"
+          href={campaignId ? `/campaigns/${campaignId}` : "/characters"}
           className="text-sm text-lore-muted hover:text-lore-text"
         >
-          ← Characters
+          {campaignId ? "← Campaign" : "← Characters"}
         </Link>
         <span className="text-xs uppercase tracking-widest text-lore-muted">
           Character Creator · 5E SRD
@@ -241,6 +286,13 @@ export function CreationWizard() {
             />
           )}
           {step === 4 && (
+            <EquipmentStep
+              className={selectedClass?.name ?? "—"}
+              pack={equipmentPack}
+              equipment={equipment}
+            />
+          )}
+          {step === 5 && (
             <ReviewStep
               name={name}
               setName={setName}
@@ -249,14 +301,15 @@ export function CreationWizard() {
               className={selectedClass?.name ?? "—"}
               finalScores={finalScores}
               skills={skills}
+              equipment={equipment}
               maxHp={
                 selectedClass
                   ? maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con)
                   : 0
               }
-              baseAc={baseArmorClass(finalScores.dex)}
+              baseAc={equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex)}
               speed={selectedSpecies?.speed ?? 30}
-              error={create.error?.message ?? null}
+              error={createError}
             />
           )}
         </main>
@@ -292,10 +345,10 @@ export function CreationWizard() {
           <button
             type="button"
             onClick={submit}
-            disabled={!canCreate || create.isPending}
+            disabled={!canCreate || creating}
             className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {create.isPending ? "Creating…" : "Create character"}
+            {creating ? "Creating…" : "Create character"}
           </button>
         )}
       </footer>
@@ -704,6 +757,57 @@ function SkillsStep({
   );
 }
 
+function EquipmentStep({
+  className,
+  pack,
+  equipment,
+}: {
+  className: string;
+  pack: StartingPack | null;
+  equipment: EquipmentItem[];
+}) {
+  return (
+    <section>
+      <h2 className="font-display text-2xl">Starting Equipment</h2>
+      <p className="mt-1 text-sm text-lore-muted">
+        Default {className} loadout from the SRD. Full pack choices and gold-buy
+        come in a later slice.
+      </p>
+
+      {pack ? (
+        <>
+          <p className="mt-4 text-sm text-lore-text">{pack.label}</p>
+          <p className="mt-1 text-xs text-lore-muted">
+            Base AC {pack.baseAc} with equipped armor
+          </p>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {equipment.map((item) => (
+              <li
+                key={item.name}
+                className="rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm"
+              >
+                <span className="font-medium text-lore-text">{item.name}</span>
+                {item.quantity > 1 && (
+                  <span className="text-lore-muted"> ×{item.quantity}</span>
+                )}
+                {item.equipped && (
+                  <span className="ml-2 text-xs uppercase text-lore-accent">
+                    equipped
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="mt-6 text-sm text-lore-muted">
+          Choose a class on the previous steps to see your starting gear.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function ReviewStep({
   name,
   setName,
@@ -712,6 +816,7 @@ function ReviewStep({
   className,
   finalScores,
   skills,
+  equipment,
   maxHp,
   baseAc,
   speed,
@@ -724,6 +829,7 @@ function ReviewStep({
   className: string;
   finalScores: AbilityScores;
   skills: string[];
+  equipment: EquipmentItem[];
   maxHp: number;
   baseAc: number;
   speed: number;
@@ -757,6 +863,14 @@ function ReviewStep({
         <Row label="Base AC" value={String(baseAc)} />
         <Row label="Speed" value={`${speed} ft`} />
         <Row label="Skills" value={skills.join(", ") || "—"} />
+        <Row
+          label="Equipment"
+          value={
+            equipment.length > 0
+              ? `${equipment.length} item${equipment.length === 1 ? "" : "s"}`
+              : "—"
+          }
+        />
       </dl>
 
       <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-6">

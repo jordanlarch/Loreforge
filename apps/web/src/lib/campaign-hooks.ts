@@ -45,6 +45,7 @@ export type AcceptedHookRef = {
   title: string;
   summary: string;
   sourceTemplateId?: string | null;
+  status?: string;
 };
 
 /** Whether a Realms-embedded hook was already promoted into the campaign. */
@@ -57,13 +58,17 @@ export function isRealmHookAccepted(
   const trimmed = hookText.trim();
   const title = trimmed.slice(0, 200);
   return accepted.some(
-    (hook) =>
-      hook.sourceEntityId === entityId &&
-      (templateId != null &&
-      hook.sourceTemplateId != null &&
-      hook.sourceTemplateId === templateId
-        ? true
-        : hook.title === title || hook.summary === trimmed),
+    (hook) => {
+      if (hook.status === "abandoned") return false;
+      return (
+        hook.sourceEntityId === entityId &&
+        (templateId != null &&
+        hook.sourceTemplateId != null &&
+        hook.sourceTemplateId === templateId
+          ? true
+          : hook.title === title || hook.summary === trimmed)
+      );
+    },
   );
 }
 

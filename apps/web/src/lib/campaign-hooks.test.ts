@@ -82,6 +82,20 @@ describe("Realms suggested feed", () => {
     );
   });
 
+  it("treats abandoned instances as not accepted (re-offer from Realms)", () => {
+    const accepted = [
+      {
+        sourceEntityId: "ent-1",
+        title: "The missing ledger",
+        summary: "The missing ledger",
+        status: "abandoned",
+      },
+    ];
+    expect(
+      isRealmHookAccepted("ent-1", "The missing ledger", accepted),
+    ).toBe(false);
+  });
+
   it("lists pending hooks only for campaign world entities", () => {
     const pending = pendingRealmHooks({
       worldEntityIds: ["ent-1"],

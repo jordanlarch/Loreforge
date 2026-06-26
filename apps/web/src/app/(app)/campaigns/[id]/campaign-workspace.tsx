@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 
 import {
   CAMPAIGN_WORKSPACE_TABS,
@@ -47,13 +47,24 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
   const active = resolveCampaignTab(searchParams.get("tab"));
 
   const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
+  const access = trpc.campaigns.access.useQuery({ campaignId });
+
+  useEffect(() => {
+    if (access.data && !access.data.canAccessPrep) {
+      router.replace(`/campaigns/${campaignId}/play`);
+    }
+  }, [access.data, campaignId, router]);
 
   function selectTab(slug: CampaignTabSlug) {
     const query = slug === "overview" ? "" : `?tab=${slug}`;
     router.replace(`${pathname}${query}`, { scroll: false });
   }
 
-  if (campaign.isLoading) return <WorkspaceFallback />;
+  if (campaign.isLoading || access.isLoading) return <WorkspaceFallback />;
+
+  if (access.data && !access.data.canAccessPrep) {
+    return <WorkspaceFallback />;
+  }
 
   if (!campaign.data) {
     return (

@@ -34,7 +34,16 @@ function signed(n: number): string {
 
 type GenCandidate = { summary: string; data: Record<string, unknown> };
 
-export function RealmEntityDetail({ id }: { id: string }) {
+export function RealmEntityDetail({
+  id,
+  embedded = false,
+  onClose,
+}: {
+  id: string;
+  /** When true, render inside a prep lightbox (no back nav / page chrome). */
+  embedded?: boolean;
+  onClose?: () => void;
+}) {
   const query = trpc.realms.get.useQuery({ id });
   const utils = trpc.useUtils();
   const generatorStatus = trpc.realms.generatorStatus.useQuery();
@@ -67,7 +76,11 @@ export function RealmEntityDetail({ id }: { id: string }) {
 
   if (query.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-10 text-lore-muted">
+      <div
+        className={
+          embedded ? "text-lore-muted" : "mx-auto max-w-5xl px-4 py-10 text-lore-muted"
+        }
+      >
         Loading…
       </div>
     );
@@ -76,9 +89,13 @@ export function RealmEntityDetail({ id }: { id: string }) {
   const entity = query.data;
   if (!entity) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-10">
-        <BackLink />
-        <div className="mt-6 rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
+      <div className={embedded ? "" : "mx-auto max-w-5xl px-4 py-10"}>
+        {!embedded ? <BackLink /> : null}
+        <div
+          className={`rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted ${
+            embedded ? "mt-2" : "mt-6"
+          }`}
+        >
           Entity not found.
         </div>
       </div>
@@ -90,10 +107,14 @@ export function RealmEntityDetail({ id }: { id: string }) {
   const genError = expand.error ?? regenerate.error ?? accept.error;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
-      <BackLink />
+    <div className={embedded ? "" : "mx-auto max-w-5xl px-4 py-10"}>
+      {!embedded ? <BackLink /> : null}
 
-      <header className="mt-3 flex flex-wrap items-start justify-between gap-4 border-b border-lore-border pb-6">
+      <header
+        className={`flex flex-wrap items-start justify-between gap-4 border-b border-lore-border pb-6 ${
+          embedded ? "mt-0" : "mt-3"
+        }`}
+      >
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-display text-4xl font-semibold tracking-tight">

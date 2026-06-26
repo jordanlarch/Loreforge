@@ -41,7 +41,6 @@ import {
 } from "@/components/character-creation/class-choice-pickers";
 import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem } from "@/lib/character";
-import { backgroundOriginFeatName } from "@/lib/codex-background-feat-display";
 import { serializeCharacterNotes } from "@/lib/character-sheet-storage";
 import type { PersonalityFields } from "@/lib/personality";
 import {

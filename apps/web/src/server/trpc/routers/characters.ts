@@ -511,7 +511,7 @@ export const charactersRouter = createTRPCRouter({
                 : undefined,
           });
 
-      let nextClasses = addingClass
+      const nextClasses = addingClass
         ? [...classes, { class: input.addNewClass!, level: 1 }]
         : classes.map((c, i) => {
             if (i !== input.classIndex) return c;

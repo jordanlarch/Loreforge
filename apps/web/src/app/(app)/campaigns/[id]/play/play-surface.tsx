@@ -766,6 +766,12 @@ function LiveBattle({
               onFeatureUse={(name) =>
                 session.sendChat(`uses ${name}`, "use_feature")
               }
+              onCastSpell={(spell) =>
+                session.sendChat(
+                  `casts ${spell.name}${spell.level > 0 ? ` (level ${spell.level})` : ""}`,
+                  "cast_spell",
+                )
+              }
             />
           ) : null}
           {sheetPeekId ? (
@@ -968,6 +974,12 @@ function LiveBattle({
           onClose={() => setSheetOpen(false)}
           onFeatureUse={(name) =>
             session.sendChat(`uses ${name}`, "use_feature")
+          }
+          onCastSpell={(spell) =>
+            session.sendChat(
+              `casts ${spell.name}${spell.level > 0 ? ` (level ${spell.level})` : ""}`,
+              "cast_spell",
+            )
           }
         />
       ) : null}

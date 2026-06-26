@@ -36,6 +36,8 @@ type PlayShellChromeProps = {
   onOpenCharacterSheet?: () => void;
   playerHudExtra?: ReactNode;
   tutorialControls?: ReactNode;
+  /** When true, the party rail defaults the PC panel expanded (PLAY-3). */
+  inCombat?: boolean;
   combatStrip?: ReactNode;
   mapCurrent: ReactNode;
   mapFooter?: ReactNode;
@@ -59,6 +61,7 @@ export function PlayShellChrome({
   onOpenCharacterSheet,
   playerHudExtra,
   tutorialControls,
+  inCombat = false,
   combatStrip,
   mapCurrent,
   mapFooter,
@@ -155,6 +158,7 @@ export function PlayShellChrome({
               onOpenCharacterSheet={onOpenCharacterSheet}
               playerHudExtra={playerHudExtra}
               tutorialControls={tutorialControls}
+              inCombat={inCombat}
               collapsed={railCollapsed}
               onToggle={toggleRail}
             />

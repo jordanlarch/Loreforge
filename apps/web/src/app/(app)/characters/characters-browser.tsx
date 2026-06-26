@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { buildCharacterSheet } from "@app/engine";
 import type { characters } from "@app/db";
@@ -12,26 +12,83 @@ type CharacterRow = typeof characters.$inferSelect;
 
 export function CharactersBrowser() {
   const list = trpc.characters.list.useQuery();
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"name" | "level">("name");
+  const [layout, setLayout] = useState<"grid" | "list">("grid");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let rows = list.data ?? [];
+    if (q) {
+      rows = rows.filter((c) => {
+        const sheet = buildCharacterSheet(c);
+        return (
+          sheet.name.toLowerCase().includes(q) ||
+          sheet.species.toLowerCase().includes(q) ||
+          (c.classes as { class: string }[]).some((cl) =>
+            cl.class.toLowerCase().includes(q),
+          )
+        );
+      });
+    }
+    return [...rows].sort((a, b) => {
+      const sa = buildCharacterSheet(a);
+      const sb = buildCharacterSheet(b);
+      if (sort === "level") return sb.level - sa.level || sa.name.localeCompare(sb.name);
+      return sa.name.localeCompare(sb.name);
+    });
+  }, [list.data, search, sort]);
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm text-lore-muted">
           {list.isLoading
             ? "Loading…"
-            : `${list.data?.length ?? 0} character${
-                list.data?.length === 1 ? "" : "s"
-              }`}
+            : `${filtered.length} character${filtered.length === 1 ? "" : "s"}`}
         </span>
-        <Link
-          href="/characters/new"
-          className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
-        >
-          New character
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search characters…"
+            className="rounded border border-lore-border bg-lore-surface px-3 py-1.5 text-sm outline-none focus:border-lore-accent"
+          />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as "name" | "level")}
+            className="rounded border border-lore-border bg-lore-surface px-2 py-1.5 text-sm"
+          >
+            <option value="name">Name A–Z</option>
+            <option value="level">Level (high first)</option>
+          </select>
+          <div className="flex rounded border border-lore-border text-xs">
+            <button
+              type="button"
+              onClick={() => setLayout("grid")}
+              className={`px-2 py-1.5 ${layout === "grid" ? "bg-lore-accent-dim text-lore-text" : "text-lore-muted"}`}
+            >
+              Grid
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayout("list")}
+              className={`px-2 py-1.5 ${layout === "list" ? "bg-lore-accent-dim text-lore-text" : "text-lore-muted"}`}
+            >
+              List
+            </button>
+          </div>
+          <Link
+            href="/characters/new"
+            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+          >
+            New character
+          </Link>
+        </div>
       </div>
 
-      {!list.isLoading && (list.data?.length ?? 0) === 0 ? (
+      {!list.isLoading && filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
           No characters yet.{" "}
           <Link
@@ -43,9 +100,15 @@ export function CharactersBrowser() {
           to get started.
         </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(list.data ?? []).map((character) => (
-            <CharacterCard key={character.id} character={character} />
+        <ul
+          className={
+            layout === "grid"
+              ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              : "flex flex-col gap-3"
+          }
+        >
+          {filtered.map((character) => (
+            <CharacterCard key={character.id} character={character} layout={layout} />
           ))}
         </ul>
       )}
@@ -53,7 +116,13 @@ export function CharactersBrowser() {
   );
 }
 
-function CharacterCard({ character }: { character: CharacterRow }) {
+function CharacterCard({
+  character,
+  layout = "grid",
+}: {
+  character: CharacterRow;
+  layout?: "grid" | "list";
+}) {
   const utils = trpc.useUtils();
   const [confirming, setConfirming] = useState(false);
   const remove = trpc.characters.delete.useMutation({
@@ -66,10 +135,14 @@ function CharacterCard({ character }: { character: CharacterRow }) {
   const sheet = buildCharacterSheet(character);
 
   return (
-    <li className="relative flex h-full flex-col rounded-lg border border-lore-border bg-lore-surface transition-colors hover:border-lore-accent">
+    <li
+      className={`relative flex h-full flex-col rounded-lg border border-lore-border bg-lore-surface transition-colors hover:border-lore-accent ${
+        layout === "list" ? "sm:flex-row sm:items-center" : ""
+      }`}
+    >
       <Link
         href={`/characters/${character.id}`}
-        className="flex flex-1 flex-col gap-3 p-5"
+        className={`flex flex-1 flex-col gap-3 p-5 ${layout === "list" ? "sm:flex-row sm:items-center sm:gap-6" : ""}`}
       >
         <div className="flex items-start justify-between gap-2">
           <span className="font-display text-xl">{sheet.name}</span>

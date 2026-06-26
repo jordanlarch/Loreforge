@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   abilityModifier,
@@ -40,16 +40,25 @@ function fmtMod(mod: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`;
 }
 
-/** Resolve the active combatant + the targets it may attack from the world. */
-function readActive(state: WorldState | undefined): {
+/** Resolve a combatant + valid attack targets from the world. */
+function readCombatant(
+  state: WorldState | undefined,
+  entityId?: string,
+): {
   entity: EntityState;
   targets: EntityState[];
   yourTurn: boolean;
 } | null {
   const encounter = state?.encounter;
   if (!state || !encounter) return null;
-  const activeRef = encounter.order[encounter.activeIndex]?.entity;
-  const entity = activeRef ? state.entities[activeRef] : undefined;
+
+  let entity: EntityState | undefined;
+  if (entityId) {
+    entity = state.entities[entityId];
+  } else {
+    const activeRef = encounter.order[encounter.activeIndex]?.entity;
+    entity = activeRef ? state.entities[activeRef] : undefined;
+  }
   if (!entity) return null;
 
   const mySide = encounter.sides[entity.id];
@@ -59,7 +68,10 @@ function readActive(state: WorldState | undefined): {
       e.alive &&
       areHostile(mySide, encounter.sides[e.id]),
   );
-  return { entity, targets, yourTurn: entity.actionEconomy !== undefined };
+  const activeRef = encounter.order[encounter.activeIndex]?.entity;
+  const yourTurn =
+    entity.actionEconomy !== undefined && activeRef === entity.id;
+  return { entity, targets, yourTurn };
 }
 
 /**
@@ -72,22 +84,30 @@ function readActive(state: WorldState | undefined): {
  */
 export function CharacterHud({
   session,
+  /** When set, show this entity instead of whoever holds initiative (#214 / PLAY-3). */
+  entityId,
   weapons,
   items,
+  portraitUrl,
   onViewSheet,
+  onAbilityCheck,
 }: {
   session: HudSession;
-  /** Sheet-derived weapons for the active entity (#98); generic Strike if absent. */
+  entityId?: string;
+  /** Sheet-derived weapons for the focused entity (#98); generic Strike if absent. */
   weapons?: WeaponAttack[];
   /** Sheet-derived quick-use consumables (#98). */
   items?: { name: string; quantity: number }[];
+  portraitUrl?: string | null;
   /** Open the full character sheet overlay when the roster id is known. */
   onViewSheet?: () => void;
+  /** Route a quick ability/save roll through chat (engine resolves on next turn). */
+  onAbilityCheck?: (ability: keyof EntityState["abilityScores"]) => void;
 }) {
   const [compact, setCompact] = useState(false);
   const [targetId, setTargetId] = useState("");
 
-  const active = readActive(session.state);
+  const active = readCombatant(session.state, entityId);
   if (!active) return null;
   const { entity, targets, yourTurn } = active;
 
@@ -147,11 +167,21 @@ export function CharacterHud({
     <div className={`rounded-lg border bg-lore-surface p-4 ${borderClass}`}>
       {/* Identity */}
       <div className="mb-3 flex items-start justify-between gap-2">
-        <div>
-          <div className="font-display text-lg leading-tight">{entity.name}</div>
-          <div className="text-xs text-lore-muted">
-            Lvl {level}
-            {classLine ? ` · ${classLine}` : ""}
+        <div className="flex min-w-0 items-start gap-2">
+          {portraitUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={portraitUrl}
+              alt=""
+              className="h-12 w-12 shrink-0 rounded border border-lore-border object-cover"
+            />
+          ) : null}
+          <div className="min-w-0">
+            <div className="font-display text-lg leading-tight">{entity.name}</div>
+            <div className="text-xs text-lore-muted">
+              Lvl {level}
+              {classLine ? ` · ${classLine}` : ""}
+            </div>
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
@@ -178,15 +208,24 @@ export function CharacterHud({
       <div className="mb-3 grid grid-cols-3 gap-1.5 text-center text-xs">
         {ABILITY_ROW.map(({ key, label }) => {
           const score = entity.abilityScores[key];
+          const mod = abilityModifier(score);
           return (
             <div key={key} className="rounded border border-lore-border py-1">
               <div className="text-lore-muted">{label}</div>
               <div className="text-sm text-lore-text">
                 {score}{" "}
-                <span className="text-lore-muted">
-                  ({fmtMod(abilityModifier(score))})
-                </span>
+                <span className="text-lore-muted">({fmtMod(mod)})</span>
               </div>
+              {onAbilityCheck ? (
+                <button
+                  type="button"
+                  onClick={() => onAbilityCheck(key)}
+                  className="mt-0.5 text-[10px] text-lore-accent hover:text-lore-text"
+                  title={`Roll ${label} check`}
+                >
+                  🎲
+                </button>
+              ) : null}
             </div>
           );
         })}
@@ -350,14 +389,40 @@ function HpBar({
   pct: number;
   hp: { current: number; max: number };
 }) {
+  const prevRef = useRef(hp.current);
+  const [delta, setDelta] = useState<number | null>(null);
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (prev !== hp.current) {
+      const d = hp.current - prev;
+      if (d !== 0) {
+        setDelta(d);
+        const t = window.setTimeout(() => setDelta(null), 1200);
+        prevRef.current = hp.current;
+        return () => window.clearTimeout(t);
+      }
+    }
+    prevRef.current = hp.current;
+  }, [hp.current]);
+
   return (
-    <div>
+    <div className="relative">
       <div className="h-2 w-full overflow-hidden rounded-full bg-lore-bg">
         <div
           className="h-full rounded-full bg-lore-accent transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>
+      {delta !== null ? (
+        <span
+          className={`pointer-events-none absolute right-0 top-0 -translate-y-full text-xs font-semibold ${
+            delta < 0 ? "text-red-400" : "text-emerald-400"
+          }`}
+        >
+          {delta > 0 ? `+${delta}` : delta}
+        </span>
+      ) : null}
       <div className="mt-0.5 text-right text-xs text-lore-muted">
         {hp.current} / {hp.max} HP
       </div>

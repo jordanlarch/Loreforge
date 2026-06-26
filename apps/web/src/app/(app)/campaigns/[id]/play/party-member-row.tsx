@@ -214,7 +214,22 @@ export function PartyMemberRow({
   return (
     <li className="group/chip relative">
       <div
+        role={onViewSheet ? "button" : undefined}
+        tabIndex={onViewSheet ? 0 : undefined}
+        onClick={onViewSheet ? () => onViewSheet(member.id) : undefined}
+        onKeyDown={
+          onViewSheet
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onViewSheet(member.id);
+                }
+              }
+            : undefined
+        }
         className={`flex flex-col gap-1 rounded-lg border px-2 py-1.5 text-xs ${
+          onViewSheet ? "cursor-pointer" : ""
+        } ${
           active
             ? "border-lore-accent bg-lore-accent-dim shadow-[0_0_0_1px_var(--tw-shadow-color)] shadow-lore-accent/40"
             : "border-lore-border bg-lore-surface"

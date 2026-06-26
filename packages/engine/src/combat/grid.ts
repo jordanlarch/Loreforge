@@ -115,3 +115,58 @@ export function withinCone(
   const cos = dot / (Math.hypot(vx, vy) * Math.hypot(dx, dy));
   return cos >= CONE_HALF_ANGLE_COS - 1e-9;
 }
+
+/** Furthest grid cell reachable along the 8-way direction from `from` through `toward`. */
+export function lineEndpoint(
+  from: GridPosition,
+  toward: GridPosition,
+  lengthFeet: number,
+): GridPosition {
+  const maxCells = Math.max(1, Math.floor(lengthFeet / FEET_PER_CELL));
+  const dx = Math.sign(toward.x - from.x);
+  const dy = Math.sign(toward.y - from.y);
+  if (dx === 0 && dy === 0) return from;
+  return { x: from.x + dx * maxCells, y: from.y + dy * maxCells };
+}
+
+/**
+ * Whether `cell` lies on a line of `lengthFeet` (5 ft wide) from `from` aimed
+ * toward `toward`. The line includes the caster's square only when it is also
+ * on the path toward the aim (Lightning Bolt emanates from the caster).
+ */
+export function withinLine(
+  from: GridPosition,
+  toward: GridPosition,
+  cell: GridPosition,
+  lengthFeet: number,
+  widthFeet = FEET_PER_CELL,
+): boolean {
+  if (from.x === toward.x && from.y === toward.y) return false;
+  const end = lineEndpoint(from, toward, lengthFeet);
+  const path = lineCells(from, end);
+  const halfWidth = Math.max(0, Math.floor(widthFeet / FEET_PER_CELL) - 1);
+  for (const p of path) {
+    if (p.x === cell.x && p.y === cell.y) return true;
+    if (halfWidth > 0) {
+      for (let ox = -halfWidth; ox <= halfWidth; ox += 1) {
+        for (let oy = -halfWidth; oy <= halfWidth; oy += 1) {
+          if (p.x + ox === cell.x && p.y + oy === cell.y) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether `cell` falls inside an axis-aligned cube of `edgeFeet` centered on
+ * `center` (Chebyshev half-edge tracer for the square grid).
+ */
+export function withinCube(
+  center: GridPosition,
+  cell: GridPosition,
+  edgeFeet: number,
+): boolean {
+  const half = edgeFeet / 2;
+  return distanceFeet(center, cell) <= half;
+}

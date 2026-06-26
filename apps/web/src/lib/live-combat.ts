@@ -14,6 +14,8 @@ import {
   FEET_PER_CELL,
   withinBurst,
   withinCone,
+  withinCube,
+  withinLine,
   type EntityState,
   type WorldState,
 } from "@app/engine";
@@ -26,7 +28,10 @@ export type Damage = { notation: string; type: string };
 export const MELEE_REACH_FT = FEET_PER_CELL;
 
 /** Area shape for an AoE spell — mirrors the engine spell registry (#99). */
-export type SpellArea = { shape: "sphere" | "cone"; sizeFt: number };
+export type SpellArea = {
+  shape: "sphere" | "cone" | "line" | "cube";
+  sizeFt: number;
+};
 
 /** Who the live cast picker should offer when arming a spell. */
 export type CastTargetKind = "enemy" | "ally" | "self";
@@ -264,6 +269,14 @@ function cellInArea(
     const caster = state.entities[casterId];
     if (!caster?.position) return false;
     return withinCone(caster.position, aim, cell, area.sizeFt);
+  }
+  if (area.shape === "line") {
+    const caster = state.entities[casterId];
+    if (!caster?.position) return false;
+    return withinLine(caster.position, aim, cell, area.sizeFt);
+  }
+  if (area.shape === "cube") {
+    return withinCube(aim, cell, area.sizeFt);
   }
   return withinBurst(aim, cell, area.sizeFt);
 }

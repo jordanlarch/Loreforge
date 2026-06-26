@@ -26,6 +26,8 @@ export function CodexBrowser({
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState<string | undefined>();
   const [school, setSchool] = useState<string | undefined>();
+  const [concentration, setConcentration] = useState<boolean | undefined>();
+  const [ritual, setRitual] = useState<boolean | undefined>();
   const [page, setPage] = useState(0);
 
   const facets = trpc.codex.spellFacets.useQuery();
@@ -34,6 +36,8 @@ export function CodexBrowser({
       search: search || undefined,
       level,
       school,
+      concentration,
+      ritual,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     },
@@ -79,6 +83,16 @@ export function CodexBrowser({
           value={school}
           render={(v) => v}
           onChange={(v) => resetPageAnd(() => setSchool(v))}
+        />
+        <TriFilter
+          title="Concentration"
+          value={concentration}
+          onChange={(v) => resetPageAnd(() => setConcentration(v))}
+        />
+        <TriFilter
+          title="Ritual"
+          value={ritual}
+          onChange={(v) => resetPageAnd(() => setRitual(v))}
         />
       </aside>
 
@@ -186,6 +200,35 @@ function FilterGroup({
             {render(opt)}
           </FilterChip>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function TriFilter({
+  title,
+  value,
+  onChange,
+}: {
+  title: string;
+  value: boolean | undefined;
+  onChange: (value: boolean | undefined) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
+        {title}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <FilterChip active={value === undefined} onClick={() => onChange(undefined)}>
+          All
+        </FilterChip>
+        <FilterChip active={value === true} onClick={() => onChange(true)}>
+          Yes
+        </FilterChip>
+        <FilterChip active={value === false} onClick={() => onChange(false)}>
+          No
+        </FilterChip>
       </div>
     </div>
   );

@@ -105,6 +105,9 @@ export {
   lineCells,
   withinBurst,
   withinCone,
+  withinCube,
+  withinLine,
+  lineEndpoint,
 } from "./combat/grid";
 export {
   attackedMode,

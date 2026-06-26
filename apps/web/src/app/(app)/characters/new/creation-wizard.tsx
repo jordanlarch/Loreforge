@@ -9,6 +9,7 @@ import {
   abilityModifier,
   applyAbilityBonuses,
   baseArmorClass,
+  featureStubsForLevel,
   isValidPointBuy,
   MANUAL_MAX,
   MANUAL_MIN,
@@ -25,6 +26,7 @@ import {
 
 import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem } from "@/lib/character";
+import { mergeNotes, type PersonalityFields } from "@/lib/personality";
 import {
   startingPackForClass,
   type StartingPack,
@@ -32,25 +34,35 @@ import {
 
 import { SrdHint } from "@/components/srd-hint";
 
-const ABILITY_LABELS: Record<Ability, string> = {
-  str: "STR",
-  dex: "DEX",
-  con: "CON",
-  int: "INT",
-  wis: "WIS",
-  cha: "CHA",
-};
+const DRAFT_KEY = "loreforge-char-creation-draft";
+
+const RANDOM_NAMES = [
+  "Aldric Vale",
+  "Branwen Ash",
+  "Caelum Thorn",
+  "Dara Flint",
+  "Elowen Reed",
+  "Finnian Croft",
+  "Greta Moss",
+  "Haldor Kane",
+  "Isolde Wren",
+  "Jorah Penn",
+];
 
 const STEPS = [
+  "Concept",
   "Species",
   "Class",
+  "Background",
   "Abilities",
   "Skills",
   "Equipment",
+  "Features",
+  "Flavor",
   "Review",
 ] as const;
 
-type AbilityMethod = "point-buy" | "standard-array" | "manual";
+type AbilityMethod = "point-buy" | "standard-array" | "manual" | "roll-4d6";
 
 const POINT_BUY_BASE: AbilityScores = {
   str: 8,
@@ -69,6 +81,32 @@ const MANUAL_BASE: AbilityScores = {
   wis: 10,
   cha: 10,
 };
+
+const ABILITY_LABELS: Record<Ability, string> = {
+  str: "STR",
+  dex: "DEX",
+  con: "CON",
+  int: "INT",
+  wis: "WIS",
+  cha: "CHA",
+};
+
+function roll4d6DropLowest(): number {
+  const rolls = Array.from({ length: 4 }, () => 1 + Math.floor(Math.random() * 6));
+  rolls.sort((a, b) => b - a);
+  return rolls[0]! + rolls[1]! + rolls[2]!;
+}
+
+function rollAbilityScores(): AbilityScores {
+  return {
+    str: roll4d6DropLowest(),
+    dex: roll4d6DropLowest(),
+    con: roll4d6DropLowest(),
+    int: roll4d6DropLowest(),
+    wis: roll4d6DropLowest(),
+    cha: roll4d6DropLowest(),
+  };
+}
 
 // Standard array assigned in canonical ability order as a starting point.
 const STANDARD_ARRAY_BASE: AbilityScores = {
@@ -90,6 +128,7 @@ export function CreationWizard() {
   const utils = trpc.useUtils();
   const species = trpc.codex.listSpecies.useQuery();
   const classes = trpc.codex.listClasses.useQuery();
+  const backgrounds = trpc.codex.listBackgrounds.useQuery();
 
   const create = trpc.characters.create.useMutation();
   const addToCampaign = trpc.characters.addToCampaign.useMutation();
@@ -98,15 +137,26 @@ export function CreationWizard() {
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
+  const [concept, setConcept] = useState("");
   const [speciesSlug, setSpeciesSlug] = useState<string | null>(null);
   const [classSlug, setClassSlug] = useState<string | null>(null);
+  const [backgroundSlug, setBackgroundSlug] = useState<string | null>(null);
   const [method, setMethod] = useState<AbilityMethod>("point-buy");
   const [base, setBase] = useState<AbilityScores>(POINT_BUY_BASE);
   const [skills, setSkills] = useState<string[]>([]);
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [equipmentPack, setEquipmentPack] = useState<StartingPack | null>(null);
+  const [personality, setPersonality] = useState<PersonalityFields>({
+    traits: "",
+    ideals: "",
+    bonds: "",
+    flaws: "",
+  });
+  const [backstory, setBackstory] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   // Codex deep links (CODEX-6): ?species=hill-dwarf&class=fighter
   useEffect(() => {
@@ -117,11 +167,79 @@ export function CreationWizard() {
     }
     if (classParam) {
       setClassSlug(classParam);
-      setStep(1);
+      setStep(2);
     } else if (speciesParam) {
-      setStep(0);
+      setStep(1);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) {
+        setDraftLoaded(true);
+        return;
+      }
+      const draft = JSON.parse(raw) as {
+        step?: number;
+        name?: string;
+        concept?: string;
+        speciesSlug?: string | null;
+        classSlug?: string | null;
+        backgroundSlug?: string | null;
+        method?: AbilityMethod;
+        base?: AbilityScores;
+        skills?: string[];
+        personality?: PersonalityFields;
+        backstory?: string;
+      };
+      if (draft.name) setName(draft.name);
+      if (draft.concept) setConcept(draft.concept);
+      if (draft.speciesSlug) setSpeciesSlug(draft.speciesSlug);
+      if (draft.classSlug) setClassSlug(draft.classSlug);
+      if (draft.backgroundSlug) setBackgroundSlug(draft.backgroundSlug);
+      if (draft.method) setMethod(draft.method);
+      if (draft.base) setBase(draft.base);
+      if (draft.skills) setSkills(draft.skills);
+      if (draft.personality) setPersonality(draft.personality);
+      if (draft.backstory) setBackstory(draft.backstory);
+      if (typeof draft.step === "number") setStep(draft.step);
+    } catch {
+      /* ignore corrupt draft */
+    }
+    setDraftLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const draft = {
+      step,
+      name,
+      concept,
+      speciesSlug,
+      classSlug,
+      backgroundSlug,
+      method,
+      base,
+      skills,
+      personality,
+      backstory,
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [
+    draftLoaded,
+    step,
+    name,
+    concept,
+    speciesSlug,
+    classSlug,
+    backgroundSlug,
+    method,
+    base,
+    skills,
+    personality,
+    backstory,
+  ]);
 
   useEffect(() => {
     if (!classSlug) return;
@@ -144,10 +262,16 @@ export function CreationWizard() {
     [base, selectedSpecies],
   );
 
+  const selectedBackground = useMemo(
+    () => backgrounds.data?.find((b) => b.slug === backgroundSlug) ?? null,
+    [backgrounds.data, backgroundSlug],
+  );
+
   function switchMethod(next: AbilityMethod) {
     setMethod(next);
     if (next === "point-buy") setBase(POINT_BUY_BASE);
     else if (next === "manual") setBase(MANUAL_BASE);
+    else if (next === "roll-4d6") setBase(rollAbilityScores());
     else setBase(STANDARD_ARRAY_BASE);
   }
 
@@ -162,43 +286,57 @@ export function CreationWizard() {
     (a) => base[a] >= MANUAL_MIN && base[a] <= MANUAL_MAX,
   );
 
+  const rollValid = ABILITIES.every(
+    (a) => base[a] >= 3 && base[a] <= 18,
+  );
+
   const abilitiesValid =
     method === "point-buy"
       ? isValidPointBuy(base)
       : method === "standard-array"
         ? standardArrayValid
-        : manualValid;
+        : method === "roll-4d6"
+          ? rollValid
+          : manualValid;
 
   const skillsRemaining = (selectedClass?.skillChoice.choose ?? 0) - skills.length;
   const skillsValid = selectedClass != null && skillsRemaining === 0;
   const nameValid = name.trim().length > 0;
 
   const stepValid = [
+    nameValid,
     selectedSpecies != null,
     selectedClass != null,
+    selectedBackground != null,
     abilitiesValid,
     skillsValid,
     equipment.length > 0,
+    selectedClass != null,
+    true,
     nameValid,
   ];
 
   const canCreate =
     selectedSpecies != null &&
     selectedClass != null &&
+    selectedBackground != null &&
     abilitiesValid &&
     skillsValid &&
     equipment.length > 0 &&
     nameValid;
 
   async function submit() {
-    if (!canCreate || !selectedSpecies || !selectedClass) return;
+    if (!canCreate || !selectedSpecies || !selectedClass || !selectedBackground)
+      return;
     setCreateError(null);
     setCreating(true);
     try {
+      const notesParts = [concept.trim(), backstory.trim()].filter(Boolean);
+      const notesBody = notesParts.join("\n\n");
       const row = await create.mutateAsync({
         name: name.trim(),
         species: selectedSpecies.name,
-        background: "",
+        background: selectedBackground.name,
         classes: [{ class: selectedClass.name, level: 1 }],
         abilityScores: finalScores,
         maxHp: maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con),
@@ -207,9 +345,14 @@ export function CreationWizard() {
         saveProficiencies: selectedClass.savingThrows,
         skillProficiencies: skills,
         equipment,
+        notes: mergeNotes(notesBody, personality),
       });
       if (!row) return;
+      localStorage.removeItem(DRAFT_KEY);
       await utils.characters.list.invalidate();
+      await utils.characters.listDashboard.invalidate();
+      setSuccessToast(`${row.name} created!`);
+      await new Promise((r) => setTimeout(r, 800));
       if (campaignId) {
         await addToCampaign.mutateAsync({
           characterId: row.id,
@@ -245,9 +388,24 @@ export function CreationWizard() {
 
       <Stepper current={step} valid={stepValid} onJump={setStep} />
 
+      {successToast && (
+        <p className="mt-4 rounded border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
+          {successToast}
+        </p>
+      )}
+
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_280px]">
         <main className="min-w-0">
           {step === 0 && (
+            <ConceptStep
+              name={name}
+              setName={setName}
+              concept={concept}
+              setConcept={setConcept}
+              nameValid={nameValid}
+            />
+          )}
+          {step === 1 && (
             <SpeciesStep
               loading={species.isLoading}
               items={species.data ?? []}
@@ -255,7 +413,7 @@ export function CreationWizard() {
               onSelect={setSpeciesSlug}
             />
           )}
-          {step === 1 && (
+          {step === 2 && (
             <ClassStep
               loading={classes.isLoading}
               items={classes.data ?? []}
@@ -266,7 +424,15 @@ export function CreationWizard() {
               }}
             />
           )}
-          {step === 2 && (
+          {step === 3 && (
+            <BackgroundStep
+              loading={backgrounds.isLoading}
+              items={backgrounds.data ?? []}
+              selected={backgroundSlug}
+              onSelect={setBackgroundSlug}
+            />
+          )}
+          {step === 4 && (
             <AbilitiesStep
               method={method}
               onMethod={switchMethod}
@@ -277,7 +443,7 @@ export function CreationWizard() {
               standardArrayValid={standardArrayValid}
             />
           )}
-          {step === 3 && (
+          {step === 5 && (
             <SkillsStep
               selectedClass={selectedClass}
               skills={skills}
@@ -285,20 +451,32 @@ export function CreationWizard() {
               remaining={skillsRemaining}
             />
           )}
-          {step === 4 && (
+          {step === 6 && (
             <EquipmentStep
               className={selectedClass?.name ?? "—"}
               pack={equipmentPack}
               equipment={equipment}
             />
           )}
-          {step === 5 && (
+          {step === 7 && (
+            <FeaturesStep className={selectedClass?.name ?? "Adventurer"} />
+          )}
+          {step === 8 && (
+            <FlavorStep
+              personality={personality}
+              setPersonality={setPersonality}
+              backstory={backstory}
+              setBackstory={setBackstory}
+            />
+          )}
+          {step === 9 && (
             <ReviewStep
               name={name}
               setName={setName}
               nameValid={nameValid}
               species={selectedSpecies?.name ?? "—"}
               className={selectedClass?.name ?? "—"}
+              background={selectedBackground?.name ?? "—"}
               finalScores={finalScores}
               skills={skills}
               equipment={equipment}
@@ -318,6 +496,7 @@ export function CreationWizard() {
           name={name}
           species={selectedSpecies?.name ?? null}
           className={selectedClass?.name ?? null}
+          background={selectedBackground?.name ?? null}
           finalScores={finalScores}
         />
       </div>
@@ -541,6 +720,7 @@ function AbilitiesStep({
   const methods: { id: AbilityMethod; label: string }[] = [
     { id: "point-buy", label: "Point Buy" },
     { id: "standard-array", label: "Standard Array" },
+    { id: "roll-4d6", label: "Roll 4d6" },
     { id: "manual", label: "Manual" },
   ];
 
@@ -579,6 +759,29 @@ function AbilitiesStep({
         <p className="mt-4 text-sm text-red-400">
           Assign each of {STANDARD_ARRAY.join(", ")} exactly once.
         </p>
+      )}
+      {method === "roll-4d6" && (
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              setBase({
+                str: roll4d6DropLowest(),
+                dex: roll4d6DropLowest(),
+                con: roll4d6DropLowest(),
+                int: roll4d6DropLowest(),
+                wis: roll4d6DropLowest(),
+                cha: roll4d6DropLowest(),
+              })
+            }
+            className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text hover:border-lore-accent"
+          >
+            Re-roll all
+          </button>
+          <span className="text-xs text-lore-muted">
+            4d6 drop lowest per ability; species bonuses apply after.
+          </span>
+        </div>
       )}
 
       <div className="mt-4 space-y-2">
@@ -626,6 +829,9 @@ function AbilitiesStep({
                   }
                   className="w-20 rounded border border-lore-border bg-lore-bg px-2 py-1 text-sm"
                 />
+              )}
+              {method === "roll-4d6" && (
+                <span className="font-mono text-sm">{base[a]}</span>
               )}
             </div>
 
@@ -814,6 +1020,7 @@ function ReviewStep({
   nameValid,
   species,
   className,
+  background,
   finalScores,
   skills,
   equipment,
@@ -827,6 +1034,7 @@ function ReviewStep({
   nameValid: boolean;
   species: string;
   className: string;
+  background: string;
   finalScores: AbilityScores;
   skills: string[];
   equipment: EquipmentItem[];
@@ -859,6 +1067,7 @@ function ReviewStep({
       <dl className="mt-6 grid gap-x-8 gap-y-2 sm:grid-cols-2">
         <Row label="Species" value={species} />
         <Row label="Class" value={`${className} 1`} />
+        <Row label="Background" value={background} />
         <Row label="Max HP" value={String(maxHp)} />
         <Row label="Base AC" value={String(baseAc)} />
         <Row label="Speed" value={`${speed} ft`} />
@@ -915,17 +1124,19 @@ function SummaryCard({
   name,
   species,
   className,
+  background,
   finalScores,
 }: {
   name: string;
   species: string | null;
   className: string | null;
+  background: string | null;
   finalScores: AbilityScores;
 }) {
   return (
     <aside className="h-fit rounded-lg border border-lore-border bg-lore-surface p-5 lg:sticky lg:top-6">
       <div className="text-xs uppercase tracking-widest text-lore-muted">
-        Summary
+        Preview
       </div>
       <div className="mt-2 font-display text-xl">
         {name.trim() || "New Character"}
@@ -933,6 +1144,9 @@ function SummaryCard({
       <div className="mt-1 text-sm text-lore-muted">
         Level 1 {[species, className].filter(Boolean).join(" ") || "—"}
       </div>
+      {background && (
+        <div className="mt-1 text-xs text-lore-muted">{background}</div>
+      )}
       <div className="mt-4 grid grid-cols-3 gap-2">
         {ABILITIES.map((a) => (
           <div
@@ -950,5 +1164,211 @@ function SummaryCard({
         ))}
       </div>
     </aside>
+  );
+}
+
+function ConceptStep({
+  name,
+  setName,
+  concept,
+  setConcept,
+  nameValid,
+}: {
+  name: string;
+  setName: (v: string) => void;
+  concept: string;
+  setConcept: (v: string) => void;
+  nameValid: boolean;
+}) {
+  function randomizeName() {
+    const pick = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]!;
+    setName(pick);
+  }
+
+  return (
+    <section>
+      <h2 className="font-display text-2xl">Character Concept</h2>
+      <p className="mt-1 text-sm text-lore-muted">
+        Name your hero and jot a one-line concept. You can flesh out personality
+        and backstory later.
+      </p>
+      <label className="mt-6 block max-w-md">
+        <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
+          Name
+        </span>
+        <div className="flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Thorin Ironfist"
+            className="flex-1 rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent"
+          />
+          <button
+            type="button"
+            onClick={randomizeName}
+            className="shrink-0 rounded border border-lore-border px-3 py-2 text-xs text-lore-muted hover:text-lore-text"
+          >
+            Random
+          </button>
+        </div>
+        {!nameValid && name.length > 0 && (
+          <span className="mt-1 block text-xs text-red-400">
+            Name cannot be blank.
+          </span>
+        )}
+      </label>
+      <label className="mt-4 block max-w-lg">
+        <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
+          Concept (optional)
+        </span>
+        <input
+          value={concept}
+          onChange={(e) => setConcept(e.target.value)}
+          placeholder="A dwarven soldier seeking redemption…"
+          className="w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent"
+        />
+      </label>
+    </section>
+  );
+}
+
+type BackgroundItem = {
+  slug: string;
+  name: string;
+  description: string | null;
+  skillSummary: string | null;
+};
+
+function BackgroundStep({
+  loading,
+  items,
+  selected,
+  onSelect,
+}: {
+  loading: boolean;
+  items: BackgroundItem[];
+  selected: string | null;
+  onSelect: (slug: string) => void;
+}) {
+  return (
+    <section>
+      <h2 className="font-display text-2xl">Choose Your Background</h2>
+      <p className="mt-1 text-sm text-lore-muted">
+        SRD backgrounds from the Codex. Skill proficiencies are noted; full
+        feature wiring comes later.
+      </p>
+      {loading ? (
+        <p className="mt-6 text-lore-muted">Loading backgrounds…</p>
+      ) : (
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {items.map((b) => (
+            <button
+              key={b.slug}
+              type="button"
+              onClick={() => onSelect(b.slug)}
+              className={`rounded-lg border bg-lore-surface p-4 text-left transition-colors ${
+                selected === b.slug
+                  ? "border-lore-accent"
+                  : "border-lore-border hover:border-lore-accent"
+              }`}
+            >
+              <div className="font-display text-lg">{b.name}</div>
+              {b.skillSummary && (
+                <div className="mt-1 text-xs text-lore-accent">
+                  {b.skillSummary}
+                </div>
+              )}
+              <p className="mt-2 line-clamp-2 text-xs text-lore-muted">
+                {b.description}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FeaturesStep({ className }: { className: string }) {
+  const stubs = featureStubsForLevel(className, 1);
+  return (
+    <section>
+      <h2 className="font-display text-2xl">Class Features &amp; Spells</h2>
+      <p className="mt-1 text-sm text-lore-muted">
+        At level 1 you gain the features below. Spell selection for casters
+        happens on the character sheet Spells tab after creation.
+      </p>
+      <ul className="mt-6 space-y-2">
+        {stubs.map((stub) => (
+          <li
+            key={stub}
+            className="rounded border border-lore-border bg-lore-surface px-4 py-3 text-sm"
+          >
+            {stub}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 text-xs text-lore-muted">
+        Cantrip and spell picks use the Codex spell browser on your sheet (#198).
+      </p>
+    </section>
+  );
+}
+
+function FlavorStep({
+  personality,
+  setPersonality,
+  backstory,
+  setBackstory,
+}: {
+  personality: PersonalityFields;
+  setPersonality: React.Dispatch<React.SetStateAction<PersonalityFields>>;
+  backstory: string;
+  setBackstory: (v: string) => void;
+}) {
+  function patch(key: keyof PersonalityFields, value: string) {
+    setPersonality((p) => ({ ...p, [key]: value }));
+  }
+
+  return (
+    <section>
+      <h2 className="font-display text-2xl">Personality &amp; Flavor</h2>
+      <p className="mt-1 text-sm text-lore-muted">
+        Optional — all fields can be edited later on the Personality tab.
+      </p>
+      <div className="mt-6 space-y-4">
+        {(
+          [
+            ["traits", "Personality traits"],
+            ["ideals", "Ideals"],
+            ["bonds", "Bonds"],
+            ["flaws", "Flaws"],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="block">
+            <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
+              {label}
+            </span>
+            <textarea
+              value={personality[key]}
+              onChange={(e) => patch(key, e.target.value)}
+              rows={2}
+              className="w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent"
+            />
+          </label>
+        ))}
+        <label className="block">
+          <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
+            Backstory
+          </span>
+          <textarea
+            value={backstory}
+            onChange={(e) => setBackstory(e.target.value)}
+            rows={4}
+            className="w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent"
+          />
+        </label>
+      </div>
+    </section>
   );
 }

@@ -14,11 +14,21 @@ import { trpc } from "@/lib/trpc/client";
 import { AbilitiesPanel } from "./abilities-panel";
 import { CombatTab } from "./combat-tab";
 import { EquipmentTab } from "./equipment-tab";
+import { FeaturesTab } from "./features-tab";
 import { LevelUpDialog } from "./level-up-dialog";
+import { PersonalityTab } from "./personality-tab";
 import { SkillsPanel } from "./skills-panel";
 import { SpellsTab } from "./spells-tab";
 
-const TABS = ["Overview", "Combat", "Equipment", "Spells", "Notes"] as const;
+const TABS = [
+  "Overview",
+  "Combat",
+  "Features",
+  "Equipment",
+  "Spells",
+  "Personality",
+  "Notes",
+] as const;
 type Tab = (typeof TABS)[number];
 
 function signed(n: number): string {
@@ -308,6 +318,12 @@ export function CharacterSheetView({
         </div>
       )}
 
+      {tab === "Features" && (
+        <div className="mt-8">
+          <FeaturesTab classes={character.classes} />
+        </div>
+      )}
+
       {tab === "Equipment" && (
         <div className="mt-8">
           <EquipmentTab
@@ -328,11 +344,25 @@ export function CharacterSheetView({
         </div>
       )}
 
+      {tab === "Personality" && (
+        <div className="mt-8">
+          <PersonalityTab
+            notes={character.notes}
+            saving={update.isPending}
+            onSave={(notes) => update.mutate({ id, notes })}
+          />
+        </div>
+      )}
+
       {tab === "Notes" && (
         <section className="mt-8">
           <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Notes
+            Session notes
           </h2>
+          <p className="mb-3 text-xs text-lore-muted">
+            Personality traits, ideals, bonds, and flaws live on the Personality
+            tab. Use this space for session notes and misc. details.
+          </p>
           <EditableTextArea
             value={character.notes}
             placeholder="Backstory, goals, session notes…"

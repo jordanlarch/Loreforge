@@ -15,7 +15,7 @@ import {
   type HpMethod,
 } from "@app/engine";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -149,6 +149,99 @@ export const charactersRouter = createTRPCRouter({
       )
       .orderBy(desc(characters.createdAt), asc(characters.name));
   }),
+
+  /**
+   * Library characters plus campaign memberships for the dashboard (#85 / CHAR-3).
+   */
+  listDashboard: protectedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(characters)
+      .where(
+        and(
+          eq(characters.ownerId, ctx.user.id),
+          eq(characters.libraryVisibility, "library"),
+        ),
+      )
+      .orderBy(desc(characters.updatedAt), asc(characters.name));
+
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    const memberships = await db
+      .select({
+        characterId: campaignCharacters.characterId,
+        campaignId: campaigns.id,
+        name: campaigns.name,
+        role: campaignCharacters.role,
+        status: campaignCharacters.status,
+        joinedAt: campaignCharacters.joinedAt,
+      })
+      .from(campaignCharacters)
+      .innerJoin(campaigns, eq(campaigns.id, campaignCharacters.campaignId))
+      .where(
+        and(
+          eq(campaignCharacters.ownerId, ctx.user.id),
+          inArray(campaignCharacters.characterId, ids),
+        ),
+      )
+      .orderBy(desc(campaignCharacters.joinedAt));
+
+    const byCharacter = new Map<
+      string,
+      (typeof memberships)[number][]
+    >();
+    for (const row of memberships) {
+      const list = byCharacter.get(row.characterId) ?? [];
+      list.push(row);
+      byCharacter.set(row.characterId, list);
+    }
+
+    return rows.map((character) => ({
+      character,
+      campaigns: byCharacter.get(character.id) ?? [],
+    }));
+  }),
+
+  /** Duplicate an owned character into the library as "(Copy)". */
+  duplicate: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [source] = await db
+        .select()
+        .from(characters)
+        .where(
+          and(
+            eq(characters.id, input.id),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!source) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+
+      const {
+        id: _id,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        ...rest
+      } = source;
+      const [row] = await db
+        .insert(characters)
+        .values({
+          ...rest,
+          name: `${source.name} (Copy)`,
+          ownerId: ctx.user.id,
+        })
+        .returning();
+      return row;
+    }),
 
   /** Single owned character, or null if missing / not owned. */
   get: protectedProcedure

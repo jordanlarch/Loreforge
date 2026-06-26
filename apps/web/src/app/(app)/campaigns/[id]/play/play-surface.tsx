@@ -595,6 +595,7 @@ function LiveBattle({
       <CharacterHud
         session={session}
         entityId={pcCharacterId}
+        statsOnly
         weapons={
           pcSheet
             ? deriveWeaponAttacks(pcEntity, pcSheet.equipment)

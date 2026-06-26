@@ -48,6 +48,7 @@ import {
 import type { CoachmarkDef } from "@/lib/coachmark";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { buildExploreModel } from "@/lib/live-explore";
+import { resolveCurrentMapLevel } from "@/lib/map-zoom-level";
 import { joinedSincePrompt } from "@/lib/live-presence";
 import type { PartyRosterRow } from "@/lib/live-party";
 import { usePacingPrefs, useTurnTimer } from "@/lib/live-pacing";
@@ -327,6 +328,8 @@ function LiveBattle({
   const transitionScene = transitionSceneId
     ? session.state?.scenes[transitionSceneId]
     : undefined;
+  const currentMapLevel = resolveCurrentMapLevel(inCombat);
+  const currentSceneName = transitionScene?.name;
   const { banner: sceneBanner, transitioning, dividers: sceneDividers } =
     useSceneTransition(
       transitionSceneId,
@@ -728,6 +731,8 @@ function LiveBattle({
                   fill
                   sceneBanner={sceneBanner}
                   transitioning={transitioning}
+                  mapLevel={currentMapLevel}
+                  sceneName={currentSceneName}
                   cols={explore.cols}
                   rows={explore.rows}
                   walls={explore.walls}
@@ -885,6 +890,8 @@ function LiveBattle({
               fill
               sceneBanner={sceneBanner}
               transitioning={transitioning}
+              mapLevel={currentMapLevel}
+              sceneName={currentSceneName}
               cols={vm.cols}
               rows={vm.rows}
               walls={vm.walls}

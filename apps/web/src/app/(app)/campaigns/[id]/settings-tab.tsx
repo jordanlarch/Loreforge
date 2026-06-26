@@ -392,9 +392,13 @@ function DangerZone({
   name: string;
 }) {
   const router = useRouter();
+  const utils = trpc.useUtils();
   const [confirming, setConfirming] = useState(false);
   const remove = trpc.campaigns.delete.useMutation({
-    onSuccess: () => router.push("/campaigns"),
+    onSuccess: async () => {
+      await utils.realms.list.invalidate();
+      router.push("/campaigns");
+    },
   });
 
   return (
@@ -403,7 +407,9 @@ function DangerZone({
       <p className="mt-1 text-sm text-lore-muted">
         Permanently delete <strong className="text-lore-text">{name}</strong> and
         all its play data — encounters, plot hooks, chat log, and combat state.
-        Your characters and Realms entities are kept. This cannot be undone.
+        Realms entities that exist only on this campaign&apos;s world are removed;
+        entities shared with other campaigns are kept. Your characters are kept.
+        This cannot be undone.
       </p>
       {confirming ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">

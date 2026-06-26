@@ -45,6 +45,10 @@ import {
   persistChildren,
 } from "@/server/realms/generator";
 import { wireCascadeNpcLocations, wireCascadeQuestInheritance } from "@/server/realms/cascade-wiring";
+import {
+  deleteRealmEntitiesForOwner,
+  listCampaignExclusiveEntityIds,
+} from "@/server/realms/delete-entities";
 import { parseData } from "@/server/realms/schemas";
 
 /** Max foe rows + total foes per authored encounter (map seat / sanity caps). */
@@ -332,9 +336,10 @@ export const campaignsRouter = createTRPCRouter({
    * Delete an owned campaign and its campaign-scoped data (Settings danger zone,
    * #117). No FKs in the schema, so dependents are removed explicitly: the
    * engine log/snapshots/command-log/seeds, durable chat, encounters, plot
-   * hooks, notes, and the world/party *membership* rows. The user's characters and
-   * Realms entities are authored independently and are deliberately left intact —
-   * only their links to this campaign go.
+   * hooks, notes, invites, reputation, and world/party membership rows. Realms
+   * entities that exist only on this campaign's world are deleted; entities also
+   * linked to other campaigns are kept (junction rows for this campaign drop).
+   * Characters are kept — only their party membership for this campaign goes.
    */
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
@@ -343,6 +348,14 @@ export const campaignsRouter = createTRPCRouter({
       const db = getDb();
       const cid = input.id;
       const owner = ctx.user.id;
+
+      const exclusiveEntityIds = await listCampaignExclusiveEntityIds(
+        db,
+        owner,
+        cid,
+      );
+      await deleteRealmEntitiesForOwner(db, owner, exclusiveEntityIds);
+
       // Engine tables are keyed by campaign only (no ownerId); safe now that
       // ownership is verified above.
       await db.delete(engineEvents).where(eq(engineEvents.campaignId, cid));
@@ -364,6 +377,22 @@ export const campaignsRouter = createTRPCRouter({
           and(
             eq(campaignNotes.campaignId, cid),
             eq(campaignNotes.ownerId, owner),
+          ),
+        );
+      await db
+        .delete(campaignInvites)
+        .where(
+          and(
+            eq(campaignInvites.campaignId, cid),
+            eq(campaignInvites.ownerId, owner),
+          ),
+        );
+      await db
+        .delete(campaignReputation)
+        .where(
+          and(
+            eq(campaignReputation.campaignId, cid),
+            eq(campaignReputation.ownerId, owner),
           ),
         );
       await db

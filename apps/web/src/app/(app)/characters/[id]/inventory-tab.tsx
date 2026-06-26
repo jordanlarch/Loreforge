@@ -7,9 +7,9 @@ import {
   SheetSearchBar,
   SheetSection,
   SheetTag,
-  StubBanner,
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
+import { formatItemCost } from "@/lib/codex-item-display";
 import {
   blankEquipmentItem,
   totalWeight,
@@ -20,6 +20,7 @@ import {
   type CharacterSheetMeta,
   type Currency,
 } from "@/lib/character-sheet-storage";
+import { trpc } from "@/lib/trpc/client";
 
 const COIN_LABELS: { key: keyof Currency; label: string }[] = [
   { key: "pp", label: "Platinum" },
@@ -28,6 +29,18 @@ const COIN_LABELS: { key: keyof Currency; label: string }[] = [
   { key: "sp", label: "Silver" },
   { key: "cp", label: "Copper" },
 ];
+
+function parseGpCost(cost: string | null | undefined): number {
+  const value = parseFloat(cost ?? "");
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function parseWeightLb(
+  weight: string | null | undefined,
+): number | undefined {
+  const value = parseFloat(weight ?? "");
+  return Number.isNaN(value) || value <= 0 ? undefined : value;
+}
 
 export function InventoryTab({
   equipment,
@@ -44,7 +57,9 @@ export function InventoryTab({
 }) {
   const [draft, setDraft] = useState(equipment);
   const [search, setSearch] = useState("");
+  const [shopSearch, setShopSearch] = useState("");
   const [smithyOpen, setSmithyOpen] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(equipment);
 
   const currency = meta.currency ?? EMPTY_CURRENCY;
@@ -62,10 +77,25 @@ export function InventoryTab({
   const weight = totalWeight(draft);
   const carryCap = 15 * 30;
 
+  const shop = trpc.codex.listItems.useQuery({
+    search: shopSearch.trim() || undefined,
+    limit: 12,
+  });
+
   function patch(index: number, fields: Partial<EquipmentItem>) {
     setDraft((items) =>
       items.map((item, i) => (i === index ? { ...item, ...fields } : item)),
     );
+  }
+
+  function reorder(from: number, to: number) {
+    if (from === to || from < 0 || to < 0) return;
+    setDraft((items) => {
+      const next = [...items];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved!);
+      return next;
+    });
   }
 
   function save() {
@@ -78,6 +108,27 @@ export function InventoryTab({
 
   function patchCurrency(key: keyof Currency, value: number) {
     onPatchMeta({ currency: { ...currency, [key]: Math.max(0, value) } });
+  }
+
+  function buyFromCodex(item: {
+    name: string;
+    cost: string | null;
+    weight: string | null;
+  }) {
+    const gp = parseGpCost(item.cost);
+    if (gp > 0 && currency.gp < gp) return;
+    if (gp > 0) {
+      onPatchMeta({ currency: { ...currency, gp: currency.gp - gp } });
+    }
+    setDraft((d) => [
+      ...d,
+      {
+        ...blankEquipmentItem(),
+        name: item.name,
+        weight: parseWeightLb(item.weight),
+        quantity: 1,
+      },
+    ]);
   }
 
   return (
@@ -131,12 +182,63 @@ export function InventoryTab({
         </button>
       </div>
 
-      <SheetSection
-        title="Equipment"
-        weight={`${totalWeight(draft.filter((i) => i.equipped)).toFixed(1)} lb`}
-      >
-        <ItemList items={equipped} draft={draft} onPatch={patch} showEquipToggle />
+      <SheetSection title="Codex Shop">
+        <input
+          type="search"
+          value={shopSearch}
+          onChange={(e) => setShopSearch(e.target.value)}
+          placeholder="Search SRD gear…"
+          className="mb-3 w-full rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
+        />
+        {shop.isLoading ? (
+          <p className="text-sm text-lore-muted">Loading…</p>
+        ) : (
+          <ul className="space-y-2">
+            {shop.data?.items.map((item) => {
+              const gp = parseGpCost(item.cost);
+              const canBuy = gp === 0 || currency.gp >= gp;
+              return (
+                <li
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-lore-border px-3 py-2 text-sm"
+                >
+                  <span>{item.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-lore-muted">
+                      {formatItemCost(item.cost)}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={!canBuy}
+                      onClick={() => buyFromCodex(item)}
+                      className="rounded border border-lore-border px-2 py-0.5 text-xs disabled:opacity-40"
+                    >
+                      Buy
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </SheetSection>
+
+      <div className="mt-4">
+        <SheetSection
+          title="Equipment"
+          weight={`${totalWeight(draft.filter((i) => i.equipped)).toFixed(1)} lb`}
+        >
+          <ItemList
+            items={equipped}
+            draft={draft}
+            onPatch={patch}
+            showEquipToggle
+            dragIndex={dragIndex}
+            onDragStart={setDragIndex}
+            onDrop={reorder}
+          />
+        </SheetSection>
+      </div>
 
       <div className="mt-4">
         <SheetSection title="Attunement">
@@ -153,15 +255,19 @@ export function InventoryTab({
           title="Other Possessions"
           weight={`${totalWeight(draft.filter((i) => !i.equipped)).toFixed(1)} lb`}
         >
-          <ItemList items={other} draft={draft} onPatch={patch} showEquipToggle />
+          <ItemList
+            items={other}
+            draft={draft}
+            onPatch={patch}
+            showEquipToggle
+            dragIndex={dragIndex}
+            onDragStart={setDragIndex}
+            onDrop={reorder}
+          />
+          <p className="mt-2 text-xs text-lore-muted">
+            Drag rows to reorder. Save inventory to persist order.
+          </p>
         </SheetSection>
-      </div>
-
-      <div className="mt-4">
-        <StubBanner>
-          Gold-buy from SRD shop and drag-and-drop reorder ship with commerce
-          slices.
-        </StubBanner>
       </div>
 
       {smithyOpen && (
@@ -180,11 +286,17 @@ function ItemList({
   draft,
   onPatch,
   showEquipToggle,
+  dragIndex,
+  onDragStart,
+  onDrop,
 }: {
   items: EquipmentItem[];
   draft: EquipmentItem[];
   onPatch: (index: number, fields: Partial<EquipmentItem>) => void;
   showEquipToggle?: boolean;
+  dragIndex?: number | null;
+  onDragStart?: (index: number | null) => void;
+  onDrop?: (from: number, to: number) => void;
 }) {
   if (items.length === 0) {
     return <p className="text-sm text-lore-muted">No items.</p>;
@@ -199,10 +311,29 @@ function ItemList({
           item.equipped ? "Equipped" : undefined,
           item.attunement ? "Attuned" : undefined,
         ].filter(Boolean) as string[];
+        const draggable = onDrop != null && onDragStart != null;
 
         return (
-          <li key={`${item.name}-${index}`} className="py-3">
+          <li
+            key={`${item.name}-${index}`}
+            className={`py-3 ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+            draggable={draggable}
+            onDragStart={() => onDragStart?.(index)}
+            onDragEnd={() => onDragStart?.(null)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragIndex != null && dragIndex !== index) {
+                onDrop?.(dragIndex, index);
+              }
+              onDragStart?.(null);
+            }}
+          >
             <div className="flex flex-wrap items-start gap-2">
+              {draggable && (
+                <span className="mt-1 text-lore-muted" aria-hidden>
+                  ⠿
+                </span>
+              )}
               {showEquipToggle && (
                 <input
                   type="checkbox"

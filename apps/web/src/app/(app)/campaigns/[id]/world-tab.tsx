@@ -10,7 +10,10 @@ import {
   type RealmEntityType,
 } from "@/lib/realms";
 import { isExplorableRealmType } from "@app/engine";
+import { stubSupportsEncounters } from "@/lib/overworld-map";
 import { trpc } from "@/lib/trpc/client";
+
+import { StubEncounterPanel } from "./stub-encounter-panel";
 
 type WorldView = "list" | "graph";
 
@@ -58,7 +61,7 @@ export function WorldTab({ campaignId }: { campaignId: string }) {
     <div className="flex flex-col gap-6">
       {/* —— Header / actions —— */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl">World</h2>
+        <h2 className="font-display text-2xl">Locations</h2>
         <div className="flex flex-wrap items-center gap-2">
           {available.length > 0 ? (
             <>
@@ -149,6 +152,13 @@ export function WorldTab({ campaignId }: { campaignId: string }) {
                   {entity.summary}
                 </p>
               )}
+              {stubSupportsEncounters(entity.type as RealmEntityType) ? (
+                <StubEncounterPanel
+                  campaignId={campaignId}
+                  entityId={entity.id}
+                  entityName={entity.name}
+                />
+              ) : null}
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 text-sm">
                 {isExplorableRealmType(entity.type) ? (
                   <Link

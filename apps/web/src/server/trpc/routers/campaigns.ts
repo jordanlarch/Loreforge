@@ -42,7 +42,11 @@ import {
   filterCellsWithinRegion,
   hasAnyOverworldGeometry,
   parentRegionId,
+  parentSettlementId,
   seedOverworldLayout,
+  syncOverworldPinFromSettlement,
+  syncSettlementPinFromOverworld,
+  isPinType,
   type OverworldEntity,
 } from "@/lib/overworld-map";
 import {
@@ -728,16 +732,25 @@ export const campaignsRouter = createTRPCRouter({
       const regionIds = new Set(
         entities.filter((e) => e.type === "region").map((e) => e.id),
       );
+      const settlementIds = new Set(
+        entities.filter((e) => e.type === "settlement").map((e) => e.id),
+      );
       const parentRegionByEntity: Record<string, string | undefined> = {};
+      const parentSettlementByEntity: Record<string, string | undefined> = {};
       for (const entity of entities) {
         parentRegionByEntity[entity.id] = parentRegionId(
           entity.id,
           regionIds,
           locatedIn,
         );
+        parentSettlementByEntity[entity.id] = parentSettlementId(
+          entity.id,
+          settlementIds,
+          locatedIn,
+        );
       }
 
-      return { grid, entities, parentRegionByEntity };
+      return { grid, entities, parentRegionByEntity, parentSettlementByEntity };
     }),
 
   /** Replace territory cells for a region or settlement on the overworld map. */
@@ -829,7 +842,7 @@ export const campaignsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await assertCampaignOwner(ctx.user.id, input.campaignId);
-      const { grid, entities } = await loadOverworldEntities(
+      const { grid, entities, locatedIn } = await loadOverworldEntities(
         ctx.user.id,
         input.campaignId,
       );
@@ -858,11 +871,99 @@ export const campaignsRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Pin out of bounds." });
       }
 
-      const layer: CampaignOverworldMapLayer = {
+      let layer: CampaignOverworldMapLayer = {
         ...entity.overworldMap,
         pin: input.pin ?? undefined,
       };
-      if (!input.pin) delete layer.pin;
+      if (!input.pin) {
+        delete layer.pin;
+        delete layer.settlementPin;
+      } else {
+        const settlementIds = new Set(
+          entities.filter((e) => e.type === "settlement").map((e) => e.id),
+        );
+        const parentSettlement = parentSettlementId(
+          entity.id,
+          settlementIds,
+          locatedIn,
+        );
+        const settlement = parentSettlement
+          ? entities.find((e) => e.id === parentSettlement)
+          : undefined;
+        if (settlement?.overworldMap.territory?.length) {
+          layer = syncSettlementPinFromOverworld(
+            layer,
+            settlement.overworldMap.territory,
+          );
+        }
+      }
+
+      const db = getDb();
+      const [row] = await db
+        .update(campaignWorldEntities)
+        .set({ overworldMap: layer })
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.entityId, input.entityId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .returning({ overworldMap: campaignWorldEntities.overworldMap });
+      return row?.overworldMap ?? layer;
+    }),
+
+  /** Place or move a POI pin on a parent settlement's local district grid (UX-4). */
+  setSettlementPin: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+        settlementPin: overworldCellSchema.nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const { entities, locatedIn } = await loadOverworldEntities(
+        ctx.user.id,
+        input.campaignId,
+      );
+      const entity = entities.find((e) => e.id === input.entityId);
+      if (!entity) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entity not in campaign." });
+      }
+      if (!isPinType(entity.type)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only POI entities have settlement pins.",
+        });
+      }
+
+      const settlementIds = new Set(
+        entities.filter((e) => e.type === "settlement").map((e) => e.id),
+      );
+      const parentId = parentSettlementId(entity.id, settlementIds, locatedIn);
+      const settlement = parentId
+        ? entities.find((e) => e.id === parentId)
+        : undefined;
+      const territory = settlement?.overworldMap.territory ?? [];
+      if (territory.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Paint the parent settlement territory first.",
+        });
+      }
+
+      let layer: CampaignOverworldMapLayer = { ...entity.overworldMap };
+      if (!input.settlementPin) {
+        delete layer.settlementPin;
+      } else {
+        layer = {
+          ...layer,
+          settlementPin: input.settlementPin,
+        };
+        layer = syncOverworldPinFromSettlement(layer, territory);
+      }
 
       const db = getDb();
       const [row] = await db
@@ -1013,6 +1114,39 @@ export const campaignsRouter = createTRPCRouter({
           and(
             eq(encounters.campaignId, input.campaignId),
             eq(encounters.ownerId, ctx.user.id),
+          ),
+        )
+        .orderBy(desc(encounters.createdAt));
+      return rows.map((row) => ({
+        ...row,
+        active: row.id === campaign?.activeEncounterId,
+      }));
+    }),
+
+  /** Encounters authored from a specific Realms stub (CAMP-UX UX-4). */
+  encountersForEntity: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+      const [campaign] = await db
+        .select({ activeEncounterId: campaigns.activeEncounterId })
+        .from(campaigns)
+        .where(eq(campaigns.id, input.campaignId))
+        .limit(1);
+      const rows = await db
+        .select()
+        .from(encounters)
+        .where(
+          and(
+            eq(encounters.campaignId, input.campaignId),
+            eq(encounters.ownerId, ctx.user.id),
+            eq(encounters.sourceEntityId, input.entityId),
           ),
         )
         .orderBy(desc(encounters.createdAt));

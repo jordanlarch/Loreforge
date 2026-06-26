@@ -8,9 +8,18 @@ import {
 } from "./campaign-workspace";
 
 describe("campaign workspace tabs", () => {
-  it("declares the nine workspace tabs with Overview first", () => {
-    expect(CAMPAIGN_WORKSPACE_TABS).toHaveLength(9);
+  it("declares the seven prep tabs with Overview first", () => {
+    expect(CAMPAIGN_WORKSPACE_TABS).toHaveLength(7);
     expect(CAMPAIGN_WORKSPACE_TABS[0]!.slug).toBe("overview");
+    expect(CAMPAIGN_WORKSPACE_TABS.map((t) => t.slug)).toEqual([
+      "overview",
+      "map",
+      "locations",
+      "party",
+      "quests",
+      "notes",
+      "settings",
+    ]);
     expect(DEFAULT_CAMPAIGN_TAB).toBe("overview");
   });
 
@@ -25,9 +34,17 @@ describe("campaign workspace tabs", () => {
   it("resolves a known slug and falls back to the default otherwise", () => {
     expect(resolveCampaignTab("party")).toBe("party");
     expect(resolveCampaignTab("map")).toBe("map");
+    expect(resolveCampaignTab("locations")).toBe("locations");
     expect(resolveCampaignTab("nonsense")).toBe("overview");
     expect(resolveCampaignTab(null)).toBe("overview");
     expect(resolveCampaignTab(undefined)).toBe("overview");
+  });
+
+  it("redirects legacy nine-tab slugs (CAMP-UX UX-2)", () => {
+    expect(resolveCampaignTab("hooks")).toBe("quests");
+    expect(resolveCampaignTab("world")).toBe("locations");
+    expect(resolveCampaignTab("combat")).toBe("overview");
+    expect(resolveCampaignTab("sessions")).toBe("overview");
   });
 });
 

@@ -1,6 +1,8 @@
 # Campaign Workspace Flow
 
-*The dedicated per-campaign workspace at `/campaigns/[id]` — the **prep, world-state, and admin** surface for an AI-GM 5E experience. Sister to but distinct from the live Play Surface (option #3, covered next), which is invoked from here. Nine-tab layout consistent with the Character View tabbed pattern. Houses everything that is campaign-scoped: party, accepted hooks, sessions, journal, strategic world map, encounters, settings, and the AI's persistent memory.*
+> **IA supersession (Jun 2026):** Navigation, tab taxonomy (9→7 prep tabs), map hierarchy, Combat tab removal, and prep↔play handoff are **canonical in [`unified-campaign-ux.md`](./unified-campaign-ux.md)**. This doc retains list/create flows and historical tab wireframes; where they conflict with the unified spec, follow the unified spec. Implementation: `docs/deferrals.md` **CAMP-UX**.
+
+*The dedicated per-campaign **prep shell** at `/campaigns/[id]` — world authoring, party, quests, notes, and settings for an AI-GM 5E experience. Sister to but distinct from the **play shell** at `/campaigns/[id]/play` (see `unified-campaign-ux.md` + `live-play-surface.md`). Legacy doc described a nine-tab layout; target prep nav is seven tabs (Overview, Map, Locations, Party, Quests, Notes, Settings).*
 
 ## Entry Points
 

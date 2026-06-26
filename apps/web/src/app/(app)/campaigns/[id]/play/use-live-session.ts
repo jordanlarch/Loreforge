@@ -420,5 +420,10 @@ export function useLiveSession({
       }),
     reset: () => send({ t: "reset" }),
     syncParty,
+    /** Travel to a World-tab location (Rung 4 Slice 2 / CAMP-UX UX-1). */
+    enterLocation: (entityId: string) =>
+      providerRef.current?.sendStateless(
+        JSON.stringify({ t: "enter_location", entityId }),
+      ),
   };
 }

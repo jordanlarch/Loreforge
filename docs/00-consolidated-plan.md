@@ -139,6 +139,7 @@
 - **Realms is prep; Live Play is play.** World-tab entities (Region, Settlement, Building, Tavern, Shop, Dungeon) should be explorable via **map + chat** — not only a combat fixture on load.
 - **Default campaign bootstrap:** open in the first World-tab tavern/settlement (or generic fallback), with GM opening narration — **no combat** until fiction requires it (armed encounter / Run Now, dungeon foes, travel hazards, social hostility, etc.).
 - **Do not** spend further v1 effort on Ladder 3 campaign-tab polish (Overview/Hooks/Sessions depth) ahead of this integration ladder — see `docs/deferrals.md` (Rung 4).
+- **Campaign UX (Jun 2026):** prep/play shells, map hierarchy, and tab IA are locked in `docs/ui-flows/unified-campaign-ux.md` (**CAMP-UX**). Global Realms nav unchanged; encounters stub-scoped; play layout = center map above chat with **Current | World** tabs.
 
 ---
 

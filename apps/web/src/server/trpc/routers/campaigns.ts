@@ -86,6 +86,11 @@ const foeRowSchema = z.object({
 
 const mapPresetSchema = z.enum(["ambush", "arena", "corridor"]);
 
+const mapScaleSchema = z.object({
+  distancePerCell: z.number().min(0.25).max(120),
+  unit: z.enum(["mi", "ft", "km"]),
+});
+
 const overworldCellSchema = z.object({
   col: z.number().int().min(0).max(128),
   row: z.number().int().min(0).max(128),
@@ -517,14 +522,40 @@ export const campaignsRouter = createTRPCRouter({
         gmPersona: z.string().trim().max(2000).optional(),
         playMode: z.enum(["async", "live"]).optional(),
         artStyle: z.string().trim().max(120).optional(),
+        /** L0 overworld miles per grid cell (DMG kingdom default: 6). */
+        overworldMilesPerCell: z.number().min(0.25).max(120).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const { id, ...patch } = input;
+      const { id, overworldMilesPerCell, ...patch } = input;
+
+        let overworldGrid: OverworldGridConfig | undefined;
+      if (overworldMilesPerCell !== undefined) {
+        const [current] = await db
+          .select({ overworldGrid: campaigns.overworldGrid })
+          .from(campaigns)
+          .where(and(eq(campaigns.id, id), eq(campaigns.ownerId, ctx.user.id)))
+          .limit(1);
+        if (!current) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Campaign not found.",
+          });
+        }
+        overworldGrid = {
+          ...(current.overworldGrid ?? DEFAULT_OVERWORLD_GRID),
+          milesPerCell: overworldMilesPerCell,
+        };
+      }
+
       const [row] = await db
         .update(campaigns)
-        .set({ ...patch, updatedAt: new Date() })
+        .set({
+          ...patch,
+          ...(overworldGrid ? { overworldGrid } : {}),
+          updatedAt: new Date(),
+        })
         .where(and(eq(campaigns.id, id), eq(campaigns.ownerId, ctx.user.id)))
         .returning();
       if (!row) {
@@ -1160,6 +1191,57 @@ export const campaignsRouter = createTRPCRouter({
           settlementPin: input.settlementPin,
         };
         layer = syncOverworldPinFromSettlement(layer, territory);
+      }
+
+      const db = getDb();
+      const [row] = await db
+        .update(campaignWorldEntities)
+        .set({ overworldMap: layer })
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.entityId, input.entityId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .returning({ overworldMap: campaignWorldEntities.overworldMap });
+      return row?.overworldMap ?? layer;
+    }),
+
+  /** Set or clear per-stub local map scale (region hex, settlement district, interior). */
+  setStubMapScale: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+        mapScale: mapScaleSchema.nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const { entities } = await loadOverworldEntities(
+        ctx.user.id,
+        input.campaignId,
+      );
+      const entity = entities.find((e) => e.id === input.entityId);
+      if (!entity) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entity not in campaign." });
+      }
+      if (
+        entity.type !== "region" &&
+        entity.type !== "settlement"
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only region and settlement stubs support map scale overrides.",
+        });
+      }
+
+      const layer: CampaignOverworldMapLayer = { ...entity.overworldMap };
+      if (input.mapScale) {
+        layer.mapScale = input.mapScale;
+      } else {
+        delete layer.mapScale;
       }
 
       const db = getDb();

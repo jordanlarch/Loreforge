@@ -29,6 +29,7 @@ import {
 
 import type { BattleMapProps } from "./battle-map";
 import { SceneBanner } from "./scene-banner";
+import { TacticalGridOverlay } from "./tactical-grid-overlay";
 import type { SceneBannerInfo } from "./use-scene-transition";
 
 const BattleMap = dynamic(() => import("./battle-map"), {
@@ -262,11 +263,17 @@ export function MapViewport({
         >
           <div style={{ width: baseW * zoom, height: baseH * zoom, flexShrink: 0 }}>
             <div
-              className={`transition-opacity duration-700 ${
+              className={`relative transition-opacity duration-700 ${
                 transitioning ? "opacity-40" : "opacity-100"
               }`}
-              style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: "top left",
+                paddingTop: 18,
+                paddingLeft: 18,
+              }}
             >
+              <TacticalGridOverlay cols={mapProps.cols} rows={mapProps.rows} />
               <BattleMap
                 {...mapProps}
                 reachable={showReach ? reachable : []}

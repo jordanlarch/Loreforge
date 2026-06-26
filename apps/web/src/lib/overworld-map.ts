@@ -7,6 +7,9 @@ import type { RealmEntityType } from "@/lib/realms";
 /** Pixel size of one overworld grid cell in the prep/play canvas. */
 export const OVERWORLD_CELL_PX = 28;
 
+/** Display default — use {@link resolveOverworldMilesPerCell} at runtime. */
+export { DEFAULT_OVERWORLD_MILES_PER_CELL as OVERWORLD_MILES_PER_CELL } from "@/lib/map-scale";
+
 export type OverworldTool = "pan" | "select" | "paint-region" | "paint-settlement" | "pin" | "erase";
 
 export type OverworldEntity = {

@@ -24,11 +24,18 @@ import {
   panForSvgZoom,
 } from "@/lib/map-viewport-zoom";
 import {
+  formatMapScale,
+  formatOverworldScaleLabel,
+  resolveOverworldMilesPerCell,
+  resolveStubMapScale,
+  stubSupportsConfigurableMapScale,
+} from "@/lib/map-scale";
+import {
   REALM_TYPE_COLOR,
   REALM_TYPE_LABEL,
   type RealmEntityType,
 } from "@/lib/realms";
-import type { OverworldGridConfig } from "@app/db";
+import type { MapScale, OverworldGridConfig } from "@app/db";
 import { trpc } from "@/lib/trpc/client";
 
 import { SettlementMapPanel } from "./settlement-map-panel";
@@ -138,6 +145,13 @@ export function OverworldGrid({
       await utils.campaigns.overworldMap.invalidate({ campaignId });
     },
   });
+  const setStubMapScale = trpc.campaigns.setStubMapScale.useMutation({
+    onSuccess: async () => {
+      await utils.campaigns.overworldMap.invalidate({ campaignId });
+    },
+  });
+
+  const milesPerCell = resolveOverworldMilesPerCell(grid);
 
   const activeEntity = entities.find((e) => e.id === activeEntityId);
 
@@ -352,7 +366,33 @@ export function OverworldGrid({
               Active:{" "}
               <span className="text-lore-text">{activeEntity.name}</span> (
               {REALM_TYPE_LABEL[activeEntity.type as RealmEntityType]})
+              {resolveStubMapScale(activeEntity.type, activeEntity.overworldMap) ? (
+                <span className="ml-2 text-lore-accent">
+                  ·{" "}
+                  {formatMapScale(
+                    resolveStubMapScale(
+                      activeEntity.type,
+                      activeEntity.overworldMap,
+                    )!,
+                  )}
+                </span>
+              ) : null}
             </span>
+          ) : null}
+          {mode === "edit" &&
+          activeEntity &&
+          stubSupportsConfigurableMapScale(activeEntity.type) ? (
+            <StubMapScaleFields
+              entity={activeEntity}
+              disabled={setStubMapScale.isPending}
+              onSave={(mapScale) => {
+                void setStubMapScale.mutateAsync({
+                  campaignId,
+                  entityId: activeEntity.id,
+                  mapScale,
+                });
+              }}
+            />
           ) : null}
         </div>
       ) : null}
@@ -451,6 +491,32 @@ export function OverworldGrid({
             onPointerLeave={onGridPointerUp}
           >
             <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
+              {Array.from({ length: grid.width }, (_, col) =>
+                col % 5 === 0 ? (
+                  <text
+                    key={`col-label-${col}`}
+                    x={col * OVERWORLD_CELL_PX + OVERWORLD_CELL_PX / 2}
+                    y={-4}
+                    textAnchor="middle"
+                    className="fill-lore-muted text-[9px]"
+                  >
+                    {col}
+                  </text>
+                ) : null,
+              )}
+              {Array.from({ length: grid.height }, (_, row) =>
+                row % 5 === 0 ? (
+                  <text
+                    key={`row-label-${row}`}
+                    x={-4}
+                    y={row * OVERWORLD_CELL_PX + OVERWORLD_CELL_PX / 2 + 3}
+                    textAnchor="end"
+                    className="fill-lore-muted text-[9px]"
+                  >
+                    {row}
+                  </text>
+                ) : null,
+              )}
               {Array.from({ length: grid.height }, (_, row) =>
                 Array.from({ length: grid.width }, (_, col) => (
                   <rect
@@ -543,7 +609,7 @@ export function OverworldGrid({
             </g>
           </svg>
           <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-lore-bg/80 px-2 py-1 text-[10px] text-lore-muted">
-            {grid.width}×{grid.height} grid · scroll to zoom
+            {grid.width}×{grid.height} · {formatOverworldScaleLabel(milesPerCell)} · scroll to zoom
           </div>
         </div>
       )}
@@ -552,6 +618,85 @@ export function OverworldGrid({
 }
 
 type OverworldCell = { col: number; row: number };
+
+function StubMapScaleFields({
+  entity,
+  disabled,
+  onSave,
+}: {
+  entity: OverworldEntity;
+  disabled?: boolean;
+  onSave: (mapScale: MapScale | null) => void;
+}) {
+  const current = resolveStubMapScale(entity.type, entity.overworldMap);
+  const authored = entity.overworldMap.mapScale;
+  const defaultUnit: MapScale["unit"] =
+    entity.type === "settlement" ? "ft" : "mi";
+  const [distance, setDistance] = useState(
+    String(authored?.distancePerCell ?? current?.distancePerCell ?? 6),
+  );
+  const [unit, setUnit] = useState<MapScale["unit"]>(
+    authored?.unit ?? current?.unit ?? defaultUnit,
+  );
+
+  useEffect(() => {
+    const next = resolveStubMapScale(entity.type, entity.overworldMap);
+    const a = entity.overworldMap.mapScale;
+    setDistance(String(a?.distancePerCell ?? next?.distancePerCell ?? 6));
+    setUnit(a?.unit ?? next?.unit ?? defaultUnit);
+  }, [entity.id, entity.overworldMap, entity.type, defaultUnit]);
+
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded border border-lore-border bg-lore-bg px-2 py-2">
+      <label className="flex flex-col gap-0.5 text-[10px] text-lore-muted">
+        Local map scale
+        <input
+          type="number"
+          min={0.25}
+          max={120}
+          step={0.25}
+          value={distance}
+          onChange={(e) => setDistance(e.target.value)}
+          className="w-20 rounded border border-lore-border bg-lore-surface px-2 py-1 text-xs text-lore-text"
+        />
+      </label>
+      <label className="flex flex-col gap-0.5 text-[10px] text-lore-muted">
+        Unit
+        <select
+          value={unit}
+          onChange={(e) => setUnit(e.target.value as MapScale["unit"])}
+          className="rounded border border-lore-border bg-lore-surface px-2 py-1 text-xs text-lore-text"
+        >
+          <option value="mi">mi</option>
+          <option value="ft">ft</option>
+          <option value="km">km</option>
+        </select>
+      </label>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          const n = Number(distance);
+          if (!Number.isFinite(n) || n <= 0) return;
+          onSave({ distancePerCell: n, unit });
+        }}
+        className="rounded border border-lore-accent bg-lore-accent-dim px-2 py-1 text-xs disabled:opacity-40"
+      >
+        Save scale
+      </button>
+      {authored ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onSave(null)}
+          className="text-[10px] text-lore-muted hover:text-lore-text"
+        >
+          Reset to default
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 function ToolButton({
   active,

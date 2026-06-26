@@ -193,47 +193,6 @@ export type SheetData = { equipment: EquipmentItem[]; spells: SpellLoadout };
  * a heading; identical for the sandbox fixture and a persisted campaign. With a
  * `loadouts` map (#98) the HUD + action bar are driven by real weapons + spells.
  */
-/** Compact right-column HUD for the active PC during live play. */
-function CompactCharacterHud({
-  pc,
-  openSheet,
-  hudExtra,
-  coachmark,
-}: {
-  pc: EntityState;
-  openSheet?: () => void;
-  hudExtra?: ReactNode;
-  coachmark?: string;
-}) {
-  return (
-    <div
-      data-coachmark={coachmark}
-      className="rounded-lg border border-lore-border bg-lore-surface p-2.5"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-display text-base leading-tight">{pc.name}</div>
-        {openSheet ? (
-          <button
-            type="button"
-            onClick={openSheet}
-            className="shrink-0 text-[11px] text-lore-accent hover:text-lore-text"
-          >
-            Sheet
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-lore-muted">
-        <span>
-          {pc.hp.current}/{pc.hp.max} HP
-        </span>
-        <span>AC {pc.baseAc}</span>
-        <span>{pc.speed}ft</span>
-      </div>
-      {hudExtra}
-    </div>
-  );
-}
-
 function LiveBattle({
   session,
   title,
@@ -655,9 +614,6 @@ function LiveBattle({
     // Exploration mode (TUT-1, D2): a mapped scene with no encounter renders the
     // map + tokens + chat + HUD without combat chrome (no initiative/action bar).
     if (explore) {
-      const pc = Object.values(session.state.entities).find(
-        (e) => e.kind === "character",
-      );
       const openSheet = pcCharacterId
         ? () => setSheetOpen(true)
         : undefined;
@@ -672,9 +628,12 @@ function LiveBattle({
             state={session.state}
             partyRoster={partyRoster}
             companionExpected={companionExpected}
+            pcCharacterId={pcCharacterId}
             onViewSheet={viewPartySheet}
             onEnterLocation={(id) => session.enterLocation(id)}
             onOpenCharacterSheet={openSheet}
+            tutorialControls={tutorialControls}
+            playerHudExtra={hudExtra}
             header={
               <>
                 <LivePlayTopBar
@@ -752,19 +711,6 @@ function LiveBattle({
                 </p>
               ) : undefined
             }
-            characterRail={
-              <>
-                {tutorialControls}
-                {pc && (
-                  <CompactCharacterHud
-                    pc={pc}
-                    openSheet={openSheet}
-                    hudExtra={hudExtra}
-                    coachmark="tut-scene1-hud"
-                  />
-                )}
-              </>
-            }
             chat={
               <div
                 className="flex min-h-0 flex-1 flex-col"
@@ -809,10 +755,6 @@ function LiveBattle({
     ? session.state.scenes[session.state.currentSceneId]?.name
     : undefined;
 
-  const playerPc =
-    (pcCharacterId && session.state.entities[pcCharacterId]) ||
-    Object.values(session.state.entities).find((e) => e.kind === "character");
-
   const openPlayerSheet = pcCharacterId
     ? () => setSheetOpen(true)
     : undefined;
@@ -824,9 +766,12 @@ function LiveBattle({
         state={session.state}
         partyRoster={partyRoster}
         companionExpected={companionExpected}
+        pcCharacterId={pcCharacterId}
         onViewSheet={viewPartySheet}
         onEnterLocation={(id) => session.enterLocation(id)}
         onOpenCharacterSheet={openPlayerSheet}
+        tutorialControls={tutorialControls}
+        playerHudExtra={hudExtra}
         header={
           <>
             <LivePlayTopBar
@@ -969,19 +914,6 @@ function LiveBattle({
               activeReactionSpells[0] ? onCastShieldSelf : undefined
             }
           />
-        }
-        characterRail={
-          <>
-            {tutorialControls}
-            {playerPc ? (
-              <CompactCharacterHud
-                pc={playerPc}
-                openSheet={openPlayerSheet}
-                hudExtra={hudExtra}
-                coachmark="tut-scene1-hud"
-              />
-            ) : null}
-          </>
         }
         chat={
           <ChatZone

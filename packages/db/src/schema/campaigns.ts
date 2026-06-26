@@ -13,10 +13,18 @@ import {
 /** Default play tempo for a campaign (Q19c hybrid model). */
 export type CampaignPlayMode = "async" | "live";
 
-/** Square-grid dimensions for the campaign overworld (CAMP-UX UX-3). */
+/** Square-grid dimensions + L0 scale for the campaign overworld (CAMP-UX UX-3). */
 export type OverworldGridConfig = {
   width: number;
   height: number;
+  /** Miles represented by one L0 overworld cell (DMG kingdom default: 6). */
+  milesPerCell?: number;
+};
+
+/** Distance scale for a stub's local map (L1–L3). */
+export type MapScale = {
+  distancePerCell: number;
+  unit: "mi" | "ft" | "km";
 };
 
 /** Per-entity L0 map layer on a campaign (territory cells or POI pin). */
@@ -27,11 +35,14 @@ export type CampaignOverworldMapLayer = {
   pin?: { col: number; row: number };
   /** Local grid cell on the parent settlement's district map (UX-4 sync). */
   settlementPin?: { col: number; row: number };
+  /** Override scale when this stub's scene map is shown (region hex, settlement, interior). */
+  mapScale?: MapScale;
 };
 
 export const DEFAULT_OVERWORLD_GRID: OverworldGridConfig = {
   width: 32,
   height: 20,
+  milesPerCell: 6,
 };
 
 /**

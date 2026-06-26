@@ -26,6 +26,7 @@ const DDL = `
     art_style text NOT NULL DEFAULT '',
     is_tutorial boolean NOT NULL DEFAULT false,
     overworld_grid jsonb NOT NULL DEFAULT '{"width":32,"height":20}'::jsonb,
+    starting_scene_id text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   );

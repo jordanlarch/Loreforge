@@ -91,6 +91,7 @@ import {
   PostSessionPins,
   type EndedSessionState,
 } from "../post-session-pins";
+import { StartSceneConfirm } from "./start-scene-confirm";
 import { mergeChatEntries } from "@/lib/scene-transition-chat";
 import type { ChatEntry } from "@/lib/live-chat";
 import { TUTORIAL_SHOP } from "@/lib/tutorial-shop";
@@ -1040,23 +1041,10 @@ export function CampaignPlaySurface({
   enterEntityId?: string;
 }) {
   const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
-  const session = useLiveSession({ campaignId, reloadKey, enterEntityId });
+  const readinessQuery = trpc.campaigns.playReadiness.useQuery({ campaignId });
+  const [beginConfirmed, setBeginConfirmed] = useState(false);
 
-  // Sheet bridge (#98): map each roster character's equipment + spells by id (=
-  // the live entity id the WS server seeds), so the HUD + action bar are driven
-  // by real loadouts. Absent rows simply fall back to the generic behavior.
-  const loadoutQuery = trpc.campaigns.partyLoadout.useQuery({ campaignId });
-  const partyQuery = trpc.campaigns.party.useQuery({ campaignId });
-  const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
-  const loadouts = useMemo(() => {
-    const map: Record<string, SheetData> = {};
-    for (const row of loadoutQuery.data ?? []) {
-      map[row.id] = { equipment: row.equipment, spells: row.spells };
-    }
-    return map;
-  }, [loadoutQuery.data]);
-
-  if (campaign.isLoading) {
+  if (campaign.isLoading || readinessQuery.isLoading) {
     return (
       <p className="px-4 py-16 text-center text-lore-muted">Loading campaign…</p>
     );
@@ -1077,10 +1065,99 @@ export function CampaignPlaySurface({
     );
   }
 
+  const readiness = readinessQuery.data;
+  const canContinue = (readiness?.engineEventCount ?? 0) > 0;
+  const canFirstPlay =
+    !canContinue &&
+    Boolean(readiness?.startingSceneId) &&
+    (readiness?.activePcCount ?? 0) > 0;
+  const testInPlayBypass = Boolean(enterEntityId || reloadKey);
+
+  if (!testInPlayBypass && !canContinue && !canFirstPlay) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <h1 className="font-display text-2xl font-semibold">Not ready to play</h1>
+        <p className="mt-3 text-sm text-lore-muted">
+          Set a starting location in Settings and add at least one player
+          character to the party before your first session.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <Link
+            href={`/campaigns/${campaignId}?tab=settings`}
+            className="rounded border border-lore-border px-4 py-2 text-sm hover:border-lore-accent"
+          >
+            Settings
+          </Link>
+          <Link
+            href={`/campaigns/${campaignId}?tab=party`}
+            className="rounded border border-lore-border px-4 py-2 text-sm hover:border-lore-accent"
+          >
+            Party
+          </Link>
+          <Link
+            href={`/campaigns/${campaignId}`}
+            className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm hover:border-lore-accent"
+          >
+            ← Back to prep
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!testInPlayBypass && canFirstPlay && !beginConfirmed) {
+    return (
+      <StartSceneConfirm
+        campaignId={campaignId}
+        locationName={
+          readiness?.startingLocationName ?? "your starting location"
+        }
+        onBegin={() => setBeginConfirmed(true)}
+      />
+    );
+  }
+
+  return (
+    <CampaignPlaySession
+      campaignId={campaignId}
+      reloadKey={reloadKey}
+      enterEntityId={enterEntityId}
+      title={campaign.data.name}
+    />
+  );
+}
+
+function CampaignPlaySession({
+  campaignId,
+  reloadKey,
+  enterEntityId,
+  title,
+}: {
+  campaignId: string;
+  reloadKey?: string;
+  enterEntityId?: string;
+  title: string;
+}) {
+  const session = useLiveSession({ campaignId, reloadKey, enterEntityId });
+
+  // Sheet bridge (#98): map each roster character's equipment + spells by id (=
+  // the live entity id the WS server seeds), so the HUD + action bar are driven
+  // by real loadouts. Absent rows simply fall back to the generic behavior.
+  const loadoutQuery = trpc.campaigns.partyLoadout.useQuery({ campaignId });
+  const partyQuery = trpc.campaigns.party.useQuery({ campaignId });
+  const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
+  const loadouts = useMemo(() => {
+    const map: Record<string, SheetData> = {};
+    for (const row of loadoutQuery.data ?? []) {
+      map[row.id] = { equipment: row.equipment, spells: row.spells };
+    }
+    return map;
+  }, [loadoutQuery.data]);
+
   return (
     <LiveBattle
       session={session}
-      title={campaign.data.name}
+      title={title}
       context="Live campaign"
       backHref={`/campaigns/${campaignId}`}
       loadouts={loadouts}

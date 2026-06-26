@@ -9,7 +9,7 @@ import {
   layoutGraph,
   type RealmEntityType,
 } from "@/lib/realms";
-import { isExplorableRealmType } from "@app/engine";
+import { isExplorableRealmType, sceneIdForRealmEntity } from "@app/engine";
 import { stubSupportsEncounters } from "@/lib/overworld-map";
 import { trpc } from "@/lib/trpc/client";
 
@@ -50,6 +50,16 @@ export function WorldTab({ campaignId }: { campaignId: string }) {
   const setDiscovered = trpc.campaigns.setWorldEntityDiscovered.useMutation({
     onSuccess: refresh,
   });
+  const setStarting = trpc.campaigns.setStartingScene.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.campaigns.get.invalidate({ id: campaignId }),
+        utils.campaigns.playReadiness.invalidate({ campaignId }),
+      ]);
+    },
+  });
+
+  const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
 
   const members = world.data ?? [];
   const memberIds = new Set(members.map((m) => m.id));
@@ -158,6 +168,33 @@ export function WorldTab({ campaignId }: { campaignId: string }) {
                   entityId={entity.id}
                   entityName={entity.name}
                 />
+              ) : null}
+              {isExplorableRealmType(entity.type) ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStarting.mutate({
+                      campaignId,
+                      entityId: entity.id,
+                    })
+                  }
+                  disabled={
+                    setStarting.isPending ||
+                    campaign.data?.startingSceneId ===
+                      sceneIdForRealmEntity(entity.id)
+                  }
+                  className={`self-start rounded border px-2 py-1 text-xs transition-colors disabled:opacity-40 ${
+                    campaign.data?.startingSceneId ===
+                    sceneIdForRealmEntity(entity.id)
+                      ? "border-lore-accent text-lore-accent"
+                      : "border-lore-border text-lore-muted hover:text-lore-text"
+                  }`}
+                >
+                  {campaign.data?.startingSceneId ===
+                  sceneIdForRealmEntity(entity.id)
+                    ? "★ Campaign start"
+                    : "Set as campaign start"}
+                </button>
               ) : null}
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 text-sm">
                 {isExplorableRealmType(entity.type) ? (

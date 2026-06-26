@@ -297,9 +297,9 @@ Co-GM role and read-only prep deferred (CAMP-14).
 | **UX-1** | Play shell layout refactor: center map above chat, Current \| World tabs, collapsible right rail, lightbox nav — **shipped** |
 | **UX-2** | Prep shell tab merge: Map + Locations, remove Combat tab from nav, redirect old `?tab=map|world|combat` — **shipped** |
 | **UX-3** | Overworld grid + territory painting (CAMP-7 evolution) — **shipped** |
-| **UX-4** | POI dual-coordinate sync; stub encounter authoring UI; Test in Play — **shipped** |
-| **UX-5** | `startingSceneId` gate + Settings; end-session lightbox stays in play |
-| **UX-6** | Realms edit lightbox from prep; player-only play access hardening |
+| **UX-4** | POI dual-coordinate sync; stub encounter authoring UI; Test in Play — **shipped** (#237) |
+| **UX-5** | `startingSceneId` gate + Settings; end-session lightbox stays in play — **shipped** |
+| **UX-6** | Realms edit lightbox from prep; player-only play access hardening — **in progress** |
 | **UX-7** | Scroll L0→L4 polish (PLAY-7) when UX-1–4 stable |
 
 ---

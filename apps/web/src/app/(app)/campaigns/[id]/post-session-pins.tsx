@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { recapDisplay } from "@/lib/sessions";
@@ -124,6 +125,15 @@ export function PostSessionPins({
           ))}
         </ul>
       )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-lore-border pt-4">
+        <Link
+          href={`/campaigns/${campaignId}`}
+          className="text-sm text-lore-muted transition-colors hover:text-lore-accent"
+        >
+          ← Back to prep
+        </Link>
+      </div>
     </section>
   );
 }

@@ -8,6 +8,8 @@ import { buildCharacterSheet } from "@app/engine";
 import { partitionRoster } from "@/lib/campaign-workspace";
 import { trpc } from "@/lib/trpc/client";
 
+import { PlayNowButton } from "./play-now-button";
+
 type PartyMember = {
   membershipId: string;
   role: string;
@@ -128,12 +130,7 @@ export function PartyTab({ campaignId }: { campaignId: string }) {
               New character
             </Link>
           )}
-          <Link
-            href={`/campaigns/${campaignId}/play`}
-            className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-1.5 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent"
-          >
-            ▶ Play Now
-          </Link>
+          <PlayNowButton campaignId={campaignId} />
         </div>
       </div>
 

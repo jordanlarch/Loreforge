@@ -246,6 +246,13 @@
       "when": 1782500000000,
       "tag": "0034_overworld_map",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1782580000000,
+      "tag": "0035_starting_scene",
+      "breakpoints": true
     }
   ]
 }

@@ -78,6 +78,11 @@ export const campaigns = pgTable(
       .$type<OverworldGridConfig>()
       .notNull()
       .default(DEFAULT_OVERWORLD_GRID),
+    /**
+     * Scene-level campaign start (CAMP-UX UX-5): engine scene id for first Play
+     * Now seed, e.g. `scene:realm:{entityId}`. Required before first play.
+     */
+    startingSceneId: text("starting_scene_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

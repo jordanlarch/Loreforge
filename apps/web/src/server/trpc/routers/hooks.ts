@@ -5,19 +5,31 @@
  * snapshot into `plot_hooks.data`. All procedures are owner-scoped.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { getDb, plotHooks, realmEntities } from "@app/db";
 import {
+  campaignCharacters,
+  characters,
+  getDb,
+  plotHooks,
+  realmEntities,
+} from "@app/db";
+import {
+  advanceQuestStep,
   buildQuestInstanceDataFromTemplate,
+  buildRewardsGranted,
+  evaluateQuestPrerequisites,
+  levelForXp,
   markBriefingDelivered,
   normalizeEntityQuests,
   parseQuestInstanceData,
+  templateFromInstance,
+  type QuestPrerequisiteContext,
   type QuestTemplate,
 } from "@app/engine";
 
-import { HOOK_STATUSES } from "@/lib/campaign-hooks";
+import { HOOK_STATUSES, type HookStatus } from "@/lib/campaign-hooks";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 import { assertCampaignOwner } from "./campaigns";
@@ -47,23 +59,132 @@ function findTemplateOnEntity(
   return quests[0];
 }
 
-export const hooksRouter = createTRPCRouter({
+async function loadQuestPrerequisiteContext(
+  campaignId: string,
+  ownerId: string,
+): Promise<QuestPrerequisiteContext> {
+  const db = getDb();
+  const pcs = await db
+    .select({ xp: characters.xp })
+    .from(campaignCharacters)
+    .innerJoin(characters, eq(campaignCharacters.characterId, characters.id))
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.ownerId, ownerId),
+        eq(campaignCharacters.role, "pc"),
+        eq(campaignCharacters.status, "active"),
+      ),
+    );
+
+  let partyMaxLevel = 1;
+  for (const pc of pcs) {
+    partyMaxLevel = Math.max(partyMaxLevel, levelForXp(pc.xp));
+  }
+
+  const resolvedRows = await db
+    .select({
+      sourceTemplateId: plotHooks.sourceTemplateId,
+      data: plotHooks.data,
+    })
+    .from(plotHooks)
+    .where(
+      and(
+        eq(plotHooks.campaignId, campaignId),
+        eq(plotHooks.ownerId, ownerId),
+        eq(plotHooks.status, "resolved"),
+      ),
+    );
+
+  const resolvedSourceTemplateIds = new Set<string>();
+  const resolvedSnapshotTemplateIds = new Set<string>();
+  for (const row of resolvedRows) {
+    if (row.sourceTemplateId) {
+      resolvedSourceTemplateIds.add(row.sourceTemplateId);
+    }
+    const snap = parseQuestInstanceData(row.data).templateSnapshot;
+    if (snap?.id) resolvedSnapshotTemplateIds.add(snap.id);
+  }
+
+  return { partyMaxLevel, resolvedSourceTemplateIds, resolvedSnapshotTemplateIds };
+}
+
+function assertPrerequisites(
+  template: QuestTemplate,
+  ctx: QuestPrerequisiteContext,
+) {
+  const result = evaluateQuestPrerequisites(template, ctx);
+  if (!result.met) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: result.reason,
+    });
+  }
+}
+
+async function grantQuestXpToParty(
+  campaignId: string,
+  ownerId: string,
+  xp: number,
+) {
+  const db = getDb();
+  const pcs = await db
+    .select({ id: characters.id })
+    .from(campaignCharacters)
+    .innerJoin(characters, eq(campaignCharacters.characterId, characters.id))
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.ownerId, ownerId),
+        eq(campaignCharacters.role, "pc"),
+        eq(campaignCharacters.status, "active"),
+      ),
+    );
+
+  for (const pc of pcs) {
+    await db
+      .update(characters)
+      .set({
+        xp: sql`${characters.xp} + ${xp}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(characters.id, pc.id));
+  }
+}
+
+export const questsRouter = createTRPCRouter({
   /** All quest instances for an owned campaign. */
   list: protectedProcedure
-    .input(z.object({ campaignId: z.string().uuid() }))
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        /** Soft filter — match tag on template snapshot. */
+        tag: z.string().trim().max(40).optional(),
+        status: hookStatus.optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       await assertCampaignOwner(ctx.user.id, input.campaignId);
       const db = getDb();
-      return db
+      const rows = await db
         .select()
         .from(plotHooks)
         .where(
           and(
             eq(plotHooks.campaignId, input.campaignId),
             eq(plotHooks.ownerId, ctx.user.id),
+            ...(input.status ? [eq(plotHooks.status, input.status)] : []),
           ),
         )
         .orderBy(asc(plotHooks.status), desc(plotHooks.createdAt));
+
+      if (!input.tag) return rows;
+
+      const needle = input.tag.toLowerCase();
+      return rows.filter((row) => {
+        const tags = parseQuestInstanceData(row.data).templateSnapshot?.tags;
+        return tags?.some((t) => t.toLowerCase().includes(needle)) ?? false;
+      });
     }),
 
   /** Author a quest directly in the campaign (minimal template snapshot). */
@@ -117,6 +238,25 @@ export const hooksRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Quest not found." });
       }
 
+      const parsed = parseQuestInstanceData(existing.data);
+      const template =
+        parsed.templateSnapshot ??
+        ({
+          id: existing.sourceTemplateId ?? existing.id,
+          title: existing.title,
+          description: existing.summary,
+          teaseText: existing.summary,
+          steps: [],
+        } satisfies QuestTemplate);
+
+      if (input.status === "open" || input.status === "active") {
+        const prereqCtx = await loadQuestPrerequisiteContext(
+          existing.campaignId,
+          ctx.user.id,
+        );
+        assertPrerequisites(template, prereqCtx);
+      }
+
       let data = existing.data ?? {};
       if (input.status === "active" && existing.status !== "active") {
         data = {
@@ -125,9 +265,22 @@ export const hooksRouter = createTRPCRouter({
         };
       }
       if (input.status === "resolved") {
+        const base =
+          typeof data === "object" && data !== null
+            ? { ...(data as Record<string, unknown>) }
+            : {};
+        const granted = buildRewardsGranted(template);
+        if (granted?.xpPerPc && !base.rewardsGranted) {
+          await grantQuestXpToParty(
+            existing.campaignId,
+            ctx.user.id,
+            granted.xpPerPc,
+          );
+        }
         data = {
-          ...data,
+          ...base,
           resolvedAt: new Date().toISOString(),
+          ...(granted ? { rewardsGranted: granted } : {}),
         };
       }
 
@@ -174,7 +327,7 @@ export const hooksRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string().uuid(),
-        currentStepId: z.string().uuid().optional(),
+        currentStepId: z.string().min(1).max(64).optional(),
         outcomeNotes: z.string().trim().max(4000).optional(),
       }),
     )
@@ -202,6 +355,81 @@ export const hooksRouter = createTRPCRouter({
       const [row] = await db
         .update(plotHooks)
         .set({ data, updatedAt: new Date() })
+        .where(
+          and(eq(plotHooks.id, input.id), eq(plotHooks.ownerId, ctx.user.id)),
+        )
+        .returning();
+      return row;
+    }),
+
+  /** Complete the current (or given) step and advance progress (Phase D). */
+  completeStep: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        stepId: z.string().min(1).max(64).optional(),
+        branchStepId: z.string().min(1).max(64).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [existing] = await db
+        .select()
+        .from(plotHooks)
+        .where(
+          and(eq(plotHooks.id, input.id), eq(plotHooks.ownerId, ctx.user.id)),
+        )
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Quest not found." });
+      }
+      if (existing.status !== "active") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Only active quests can advance steps.",
+        });
+      }
+
+      const parsed = parseQuestInstanceData(existing.data);
+      const result = advanceQuestStep(parsed, {
+        stepId: input.stepId,
+        branchStepId: input.branchStepId,
+      });
+      if (!result.ok) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: result.reason,
+        });
+      }
+
+      let status: HookStatus = result.completed ? "resolved" : "active";
+
+      let data = result.data as Record<string, unknown>;
+      if (status === "resolved") {
+        const template = templateFromInstance({
+          id: existing.id,
+          status: existing.status,
+          title: existing.title,
+          data: result.data,
+        });
+        const granted = buildRewardsGranted(template);
+        if (granted?.xpPerPc && !parsed.rewardsGranted) {
+          await grantQuestXpToParty(
+            existing.campaignId,
+            ctx.user.id,
+            granted.xpPerPc,
+          );
+        }
+        data = {
+          ...data,
+          resolvedAt: new Date().toISOString(),
+          ...(granted ? { rewardsGranted: granted } : {}),
+        };
+      }
+
+      const [row] = await db
+        .update(plotHooks)
+        .set({ data, status, updatedAt: new Date() })
         .where(
           and(eq(plotHooks.id, input.id), eq(plotHooks.ownerId, ctx.user.id)),
         )
@@ -296,6 +524,12 @@ export const hooksRouter = createTRPCRouter({
           steps: [],
         } satisfies QuestTemplate);
 
+      const prereqCtx = await loadQuestPrerequisiteContext(
+        input.campaignId,
+        ctx.user.id,
+      );
+      assertPrerequisites(template, prereqCtx);
+
       const instanceData = buildQuestInstanceDataFromTemplate(template);
       const summary =
         input.summary.trim() ||
@@ -319,3 +553,6 @@ export const hooksRouter = createTRPCRouter({
       return row;
     }),
 });
+
+/** @deprecated Use `questsRouter` — kept as alias for one release. */
+export const hooksRouter = questsRouter;

@@ -4,7 +4,7 @@ import { charactersRouter } from "./routers/characters";
 import { codexRouter } from "./routers/codex";
 import { engineRouter } from "./routers/engine";
 import { healthRouter } from "./routers/health";
-import { hooksRouter } from "./routers/hooks";
+import { hooksRouter, questsRouter } from "./routers/hooks";
 import { llmRouter } from "./routers/llm";
 import { memoryRouter } from "./routers/memory";
 import { notesRouter } from "./routers/notes";
@@ -21,6 +21,7 @@ export const appRouter = createTRPCRouter({
   campaigns: campaignsRouter,
   engine: engineRouter,
   hooks: hooksRouter,
+  quests: questsRouter,
   llm: llmRouter,
   memory: memoryRouter,
   notes: notesRouter,

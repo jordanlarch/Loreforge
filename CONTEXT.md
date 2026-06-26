@@ -14,7 +14,7 @@ Highlights of what's built:
 - **Product surfaces:** six-item nav; Codex (spells, species/classes, backgrounds/feats, monsters, items, rules); Characters; Smithy; Realms (7 rich generators + AI pipeline); **9-tab Campaign workspace** (all tabs at tracer+ depth, World Map included); Live Play (chat/HUD/combat/AoE/enemy AI/reactions/party rail/top bar).
 - **Tutorial:** *Lantern's Last Flicker* E2E (#169–#178) with launch gate.
 - **Memory tier (P5):** rolling summaries, recaps, pins, RAG, live-turn context — shipped.
-- **Quest system (Phase A):** structured `QuestTemplate` on Realms entities, auto-migrate from string hooks, deterministic tease triggers in Live Play — see `docs/quests.md`.
+- **Quest system (Phases A–D):** structured `QuestTemplate` on Realms entities; tease/offer/briefing runtime; Realms + Campaign editors; prerequisite gates, step advance, XP on Resolve — see `docs/quests.md`.
 - **Background jobs:** nightly Open5e ingest + re-embed via Trigger.dev.
 
 ## What This Is

@@ -39,6 +39,8 @@ import {
   spellNameToId,
   totalLevel,
   xpForLevel,
+  levelForXp,
+  parseQuestInstanceData,
   TUTORIAL_CHEST_LOOT,
   TUTORIAL_FIRST_SCENE_ID,
   TUTORIAL_OIL_NAME,
@@ -50,6 +52,7 @@ import {
   type FoeSpec,
   type LocationNpcSpec,
   type PartyMember,
+  type QuestPrerequisiteContext,
   type TutorialLootItem,
   tutorialSceneRequiresCompanion,
 } from "@app/engine";
@@ -1219,6 +1222,57 @@ export async function loadCampaignQuestInstances(campaignId: string) {
     })
     .from(plotHooks)
     .where(eq(plotHooks.campaignId, campaignId));
+}
+
+/** Hard-gate context for quest offers (Phase D). */
+export async function loadQuestPrerequisiteContext(
+  campaignId: string,
+): Promise<QuestPrerequisiteContext> {
+  const pcs = await getDb()
+    .select({ xp: characters.xp })
+    .from(campaignCharacters)
+    .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.role, "pc"),
+        eq(campaignCharacters.status, "active"),
+      ),
+    );
+
+  let partyMaxLevel = 1;
+  for (const pc of pcs) {
+    partyMaxLevel = Math.max(partyMaxLevel, levelForXp(pc.xp));
+  }
+
+  const resolvedRows = await getDb()
+    .select({
+      sourceTemplateId: plotHooks.sourceTemplateId,
+      data: plotHooks.data,
+    })
+    .from(plotHooks)
+    .where(
+      and(
+        eq(plotHooks.campaignId, campaignId),
+        eq(plotHooks.status, "resolved"),
+      ),
+    );
+
+  const resolvedSourceTemplateIds = new Set<string>();
+  const resolvedSnapshotTemplateIds = new Set<string>();
+  for (const row of resolvedRows) {
+    if (row.sourceTemplateId) {
+      resolvedSourceTemplateIds.add(row.sourceTemplateId);
+    }
+    const snap = parseQuestInstanceData(row.data).templateSnapshot;
+    if (snap?.id) resolvedSnapshotTemplateIds.add(snap.id);
+  }
+
+  return {
+    partyMaxLevel,
+    resolvedSourceTemplateIds,
+    resolvedSnapshotTemplateIds,
+  };
 }
 
 /** Update quest instance jsonb (briefing dedupe, step progress). */

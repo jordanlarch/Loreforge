@@ -16,6 +16,7 @@ import { gmEntry, type ChatDeps } from "./chat.js";
 import {
   getCampaignNpcsAtLocation,
   loadCampaignQuestInstances,
+  loadQuestPrerequisiteContext,
   updatePlotHookData,
 } from "./db.js";
 import type { LiveRoom } from "./room.js";
@@ -72,11 +73,13 @@ export async function tryQuestOfferFromChat(
   if (npcs.length === 0) return undefined;
 
   const instances = await loadCampaignQuestInstances(campaignId);
+  const prereqCtx = await loadQuestPrerequisiteContext(campaignId);
   for (const npc of npcs) {
     const offer = resolveQuestOfferForNpc(
       instances as QuestInstanceRef[],
       { entityId: npc.entityId, name: npc.name },
       text,
+      prereqCtx,
     );
     if (!offer) continue;
     return gmEntry(formatQuestOfferLine(offer.offerText, npc.name), chatDeps, {

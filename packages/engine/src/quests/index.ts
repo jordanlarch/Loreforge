@@ -1,12 +1,14 @@
 export type {
   QuestDelivery,
+  QuestRewards,
   QuestStep,
+  QuestTag,
   QuestTeaseTrigger,
   QuestTemplate,
   QuestTrigger,
   QuestTriggerType,
 } from "./types";
-export { QUEST_TRIGGER_TYPES } from "./types";
+export { QUEST_TAGS, QUEST_TRIGGER_TYPES } from "./types";
 export {
   defaultTracerTriggers,
   enrichEntityDataWithQuests,
@@ -37,3 +39,25 @@ export {
   playerTextReferencesNpc,
   resolveQuestOfferForNpc,
 } from "./runtime";
+export {
+  evaluateQuestPrerequisites,
+  type QuestPrerequisiteContext,
+  type QuestPrerequisiteResult,
+} from "./prerequisites";
+export {
+  advanceQuestStep,
+  branchChoicesForStep,
+  resolveNextStepId,
+  type AdvanceStepInput,
+  type AdvanceStepResult,
+} from "./steps";
+export {
+  buildRewardsGranted,
+  formatQuestResolveRewardsLine,
+  questRewardsFromTemplate,
+  type QuestRewardsGranted,
+} from "./rewards";
+export {
+  backfillQuestInstanceData,
+  backfillTemplateFromLegacyRow,
+} from "./backfill";

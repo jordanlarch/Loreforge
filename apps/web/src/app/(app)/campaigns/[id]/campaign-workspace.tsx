@@ -11,22 +11,19 @@ import {
 } from "@/lib/campaign-workspace";
 import { trpc } from "@/lib/trpc/client";
 
-import { CombatTab } from "./combat-tab";
 import { HooksTab } from "./hooks-tab";
 import { NotesTab } from "./notes-tab";
 import { OverviewTab } from "./overview-tab";
 import { PartyTab } from "./party-tab";
-import { SessionsTab } from "./sessions-tab";
 import { SettingsTab } from "./settings-tab";
 import { WorldMapTab } from "./world-map-tab";
 import { WorldTab } from "./world-tab";
 
 /**
- * The campaign workspace shell (#55): fixed header (back link, live indicator,
- * title bar, nine-tab bar, pinned Start Live Session), and a tab body. The
- * Overview tab is populated from real campaign data; the other eight are stubbed
- * until their own slices land. The active tab is reflected in `?tab=<slug>` so
- * tabs are deep-linkable (CAMP-15).
+ * The campaign workspace shell (#55, CAMP-UX UX-2): fixed header (back link, live
+ * indicator, title bar, seven-tab bar, pinned Start Live Session), and a tab body.
+ * The active tab is reflected in `?tab=<slug>` so tabs are deep-linkable (CAMP-15).
+ * Legacy nine-tab slugs redirect via {@link resolveCampaignTab}.
  */
 export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
   return (
@@ -137,16 +134,12 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
           />
         ) : active === "party" ? (
           <PartyTab campaignId={campaignId} />
-        ) : active === "world" ? (
+        ) : active === "locations" ? (
           <WorldTab campaignId={campaignId} />
         ) : active === "quests" ? (
           <HooksTab campaignId={campaignId} />
-        ) : active === "sessions" ? (
-          <SessionsTab campaignId={campaignId} />
         ) : active === "map" ? (
           <WorldMapTab campaignId={campaignId} />
-        ) : active === "combat" ? (
-          <CombatTab campaignId={campaignId} />
         ) : active === "notes" ? (
           <NotesTab campaignId={campaignId} />
         ) : active === "settings" ? (

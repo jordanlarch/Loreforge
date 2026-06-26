@@ -1,20 +1,18 @@
 /**
- * Campaign workspace tab taxonomy (#55).
+ * Campaign workspace tab taxonomy (#55, CAMP-UX UX-2).
  *
- * The nine-tab shell from `docs/ui-flows/campaigns-workspace.md`. Browser-safe
+ * Seven-tab prep shell from `docs/ui-flows/unified-campaign-ux.md`. Browser-safe
  * so the workspace shell and any future deep-link helpers share one definition.
  * Each tab has a URL `slug` (used by `/campaigns/[id]?tab=<slug>`) and a `label`.
- * Overview is the default landing tab; non-Overview tabs are stubbed until their
- * own slices land (Party = #61, etc.).
+ * Legacy slugs (`world`, `combat`, `sessions`, `hooks`) redirect via
+ * {@link resolveCampaignTab}.
  */
 export type CampaignTabSlug =
   | "overview"
-  | "party"
-  | "world"
-  | "quests"
-  | "sessions"
   | "map"
-  | "combat"
+  | "locations"
+  | "party"
+  | "quests"
   | "notes"
   | "settings";
 
@@ -25,21 +23,29 @@ export type CampaignTab = {
 
 export const CAMPAIGN_WORKSPACE_TABS: readonly CampaignTab[] = [
   { slug: "overview", label: "Overview" },
+  { slug: "map", label: "Map" },
+  { slug: "locations", label: "Locations" },
   { slug: "party", label: "Party" },
-  { slug: "world", label: "World" },
   { slug: "quests", label: "Quests" },
-  { slug: "sessions", label: "Sessions" },
-  { slug: "map", label: "World Map" },
-  { slug: "combat", label: "Combat" },
   { slug: "notes", label: "Notes" },
   { slug: "settings", label: "Settings" },
 ];
 
 export const DEFAULT_CAMPAIGN_TAB: CampaignTabSlug = "overview";
 
+/** Legacy prep tab slugs from the nine-tab shell (CAMP-UX UX-2 redirects). */
+const LEGACY_TAB_REDIRECTS: Record<string, CampaignTabSlug> = {
+  hooks: "quests",
+  world: "locations",
+  combat: "overview",
+  sessions: "overview",
+};
+
 /** Resolve a raw `?tab=` value to a known slug, falling back to the default. */
 export function resolveCampaignTab(raw: string | null | undefined): CampaignTabSlug {
-  if (raw === "hooks") return "quests";
+  if (raw && raw in LEGACY_TAB_REDIRECTS) {
+    return LEGACY_TAB_REDIRECTS[raw]!;
+  }
   const match = CAMPAIGN_WORKSPACE_TABS.find((t) => t.slug === raw);
   return match ? match.slug : DEFAULT_CAMPAIGN_TAB;
 }

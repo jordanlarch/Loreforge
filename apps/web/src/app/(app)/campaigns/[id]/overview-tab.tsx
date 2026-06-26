@@ -251,10 +251,10 @@ export function OverviewTab({
           onClick={() => onOpenTab("party")}
         />
         <StatCard
-          label="World"
+          label="Locations"
           value={world.isLoading ? "…" : worldCount}
           hint={worldHint}
-          onClick={() => onOpenTab("world")}
+          onClick={() => onOpenTab("locations")}
         />
         <StatCard
           label="Quests"
@@ -266,7 +266,6 @@ export function OverviewTab({
           label="Sessions"
           value={sessions.isLoading ? "…" : sessionCount}
           hint={sessionHint}
-          onClick={() => onOpenTab("sessions")}
         />
       </section>
 
@@ -390,19 +389,29 @@ function StatCard({
   label: string;
   value: number | string;
   hint: string;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex flex-col items-start rounded-lg border border-lore-border bg-lore-surface p-4 text-left transition-colors hover:border-lore-accent"
-    >
+  const className =
+    "flex flex-col items-start rounded-lg border border-lore-border bg-lore-surface p-4 text-left transition-colors" +
+    (onClick ? " hover:border-lore-accent" : "");
+
+  const inner = (
+    <>
       <span className="text-xs uppercase tracking-widest text-lore-muted">
         {label}
       </span>
       <span className="mt-1 font-display text-2xl text-lore-text">{value}</span>
       <span className="text-xs text-lore-muted">{hint}</span>
+    </>
+  );
+
+  if (!onClick) {
+    return <div className={className}>{inner}</div>;
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {inner}
     </button>
   );
 }

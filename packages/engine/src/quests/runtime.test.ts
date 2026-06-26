@@ -38,6 +38,34 @@ describe("resolveQuestOfferForNpc", () => {
     expect(offer?.offerText).toBe("Please find my daughter.");
   });
 
+  it("fires with explicit offerText even without on_talk_to_npc trigger", () => {
+    const template = {
+      id: "t2",
+      title: "Vanishing travelers",
+      offerText: "Someone keeps disappearing on the road east of here.",
+      triggers: [
+        { type: "on_session_start" as const, delivery: "tease" as const },
+      ],
+      steps: [],
+    };
+    const instances = [
+      {
+        id: QUEST_ID,
+        status: "open",
+        title: template.title,
+        data: buildQuestInstanceDataFromTemplate(template),
+      },
+    ];
+    const offer = resolveQuestOfferForNpc(
+      instances,
+      { entityId: NPC_ID, name: "Garrick Tallow" },
+      "I talk to Garrick Tallow at the bar.",
+    );
+    expect(offer?.offerText).toBe(
+      "Someone keeps disappearing on the road east of here.",
+    );
+  });
+
   it("ignores resolved quests", () => {
     const offer = resolveQuestOfferForNpc(
       [

@@ -74,6 +74,19 @@ export function playerTextReferencesNpc(
   return playerText.toLowerCase().includes(needle);
 }
 
+function npcCanDeliverOffer(
+  template: QuestTemplate,
+  npcEntityId: string,
+): boolean {
+  const giver = template.questGiverNpcEntityId;
+  if (giver && giver !== npcEntityId) return false;
+
+  const triggers = template.triggers ?? [];
+  if (template.offerText?.trim()) return true;
+  if (triggers.length === 0) return true;
+  return triggers.some((t) => matchesTalkTrigger(t, npcEntityId, template));
+}
+
 /** Find the first open quest offer when the player talks to an NPC. */
 export function resolveQuestOfferForNpc(
   instances: readonly QuestInstanceRef[],
@@ -87,11 +100,7 @@ export function resolveQuestOfferForNpc(
     const template = templateFromInstance(instance);
     if (!template) continue;
 
-    const triggers = template.triggers ?? [];
-    const hasOffer =
-      triggers.length === 0 ||
-      triggers.some((t) => matchesTalkTrigger(t, npc.entityId, template));
-    if (!hasOffer) continue;
+    if (!npcCanDeliverOffer(template, npc.entityId)) continue;
 
     const body = offerBody(template);
     if (!body) continue;

@@ -36,6 +36,7 @@ import { SheetLeftRail } from "./sheet/sheet-left-rail";
 import { SheetLiveHud } from "./sheet/sheet-live-hud";
 import { SheetRightRail } from "./sheet/sheet-right-rail";
 import { SheetToolbar } from "./sheet/sheet-toolbar";
+import type { CastableSpell } from "@/lib/live-combat";
 
 const TABS = [
   "Combat",
@@ -52,11 +53,12 @@ export function CharacterSheetView({
   id,
   embedded = false,
   onFeatureUse,
+  onCastSpell,
 }: {
   id: string;
   embedded?: boolean;
-  /** Live Play overlay: post feature use to campaign chat. */
   onFeatureUse?: (featureName: string) => void;
+  onCastSpell?: (spell: CastableSpell) => void;
 }) {
   const utils = trpc.useUtils();
   const query = trpc.characters.get.useQuery({ id });
@@ -283,6 +285,7 @@ export function CharacterSheetView({
                 classes={character.classes}
                 saving={update.isPending}
                 onSave={(spells) => update.mutate({ id, spells })}
+                onCastSpell={onCastSpell}
               />
             )}
             {tab === "Inventory" && (

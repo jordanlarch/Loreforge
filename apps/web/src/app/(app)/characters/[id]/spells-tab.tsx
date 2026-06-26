@@ -19,7 +19,6 @@ import {
   SheetSearchBar,
   SheetSection,
   SheetTag,
-  StubBanner,
 } from "@/components/character-sheet/sheet-ui";
 import {
   blankSpell,
@@ -29,6 +28,11 @@ import {
   type CharacterSpell,
   type SpellLoadout,
 } from "@/lib/character";
+import {
+  resolveCastableSpell,
+  spellRowIsCastable,
+} from "@/lib/spell-cast-sheet";
+import type { CastableSpell } from "@/lib/live-combat";
 
 export function SpellsTab({
   spells,
@@ -36,12 +40,15 @@ export function SpellsTab({
   classes,
   saving,
   onSave,
+  onCastSpell,
 }: {
   spells: SpellLoadout;
   sheet?: CharacterSheet;
   classes?: { class: string; level: number }[];
   saving: boolean;
   onSave: (spells: SpellLoadout) => void;
+  /** Live Play: post spell cast intent to campaign chat. */
+  onCastSpell?: (spell: CastableSpell) => void;
 }) {
   const [draft, setDraft] = useState<SpellLoadout>(spells);
   const [codexOpen, setCodexOpen] = useState(false);
@@ -226,6 +233,10 @@ export function SpellsTab({
               <ul className="space-y-2">
                 {group.spells.map((spell) => {
                   const index = draft.spells.indexOf(spell);
+                  const castable =
+                    onCastSpell &&
+                    spellRowIsCastable(spell) &&
+                    resolveCastableSpell(spell.name);
                   return (
                     <li
                       key={index}
@@ -282,6 +293,15 @@ export function SpellsTab({
                         />
                         Prepared
                       </label>
+                      {castable && (
+                        <button
+                          type="button"
+                          onClick={() => onCastSpell!(castable)}
+                          className="rounded border border-lore-accent bg-lore-accent-dim px-2 py-1 text-xs text-lore-text"
+                        >
+                          Cast
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() =>
@@ -303,10 +323,6 @@ export function SpellsTab({
           ))}
         </div>
       )}
-
-      <StubBanner>
-        Cast-to-chat from the sheet ships with Live Play spell command wiring.
-      </StubBanner>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button

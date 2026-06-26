@@ -1,17 +1,19 @@
 "use client";
 
 import { CharacterSheetView } from "@/app/(app)/characters/[id]/character-sheet";
+import type { CastableSpell } from "@/lib/live-combat";
 
 /** Full character sheet in a modal overlay (live play, tutorial HUD). */
 export function CharacterSheetOverlay({
   characterId,
   onClose,
   onFeatureUse,
+  onCastSpell,
 }: {
   characterId: string;
   onClose: () => void;
-  /** Live Play: post feature use to campaign chat. */
   onFeatureUse?: (featureName: string) => void;
+  onCastSpell?: (spell: CastableSpell) => void;
 }) {
   return (
     <div
@@ -45,6 +47,7 @@ export function CharacterSheetOverlay({
             id={characterId}
             embedded
             onFeatureUse={onFeatureUse}
+            onCastSpell={onCastSpell}
           />
         </div>
       </div>

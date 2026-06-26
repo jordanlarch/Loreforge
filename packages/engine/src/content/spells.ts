@@ -227,7 +227,8 @@ export type SpellAppliedEffect = {
     | { type: "attack_roll_penalty"; dice: string }
     | { type: "hunters_mark"; dice: string }
     | { type: "attacks_against_advantage" }
-    | { type: "attacks_against_disadvantage" };
+    | { type: "attacks_against_disadvantage" }
+    | { type: "speed_bonus"; amount: number };
   /** Effect ends when the caster loses concentration on this spell. */
   concentration?: true;
   /** Effect ends at the start of the bearer's next turn. */

@@ -12,6 +12,9 @@ import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import {
   expireStartOfTurnEffects,
   stripConcentrationEffects,
+  stripConcentrationConditions,
+  applyTimedEffectTick,
+  effectiveSpeedForEntity,
 } from "../combat/effects";
 import { attacksPerAction, createEntityState } from "../entities/abilities";
 import type {
@@ -301,7 +304,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           ...actor,
           effects,
           actionEconomy: freshActionEconomy(
-            effectiveSpeed(actor.speed, actor.conditions),
+            effectiveSpeedForEntity(actor),
             attacksPerAction(actor),
           ),
           reaction: "available",
@@ -323,6 +326,10 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "EffectsDurationTicked": {
+      next.entities = applyTimedEffectTick(next.entities);
+      break;
+    }
     case "ConditionApplied": {
       const target = next.entities[event.payload.target];
       if (target) {
@@ -334,6 +341,12 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           ...(event.payload.source ? { source: event.payload.source } : {}),
           ...(event.payload.level !== undefined
             ? { level: event.payload.level }
+            : {}),
+          ...(event.payload.concentrationSpell
+            ? { concentrationSpell: event.payload.concentrationSpell }
+            : {}),
+          ...(event.payload.concentrationHolder
+            ? { concentrationHolder: event.payload.concentrationHolder }
             : {}),
         };
         const conditions = [...others, applied];
@@ -405,6 +418,11 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         next.entities[target.id] = { ...target, concentration: undefined };
         if (spell) {
           next.entities = stripConcentrationEffects(
+            next.entities,
+            target.id,
+            spell,
+          );
+          next.entities = stripConcentrationConditions(
             next.entities,
             target.id,
             spell,

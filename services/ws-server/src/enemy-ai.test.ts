@@ -14,6 +14,7 @@ import {
   isPlayerControlled,
   monsterAttackProfile,
   planMonsterTurn,
+  planMonsterSpell,
   readiedTriggersToFire,
   readyTriggerRange,
 } from "./enemy-ai.js";
@@ -444,5 +445,28 @@ describe("planMonsterTurn", () => {
     expect(attackOf(planMonsterTurn(state, "goblin", "mage"))).toBe("mage");
     // Illegal id is ignored → falls back to the nearest.
     expect(attackOf(planMonsterTurn(state, "goblin", "dragon"))).toBe("hero");
+  });
+
+  it("prefers a spell when the monster is a caster in range (PLAY-15)", () => {
+    const cultist = ent({
+      id: "cultist",
+      position: { x: 8, y: 5 },
+      actionEconomy: turnEconomy(),
+      spellcasting: {
+        ability: "int",
+        slots: { 1: { max: 4, current: 2 } },
+        preparedSpellIds: ["fire-bolt", "burning-hands"],
+      },
+    });
+    const hero = ent({ id: "hero", kind: "character", position: { x: 2, y: 5 } });
+    const plan = planMonsterTurn(
+      battle([cultist, hero], { cultist: "foes", hero: "party" }),
+      "cultist",
+    );
+    expect(plan[0]?.type).toBe("cast_spell");
+    if (plan[0]?.type === "cast_spell") {
+      expect(["fire-bolt", "burning-hands"]).toContain(plan[0].spellId);
+    }
+    expect(plan.at(-1)).toEqual({ type: "end_turn" });
   });
 });

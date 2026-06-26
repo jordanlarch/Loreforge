@@ -46,7 +46,9 @@ import {
   attacksAgainstHaveDisadvantage,
   effectFromSpec,
   effectiveAc,
+  effectiveSpeedForEntity,
   huntersMarkOn,
+  spellDurationRounds,
 } from "../combat/effects";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
@@ -67,6 +69,7 @@ import {
   type ApplyHealingCommand,
   type AttackCommand,
   type CastSpellCommand,
+  type DispelMagicCommand,
   type ChangeSceneCommand,
   type Command,
   type CommandResult,
@@ -377,7 +380,7 @@ function handleMoveEntity(
     return reject("TARGET_DEAD", `${entity.name} cannot move while dead.`);
   }
 
-  if (effectiveSpeed(entity.speed, entity.conditions) === 0) {
+  if (effectiveSpeedForEntity(entity) === 0) {
     return reject("IMMOBILIZED", `${entity.name} cannot move (speed 0).`);
   }
 
@@ -757,6 +760,11 @@ function handleEndTurn(
       type: "RoundAdvanced",
       ...meta(ctx, "system"),
       payload: { round: nextRound },
+    });
+    events.push({
+      type: "EffectsDurationTicked",
+      ...meta(ctx, "system"),
+      payload: {},
     });
   }
   events.push({
@@ -1370,6 +1378,118 @@ function handleEndConcentration(
       },
     ],
     summary: { entity: cmd.entity, wasConcentrating: true },
+  };
+}
+
+function handleDispelMagic(
+  cmd: DispelMagicCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const caster = ctx.world.entities[cmd.caster];
+  if (!caster) {
+    return reject("ACTOR_NOT_FOUND", `Caster ${cmd.caster} does not exist.`);
+  }
+  if (!caster.spellcasting) {
+    return reject("NOT_A_SPELLCASTER", `${caster.name} cannot cast spells.`);
+  }
+  const target = ctx.world.entities[cmd.target];
+  if (!target) {
+    return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
+  }
+  const slotLevel = Math.floor(cmd.slotLevel);
+  if (slotLevel < 3) {
+    return reject(
+      "INVALID_PAYLOAD",
+      "Dispel Magic requires a level-3 slot or higher.",
+    );
+  }
+  const slot = caster.spellcasting.slots[slotLevel];
+  if (!slot || slot.current <= 0) {
+    return reject(
+      "NO_SPELL_SLOT",
+      `${caster.name} has no level-${slotLevel} spell slot available.`,
+      { slotLevel },
+    );
+  }
+
+  const events: DraftEvent[] = [
+    {
+      type: "SpellSlotExpended",
+      ...meta(ctx, cmd.caster),
+      payload: { entity: cmd.caster, slotLevel },
+    },
+  ];
+
+  const effects = target.effects ?? [];
+  if (effects.length > 0) {
+    events.push({
+      type: "EffectRemoved",
+      ...meta(ctx, cmd.caster),
+      payload: { target: cmd.target, effectId: effects[0]!.id },
+    });
+    return {
+      accepted: true,
+      events,
+      summary: { target: cmd.target, dispelled: "effect" },
+    };
+  }
+
+  const linked = target.conditions.find((c) => c.concentrationSpell);
+  if (linked) {
+    events.push({
+      type: "ConditionRemoved",
+      ...meta(ctx, cmd.caster),
+      payload: { target: cmd.target, condition: linked.condition },
+    });
+    return {
+      accepted: true,
+      events,
+      summary: { target: cmd.target, dispelled: "condition" },
+    };
+  }
+
+  return reject(
+    "NO_MAGIC_TO_DISPEL",
+    `${target.name} has no dispellable magic to end.`,
+    { target: cmd.target },
+  );
+}
+
+function spellConditionPayload(
+  spell: SpellDefinition,
+  casterId: EntityRef,
+  targetId: EntityRef,
+  condition: NonNullable<SpellDefinition["failedSaveCondition"]>,
+) {
+  return {
+    target: targetId,
+    condition,
+    source: casterId,
+    ...(spell.concentration
+      ? { concentrationSpell: spell.name, concentrationHolder: casterId }
+      : {}),
+  };
+}
+
+function effectOptsFromSpell(
+  spell: SpellDefinition,
+  ctx: ExecutionContext,
+  casterId: EntityRef,
+  targetId: EntityRef,
+  spec: import("../content/spells").SpellAppliedEffect,
+) {
+  const timed =
+    !spec.concentration && !spec.expiresStartOfNextTurn
+      ? spellDurationRounds(spell)
+      : undefined;
+  return {
+    id: `${ctx.commandId}:${spell.id}:${targetId}`,
+    source: casterId,
+    concentrationHolder: spec.concentration ? casterId : undefined,
+    concentrationSpell: spec.concentration ? spell.name : undefined,
+    markedBy: spec.modifier.type === "hunters_mark" ? casterId : undefined,
+    expiresStartOfTurn: spec.expiresStartOfNextTurn ? targetId : undefined,
+    remainingRounds: timed,
   };
 }
 
@@ -2166,11 +2286,12 @@ function handleCastSpell(
           events.push({
             type: "ConditionApplied",
             ...meta(ctx, caster.id),
-            payload: {
-              target: target.id,
-              condition: spell.failedSaveCondition,
-              source: caster.id,
-            },
+            payload: spellConditionPayload(
+              spell,
+              caster.id,
+              target.id,
+              spell.failedSaveCondition,
+            ),
           });
         }
       }
@@ -2271,11 +2392,12 @@ function handleCastSpell(
           events.push({
             type: "ConditionApplied",
             ...meta(ctx, caster.id),
-            payload: {
-              target: target.id,
-              condition: spell.failedSaveCondition,
-              source: caster.id,
-            },
+            payload: spellConditionPayload(
+              spell,
+              caster.id,
+              target.id,
+              spell.failedSaveCondition,
+            ),
           });
         }
         if (spell.appliedEffects?.length) {
@@ -2283,17 +2405,10 @@ function handleCastSpell(
             const recipients =
               spec.scope === "caster" ? [caster.id] : [target.id];
             for (const targetId of recipients) {
-              const effect = effectFromSpec(spec, {
-                id: `${ctx.commandId}:${spell.id}:${targetId}`,
-                source: caster.id,
-                concentrationHolder: spec.concentration ? caster.id : undefined,
-                concentrationSpell: spec.concentration ? spell.name : undefined,
-                markedBy:
-                  spec.modifier.type === "hunters_mark" ? caster.id : undefined,
-                expiresStartOfTurn: spec.expiresStartOfNextTurn
-                  ? targetId
-                  : undefined,
-              });
+              const effect = effectFromSpec(
+                spec,
+                effectOptsFromSpell(spell, ctx, caster.id, targetId, spec),
+              );
               events.push({
                 type: "EffectApplied",
                 ...meta(ctx, caster.id),
@@ -2323,17 +2438,10 @@ function handleCastSpell(
       const recipients =
         spec.scope === "caster" ? [caster.id] : effectTargets;
       for (const targetId of recipients) {
-        const effect = effectFromSpec(spec, {
-          id: `${ctx.commandId}:${spell.id}:${targetId}`,
-          source: caster.id,
-          concentrationHolder: spec.concentration ? caster.id : undefined,
-          concentrationSpell: spec.concentration ? spell.name : undefined,
-          markedBy:
-            spec.modifier.type === "hunters_mark" ? caster.id : undefined,
-          expiresStartOfTurn: spec.expiresStartOfNextTurn
-            ? targetId
-            : undefined,
-        });
+        const effect = effectFromSpec(
+          spec,
+          effectOptsFromSpell(spell, ctx, caster.id, targetId, spec),
+        );
         events.push({
           type: "EffectApplied",
           ...meta(ctx, caster.id),
@@ -2351,11 +2459,12 @@ function handleCastSpell(
       events.push({
         type: "ConditionApplied",
         ...meta(ctx, caster.id),
-        payload: {
-          target: targetId,
-          condition: spell.appliedCondition,
-          source: caster.id,
-        },
+        payload: spellConditionPayload(
+          spell,
+          caster.id,
+          targetId,
+          spell.appliedCondition,
+        ),
       });
     }
     Object.assign(summary, { conditionApplied: spell.appliedCondition });
@@ -2416,6 +2525,8 @@ export function handleCommand(
       return handleStartConcentration(command, ctx);
     case "end_concentration":
       return handleEndConcentration(command, ctx);
+    case "dispel_magic":
+      return handleDispelMagic(command, ctx);
     case "opportunity_attack":
       return handleOpportunityAttack(command, ctx);
     case "ready_action":

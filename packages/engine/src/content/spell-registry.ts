@@ -1745,9 +1745,15 @@ const HASTE: SpellDefinition = {
       modifier: { type: "ac_bonus", amount: 2 },
       concentration: true,
     },
+    {
+      name: "Haste",
+      scope: "targets",
+      modifier: { type: "speed_bonus", amount: 30 },
+      concentration: true,
+    },
   ],
   description:
-    "Choose a willing creature. Until the spell ends, its speed is doubled, it gains +2 AC, it has advantage on Dexterity saving throws, and it gains an additional action (tracer: +2 AC only).",
+    "Choose a willing creature. Until the spell ends, its speed is doubled (+30 ft at tracer depth), it gains +2 AC, it has advantage on Dexterity saving throws, and it gains an additional action (tracer: +2 AC and +30 speed).",
 };
 
 const HYPNOTIC_PATTERN: SpellDefinition = {

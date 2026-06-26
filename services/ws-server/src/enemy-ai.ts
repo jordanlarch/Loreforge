@@ -10,26 +10,32 @@
  * only *refines* the deterministic plan, mirroring the #97 check orchestrator:
  * the model proposes, the engine disposes.
  *
- * Tracer scope: basic melee + Multiattack budget. A monster moves toward the
- * nearest hostile PC within its movement budget and strikes when in reach,
- * spending its full attacks-per-action budget; otherwise it ends its turn.
- * Spells/abilities and the encounter `AI tactics hint` are deferred.
+ * Tracer scope: basic melee + Multiattack budget + ranged loadouts + spell turns.
+ * A monster moves toward the nearest hostile PC within its movement budget and
+ * strikes when in reach, spending its full attacks-per-action budget; spellcasters
+ * prefer a leveled or cantrip spell when a target is in range. Spells/abilities
+ * beyond the curated monster spell lists and the encounter `AI tactics hint`
+ * are deferred.
  */
 import {
   abilityModifier,
   areHostile,
   attackAction,
   attacksPerAction,
+  castAction,
   distanceFeet,
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
+  getSpell,
   hasLineOfSight,
   moveAction,
   REACH_FEET,
   readyTriggerRangeFeet,
   type BattleAction,
+  type CastSpellCommand,
   type EntityState,
   type GridPosition,
+  type SpellDefinition,
   type WorldState,
 } from "@app/engine";
 
@@ -369,6 +375,74 @@ function planAttacks(
   return actions;
 }
 
+function spellRangeFeet(spell: SpellDefinition): number | undefined {
+  if (spell.range.type === "self") return spell.range.area?.size;
+  if (spell.range.type === "feet") return spell.range.amount;
+  if (spell.range.type === "touch") return 5;
+  return undefined;
+}
+
+function hasSlotFor(
+  monster: EntityState,
+  spell: SpellDefinition,
+): boolean {
+  if (spell.level === 0) return true;
+  const slot = monster.spellcasting?.slots[spell.level];
+  return slot !== undefined && slot.current > 0;
+}
+
+/** Build a cast command when a spell can hit a hostile target this turn. */
+export function planMonsterSpell(
+  state: WorldState,
+  monster: EntityState,
+  targets: EntityState[],
+): CastSpellCommand | undefined {
+  const sc = monster.spellcasting;
+  if (!sc?.preparedSpellIds?.length || !monster.position) return undefined;
+  if (monster.actionEconomy?.action !== "available") return undefined;
+
+  const spells = sc.preparedSpellIds
+    .map((id) => getSpell(id))
+    .filter((s): s is SpellDefinition => s !== undefined)
+    .sort((a, b) => b.level - a.level);
+
+  for (const spell of spells) {
+    if (!hasSlotFor(monster, spell)) continue;
+    const maxRange = spellRangeFeet(spell);
+    if (maxRange === undefined) continue;
+
+    if (spell.targeting === "area" && spell.range.type === "self") {
+      for (const target of targets) {
+        if (!target.position || !hasLoSTo(state, monster.position, target, monster.id)) {
+          continue;
+        }
+        if (distanceFeet(monster.position, target.position) <= maxRange + 15) {
+          return {
+            type: "cast_spell",
+            caster: monster.id,
+            spellId: spell.id,
+            slotLevel: spell.level,
+            origin: target.position,
+          };
+        }
+      }
+      continue;
+    }
+
+    const inRange = targets.filter((t) => {
+      if (!t.position) return false;
+      const dist = distanceFeet(monster.position!, t.position);
+      if (dist > maxRange) return false;
+      return hasLoSTo(state, monster.position!, t, monster.id);
+    });
+    if (inRange.length === 0) continue;
+
+    const victim = lowestHp(inRange);
+    return castAction(monster.id, spell.id, spell.level, [victim.id]);
+  }
+  return undefined;
+}
+
 /**
  * Plan one non-player combatant's turn as an ordered list of engine actions
  * (always ending with `end_turn`). The engine still validates every step, so a
@@ -387,6 +461,9 @@ export function planMonsterTurn(
 
   const targets = enemyTargets(state, monster);
   if (targets.length === 0) return [endTurn];
+
+  const spell = planMonsterSpell(state, monster, targets);
+  if (spell) return [spell, endTurn];
 
   const profile = monsterAttackProfile(monster);
   const ranged = monsterRangedProfile(monster);

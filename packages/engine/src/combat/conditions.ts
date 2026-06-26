@@ -54,6 +54,9 @@ export type ConditionState = {
   source?: string;
   /** Exhaustion tier 1-6; ignored for other conditions. */
   level?: number;
+  /** When set, the condition ends when this caster's concentration on the spell breaks. */
+  concentrationSpell?: string;
+  concentrationHolder?: string;
 };
 
 export const EXHAUSTION_MAX = 6 as const;

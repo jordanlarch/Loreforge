@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Engine } from "./engine";
-import { effectiveAc } from "./combat/effects";
+import { effectiveAc, effectiveSpeedForEntity } from "./combat/effects";
 
 const CAMPAIGN = "c:effects";
 
@@ -181,5 +181,132 @@ describe("Active effects (ENG-13)", () => {
         (e.payload as { scope: string }).scope.includes("hunters-mark"),
     );
     expect(markRoll).toBeDefined();
+  });
+
+  it("end_concentration removes Hold Person paralysis on the target", async () => {
+    const engine = new Engine({ now: () => 3 });
+    await seedCombatants(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:wizard",
+        kind: "character",
+        name: "Wizard",
+        abilityScores: { str: 8, dex: 14, con: 12, int: 18, wis: 10, cha: 10 },
+        maxHp: 30,
+        baseAc: 12,
+        sceneId: "s:1",
+        position: { x: 0, y: 2 },
+        classes: [{ class: "Wizard", level: 5 }],
+        spellcasting: { ability: "int", casterLevel: 5 },
+      },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:wizard",
+      spellId: "hold-person",
+      slotLevel: 2,
+      targets: ["t1"],
+    });
+    let state = await engine.getState(CAMPAIGN);
+    expect(state.entities.t1!.conditions.some((c) => c.condition === "paralyzed")).toBe(
+      true,
+    );
+    await engine.execute(CAMPAIGN, {
+      type: "end_concentration",
+      entity: "pc:wizard",
+    });
+    state = await engine.getState(CAMPAIGN);
+    expect(state.entities.t1!.conditions.some((c) => c.condition === "paralyzed")).toBe(
+      false,
+    );
+  });
+
+  it("dispel_magic removes an active effect", async () => {
+    const engine = new Engine({ now: () => 5 });
+    await seedCombatants(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:cleric",
+      spellId: "bless",
+      slotLevel: 1,
+      targets: ["pc:fighter"],
+    });
+    let state = await engine.getState(CAMPAIGN);
+    expect((state.entities["pc:fighter"]!.effects ?? []).length).toBeGreaterThan(0);
+    const dispel = await engine.execute(CAMPAIGN, {
+      type: "dispel_magic",
+      caster: "pc:cleric",
+      target: "pc:fighter",
+      slotLevel: 3,
+    });
+    expect(dispel.accepted).toBe(true);
+    state = await engine.getState(CAMPAIGN);
+    expect(state.entities["pc:fighter"]!.effects ?? []).toHaveLength(0);
+  });
+
+  it("Haste grants +30 ft effective speed", async () => {
+    const engine = new Engine({ now: () => 9 });
+    await seedCombatants(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:wizard",
+        kind: "character",
+        name: "Wizard",
+        abilityScores: { str: 8, dex: 14, con: 12, int: 18, wis: 10, cha: 10 },
+        maxHp: 30,
+        baseAc: 12,
+        speed: 30,
+        sceneId: "s:1",
+        position: { x: 0, y: 2 },
+        classes: [{ class: "Wizard", level: 5 }],
+        spellcasting: { ability: "int", casterLevel: 5 },
+      },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:wizard",
+      spellId: "haste",
+      slotLevel: 3,
+      targets: ["pc:fighter"],
+    });
+    const state = await engine.getState(CAMPAIGN);
+    expect(effectiveSpeedForEntity(state.entities["pc:fighter"]!)).toBe(60);
+  });
+
+  it("Mirror Image expires after timed rounds", async () => {
+    const engine = new Engine({ now: () => 13 });
+    await seedCombatants(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:wizard",
+        kind: "character",
+        name: "Wizard",
+        abilityScores: { str: 8, dex: 14, con: 12, int: 18, wis: 10, cha: 10 },
+        maxHp: 30,
+        baseAc: 12,
+        sceneId: "s:1",
+        position: { x: 0, y: 2 },
+        classes: [{ class: "Wizard", level: 5 }],
+        spellcasting: { ability: "int", casterLevel: 5 },
+      },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:wizard",
+      spellId: "mirror-image",
+      slotLevel: 2,
+      targets: [],
+    });
+    let state = await engine.getState(CAMPAIGN);
+    expect((state.entities["pc:wizard"]!.effects ?? []).length).toBe(1);
+    const orderLen = state.encounter!.order.length;
+    for (let i = 0; i < orderLen * 10; i++) {
+      await engine.execute(CAMPAIGN, { type: "end_turn" });
+    }
+    state = await engine.getState(CAMPAIGN);
+    expect(state.entities["pc:wizard"]!.effects ?? []).toHaveLength(0);
   });
 });

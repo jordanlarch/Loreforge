@@ -9,7 +9,7 @@
  * scores. This is intentionally a small curated set, not the full SRD bestiary
  * (that rides the content-ingest track); add rows as encounters need them.
  */
-import type { AbilityScores } from "../entities/types";
+import type { AbilityScores, Ability } from "../entities/types";
 
 /** A reusable monster statline placed into an encounter. */
 export type MonsterTemplate = {
@@ -32,6 +32,12 @@ export type MonsterTemplate = {
     rangeFt: number;
     attackBonus?: number;
     damage: { notation: string; type: string };
+  };
+  /** Innate or learned spells for enemy AI spell turns (PLAY-15). */
+  spellcasting?: {
+    ability: Ability;
+    casterLevel: number;
+    spellIds: string[];
   };
 };
 
@@ -101,6 +107,21 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     cr: "2",
     xp: 450,
     attacksPerAction: 2,
+  },
+  cultist: {
+    slug: "cultist",
+    name: "Cultist",
+    abilityScores: { str: 10, dex: 10, con: 12, int: 14, wis: 12, cha: 14 },
+    maxHp: 22,
+    baseAc: 12,
+    speed: 30,
+    cr: "1",
+    xp: 200,
+    spellcasting: {
+      ability: "int",
+      casterLevel: 3,
+      spellIds: ["burning-hands", "fire-bolt"],
+    },
   },
   "hungering-shade": {
     slug: "hungering-shade",

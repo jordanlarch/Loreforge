@@ -122,6 +122,7 @@ export type FoeSpec = {
   rangedAttackRangeFt?: number;
   rangedAttackBonus?: number;
   rangedDamage?: { notation: string; type: string };
+  spellcasting?: import("../entities/types").SpellcastingInit;
 };
 
 /** The two goblin foes the default ambush fields, as {@link FoeSpec}s. */
@@ -249,6 +250,7 @@ export function buildPartyBattleCommands(
           ? { rangedAttackBonus: f.rangedAttackBonus }
           : {}),
         ...(f.rangedDamage !== undefined ? { rangedDamage: f.rangedDamage } : {}),
+        ...(f.spellcasting ? { spellcasting: f.spellcasting } : {}),
       },
     })),
     {
@@ -282,6 +284,11 @@ export function expandEncounterFoes(
       attackBonus?: number;
       damage: { notation: string; type: string };
     };
+    spellcasting?: {
+      ability: import("../entities/types").Ability;
+      casterLevel: number;
+      spellIds: string[];
+    };
   } | undefined,
 ): FoeSpec[] {
   const foes: FoeSpec[] = [];
@@ -309,6 +316,15 @@ export function expandEncounterFoes(
                 ? { rangedAttackBonus: template.rangedAttack.attackBonus }
                 : {}),
               rangedDamage: template.rangedAttack.damage,
+            }
+          : {}),
+        ...(template.spellcasting
+          ? {
+              spellcasting: {
+                ability: template.spellcasting.ability,
+                casterLevel: template.spellcasting.casterLevel,
+                preparedSpellIds: [...template.spellcasting.spellIds],
+              },
             }
           : {}),
       });

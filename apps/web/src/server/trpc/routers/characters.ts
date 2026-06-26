@@ -20,6 +20,7 @@ import { z } from "zod";
 
 import {
   campaignCharacters,
+  campaignInvites,
   campaigns,
   characters,
   codexClasses,
@@ -402,6 +403,52 @@ export const charactersRouter = createTRPCRouter({
         .onConflictDoNothing()
         .returning();
       return row ?? null;
+    }),
+
+  /**
+   * Permanently delete an owned character and remove them from every campaign
+   * party (My Characters danger action).
+   */
+  delete: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const owner = ctx.user.id;
+      const [row] = await db
+        .select({ id: characters.id })
+        .from(characters)
+        .where(
+          and(eq(characters.id, input.id), eq(characters.ownerId, owner)),
+        )
+        .limit(1);
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+
+      await db
+        .update(campaignInvites)
+        .set({ characterId: null })
+        .where(
+          and(
+            eq(campaignInvites.characterId, input.id),
+            eq(campaignInvites.ownerId, owner),
+          ),
+        );
+      await db
+        .delete(campaignCharacters)
+        .where(
+          and(
+            eq(campaignCharacters.characterId, input.id),
+            eq(campaignCharacters.ownerId, owner),
+          ),
+        );
+      await db
+        .delete(characters)
+        .where(and(eq(characters.id, input.id), eq(characters.ownerId, owner)));
+      return { ok: true };
     }),
 
   /** Remove a character from a campaign (owner-scoped, idempotent). */

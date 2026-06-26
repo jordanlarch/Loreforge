@@ -23,6 +23,7 @@ import {
   distanceFeet,
   FEET_PER_CELL,
   FIXTURE_BATTLE_PARTY_SIDE,
+  hasLineOfSight,
   moveAction,
   REACH_FEET,
   readyTriggerRangeFeet,
@@ -298,6 +299,53 @@ function targetsInRangedReach(
   });
 }
 
+/** Map walls + occupied cells block LoS (mirrors engine attack validation). */
+function isBlockedForLoS(
+  state: WorldState,
+  sceneId: string,
+  exclude: Set<string>,
+): (cell: GridPosition) => boolean {
+  const walls = state.scenes[sceneId]?.map?.blockedCells ?? [];
+  return (cell: GridPosition) => {
+    if (walls.some((w) => w.x === cell.x && w.y === cell.y)) return true;
+    for (const e of Object.values(state.entities)) {
+      if (!e.alive || !e.position || e.sceneId !== sceneId) continue;
+      if (exclude.has(e.id)) continue;
+      if (e.position.x === cell.x && e.position.y === cell.y) return true;
+    }
+    return false;
+  };
+}
+
+/** Whether `from` has clear LoS to `target` on the mapped scene. */
+function hasLoSTo(
+  state: WorldState,
+  from: GridPosition,
+  target: EntityState,
+  attackerId: string,
+): boolean {
+  if (!target.position || !target.sceneId) return false;
+  const exclude = new Set([attackerId, target.id]);
+  return hasLineOfSight(
+    from,
+    target.position,
+    isBlockedForLoS(state, target.sceneId, exclude),
+  );
+}
+
+/** Ranged targets in weapon range *and* with line of sight. */
+function targetsInRangedLoS(
+  state: WorldState,
+  attacker: EntityState,
+  targets: EntityState[],
+  rangeFt: number,
+): EntityState[] {
+  if (!attacker.position) return [];
+  return targetsInRangedReach(targets, attacker.position, rangeFt).filter((t) =>
+    hasLoSTo(state, attacker.position!, t, attacker.id),
+  );
+}
+
 /** Plan repeated attacks against the weakest foe in reach. */
 function planAttacks(
   monsterId: string,
@@ -354,11 +402,12 @@ export function planMonsterTurn(
     ];
   }
 
-  // In ranged weapon range but not melee → fire without closing (PLAY-15).
+  // In ranged weapon range with LoS but not melee → fire without closing (PLAY-15).
   if (ranged && budget > 0) {
-    const inRange = targetsInRangedReach(
+    const inRange = targetsInRangedLoS(
+      state,
+      monster,
       targets,
-      monster.position,
       ranged.rangeFt,
     );
     if (inRange.length > 0) {
@@ -387,7 +436,8 @@ export function planMonsterTurn(
       ranged &&
       budget > 0 &&
       distanceFeet(step, target.position!) <= ranged.rangeFt &&
-      distanceFeet(step, target.position!) > REACH_FEET
+      distanceFeet(step, target.position!) > REACH_FEET &&
+      hasLoSTo(state, step, target, monster.id)
     ) {
       const rangedProfile = {
         attackBonus: ranged.attackBonus,

@@ -374,6 +374,40 @@ describe("planMonsterTurn", () => {
     expect(attack.rangeFt).toBe(80);
   });
 
+  it("moves instead of planning a doomed ranged shot when a wall blocks LoS (PLAY-15)", () => {
+    const ambushWalls = [
+      { x: 6, y: 2 },
+      { x: 6, y: 3 },
+      { x: 6, y: 7 },
+      { x: 6, y: 8 },
+    ];
+    const bandit = ent({
+      id: "bandit",
+      position: { x: 9, y: 3 },
+      rangedAttackRangeFt: 80,
+      rangedDamage: { notation: "1d8+1", type: "piercing" },
+      actionEconomy: turnEconomy(30),
+    });
+    const hero = ent({
+      id: "hero",
+      kind: "character",
+      position: { x: 2, y: 2 },
+    });
+    const state = {
+      ...battle([bandit, hero], { bandit: "foes", hero: "party" }),
+      scenes: {
+        s1: {
+          id: "s1",
+          name: "Road ambush",
+          map: { width: 12, height: 10, blockedCells: ambushWalls },
+        },
+      },
+    } as WorldState;
+    const plan = planMonsterTurn(state, "bandit");
+    // No LoS from the spawn square — close one step through the wall gap, then shoot.
+    expect(plan.map((a) => a.type)).toEqual(["move_entity", "attack", "end_turn"]);
+  });
+
   it("ends the turn when dead or targetless", () => {
     const dead = ent({
       id: "goblin",

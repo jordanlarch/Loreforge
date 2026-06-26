@@ -29,6 +29,8 @@ export function SheetHeader({
   onLevelUp,
   canLevelUp,
   atCap,
+  onXpChange,
+  xpRemaining,
 }: {
   character: HeaderCharacter;
   sheet: CharacterSheet;
@@ -40,6 +42,8 @@ export function SheetHeader({
   onLevelUp: () => void;
   canLevelUp: boolean;
   atCap: boolean;
+  onXpChange: (xp: number) => void;
+  xpRemaining: number | null;
 }) {
   const progress = xpProgress(character.xp, sheet.level);
   const subclassLine = character.classes
@@ -102,13 +106,34 @@ export function SheetHeader({
           </p>
           <div className="mt-2 max-w-sm">
             <div className="mb-1 flex justify-between text-xs text-lore-muted">
-              <span>
-                XP {character.xp.toLocaleString()}
-                {atCap ? " · Max" : ` / ${progress.ceiling?.toLocaleString()}`}
-              </span>
-              {!atCap && progress.nextLevel && (
-                <span>→ Lvl {progress.nextLevel}</span>
-              )}
+              <label className="flex items-center gap-1">
+                XP
+                <input
+                  type="number"
+                  min={0}
+                  defaultValue={character.xp}
+                  key={character.xp}
+                  onBlur={(e) => {
+                    const next = Math.max(0, Number(e.target.value) || 0);
+                    if (next !== character.xp) onXpChange(next);
+                  }}
+                  className="w-20 rounded border border-lore-border bg-lore-bg px-1 py-0.5 text-right font-mono tabular-nums outline-none focus:border-lore-accent"
+                  aria-label="Experience points"
+                />
+              </label>
+              {atCap ? (
+                <span>Max level</span>
+              ) : progress.nextLevel ? (
+                <span>
+                  → Lvl {progress.nextLevel}
+                  {!canLevelUp && xpRemaining != null && xpRemaining > 0 && (
+                    <span className="text-lore-accent">
+                      {" "}
+                      ({xpRemaining.toLocaleString()} to unlock)
+                    </span>
+                  )}
+                </span>
+              ) : null}
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-lore-bg">
               <div

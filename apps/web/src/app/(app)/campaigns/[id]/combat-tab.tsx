@@ -114,6 +114,16 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
   const remove = trpc.campaigns.deleteEncounter.useMutation({
     onSuccess: refresh,
   });
+  const awardXp = trpc.characters.awardCampaignXp.useMutation({
+    onSuccess: async (result) => {
+      await utils.characters.list.invalidate();
+      await utils.characters.listDashboard.invalidate();
+      await utils.campaigns.party.invalidate({ campaignId });
+      window.alert(
+        `Awarded ${result.perCharacter} XP to each of ${result.recipientCount} PC(s).`,
+      );
+    },
+  });
 
   const list = (encounters.data ?? []) as Encounter[];
 
@@ -143,7 +153,9 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {list.map((enc) => (
+          {list.map((enc) => {
+            const rating = rateEncounter(partyLevels, foeXps(enc.foes));
+            return (
             <li
               key={enc.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-lore-border bg-lore-surface p-4"
@@ -158,19 +170,14 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
                       Armed
                     </span>
                   )}
-                  {(() => {
-                    const rating = rateEncounter(partyLevels, foeXps(enc.foes));
-                    return (
-                      <DifficultyBadge
-                        difficulty={rating.difficulty}
-                        title={
-                          rating.difficulty === "unknown"
-                            ? "Add party members to rate difficulty"
-                            : `Adjusted ${rating.adjustedXp} XP (×${rating.multiplier}) vs party thresholds — E ${rating.thresholds.easy} / M ${rating.thresholds.medium} / H ${rating.thresholds.hard} / D ${rating.thresholds.deadly}`
-                        }
-                      />
-                    );
-                  })()}
+                  <DifficultyBadge
+                    difficulty={rating.difficulty}
+                    title={
+                      rating.difficulty === "unknown"
+                        ? "Add party members to rate difficulty"
+                        : `Adjusted ${rating.adjustedXp} XP (×${rating.multiplier}) vs party thresholds — E ${rating.thresholds.easy} / M ${rating.thresholds.medium} / H ${rating.thresholds.hard} / D ${rating.thresholds.deadly}`
+                    }
+                  />
                 </div>
                 <p className="mt-1 text-sm text-lore-muted">
                   {foeSummary(enc.foes)}
@@ -180,6 +187,22 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {rating.difficulty !== "unknown" && rating.adjustedXp > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      awardXp.mutate({
+                        campaignId,
+                        totalXp: rating.adjustedXp,
+                      })
+                    }
+                    disabled={awardXp.isPending || partyLevels.length === 0}
+                    className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
+                    title="Split encounter XP evenly among active PCs"
+                  >
+                    Award XP
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -202,7 +225,8 @@ export function CombatTab({ campaignId }: { campaignId: string }) {
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

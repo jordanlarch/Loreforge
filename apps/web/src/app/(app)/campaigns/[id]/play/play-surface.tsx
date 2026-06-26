@@ -48,6 +48,7 @@ import {
 import type { CoachmarkDef } from "@/lib/coachmark";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { buildExploreModel } from "@/lib/live-explore";
+import { resolvePcCharacterId } from "@/lib/campaign-access";
 import { resolveCurrentMapLevel } from "@/lib/map-zoom-level";
 import { joinedSincePrompt } from "@/lib/live-presence";
 import type { PartyRosterRow } from "@/lib/live-party";
@@ -1084,7 +1085,14 @@ function CampaignPlaySession({
   // by real loadouts. Absent rows simply fall back to the generic behavior.
   const loadoutQuery = trpc.campaigns.partyLoadout.useQuery({ campaignId });
   const partyQuery = trpc.campaigns.party.useQuery({ campaignId });
-  const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
+  const accessQuery = trpc.campaigns.access.useQuery({ campaignId });
+  const pcCharacterId = resolvePcCharacterId(
+    accessQuery.data?.role ?? null,
+    accessQuery.data?.characterId,
+    partyQuery.data,
+  );
+  const backHref =
+    accessQuery.data?.role === "player" ? "/campaigns" : `/campaigns/${campaignId}`;
   const loadouts = useMemo(() => {
     const map: Record<string, SheetData> = {};
     for (const row of loadoutQuery.data ?? []) {
@@ -1098,7 +1106,7 @@ function CampaignPlaySession({
       session={session}
       title={title}
       context="Live campaign"
-      backHref={`/campaigns/${campaignId}`}
+      backHref={backHref}
       loadouts={loadouts}
       campaignId={campaignId}
       pcCharacterId={pcCharacterId}

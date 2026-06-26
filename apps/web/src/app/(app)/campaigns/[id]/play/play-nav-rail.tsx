@@ -4,6 +4,7 @@ import {
   PLAY_NAV_ITEMS,
   type PlayNavId,
 } from "@/lib/play-shell";
+import type { CampaignAccessRole } from "@/lib/campaign-access";
 
 /**
  * Left icon nav for the play shell (CAMP-UX UX-1).
@@ -11,15 +12,20 @@ import {
 export function PlayNavRail({
   active,
   campaignId,
+  role,
   onSelect,
 }: {
   active: PlayNavId | null;
   campaignId?: string;
+  /** Seated players see a reduced nav (CAMP-14). */
+  role?: CampaignAccessRole | null;
   onSelect: (id: PlayNavId) => void;
 }) {
-  const items = PLAY_NAV_ITEMS.filter(
-    (item) => !item.campaignOnly || campaignId,
-  );
+  const items = PLAY_NAV_ITEMS.filter((item) => {
+    if (item.campaignOnly && !campaignId) return false;
+    if (item.ownerOnly && role === "player") return false;
+    return true;
+  });
 
   return (
     <nav

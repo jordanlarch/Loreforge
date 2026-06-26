@@ -51,7 +51,30 @@ export function backgroundSkillProficiencies(
   );
 }
 
-/** Display helpers for Open5e feat rows in the Codex UI. */
+/** Parse non-skill background benefits for the Features tab. */
+export function backgroundFeatureEntries(
+  raw: Record<string, unknown>,
+): { name: string; description: string; type?: string | null }[] {
+  return backgroundBenefits(raw)
+    .filter((b) => b.type !== "skill_proficiency")
+    .map((b) => ({
+      name: b.name?.trim() || "Background feature",
+      description: b.desc?.trim() || "",
+      type: b.type,
+    }))
+    .filter((b) => b.description.length > 0 || b.name.length > 0);
+}
+
+/** Origin feat benefit name from background raw, if present. */
+export function backgroundOriginFeatName(
+  raw: Record<string, unknown>,
+): string | null {
+  const feat = backgroundBenefits(raw).find(
+    (b) => b.type === "feat" || b.type === "origin_feat",
+  );
+  return feat?.name?.trim() ?? null;
+}
+
 
 type FeatBenefit = { desc?: string | null };
 

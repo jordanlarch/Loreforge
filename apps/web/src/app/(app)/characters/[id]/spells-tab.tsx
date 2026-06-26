@@ -13,6 +13,8 @@ import {
   multiclassCasterLevel,
   sheetSlotPoolsFromClasses,
   spellcastingAbilityForClasses,
+  warlockLevelFromClasses,
+  warlockPactMagic,
 } from "@app/engine";
 
 import {
@@ -37,11 +39,14 @@ import {
   spellRowIsCastable,
 } from "@/lib/spell-cast-sheet";
 import type { CastableSpell } from "@/lib/live-combat";
+import type { PactMagicPool } from "@/lib/character-sheet-storage";
 
 export function SpellsTab({
   spells,
   sheet,
   classes,
+  pactMagic,
+  onPatchPactMagic,
   saving,
   onSave,
   onCastSpell,
@@ -49,6 +54,8 @@ export function SpellsTab({
   spells: SpellLoadout;
   sheet?: CharacterSheet;
   classes?: { class: string; level: number }[];
+  pactMagic?: PactMagicPool | null;
+  onPatchPactMagic?: (pool: PactMagicPool | null) => void;
   saving: boolean;
   onSave: (spells: SpellLoadout) => void;
   /** Live Play: post spell cast intent to campaign chat. */
@@ -129,6 +136,9 @@ export function SpellsTab({
         : null;
   const saveDc = spellMod ? 8 + sheet!.proficiencyBonus + spellMod.mod : null;
   const casterLevel = classes ? multiclassCasterLevel(classes) : 0;
+  const warlockLevel = classes ? warlockLevelFromClasses(classes) : 0;
+  const suggestedPact =
+    warlockLevel > 0 ? warlockPactMagic(warlockLevel) : null;
 
   function applySuggestedSlots() {
     if (!classes?.length) return;
@@ -141,6 +151,13 @@ export function SpellsTab({
       }
       return { ...d, slots };
     });
+    if (suggestedPact && onPatchPactMagic) {
+      onPatchPactMagic({
+        max: suggestedPact.max,
+        used: pactMagic?.used ?? 0,
+        slotLevel: suggestedPact.slotLevel,
+      });
+    }
   }
 
   return (
@@ -246,6 +263,56 @@ export function SpellsTab({
         </div>
         <p className="mt-1 text-xs text-lore-muted">Used / Max per spell level.</p>
       </section>
+
+      {suggestedPact && (
+        <section className="mb-6 rounded-lg border border-lore-accent/30 bg-lore-accent-dim/20 p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs uppercase tracking-widest text-lore-muted">
+              Pact Magic (Warlock {warlockLevel})
+            </h3>
+            {!pactMagic && onPatchPactMagic && (
+              <button
+                type="button"
+                onClick={() => onPatchPactMagic(suggestedPact)}
+                className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent"
+              >
+                Apply pact slots
+              </button>
+            )}
+          </div>
+          <p className="text-sm">
+            {pactMagic?.max ?? suggestedPact.max} slot
+            {(pactMagic?.max ?? suggestedPact.max) === 1 ? "" : "s"} · cast
+            at level {pactMagic?.slotLevel ?? suggestedPact.slotLevel}
+          </p>
+          {pactMagic && onPatchPactMagic && (
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <span className="text-lore-muted">Used</span>
+              <input
+                type="number"
+                min={0}
+                max={pactMagic.max}
+                value={pactMagic.used}
+                onChange={(e) =>
+                  onPatchPactMagic({
+                    ...pactMagic,
+                    used: Math.min(
+                      pactMagic.max,
+                      Math.max(0, Number(e.target.value) || 0),
+                    ),
+                  })
+                }
+                className={`${INPUT} w-12 text-center`}
+              />
+              <span className="text-lore-muted">/ {pactMagic.max}</span>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-lore-muted">
+            Pact slots refresh on short rest and are separate from pooled
+            multiclass slots.
+          </p>
+        </section>
+      )}
 
       {/* Known / prepared spells, grouped by level */}
       {draft.spells.length === 0 ? (

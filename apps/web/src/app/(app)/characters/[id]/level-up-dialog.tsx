@@ -4,35 +4,30 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   abilityModifier,
-  ABILITIES,
-  classFeaturesForLevel,
-  featureStubsForLevel,
   grantsAsiAtLevel,
+  featureStubsForLevel,
+  classFeaturesForLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
   levelUpSeed,
   proficiencyBonusForLevel,
+  subclassPickLevel,
   totalLevel,
-  type Ability,
   type AbilityScores,
-  type AsiChoice,
   type ClassLevel,
   type HpMethod,
 } from "@app/engine";
 
+import {
+  AsiFeatChoice,
+  asiFeatComplete,
+  type AsiFeatSelection,
+} from "@/components/character-creation/asi-feat-choice";
+import { SubclassPicker } from "@/components/character-creation/class-choice-pickers";
 import { trpc } from "@/lib/trpc/client";
 
 const MAX_LEVEL = 20;
 const WIZARD_STEPS = ["Hit Points", "New Features", "Confirm"] as const;
-
-const ABILITY_LABELS: Record<Ability, string> = {
-  str: "STR",
-  dex: "DEX",
-  con: "CON",
-  int: "INT",
-  wis: "WIS",
-  cha: "CHA",
-};
 
 type Character = {
   id: string;
@@ -40,6 +35,7 @@ type Character = {
   classes: ClassLevel[];
   abilityScores: AbilityScores;
   maxHp: number;
+  notes: string;
 };
 
 function signed(n: number): string {
@@ -48,9 +44,11 @@ function signed(n: number): string {
 
 export function LevelUpDialog({
   character,
+  milestoneXp,
   onClose,
 }: {
   character: Character;
+  milestoneXp?: boolean;
   onClose: () => void;
 }) {
   const utils = trpc.useUtils();
@@ -58,12 +56,11 @@ export function LevelUpDialog({
 
   const [wizardStep, setWizardStep] = useState(0);
   const [classIndex, setClassIndex] = useState(0);
+  const [addNewClass, setAddNewClass] = useState<string | null>(null);
   const [hpMethod, setHpMethod] = useState<HpMethod>("average");
   const [celebrating, setCelebrating] = useState(false);
-  const [asiMode, setAsiMode] = useState<"increase" | "split">("increase");
-  const [asiAbility, setAsiAbility] = useState<Ability>("str");
-  const [asiFirst, setAsiFirst] = useState<Ability>("str");
-  const [asiSecond, setAsiSecond] = useState<Ability>("dex");
+  const [subclass, setSubclass] = useState("");
+  const [asiFeat, setAsiFeat] = useState<AsiFeatSelection | null>(null);
 
   const levelUp = trpc.characters.levelUp.useMutation({
     onSuccess: async () => {
@@ -87,22 +84,25 @@ export function LevelUpDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, celebrating]);
 
-  const target = character.classes[classIndex];
+  const addingClass = addNewClass != null;
+  const target = addingClass ? null : character.classes[classIndex];
   const conMod = abilityModifier(character.abilityScores.con);
 
   const hitDie = useMemo(() => {
-    if (!target) return null;
+    const className = addingClass ? addNewClass : target?.class;
+    if (!className) return null;
     return (
-      codexClasses.data?.find((c) => c.name === target.class)?.hitDie ?? null
+      codexClasses.data?.find((c) => c.name === className)?.hitDie ?? null
     );
-  }, [codexClasses.data, target]);
+  }, [codexClasses.data, target, addingClass, addNewClass]);
 
-  if (!target) return null;
+  if (!addingClass && !target) return null;
 
-  const atClassCap = target.level >= MAX_LEVEL;
+  const atClassCap = !addingClass && target!.level >= MAX_LEVEL;
   const atTotalCap = totalLevel(character.classes) >= MAX_LEVEL;
-  const newClassLevel = target.level + 1;
+  const newClassLevel = addingClass ? 1 : target!.level + 1;
   const newTotalLevel = totalLevel(character.classes) + 1;
+  const className = addingClass ? addNewClass! : target!.class;
 
   const profBefore = proficiencyBonusForLevel(totalLevel(character.classes));
   const profAfter = proficiencyBonusForLevel(newTotalLevel);
@@ -110,28 +110,38 @@ export function LevelUpDialog({
   const hpGain =
     hitDie == null
       ? null
-      : hpMethod === "roll"
-        ? hpRollFromSeed(
-            hitDie,
-            conMod,
-            levelUpSeed(character.id, newTotalLevel),
-          )
-        : hpGainOnLevelUp(hitDie, conMod, { mode: "average" });
+      : addingClass
+        ? hitDie + conMod
+        : hpMethod === "roll"
+          ? hpRollFromSeed(
+              hitDie,
+              conMod,
+              levelUpSeed(character.id, newTotalLevel),
+            )
+          : hpGainOnLevelUp(hitDie, conMod, { mode: "average" });
 
-  const featureStubs = featureStubsForLevel(target.class, newClassLevel);
-  const levelFeatures = classFeaturesForLevel(target.class, newClassLevel);
-  const grantsAsi = grantsAsiAtLevel(target.class, newClassLevel);
-  const asiChoice: AsiChoice | undefined = grantsAsi
-    ? asiMode === "increase"
-      ? { mode: "increase", ability: asiAbility, amount: 2 }
-      : { mode: "split", first: asiFirst, second: asiSecond }
-    : undefined;
+  const featureStubs = addingClass
+    ? featureStubsForLevel(className, 1)
+    : featureStubsForLevel(className, newClassLevel);
+  const levelFeatures = addingClass
+    ? classFeaturesForLevel(className, 1)
+    : classFeaturesForLevel(className, newClassLevel);
+  const grantsAsi = !addingClass && grantsAsiAtLevel(className, newClassLevel);
+  const needsSubclass =
+    !addingClass && subclassPickLevel(className) === newClassLevel;
+
   const blocked = atClassCap || atTotalCap || hitDie == null;
-  const asiInvalid =
-    grantsAsi &&
-    asiChoice != null &&
-    asiChoice.mode === "split" &&
-    asiChoice.first === asiChoice.second;
+  const asiInvalid = grantsAsi && !asiFeatComplete(asiFeat);
+  const subclassInvalid = needsSubclass && !subclass.trim();
+
+  const canMulticlass =
+    character.classes[0] != null &&
+    character.classes[0].level >= 2 &&
+    totalLevel(character.classes) < MAX_LEVEL;
+
+  const availableNewClasses = (codexClasses.data ?? []).filter(
+    (c) => !character.classes.some((cl) => cl.class === c.name),
+  );
 
   if (celebrating) {
     return (
@@ -172,7 +182,9 @@ export function LevelUpDialog({
               Level Up · Step {wizardStep + 1} of {WIZARD_STEPS.length}
             </div>
             <h2 className="mt-1 font-display text-2xl">
-              {target.class} → Level {newClassLevel}
+              {addingClass
+                ? `Multiclass: ${addNewClass} 1`
+                : `${target!.class} → Level ${newClassLevel}`}
             </h2>
           </div>
           <button
@@ -205,14 +217,14 @@ export function LevelUpDialog({
         {atClassCap || atTotalCap ? (
           <p className="mt-6 rounded border border-lore-border bg-lore-surface px-3 py-4 text-sm text-lore-muted">
             {atClassCap
-              ? `${target.class} is already at the level ${MAX_LEVEL} cap.`
+              ? `${target!.class} is already at the level ${MAX_LEVEL} cap.`
               : `This character is already at the level ${MAX_LEVEL} cap.`}
           </p>
         ) : (
           <>
             {wizardStep === 0 && (
               <>
-                {character.classes.length > 1 && (
+                {!addingClass && character.classes.length > 1 && (
                   <section className="mt-6">
                     <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
                       Advance which class?
@@ -222,9 +234,12 @@ export function LevelUpDialog({
                         <button
                           key={`${c.class}-${i}`}
                           type="button"
-                          onClick={() => setClassIndex(i)}
+                          onClick={() => {
+                            setClassIndex(i);
+                            setAddNewClass(null);
+                          }}
                           className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                            i === classIndex
+                            i === classIndex && !addingClass
                               ? "border-lore-accent bg-lore-accent-dim text-lore-text"
                               : "border-lore-border text-lore-muted hover:text-lore-text"
                           }`}
@@ -236,40 +251,74 @@ export function LevelUpDialog({
                   </section>
                 )}
 
+                {canMulticlass && !addingClass && (
+                  <section className="mt-4">
+                    <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
+                      Or multiclass into…
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {availableNewClasses.slice(0, 8).map((c) => (
+                        <button
+                          key={c.slug}
+                          type="button"
+                          onClick={() => setAddNewClass(c.name)}
+                          className={`rounded-full border px-3 py-1.5 text-xs ${
+                            addNewClass === c.name
+                              ? "border-lore-accent bg-lore-accent-dim"
+                              : "border-lore-border text-lore-muted"
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                    {addNewClass && (
+                      <button
+                        type="button"
+                        onClick={() => setAddNewClass(null)}
+                        className="mt-2 text-xs text-lore-muted hover:text-lore-text"
+                      >
+                        Cancel multiclass
+                      </button>
+                    )}
+                  </section>
+                )}
+
                 <section className="mt-6">
                   <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
                     Hit Points
                   </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["average", "roll"] as HpMethod[]).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setHpMethod(m)}
-                        className={`rounded-lg border px-3 py-3 text-left transition-colors ${
-                          hpMethod === m
-                            ? "border-lore-accent bg-lore-accent-dim"
-                            : "border-lore-border bg-lore-surface hover:border-lore-accent"
-                        }`}
-                      >
-                        <div className="text-sm font-medium">
-                          {m === "average" ? "Take average" : "Roll hit die"}
-                        </div>
-                        <div className="mt-0.5 text-xs text-lore-muted">
-                          {hitDie == null
-                            ? "—"
-                            : m === "average"
-                              ? `${Math.floor(hitDie / 2) + 1} + ${signed(conMod)} CON`
-                              : `1d${hitDie} + ${signed(conMod)} CON`}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  {hitDie == null && (
-                    <p className="mt-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
-                      Can&apos;t find an SRD hit die for &ldquo;{target.class}
-                      &rdquo;. Level-up needs a class from the Codex.
+                  {addingClass ? (
+                    <p className="text-sm text-lore-muted">
+                      First level in a new class: {hitDie ?? "—"} + CON (
+                      {signed(conMod)}) = {hpGain ?? "—"} HP
                     </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["average", "roll"] as HpMethod[]).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setHpMethod(m)}
+                          className={`rounded-lg border px-3 py-3 text-left transition-colors ${
+                            hpMethod === m
+                              ? "border-lore-accent bg-lore-accent-dim"
+                              : "border-lore-border bg-lore-surface hover:border-lore-accent"
+                          }`}
+                        >
+                          <div className="text-sm font-medium">
+                            {m === "average" ? "Take average" : "Roll hit die"}
+                          </div>
+                          <div className="mt-0.5 text-xs text-lore-muted">
+                            {hitDie == null
+                              ? "—"
+                              : m === "average"
+                                ? `${Math.floor(hitDie / 2) + 1} + ${signed(conMod)} CON`
+                                : `1d${hitDie} + ${signed(conMod)} CON`}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </section>
 
@@ -298,6 +347,9 @@ export function LevelUpDialog({
                           : `${signed(profBefore)} → ${signed(profAfter)}`
                       }
                     />
+                    {milestoneXp && (
+                      <PreviewRow label="XP mode" value="Milestone (auto-sync)" />
+                    )}
                   </dl>
                 </section>
               </>
@@ -306,7 +358,7 @@ export function LevelUpDialog({
             {wizardStep === 1 && (
               <section className="mt-6">
                 <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
-                  New at {target.class} {newClassLevel}
+                  New at {className} {newClassLevel}
                 </h3>
                 {levelFeatures.length > 0 ? (
                   <ul className="space-y-2">
@@ -322,78 +374,29 @@ export function LevelUpDialog({
                   </ul>
                 ) : (
                   <p className="text-sm text-lore-muted">
-                    No new class features at this level.
+                    {featureStubs.length > 0
+                      ? featureStubs.join(" · ")
+                      : "No new class features at this level."}
                   </p>
+                )}
+
+                {needsSubclass && (
+                  <SubclassPicker
+                    className={className}
+                    level={newClassLevel}
+                    value={subclass}
+                    onChange={setSubclass}
+                  />
                 )}
 
                 {grantsAsi && (
-                  <div className="mt-6 rounded-lg border border-lore-accent/40 bg-lore-accent-dim/30 p-4">
-                    <h4 className="text-xs uppercase tracking-wide text-lore-muted">
-                      Ability Score Improvement
-                    </h4>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {(["increase", "split"] as const).map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setAsiMode(m)}
-                          className={`rounded-full border px-3 py-1 text-xs ${
-                            asiMode === m
-                              ? "border-lore-accent bg-lore-accent-dim"
-                              : "border-lore-border text-lore-muted"
-                          }`}
-                        >
-                          {m === "increase" ? "+2 to one" : "+1 to two"}
-                        </button>
-                      ))}
-                    </div>
-                    {asiMode === "increase" ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {ABILITIES.map((a) => (
-                          <button
-                            key={a}
-                            type="button"
-                            onClick={() => setAsiAbility(a)}
-                            className={`rounded border px-2 py-1 text-xs font-mono ${
-                              asiAbility === a
-                                ? "border-lore-accent bg-lore-accent-dim"
-                                : "border-lore-border"
-                            }`}
-                          >
-                            {ABILITY_LABELS[a]}{" "}
-                            {character.abilityScores[a]}
-                            →{character.abilityScores[a] + 2}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-3 space-y-2">
-                        <AsiPickRow
-                          label="First +1"
-                          value={asiFirst}
-                          scores={character.abilityScores}
-                          onChange={setAsiFirst}
-                        />
-                        <AsiPickRow
-                          label="Second +1"
-                          value={asiSecond}
-                          scores={character.abilityScores}
-                          onChange={setAsiSecond}
-                        />
-                        {asiInvalid && (
-                          <p className="text-xs text-red-400">
-                            Choose two different abilities.
-                          </p>
-                        )}
-                      </div>
-                    )}
+                  <div className="mt-6">
+                    <AsiFeatChoice
+                      scores={character.abilityScores}
+                      value={asiFeat}
+                      onChange={setAsiFeat}
+                    />
                   </div>
-                )}
-
-                {featureStubs.length === 0 && !grantsAsi && (
-                  <p className="mt-4 text-xs text-lore-muted">
-                    Spell updates happen on the Spells tab after level-up.
-                  </p>
                 )}
               </section>
             )}
@@ -406,8 +409,12 @@ export function LevelUpDialog({
                 <dl className="space-y-1.5 text-sm">
                   <PreviewRow label="Character" value={character.name} />
                   <PreviewRow
-                    label="Class advance"
-                    value={`${target.class} ${target.level} → ${newClassLevel}`}
+                    label="Advance"
+                    value={
+                      addingClass
+                        ? `New class: ${addNewClass} 1`
+                        : `${target!.class} ${target!.level} → ${newClassLevel}`
+                    }
                   />
                   <PreviewRow
                     label="Total level"
@@ -421,7 +428,15 @@ export function LevelUpDialog({
                         : `${character.maxHp} → ${character.maxHp + hpGain} (+${hpGain})`
                     }
                   />
-                  <PreviewRow label="HP method" value={hpMethod} />
+                  {!addingClass && (
+                    <PreviewRow label="HP method" value={hpMethod} />
+                  )}
+                  {subclass && (
+                    <PreviewRow label="Subclass" value={subclass} />
+                  )}
+                  {asiFeat?.kind === "feat" && (
+                    <PreviewRow label="Feat" value={asiFeat.featName} />
+                  )}
                 </dl>
               </section>
             )}
@@ -452,7 +467,10 @@ export function LevelUpDialog({
             <button
               type="button"
               onClick={() => setWizardStep((s) => s + 1)}
-              disabled={wizardStep === 1 && asiInvalid}
+              disabled={
+                (wizardStep === 1 && asiInvalid) ||
+                (wizardStep === 1 && subclassInvalid)
+              }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
@@ -465,20 +483,28 @@ export function LevelUpDialog({
                   id: character.id,
                   classIndex,
                   hpMethod,
-                  asi: asiChoice,
+                  addNewClass: addingClass ? addNewClass! : undefined,
+                  asi:
+                    asiFeat?.kind === "asi" ? asiFeat.asi : undefined,
+                  feat:
+                    asiFeat?.kind === "feat" ? asiFeat.featName : undefined,
+                  subclass: subclass.trim() || undefined,
+                  milestone: milestoneXp,
                 })
               }
               disabled={
                 blocked ||
                 levelUp.isPending ||
                 wizardStep < 2 ||
-                (grantsAsi && asiInvalid)
+                asiInvalid ||
+                subclassInvalid ||
+                (addingClass && !addNewClass)
               }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
               {levelUp.isPending
                 ? "Leveling up…"
-                : `Level up to ${newClassLevel}`}
+                : `Level up to ${newTotalLevel}`}
             </button>
           )}
         </footer>
@@ -492,40 +518,6 @@ function PreviewRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between">
       <dt className="text-lore-muted">{label}</dt>
       <dd className="font-mono tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-function AsiPickRow({
-  label,
-  value,
-  scores,
-  onChange,
-}: {
-  label: string;
-  value: Ability;
-  scores: AbilityScores;
-  onChange: (a: Ability) => void;
-}) {
-  return (
-    <div>
-      <span className="text-xs text-lore-muted">{label}</span>
-      <div className="mt-1 flex flex-wrap gap-2">
-        {ABILITIES.map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => onChange(a)}
-            className={`rounded border px-2 py-1 text-xs font-mono ${
-              value === a
-                ? "border-lore-accent bg-lore-accent-dim"
-                : "border-lore-border"
-            }`}
-          >
-            {ABILITY_LABELS[a]} {scores[a]}→{scores[a] + 1}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

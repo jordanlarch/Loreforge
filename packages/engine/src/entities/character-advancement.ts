@@ -18,6 +18,10 @@ export type LevelAdvanceChoice = {
   level: number;
   hpMethod: HpMethod;
   asi?: AsiChoice;
+  /** Feat name when taking a feat instead of ASI. */
+  feat?: string;
+  /** Subclass name when this level grants a subclass pick. */
+  subclass?: string;
 };
 
 export function buildStartingCharacterStats(

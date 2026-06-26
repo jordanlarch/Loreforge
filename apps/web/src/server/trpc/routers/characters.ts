@@ -13,7 +13,10 @@ import {
   hpGainOnLevelUp,
   isValidAsiChoice,
   levelUpSeed,
+  maxHpAtFirstLevel,
+  subclassPickLevel,
   totalLevel,
+  xpForLevel,
   xpProgress,
   createSeededRng,
   type AsiChoice,
@@ -42,6 +45,10 @@ import {
   isAllowedPortraitType,
   PORTRAIT_BUCKET,
 } from "@/lib/supabase/admin";
+import {
+  parseCharacterNotes,
+  serializeCharacterNotes,
+} from "@/lib/character-sheet-storage";
 
 /** Hard 5E ceiling for a single class and for total character level. */
 const MAX_LEVEL = 20;
@@ -348,6 +355,11 @@ export const charactersRouter = createTRPCRouter({
         classIndex: z.number().int().min(0).default(0),
         hpMethod: z.enum(["average", "roll"]),
         asi: asiChoiceInput.optional(),
+        feat: z.string().trim().max(120).optional(),
+        subclass: z.string().trim().max(80).optional(),
+        /** Take first level in a new class (multiclass). Ignores classIndex increment. */
+        addNewClass: z.string().trim().max(60).optional(),
+        milestone: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -371,17 +383,23 @@ export const charactersRouter = createTRPCRouter({
       }
 
       const classes = character.classes;
-      const target = classes[input.classIndex];
-      if (!target) {
+      const parsedNotes = parseCharacterNotes(character.notes);
+      const milestone =
+        input.milestone ?? parsedNotes.meta.milestoneXp ?? false;
+
+      const addingClass = Boolean(input.addNewClass?.trim());
+      const target = addingClass ? null : classes[input.classIndex];
+      if (!addingClass && !target) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "No such class on this character.",
         });
       }
-      if (target.level >= MAX_LEVEL) {
+
+      if (!addingClass && target!.level >= MAX_LEVEL) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `${target.class} is already at level ${MAX_LEVEL}.`,
+          message: `${target!.class} is already at level ${MAX_LEVEL}.`,
         });
       }
       if (totalLevel(classes) >= MAX_LEVEL) {
@@ -392,40 +410,68 @@ export const charactersRouter = createTRPCRouter({
       }
 
       const currentTotalLevel = totalLevel(classes);
-      const xpGate = xpProgress(character.xp, currentTotalLevel);
-      if (!xpGate.canLevelUp) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            xpGate.remaining != null
-              ? `Need ${xpGate.remaining.toLocaleString()} more XP to level up.`
-              : "Character cannot level up further.",
-        });
+      if (!milestone) {
+        const xpGate = xpProgress(character.xp, currentTotalLevel);
+        if (!xpGate.canLevelUp) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              xpGate.remaining != null
+                ? `Need ${xpGate.remaining.toLocaleString()} more XP to level up.`
+                : "Character cannot level up further.",
+          });
+        }
       }
 
-      // Resolve the hit die from the Codex by display name (classes store the
-      // name, not the slug). Required so the engine — not the app — computes HP.
+      if (addingClass) {
+        const primary = classes[0];
+        if (!primary || primary.level < 2) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Multiclass requires at least 2 levels in your first class.",
+          });
+        }
+        if (classes.some((c) => c.class === input.addNewClass)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Already has levels in ${input.addNewClass}.`,
+          });
+        }
+      }
+
+      const classNameForDie = addingClass
+        ? input.addNewClass!
+        : target!.class;
+
       const [klass] = await db
         .select({ hitDie: codexClasses.hitDie })
         .from(codexClasses)
-        .where(eq(codexClasses.name, target.class))
+        .where(eq(codexClasses.name, classNameForDie))
         .limit(1);
 
       if (!klass) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `Can't determine the hit die for "${target.class}". Level-up needs an SRD class.`,
+          message: `Can't determine the hit die for "${classNameForDie}". Level-up needs an SRD class.`,
         });
       }
 
-      const newClassLevel = target.level + 1;
+      const newClassLevel = addingClass ? 1 : target!.level + 1;
       const newTotalLevel = totalLevel(classes) + 1;
 
-      const grantsAsi = grantsAsiAtLevel(target.class, newClassLevel);
-      if (grantsAsi && !input.asi) {
+      const grantsAsi =
+        !addingClass && grantsAsiAtLevel(target!.class, newClassLevel);
+      if (grantsAsi && !input.asi && !input.feat?.trim()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "This level grants an Ability Score Improvement — choose +2 to one ability or +1 to two.",
+          message:
+            "This level grants an ASI — choose ability scores or take a feat.",
+        });
+      }
+      if (input.asi && input.feat?.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose either an ASI or a feat, not both.",
         });
       }
       if (input.asi && !grantsAsi) {
@@ -434,6 +480,13 @@ export const charactersRouter = createTRPCRouter({
           message: "This level does not grant an Ability Score Improvement.",
         });
       }
+      if (input.feat?.trim() && !grantsAsi) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This level does not grant a feat choice.",
+        });
+      }
+
       let nextScores = character.abilityScores;
       if (input.asi) {
         const choice = input.asi as AsiChoice;
@@ -448,17 +501,50 @@ export const charactersRouter = createTRPCRouter({
 
       const conMod = abilityModifier(nextScores.con);
       const method: HpMethod = input.hpMethod;
-      const hpGain = hpGainOnLevelUp(klass.hitDie, conMod, {
-        mode: method,
-        rng:
-          method === "roll"
-            ? createSeededRng(levelUpSeed(character.id, newTotalLevel))
-            : undefined,
-      });
+      const hpGain = addingClass
+        ? maxHpAtFirstLevel(klass.hitDie, nextScores.con)
+        : hpGainOnLevelUp(klass.hitDie, conMod, {
+            mode: method,
+            rng:
+              method === "roll"
+                ? createSeededRng(levelUpSeed(character.id, newTotalLevel))
+                : undefined,
+          });
 
-      const nextClasses = classes.map((c, i) =>
-        i === input.classIndex ? { ...c, level: newClassLevel } : c,
+      let nextClasses = addingClass
+        ? [...classes, { class: input.addNewClass!, level: 1 }]
+        : classes.map((c, i) => {
+            if (i !== input.classIndex) return c;
+            const patch: { class: string; level: number; subclass?: string } = {
+              ...c,
+              level: newClassLevel,
+            };
+            if (
+              input.subclass?.trim() &&
+              subclassPickLevel(c.class) === newClassLevel
+            ) {
+              patch.subclass = input.subclass.trim();
+            }
+            return patch;
+          });
+
+      let nextMeta = { ...parsedNotes.meta };
+      if (input.feat?.trim()) {
+        nextMeta = {
+          ...nextMeta,
+          feats: [...(nextMeta.feats ?? []), input.feat.trim()],
+        };
+      }
+
+      const nextNotes = serializeCharacterNotes(
+        parsedNotes.sessionNotes,
+        parsedNotes.personality,
+        nextMeta,
       );
+
+      const nextXp = milestone
+        ? xpForLevel(newTotalLevel)
+        : Math.max(character.xp, xpForLevel(newTotalLevel));
 
       const [row] = await db
         .update(characters)
@@ -466,6 +552,8 @@ export const charactersRouter = createTRPCRouter({
           classes: nextClasses,
           abilityScores: nextScores,
           maxHp: character.maxHp + hpGain,
+          xp: nextXp,
+          notes: nextNotes,
           updatedAt: new Date(),
         })
         .where(

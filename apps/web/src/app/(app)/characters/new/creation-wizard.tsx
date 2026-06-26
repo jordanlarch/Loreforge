@@ -22,6 +22,8 @@ import {
   pointBuyCost,
   pointBuyRemaining,
   STANDARD_ARRAY,
+  subclassPickLevel,
+  xpForLevel,
   type Ability,
   type AbilityScores,
   type LevelAdvanceChoice,
@@ -32,9 +34,16 @@ import {
   advancementComplete,
 } from "./advancement-step";
 
+import {
+  classChoicesComplete,
+  FightingStylePicker,
+  SubclassPicker,
+} from "@/components/character-creation/class-choice-pickers";
 import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem } from "@/lib/character";
-import { mergeNotes, type PersonalityFields } from "@/lib/personality";
+import { backgroundOriginFeatName } from "@/lib/codex-background-feat-display";
+import { serializeCharacterNotes } from "@/lib/character-sheet-storage";
+import type { PersonalityFields } from "@/lib/personality";
 import {
   startingPackForClass,
   type StartingPack,
@@ -160,6 +169,12 @@ export function CreationWizard() {
   });
   const [startingLevel, setStartingLevel] = useState(1);
   const [advances, setAdvances] = useState<LevelAdvanceChoice[]>([]);
+  const [fightingStyle, setFightingStyle] = useState("");
+  const [startingSubclass, setStartingSubclass] = useState("");
+  const [classAllocations, setClassAllocations] = useState<
+    { slug: string; levels: number }[]
+  >([]);
+  const [useMilestoneXp, setUseMilestoneXp] = useState(true);
   const [backstory, setBackstory] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -248,6 +263,11 @@ export function CreationWizard() {
     personality,
     backstory,
   ]);
+
+  useEffect(() => {
+    if (!classSlug) return;
+    setClassAllocations([{ slug: classSlug, levels: startingLevel }]);
+  }, [classSlug, startingLevel]);
 
   useEffect(() => {
     if (!classSlug) return;
@@ -350,6 +370,35 @@ export function CreationWizard() {
   const skillsValid = selectedClass != null && skillsRemaining === 0;
   const nameValid = name.trim().length > 0;
 
+  const allocatedLevels = useMemo(
+    () => classAllocations.reduce((sum, row) => sum + row.levels, 0),
+    [classAllocations],
+  );
+
+  const classLevelsValid =
+    classAllocations.length > 0 &&
+    allocatedLevels === startingLevel &&
+    classAllocations.every((row) => row.slug && row.levels >= 1);
+
+  const creationSubclass = useMemo(() => {
+    if (!selectedClass) return "";
+    const pick = subclassPickLevel(selectedClass.name);
+    if (!pick || startingLevel < pick) return "";
+    if (startingLevel > 1) {
+      return advances.find((a) => a.level === pick)?.subclass ?? "";
+    }
+    return startingSubclass;
+  }, [selectedClass, startingLevel, advances, startingSubclass]);
+
+  const featuresStepValid =
+    selectedClass != null &&
+    classChoicesComplete(
+      selectedClass.name,
+      startingLevel,
+      fightingStyle,
+      creationSubclass,
+    );
+
   const advancementOk =
     !hasAdvancement ||
     (selectedClass != null &&
@@ -358,12 +407,12 @@ export function CreationWizard() {
   const stepValid = [
     nameValid,
     selectedSpecies != null,
-    selectedClass != null,
+    selectedClass != null && classLevelsValid,
     selectedBackground != null,
     abilitiesValid,
     skillsValid,
     equipment.length > 0,
-    selectedClass != null,
+    featuresStepValid,
     ...(hasAdvancement ? [advancementOk] : []),
     true,
     nameValid,
@@ -372,10 +421,12 @@ export function CreationWizard() {
   const canCreate =
     selectedSpecies != null &&
     selectedClass != null &&
+    classLevelsValid &&
     selectedBackground != null &&
     abilitiesValid &&
     skillsValid &&
     equipment.length > 0 &&
+    featuresStepValid &&
     nameValid &&
     advancementOk;
 
@@ -387,34 +438,69 @@ export function CreationWizard() {
     try {
       const notesParts = [concept.trim(), backstory.trim()].filter(Boolean);
       const notesBody = notesParts.join("\n\n");
+      const primarySlug = classAllocations[0]?.slug ?? classSlug!;
+      const primaryClass =
+        classes.data?.find((c) => c.slug === primarySlug) ?? selectedClass;
       const stats =
         startingLevel > 1
           ? buildStartingCharacterStats(
-              selectedClass.hitDie,
+              primaryClass.hitDie,
               startingLevel,
               finalScores,
               advances,
               `create:${name.trim()}`,
             )
           : {
-              maxHp: maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con),
+              maxHp: maxHpAtFirstLevel(primaryClass.hitDie, finalScores.con),
               abilityScores: finalScores,
               xp: 0,
             };
+      const builtClasses = classAllocations.map((row) => {
+        const cls = classes.data!.find((c) => c.slug === row.slug)!;
+        const pick = subclassPickLevel(cls.name);
+        let subclass: string | undefined;
+        if (pick && startingLevel >= pick && row.slug === primarySlug) {
+          const sub =
+            startingLevel > 1
+              ? advances.find((a) => a.level === pick)?.subclass
+              : startingSubclass;
+          if (sub?.trim()) subclass = sub.trim();
+        }
+        return { class: cls.name, level: row.levels, subclass };
+      });
+      const advanceFeats = advances
+        .map((a) => a.feat?.trim())
+        .filter((f): f is string => Boolean(f));
+      const originFeat = selectedBackground.originFeatName?.trim();
+      const metaFeats = [
+        ...new Set([
+          ...(originFeat ? [originFeat] : []),
+          ...advanceFeats,
+        ]),
+      ];
+      const fightingStyles =
+        fightingStyle.trim().length > 0
+          ? { [primaryClass.name]: fightingStyle.trim() }
+          : undefined;
+      const notes = serializeCharacterNotes(notesBody, personality, {
+        milestoneXp: useMilestoneXp,
+        feats: metaFeats.length > 0 ? metaFeats : undefined,
+        fightingStyles,
+      });
       const row = await create.mutateAsync({
         name: name.trim(),
         species: selectedSpecies.name,
         background: selectedBackground.name,
-        classes: [{ class: selectedClass.name, level: startingLevel }],
+        classes: builtClasses,
         abilityScores: stats.abilityScores,
         maxHp: stats.maxHp,
-        xp: stats.xp,
+        xp: useMilestoneXp ? xpForLevel(startingLevel) : stats.xp,
         baseAc: equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex),
         speed: selectedSpecies.speed,
-        saveProficiencies: selectedClass.savingThrows,
+        saveProficiencies: primaryClass.savingThrows,
         skillProficiencies: allSkillProficiencies,
         equipment,
-        notes: mergeNotes(notesBody, personality),
+        notes,
       });
       if (!row) return;
       localStorage.removeItem(DRAFT_KEY);
@@ -489,10 +575,14 @@ export function CreationWizard() {
               selected={classSlug}
               startingLevel={startingLevel}
               onStartingLevel={setStartingLevel}
+              allocations={classAllocations}
+              onAllocations={setClassAllocations}
               onSelect={(slug) => {
                 setClassSlug(slug);
                 setSkills([]);
                 setAdvances([]);
+                setFightingStyle("");
+                setStartingSubclass("");
               }}
             />
           )}
@@ -531,8 +621,15 @@ export function CreationWizard() {
               equipment={equipment}
             />
           )}
-          {step === 7 && (
-            <FeaturesStep className={selectedClass?.name ?? "Adventurer"} />
+          {step === 7 && selectedClass && (
+            <FeaturesStep
+              className={selectedClass.name}
+              startingLevel={startingLevel}
+              fightingStyle={fightingStyle}
+              onFightingStyle={setFightingStyle}
+              startingSubclass={startingSubclass}
+              onStartingSubclass={setStartingSubclass}
+            />
           )}
           {step === 8 && hasAdvancement && selectedClass && (
             <AdvancementStep
@@ -557,19 +654,37 @@ export function CreationWizard() {
               name={name}
               setName={setName}
               nameValid={nameValid}
+              concept={concept}
               species={selectedSpecies?.name ?? "—"}
-              className={
-                selectedClass
-                  ? `${selectedClass.name} ${startingLevel}`
-                  : "—"
+              classLine={
+                classAllocations.length > 0
+                  ? classAllocations
+                      .map((row) => {
+                        const cls = classes.data?.find((c) => c.slug === row.slug);
+                        return cls ? `${cls.name} ${row.levels}` : "—";
+                      })
+                      .join(" · ")
+                  : selectedClass
+                    ? `${selectedClass.name} ${startingLevel}`
+                    : "—"
               }
               background={selectedBackground?.name ?? "—"}
+              abilityMethod={method}
+              speciesBonuses={selectedSpecies?.abilityBonuses ?? {}}
               finalScores={previewStats?.abilityScores ?? finalScores}
               skills={allSkillProficiencies}
               equipment={equipment}
               maxHp={previewStats?.maxHp ?? 0}
               baseAc={equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex)}
               speed={selectedSpecies?.speed ?? 30}
+              startingLevel={startingLevel}
+              advances={advances}
+              fightingStyle={fightingStyle}
+              subclass={creationSubclass}
+              personality={personality}
+              backstory={backstory}
+              useMilestoneXp={useMilestoneXp}
+              onMilestoneXp={setUseMilestoneXp}
               error={createError}
             />
           )}
@@ -578,9 +693,21 @@ export function CreationWizard() {
         <SummaryCard
           name={name}
           species={selectedSpecies?.name ?? null}
-          className={selectedClass?.name ?? null}
+          classLine={
+            classAllocations.length > 0
+              ? classAllocations
+                  .map((row) => {
+                    const cls = classes.data?.find((c) => c.slug === row.slug);
+                    return cls ? `${cls.name} ${row.levels}` : null;
+                  })
+                  .filter(Boolean)
+                  .join(" · ")
+              : selectedClass?.name ?? null
+          }
+          startingLevel={startingLevel}
           background={selectedBackground?.name ?? null}
-          finalScores={finalScores}
+          finalScores={previewStats?.abilityScores ?? finalScores}
+          maxHp={previewStats?.maxHp}
         />
       </div>
 
@@ -737,6 +864,8 @@ function ClassStep({
   selected,
   startingLevel,
   onStartingLevel,
+  allocations,
+  onAllocations,
   onSelect,
 }: {
   loading: boolean;
@@ -744,8 +873,28 @@ function ClassStep({
   selected: string | null;
   startingLevel: number;
   onStartingLevel: (level: number) => void;
+  allocations: { slug: string; levels: number }[];
+  onAllocations: (rows: { slug: string; levels: number }[]) => void;
   onSelect: (slug: string) => void;
 }) {
+  const allocated = allocations.reduce((sum, row) => sum + row.levels, 0);
+  const remaining = startingLevel - allocated;
+
+  function patchAllocation(index: number, patch: Partial<{ slug: string; levels: number }>) {
+    onAllocations(
+      allocations.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function addClassRow() {
+    const unused = items.find((c) => !allocations.some((a) => a.slug === c.slug));
+    if (!unused || remaining <= 0) return;
+    onAllocations([
+      ...allocations,
+      { slug: unused.slug, levels: Math.min(1, remaining) },
+    ]);
+  }
+
   return (
     <section>
       <h2 className="font-display text-2xl">Choose Your Class</h2>
@@ -754,7 +903,7 @@ function ClassStep({
       </p>
       <label className="mt-4 block max-w-xs">
         <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
-          Starting level
+          Starting level (total)
         </span>
         <select
           value={startingLevel}
@@ -803,6 +952,73 @@ function ClassStep({
               </div>
             </button>
           ))}
+        </div>
+      )}
+      {selected && allocations.length > 0 && (
+        <div className="mt-8 rounded-lg border border-lore-border bg-lore-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+              Level allocation
+            </h3>
+            <span
+              className={`text-xs ${remaining === 0 ? "text-lore-accent" : "text-amber-400"}`}
+            >
+              {remaining === 0
+                ? `${startingLevel} levels assigned`
+                : `${remaining} level${remaining === 1 ? "" : "s"} unassigned`}
+            </span>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {allocations.map((row, index) => (
+              <li key={`${row.slug}-${index}`} className="flex flex-wrap items-center gap-2">
+                <select
+                  value={row.slug}
+                  onChange={(e) => patchAllocation(index, { slug: e.target.value })}
+                  className="rounded border border-lore-border bg-lore-bg px-2 py-1 text-sm"
+                >
+                  {items.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  max={startingLevel}
+                  value={row.levels}
+                  onChange={(e) =>
+                    patchAllocation(index, {
+                      levels: Math.max(1, Number(e.target.value) || 1),
+                    })
+                  }
+                  className="w-16 rounded border border-lore-border bg-lore-bg px-2 py-1 text-sm"
+                  aria-label="Class levels"
+                />
+                <span className="text-xs text-lore-muted">levels</span>
+                {allocations.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onAllocations(allocations.filter((_, i) => i !== index))
+                    }
+                    className="text-xs text-lore-muted hover:text-red-400"
+                  >
+                    Remove
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {remaining > 0 && allocations.length < items.length && (
+            <button
+              type="button"
+              onClick={addClassRow}
+              className="mt-3 rounded border border-lore-border px-3 py-1.5 text-xs text-lore-muted hover:border-lore-accent"
+            >
+              + Add class (multiclass)
+            </button>
+          )}
         </div>
       )}
     </section>
@@ -1141,35 +1357,77 @@ function EquipmentStep({
   );
 }
 
+const METHOD_LABELS: Record<AbilityMethod, string> = {
+  "point-buy": "Point buy",
+  "standard-array": "Standard array",
+  manual: "Manual entry",
+  "roll-4d6": "Roll 4d6",
+};
+
 function ReviewStep({
   name,
   setName,
   nameValid,
+  concept,
   species,
-  className,
+  classLine,
   background,
+  abilityMethod,
+  speciesBonuses,
   finalScores,
   skills,
   equipment,
   maxHp,
   baseAc,
   speed,
+  startingLevel,
+  advances,
+  fightingStyle,
+  subclass,
+  personality,
+  backstory,
+  useMilestoneXp,
+  onMilestoneXp,
   error,
 }: {
   name: string;
   setName: (v: string) => void;
   nameValid: boolean;
+  concept: string;
   species: string;
-  className: string;
+  classLine: string;
   background: string;
+  abilityMethod: AbilityMethod;
+  speciesBonuses: Partial<AbilityScores>;
   finalScores: AbilityScores;
   skills: string[];
   equipment: EquipmentItem[];
   maxHp: number;
   baseAc: number;
   speed: number;
+  startingLevel: number;
+  advances: LevelAdvanceChoice[];
+  fightingStyle: string;
+  subclass: string;
+  personality: PersonalityFields;
+  backstory: string;
+  useMilestoneXp: boolean;
+  onMilestoneXp: (v: boolean) => void;
   error: string | null;
 }) {
+  const advancementSummary =
+    advances.length > 0
+      ? advances
+          .map((a) => {
+            const parts = [`L${a.level}: ${a.hpMethod} HP`];
+            if (a.asi) parts.push("ASI");
+            if (a.feat) parts.push(`Feat: ${a.feat}`);
+            if (a.subclass) parts.push(a.subclass);
+            return parts.join(" · ");
+          })
+          .join("; ")
+      : null;
+
   return (
     <section>
       <h2 className="font-display text-2xl">Review &amp; Create</h2>
@@ -1192,22 +1450,88 @@ function ReviewStep({
       </label>
 
       <dl className="mt-6 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+        <Row label="Level" value={String(startingLevel)} />
         <Row label="Species" value={species} />
-        <Row label="Class" value={`${className} 1`} />
+        <Row label="Class(es)" value={classLine} />
         <Row label="Background" value={background} />
+        <Row label="Abilities" value={METHOD_LABELS[abilityMethod]} />
+        <Row label="Species bonuses" value={bonusLine(speciesBonuses)} />
         <Row label="Max HP" value={String(maxHp)} />
         <Row label="Base AC" value={String(baseAc)} />
         <Row label="Speed" value={`${speed} ft`} />
         <Row label="Skills" value={skills.join(", ") || "—"} />
+        {fightingStyle && (
+          <Row label="Fighting style" value={fightingStyle} />
+        )}
+        {subclass && <Row label="Subclass" value={subclass} />}
+        {advancementSummary && (
+          <Row label="Advancement" value={advancementSummary} />
+        )}
         <Row
-          label="Equipment"
+          label="XP on create"
           value={
-            equipment.length > 0
-              ? `${equipment.length} item${equipment.length === 1 ? "" : "s"}`
-              : "—"
+            useMilestoneXp
+              ? `${xpForLevel(startingLevel).toLocaleString()} (milestone)`
+              : startingLevel > 1
+                ? xpForLevel(startingLevel).toLocaleString()
+                : "0"
           }
         />
       </dl>
+
+      {equipment.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+            Equipment
+          </h3>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {equipment.map((item) => (
+              <li
+                key={item.name}
+                className="rounded border border-lore-border px-2 py-1 text-xs"
+              >
+                {item.name}
+                {item.quantity > 1 ? ` ×${item.quantity}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(concept.trim() ||
+        backstory.trim() ||
+        Object.values(personality).some((v) => v.trim())) && (
+        <div className="mt-4 rounded border border-lore-border bg-lore-surface p-3 text-sm">
+          <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+            Flavor
+          </h3>
+          {concept.trim() && (
+            <p className="mt-2 text-lore-muted">
+              <span className="text-lore-text">Concept:</span> {concept}
+            </p>
+          )}
+          {personality.traits.trim() && (
+            <p className="mt-1 text-xs text-lore-muted">
+              Traits: {personality.traits}
+            </p>
+          )}
+          {backstory.trim() && (
+            <p className="mt-2 text-xs text-lore-muted whitespace-pre-wrap">
+              {backstory}
+            </p>
+          )}
+        </div>
+      )}
+
+      <label className="mt-4 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={useMilestoneXp}
+          onChange={(e) => onMilestoneXp(e.target.checked)}
+          className="accent-lore-accent"
+        />
+        Use milestone XP (auto-set threshold for this level)
+      </label>
 
       <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-6">
         {ABILITIES.map((a) => (
@@ -1250,15 +1574,19 @@ function Row({ label, value }: { label: string; value: string }) {
 function SummaryCard({
   name,
   species,
-  className,
+  classLine,
+  startingLevel,
   background,
   finalScores,
+  maxHp,
 }: {
   name: string;
   species: string | null;
-  className: string | null;
+  classLine: string | null;
+  startingLevel: number;
   background: string | null;
   finalScores: AbilityScores;
+  maxHp?: number;
 }) {
   return (
     <aside className="h-fit rounded-lg border border-lore-border bg-lore-surface p-5 lg:sticky lg:top-6">
@@ -1269,10 +1597,14 @@ function SummaryCard({
         {name.trim() || "New Character"}
       </div>
       <div className="mt-1 text-sm text-lore-muted">
-        Level 1 {[species, className].filter(Boolean).join(" ") || "—"}
+        Level {startingLevel}{" "}
+        {[species, classLine].filter(Boolean).join(" · ") || "—"}
       </div>
       {background && (
         <div className="mt-1 text-xs text-lore-muted">{background}</div>
+      )}
+      {maxHp != null && maxHp > 0 && (
+        <div className="mt-1 text-xs text-lore-accent">HP {maxHp}</div>
       )}
       <div className="mt-4 grid grid-cols-3 gap-2">
         {ABILITIES.map((a) => (
@@ -1417,16 +1749,51 @@ function BackgroundStep({
   );
 }
 
-function FeaturesStep({ className }: { className: string }) {
+function FeaturesStep({
+  className,
+  startingLevel,
+  fightingStyle,
+  onFightingStyle,
+  startingSubclass,
+  onStartingSubclass,
+}: {
+  className: string;
+  startingLevel: number;
+  fightingStyle: string;
+  onFightingStyle: (v: string) => void;
+  startingSubclass: string;
+  onStartingSubclass: (v: string) => void;
+}) {
   const features = classFeaturesForLevel(className, 1);
   const stubs = featureStubsForLevel(className, 1);
+  const pick = subclassPickLevel(className);
+  const showSubclassOnFeatures =
+    pick != null && startingLevel >= pick && pick === 1;
+
   return (
     <section>
       <h2 className="font-display text-2xl">Class Features &amp; Spells</h2>
       <p className="mt-1 text-sm text-lore-muted">
-        At level 1 you gain the features below. Spell selection for casters
-        happens on the character sheet Spells tab after creation.
+        Choose class options that apply at your starting level. Spell selection
+        for casters continues on the Spells tab after creation.
       </p>
+
+      <FightingStylePicker
+        className={className}
+        level={startingLevel}
+        value={fightingStyle}
+        onChange={onFightingStyle}
+      />
+
+      {showSubclassOnFeatures && (
+        <SubclassPicker
+          className={className}
+          level={startingLevel}
+          value={startingSubclass}
+          onChange={onStartingSubclass}
+        />
+      )}
+
       <ul className="mt-6 space-y-2">
         {features.length > 0
           ? features.map((f) => (
@@ -1447,8 +1814,14 @@ function FeaturesStep({ className }: { className: string }) {
               </li>
             ))}
       </ul>
-      <p className="mt-4 text-xs text-lore-muted">
-        Cantrip and spell picks use the Codex spell browser on your sheet (#198).
+      {startingLevel > 1 && (
+        <p className="mt-4 text-xs text-lore-muted">
+          Subclass and ASI/feat choices for higher levels are on the Advancement
+          step.
+        </p>
+      )}
+      <p className="mt-2 text-xs text-lore-muted">
+        Cantrip and spell picks use the Codex spell browser on your sheet.
       </p>
     </section>
   );

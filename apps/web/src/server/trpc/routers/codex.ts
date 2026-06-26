@@ -23,6 +23,8 @@ import {
 import { sortSizes } from "@/lib/codex-monster-filters";
 import {
   backgroundBenefitSummary,
+  backgroundFeatureEntries,
+  backgroundOriginFeatName,
   backgroundSkillProficiencies,
 } from "@/lib/codex-background-feat-display";
 import { codexSpellFlags } from "@/lib/codex-spell-flags";
@@ -449,8 +451,31 @@ export const codexRouter = createTRPCRouter({
             skillProficiencies: backgroundSkillProficiencies(
               raw as Record<string, unknown>,
             ),
+            originFeatName: backgroundOriginFeatName(
+              raw as Record<string, unknown>,
+            ),
           })),
         );
+    }),
+
+  getBackgroundByName: protectedProcedure
+    .input(z.object({ name: z.string().trim().min(1).max(80) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexBackgrounds)
+        .where(eq(codexBackgrounds.name, input.name))
+        .limit(1);
+      if (!row) return null;
+      const raw = row.raw as Record<string, unknown>;
+      return {
+        slug: row.slug,
+        name: row.name,
+        description: row.description,
+        featureEntries: backgroundFeatureEntries(raw),
+        originFeatName: backgroundOriginFeatName(raw),
+      };
     }),
 
   /** Full SRD background record by slug. */

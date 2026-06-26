@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { isExplorableRealmType, entityIdFromSceneId } from "@app/engine";
+import { REALM_TYPE_LABEL, type RealmEntityType } from "@/lib/realms";
 import { trpc } from "@/lib/trpc/client";
 
 type PlayMode = "async" | "live";
@@ -138,6 +141,8 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
         </div>
       </form>
 
+      <StartingSceneSection campaignId={campaignId} />
+
       <InvitesSection campaignId={campaignId} />
       <AiUsageSection campaignId={campaignId} />
       <ReputationSection campaignId={campaignId} />
@@ -146,6 +151,81 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
 
       <DangerZone campaignId={campaignId} name={campaign.data.name} />
     </div>
+  );
+}
+
+/** Campaign start scene picker (CAMP-UX UX-5). */
+function StartingSceneSection({ campaignId }: { campaignId: string }) {
+  const utils = trpc.useUtils();
+  const campaign = trpc.campaigns.get.useQuery({ id: campaignId });
+  const world = trpc.campaigns.world.useQuery({ campaignId });
+  const readiness = trpc.campaigns.playReadiness.useQuery({ campaignId });
+
+  const explorable = (world.data ?? []).filter((e) =>
+    isExplorableRealmType(e.type),
+  );
+
+  const setStarting = trpc.campaigns.setStartingScene.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.campaigns.get.invalidate({ id: campaignId }),
+        utils.campaigns.playReadiness.invalidate({ campaignId }),
+      ]);
+    },
+  });
+
+  const selectedEntityId =
+    entityIdFromSceneId(readiness.data?.startingSceneId ?? undefined) ?? "";
+
+  return (
+    <section className="rounded-lg border border-lore-border bg-lore-surface p-5">
+      <h3 className="font-display text-lg">Starting location</h3>
+      <p className="mt-1 text-sm text-lore-muted">
+        Required before the first Play Now. The party opens at this scene when
+        the campaign begins.
+      </p>
+      {explorable.length === 0 ? (
+        <p className="mt-4 text-sm text-lore-muted">
+          Add explorable locations on the{" "}
+          <Link
+            href={`/campaigns/${campaignId}?tab=locations`}
+            className="text-lore-accent underline"
+          >
+            Locations
+          </Link>{" "}
+          tab first.
+        </p>
+      ) : (
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-lore-text">Start scene</span>
+          <select
+            value={selectedEntityId}
+            onChange={(e) => {
+              const entityId = e.target.value;
+              if (!entityId) return;
+              setStarting.mutate({ campaignId, entityId });
+            }}
+            disabled={setStarting.isPending}
+            className="max-w-md rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent disabled:opacity-40"
+          >
+            <option value="">Choose a location…</option>
+            {explorable.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name} ({REALM_TYPE_LABEL[e.type as RealmEntityType]})
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {campaign.data?.startingSceneId && readiness.data?.startingLocationName ? (
+        <p className="mt-2 text-xs text-lore-accent">
+          Current start: {readiness.data.startingLocationName}
+        </p>
+      ) : null}
+      {setStarting.error ? (
+        <p className="mt-2 text-sm text-red-400">{setStarting.error.message}</p>
+      ) : null}
+    </section>
   );
 }
 

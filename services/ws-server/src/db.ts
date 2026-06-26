@@ -49,6 +49,7 @@ import {
   type CampaignStartingLocation,
   type EventStore,
   type ExplorableRealmType,
+  entityIdFromSceneId,
   type FoeSpec,
   type LocationNpcSpec,
   type PartyMember,
@@ -661,6 +662,28 @@ export async function getCampaignLocationEntityData(
 export async function getCampaignStartingLocation(
   campaignId: string,
 ): Promise<CampaignStartingLocation | undefined> {
+  const ownerId = await getCampaignOwnerId(campaignId);
+  if (!ownerId) return undefined;
+
+  const [campaign] = await getDb()
+    .select({ startingSceneId: campaigns.startingSceneId })
+    .from(campaigns)
+    .where(
+      and(eq(campaigns.id, campaignId), eq(campaigns.ownerId, ownerId)),
+    )
+    .limit(1);
+
+  const authoredEntityId = entityIdFromSceneId(
+    campaign?.startingSceneId ?? undefined,
+  );
+  if (authoredEntityId && authoredEntityId !== "generic") {
+    const authored = await getCampaignLocationByEntityId(
+      campaignId,
+      authoredEntityId,
+    );
+    if (authored) return authored;
+  }
+
   const locations = await getCampaignExplorableLocations(campaignId);
   return locations[0];
 }

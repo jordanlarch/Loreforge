@@ -7,6 +7,8 @@ import type { CampaignTabSlug } from "@/lib/campaign-workspace";
 import { resumeSummary } from "@/lib/live-presence";
 import { trpc } from "@/lib/trpc/client";
 
+import { PlayNowButton } from "./play-now-button";
+
 type CampaignData = {
   id: string;
   name: string;
@@ -186,18 +188,19 @@ export function OverviewTab({
         )}
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link
-            href={`/campaigns/${campaignId}/play`}
+          <PlayNowButton
+            campaignId={campaignId}
+            onOpenTab={onOpenTab}
             className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent"
-          >
-            ▶ Start Live Session
-          </Link>
-          <Link
-            href={`/campaigns/${campaignId}/play`}
-            className="rounded border border-lore-border px-4 py-2 text-sm transition-colors hover:border-lore-accent"
-          >
-            📖 Continue last session →
-          </Link>
+          />
+          {resume ? (
+            <Link
+              href={`/campaigns/${campaignId}/play`}
+              className="rounded border border-lore-border px-4 py-2 text-sm transition-colors hover:border-lore-accent"
+            >
+              📖 Continue last session →
+            </Link>
+          ) : null}
         </div>
       </section>
 

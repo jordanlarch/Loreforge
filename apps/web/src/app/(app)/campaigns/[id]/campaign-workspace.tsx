@@ -18,6 +18,7 @@ import { PartyTab } from "./party-tab";
 import { SettingsTab } from "./settings-tab";
 import { WorldMapTab } from "./world-map-tab";
 import { WorldTab } from "./world-tab";
+import { PlayNowButton } from "./play-now-button";
 
 /**
  * The campaign workspace shell (#55, CAMP-UX UX-2): fixed header (back link, live
@@ -91,12 +92,7 @@ function WorkspaceInner({ campaignId }: { campaignId: string }) {
 
         <div className="mt-3 flex items-end justify-between gap-4">
           <h1 className="font-display text-3xl leading-tight">{data.name}</h1>
-          <Link
-            href={`/campaigns/${campaignId}/play`}
-            className="shrink-0 rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm font-medium text-lore-text transition-colors hover:border-lore-accent"
-          >
-            ▶ Start Live Session
-          </Link>
+          <PlayNowButton campaignId={campaignId} onOpenTab={selectTab} />
         </div>
 
         {/* —— Tab bar —— */}

@@ -6,7 +6,7 @@
  * campaign entity (create / list / get); the `engine` router owns the
  * per-campaign command/state surface.
  */
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -34,7 +34,12 @@ import {
   type CampaignOverworldMapLayer,
   type OverworldGridConfig,
 } from "@app/db";
-import { MONSTER_TEMPLATES } from "@app/engine";
+import {
+  entityIdFromSceneId,
+  isExplorableRealmType,
+  MONSTER_TEMPLATES,
+  sceneIdForRealmEntity,
+} from "@app/engine";
 
 import { edgesWithin } from "@/lib/campaign-world";
 import {
@@ -461,6 +466,141 @@ export const campaignsRouter = createTRPCRouter({
         });
       }
       return row;
+    }),
+
+  /**
+   * Prep play gates (CAMP-UX UX-5): starting scene + active PC before first play;
+   * engine event count drives Continue vs first-play flow.
+   */
+  playReadiness: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+
+      const [campaign] = await db
+        .select({ startingSceneId: campaigns.startingSceneId })
+        .from(campaigns)
+        .where(eq(campaigns.id, input.campaignId))
+        .limit(1);
+
+      const [pcRow] = await db
+        .select({ value: count() })
+        .from(campaignCharacters)
+        .where(
+          and(
+            eq(campaignCharacters.campaignId, input.campaignId),
+            eq(campaignCharacters.role, "pc"),
+            eq(campaignCharacters.status, "active"),
+          ),
+        );
+
+      const [eventRow] = await db
+        .select({ value: count() })
+        .from(engineEvents)
+        .where(eq(engineEvents.campaignId, input.campaignId));
+
+      let startingLocationName: string | null = null;
+      const entityId = entityIdFromSceneId(
+        campaign?.startingSceneId ?? undefined,
+      );
+      if (entityId && entityId !== "generic") {
+        const [loc] = await db
+          .select({ name: realmEntities.name })
+          .from(campaignWorldEntities)
+          .innerJoin(
+            realmEntities,
+            eq(realmEntities.id, campaignWorldEntities.entityId),
+          )
+          .where(
+            and(
+              eq(campaignWorldEntities.campaignId, input.campaignId),
+              eq(campaignWorldEntities.entityId, entityId),
+            ),
+          )
+          .limit(1);
+        startingLocationName = loc?.name ?? null;
+      }
+
+      return {
+        startingSceneId: campaign?.startingSceneId ?? null,
+        activePcCount: Number(pcRow?.value ?? 0),
+        engineEventCount: Number(eventRow?.value ?? 0),
+        startingLocationName,
+      };
+    }),
+
+  /**
+   * Set the campaign's authored start scene from a World-tab explorable stub
+   * (CAMP-UX UX-5). Persists `scene:realm:{entityId}` on the campaign row.
+   */
+  setStartingScene: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const db = getDb();
+
+      const [member] = await db
+        .select({
+          id: realmEntities.id,
+          name: realmEntities.name,
+          type: realmEntities.type,
+        })
+        .from(campaignWorldEntities)
+        .innerJoin(
+          realmEntities,
+          eq(realmEntities.id, campaignWorldEntities.entityId),
+        )
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+            eq(campaignWorldEntities.entityId, input.entityId),
+          ),
+        )
+        .limit(1);
+
+      if (!member) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Location not in this campaign.",
+        });
+      }
+      if (!isExplorableRealmType(member.type)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only explorable locations can be the campaign start.",
+        });
+      }
+
+      const startingSceneId = sceneIdForRealmEntity(input.entityId);
+      const [row] = await db
+        .update(campaigns)
+        .set({ startingSceneId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(campaigns.id, input.campaignId),
+            eq(campaigns.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Campaign not found.",
+        });
+      }
+
+      return {
+        startingSceneId,
+        locationName: member.name,
+      };
     }),
 
   /**

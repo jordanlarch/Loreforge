@@ -12,7 +12,9 @@ import {
   type PlayMapTab,
   type PlayNavId,
 } from "@/lib/play-shell";
+import type { CampaignAccessRole } from "@/lib/campaign-access";
 import type { PartyRosterRow } from "@/lib/live-party";
+import { trpc } from "@/lib/trpc/client";
 
 import { WorldMapCanvas } from "../world-map-canvas";
 import { PlayLightbox } from "./play-lightbox";
@@ -66,6 +68,11 @@ export function PlayShellChrome({
   const [mapTab, setMapTab] = useState<PlayMapTab>("current");
   const [lightbox, setLightbox] = useState<PlayNavId | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(false);
+  const access = trpc.campaigns.access.useQuery(
+    { campaignId: campaignId ?? "" },
+    { enabled: Boolean(campaignId) },
+  );
+  const accessRole = access.data?.role as CampaignAccessRole | null | undefined;
 
   useEffect(() => {
     setRailCollapsed(readRailCollapsed(campaignId));
@@ -109,6 +116,7 @@ export function PlayShellChrome({
           <PlayNavRail
             active={lightbox}
             campaignId={campaignId}
+            role={accessRole}
             onSelect={handleNav}
           />
         }
@@ -160,12 +168,21 @@ export function PlayShellChrome({
           open
           onClose={() => setLightbox(null)}
           footer={
-            <Link
-              href={`/campaigns/${campaignId}`}
-              className="text-sm text-lore-accent underline"
-            >
-              Back to prep
-            </Link>
+            accessRole === "owner" ? (
+              <Link
+                href={`/campaigns/${campaignId}`}
+                className="text-sm text-lore-accent underline"
+              >
+                Back to prep
+              </Link>
+            ) : (
+              <Link
+                href="/campaigns"
+                className="text-sm text-lore-accent underline"
+              >
+                Back to campaigns
+              </Link>
+            )
           }
         >
           <PlayPanelContent

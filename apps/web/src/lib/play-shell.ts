@@ -21,18 +21,20 @@ export type PlayNavItem = {
   icon: string;
   /** Requires a campaign context (hidden in sandbox). */
   campaignOnly?: boolean;
+  /** Prep-only; hidden for seated players (CAMP-14). */
+  ownerOnly?: boolean;
 };
 
 export const PLAY_NAV_ITEMS: readonly PlayNavItem[] = [
   { id: "play", label: "Play", icon: "▶" },
   { id: "character", label: "Character", icon: "👤" },
-  { id: "party", label: "Party", icon: "👥", campaignOnly: true },
+  { id: "party", label: "Party", icon: "👥", campaignOnly: true, ownerOnly: true },
   { id: "quests", label: "Quests", icon: "📜", campaignOnly: true },
   { id: "world", label: "World", icon: "🌍", campaignOnly: true },
   { id: "memories", label: "Memories", icon: "🧠", campaignOnly: true },
-  { id: "sessions", label: "Sessions", icon: "📖", campaignOnly: true },
-  { id: "notes", label: "Notes", icon: "📝", campaignOnly: true },
-  { id: "settings", label: "Settings", icon: "⚙", campaignOnly: true },
+  { id: "sessions", label: "Sessions", icon: "📖", campaignOnly: true, ownerOnly: true },
+  { id: "notes", label: "Notes", icon: "📝", campaignOnly: true, ownerOnly: true },
+  { id: "settings", label: "Settings", icon: "⚙", campaignOnly: true, ownerOnly: true },
 ];
 
 /** Lightbox titles mirror nav labels except Play (no lightbox). */

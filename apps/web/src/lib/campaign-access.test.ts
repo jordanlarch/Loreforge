@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { canAccessPlayShell, canAccessPrepShell } from "./campaign-access";
+import { resolvePcCharacterId } from "./campaign-access";
 
-describe("campaign access helpers", () => {
-  it("allows prep only for owners", () => {
-    expect(canAccessPrepShell("owner")).toBe(true);
-    expect(canAccessPrepShell("player")).toBe(false);
-    expect(canAccessPrepShell(null)).toBe(false);
+describe("resolvePcCharacterId", () => {
+  const party = [
+    { id: "owner-pc", role: "pc" },
+    { id: "guest-pc", role: "pc" },
+  ];
+
+  it("returns seated character for players", () => {
+    expect(resolvePcCharacterId("player", "guest-pc", party)).toBe("guest-pc");
   });
 
-  it("allows play for owners and players", () => {
-    expect(canAccessPlayShell("owner")).toBe(true);
-    expect(canAccessPlayShell("player")).toBe(true);
-    expect(canAccessPlayShell(null)).toBe(false);
+  it("falls back to first PC for owners", () => {
+    expect(resolvePcCharacterId("owner", null, party)).toBe("owner-pc");
+  });
+
+  it("returns undefined when player has no seat binding", () => {
+    expect(resolvePcCharacterId("player", null, party)).toBeUndefined();
   });
 });

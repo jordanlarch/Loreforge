@@ -251,6 +251,25 @@ export async function resolveCampaignRole(
   return null;
 }
 
+/** Character id bound to the caller's party seat, if any (CAMP-14). */
+export async function resolvePlayerCharacterId(
+  userId: string,
+  campaignId: string,
+): Promise<string | null> {
+  const db = getDb();
+  const [seat] = await db
+    .select({ characterId: campaignCharacters.characterId })
+    .from(campaignCharacters)
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.playerUserId, userId),
+      ),
+    )
+    .limit(1);
+  return seat?.characterId ?? null;
+}
+
 /** Throw unless the user is the campaign owner or a seated player. */
 export async function assertCampaignAccess(
   userId: string,
@@ -362,14 +381,33 @@ async function forgeEntityIntoCampaign(
 }
 
 export const campaignsRouter = createTRPCRouter({
-  /** Campaigns owned by the current user, newest first. */
+  /** Campaigns the user owns or is seated in, newest first (CAMP-14). */
   list: protectedProcedure.query(async ({ ctx }) => {
     const db = getDb();
-    return db
+    const owned = await db
       .select()
       .from(campaigns)
-      .where(eq(campaigns.ownerId, ctx.user.id))
-      .orderBy(desc(campaigns.createdAt));
+      .where(eq(campaigns.ownerId, ctx.user.id));
+    const ownedIds = new Set(owned.map((c) => c.id));
+
+    const seatedRows = await db
+      .select({ campaign: campaigns })
+      .from(campaignCharacters)
+      .innerJoin(campaigns, eq(campaigns.id, campaignCharacters.campaignId))
+      .where(eq(campaignCharacters.playerUserId, ctx.user.id));
+
+    const seated = seatedRows
+      .filter((row) => !ownedIds.has(row.campaign.id))
+      .map((row) => row.campaign);
+
+    const merged = [
+      ...owned.map((c) => ({ ...c, role: "owner" as const })),
+      ...seated.map((c) => ({ ...c, role: "player" as const })),
+    ];
+    merged.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+    return merged;
   }),
 
   /** Single owned campaign, or null if missing / not owned. */
@@ -393,10 +431,20 @@ export const campaignsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const role = await resolveCampaignRole(ctx.user.id, input.campaignId);
       if (!role) {
-        return { role: null as null, canAccessPrep: false, canAccessPlay: false };
+        return {
+          role: null as null,
+          characterId: null as null,
+          canAccessPrep: false,
+          canAccessPlay: false,
+        };
       }
+      const characterId =
+        role === "player"
+          ? await resolvePlayerCharacterId(ctx.user.id, input.campaignId)
+          : null;
       return {
         role,
+        characterId,
         canAccessPrep: role === "owner",
         canAccessPlay: true,
       };

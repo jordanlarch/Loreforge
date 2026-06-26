@@ -183,6 +183,11 @@ export {
   type ClassFeature,
 } from "./entities/class-features";
 
+export {
+  buildStartingCharacterStats,
+  type LevelAdvanceChoice,
+} from "./entities/character-advancement";
+
 // Content taxonomy
 export {
   ITEM_RARITIES,

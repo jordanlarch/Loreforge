@@ -144,12 +144,15 @@ export {
 } from "./combat/encounter-budget";
 export {
   applyAbilityBonuses,
+  applyAsi,
   ASI_LEVELS,
+  type AsiChoice,
   baseArmorClass,
   featureStubsForLevel,
   grantsAsiAtLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
+  isValidAsiChoice,
   isValidPointBuy,
   levelForXp,
   levelUpSeed,
@@ -172,6 +175,11 @@ export {
   type HpMethod,
   type Skill,
 } from "./entities/character-build";
+export {
+  accumulatedClassFeatures,
+  classFeaturesForLevel,
+  type ClassFeature,
+} from "./entities/class-features";
 
 // Content taxonomy
 export {

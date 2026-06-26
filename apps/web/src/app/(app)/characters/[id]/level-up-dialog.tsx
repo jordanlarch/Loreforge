@@ -4,13 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   abilityModifier,
+  ABILITIES,
+  classFeaturesForLevel,
   featureStubsForLevel,
+  grantsAsiAtLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
   levelUpSeed,
   proficiencyBonusForLevel,
   totalLevel,
+  type Ability,
   type AbilityScores,
+  type AsiChoice,
   type ClassLevel,
   type HpMethod,
 } from "@app/engine";
@@ -19,6 +24,15 @@ import { trpc } from "@/lib/trpc/client";
 
 const MAX_LEVEL = 20;
 const WIZARD_STEPS = ["Hit Points", "New Features", "Confirm"] as const;
+
+const ABILITY_LABELS: Record<Ability, string> = {
+  str: "STR",
+  dex: "DEX",
+  con: "CON",
+  int: "INT",
+  wis: "WIS",
+  cha: "CHA",
+};
 
 type Character = {
   id: string;
@@ -46,6 +60,10 @@ export function LevelUpDialog({
   const [classIndex, setClassIndex] = useState(0);
   const [hpMethod, setHpMethod] = useState<HpMethod>("average");
   const [celebrating, setCelebrating] = useState(false);
+  const [asiMode, setAsiMode] = useState<"increase" | "split">("increase");
+  const [asiAbility, setAsiAbility] = useState<Ability>("str");
+  const [asiFirst, setAsiFirst] = useState<Ability>("str");
+  const [asiSecond, setAsiSecond] = useState<Ability>("dex");
 
   const levelUp = trpc.characters.levelUp.useMutation({
     onSuccess: async () => {
@@ -101,7 +119,19 @@ export function LevelUpDialog({
         : hpGainOnLevelUp(hitDie, conMod, { mode: "average" });
 
   const featureStubs = featureStubsForLevel(target.class, newClassLevel);
+  const levelFeatures = classFeaturesForLevel(target.class, newClassLevel);
+  const grantsAsi = grantsAsiAtLevel(target.class, newClassLevel);
+  const asiChoice: AsiChoice | undefined = grantsAsi
+    ? asiMode === "increase"
+      ? { mode: "increase", ability: asiAbility, amount: 2 }
+      : { mode: "split", first: asiFirst, second: asiSecond }
+    : undefined;
   const blocked = atClassCap || atTotalCap || hitDie == null;
+  const asiInvalid =
+    grantsAsi &&
+    asiChoice != null &&
+    asiChoice.mode === "split" &&
+    asiChoice.first === asiChoice.second;
 
   if (celebrating) {
     return (
@@ -278,24 +308,93 @@ export function LevelUpDialog({
                 <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
                   New at {target.class} {newClassLevel}
                 </h3>
-                <ul className="space-y-1.5">
-                  {featureStubs.map((stub) => (
-                    <li
-                      key={stub}
-                      className="flex items-center justify-between rounded border border-dashed border-lore-border px-3 py-2 text-sm text-lore-muted"
-                    >
-                      <span>{stub}</span>
-                      <span className="text-xs uppercase tracking-wide">
-                        Choose later
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-4 text-xs text-lore-muted">
-                  Spells &amp; Magic: prepared/known spell updates happen on the
-                  Spells tab. ASI, feats, and subclass picks are stubbed until
-                  full feature ingestion ships.
-                </p>
+                {levelFeatures.length > 0 ? (
+                  <ul className="space-y-2">
+                    {levelFeatures.map((f) => (
+                      <li
+                        key={f.id}
+                        className="rounded border border-lore-border px-3 py-2 text-sm"
+                      >
+                        <div className="font-medium">{f.name}</div>
+                        <p className="mt-1 text-xs text-lore-muted">{f.description}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-lore-muted">
+                    No new class features at this level.
+                  </p>
+                )}
+
+                {grantsAsi && (
+                  <div className="mt-6 rounded-lg border border-lore-accent/40 bg-lore-accent-dim/30 p-4">
+                    <h4 className="text-xs uppercase tracking-wide text-lore-muted">
+                      Ability Score Improvement
+                    </h4>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(["increase", "split"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setAsiMode(m)}
+                          className={`rounded-full border px-3 py-1 text-xs ${
+                            asiMode === m
+                              ? "border-lore-accent bg-lore-accent-dim"
+                              : "border-lore-border text-lore-muted"
+                          }`}
+                        >
+                          {m === "increase" ? "+2 to one" : "+1 to two"}
+                        </button>
+                      ))}
+                    </div>
+                    {asiMode === "increase" ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {ABILITIES.map((a) => (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() => setAsiAbility(a)}
+                            className={`rounded border px-2 py-1 text-xs font-mono ${
+                              asiAbility === a
+                                ? "border-lore-accent bg-lore-accent-dim"
+                                : "border-lore-border"
+                            }`}
+                          >
+                            {ABILITY_LABELS[a]}{" "}
+                            {character.abilityScores[a]}
+                            →{character.abilityScores[a] + 2}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        <AsiPickRow
+                          label="First +1"
+                          value={asiFirst}
+                          scores={character.abilityScores}
+                          onChange={setAsiFirst}
+                        />
+                        <AsiPickRow
+                          label="Second +1"
+                          value={asiSecond}
+                          scores={character.abilityScores}
+                          onChange={setAsiSecond}
+                        />
+                        {asiInvalid && (
+                          <p className="text-xs text-red-400">
+                            Choose two different abilities.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {featureStubs.length === 0 && !grantsAsi && (
+                  <p className="mt-4 text-xs text-lore-muted">
+                    Spell updates happen on the Spells tab after level-up.
+                  </p>
+                )}
               </section>
             )}
 
@@ -353,7 +452,8 @@ export function LevelUpDialog({
             <button
               type="button"
               onClick={() => setWizardStep((s) => s + 1)}
-              className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent"
+              disabled={wizardStep === 1 && asiInvalid}
+              className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
             </button>
@@ -361,9 +461,19 @@ export function LevelUpDialog({
             <button
               type="button"
               onClick={() =>
-                levelUp.mutate({ id: character.id, classIndex, hpMethod })
+                levelUp.mutate({
+                  id: character.id,
+                  classIndex,
+                  hpMethod,
+                  asi: asiChoice,
+                })
               }
-              disabled={blocked || levelUp.isPending || wizardStep < 2}
+              disabled={
+                blocked ||
+                levelUp.isPending ||
+                wizardStep < 2 ||
+                (grantsAsi && asiInvalid)
+              }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
               {levelUp.isPending
@@ -382,6 +492,40 @@ function PreviewRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between">
       <dt className="text-lore-muted">{label}</dt>
       <dd className="font-mono tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function AsiPickRow({
+  label,
+  value,
+  scores,
+  onChange,
+}: {
+  label: string;
+  value: Ability;
+  scores: AbilityScores;
+  onChange: (a: Ability) => void;
+}) {
+  return (
+    <div>
+      <span className="text-xs text-lore-muted">{label}</span>
+      <div className="mt-1 flex flex-wrap gap-2">
+        {ABILITIES.map((a) => (
+          <button
+            key={a}
+            type="button"
+            onClick={() => onChange(a)}
+            className={`rounded border px-2 py-1 text-xs font-mono ${
+              value === a
+                ? "border-lore-accent bg-lore-accent-dim"
+                : "border-lore-border"
+            }`}
+          >
+            {ABILITY_LABELS[a]} {scores[a]}→{scores[a] + 1}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

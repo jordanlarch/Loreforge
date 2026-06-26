@@ -10,6 +10,7 @@ import {
   applyAbilityBonuses,
   baseArmorClass,
   featureStubsForLevel,
+  classFeaturesForLevel,
   isValidPointBuy,
   MANUAL_MAX,
   MANUAL_MIN,
@@ -1319,6 +1320,7 @@ function BackgroundStep({
 }
 
 function FeaturesStep({ className }: { className: string }) {
+  const features = classFeaturesForLevel(className, 1);
   const stubs = featureStubsForLevel(className, 1);
   return (
     <section>
@@ -1328,14 +1330,24 @@ function FeaturesStep({ className }: { className: string }) {
         happens on the character sheet Spells tab after creation.
       </p>
       <ul className="mt-6 space-y-2">
-        {stubs.map((stub) => (
-          <li
-            key={stub}
-            className="rounded border border-lore-border bg-lore-surface px-4 py-3 text-sm"
-          >
-            {stub}
-          </li>
-        ))}
+        {features.length > 0
+          ? features.map((f) => (
+              <li
+                key={f.id}
+                className="rounded border border-lore-border bg-lore-surface px-4 py-3 text-sm"
+              >
+                <div className="font-medium">{f.name}</div>
+                <p className="mt-1 text-xs text-lore-muted">{f.description}</p>
+              </li>
+            ))
+          : stubs.map((stub) => (
+              <li
+                key={stub}
+                className="rounded border border-lore-border bg-lore-surface px-4 py-3 text-sm"
+              >
+                {stub}
+              </li>
+            ))}
       </ul>
       <p className="mt-4 text-xs text-lore-muted">
         Cantrip and spell picks use the Codex spell browser on your sheet (#198).

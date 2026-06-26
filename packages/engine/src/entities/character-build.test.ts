@@ -4,12 +4,14 @@ import { createSeededRng } from "../rng/prng";
 import type { AbilityScores } from "./types";
 import {
   applyAbilityBonuses,
+  applyAsi,
   ASI_LEVELS,
   baseArmorClass,
   featureStubsForLevel,
   grantsAsiAtLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
+  isValidAsiChoice,
   isValidPointBuy,
   levelForXp,
   levelUpSeed,
@@ -170,14 +172,41 @@ describe("level-up feature stubs", () => {
     expect(grantsAsiAtLevel("Wizard", 6)).toBe(false);
   });
 
-  it("surfaces an ASI stub plus a generic features stub at ASI levels", () => {
+  it("surfaces an ASI stub plus real features at ASI levels", () => {
     const stubs = featureStubsForLevel("Fighter", 4);
     expect(stubs).toContain("Ability Score Improvement / Feat");
-    expect(stubs).toContain("New Fighter features");
+    expect(stubs).not.toContain("New Fighter features");
   });
 
-  it("surfaces only the generic features stub at non-ASI levels", () => {
-    expect(featureStubsForLevel("Wizard", 3)).toEqual(["New Wizard features"]);
+  it("surfaces curated features at non-ASI levels", () => {
+    expect(featureStubsForLevel("Wizard", 3)).toEqual([]);
+    expect(featureStubsForLevel("Fighter", 1)).toContain("Second Wind");
+  });
+});
+
+describe("asi", () => {
+  it("applies +2 to one ability", () => {
+    const base = spread(10, 10, 10, 10, 10, 10);
+    expect(
+      applyAsi(base, { mode: "increase", ability: "str", amount: 2 }),
+    ).toEqual(spread(12, 10, 10, 10, 10, 10));
+  });
+
+  it("applies +1 to two abilities", () => {
+    const base = spread(10, 10, 10, 10, 10, 10);
+    expect(
+      applyAsi(base, { mode: "split", first: "dex", second: "con" }),
+    ).toEqual(spread(10, 11, 11, 10, 10, 10));
+  });
+
+  it("rejects choices that exceed 20", () => {
+    expect(
+      isValidAsiChoice(spread(19, 10, 10, 10, 10, 10), {
+        mode: "increase",
+        ability: "str",
+        amount: 2,
+      }),
+    ).toBe(false);
   });
 });
 

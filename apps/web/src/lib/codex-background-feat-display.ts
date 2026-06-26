@@ -1,5 +1,16 @@
 /** Display helpers for Open5e background rows in the Codex UI. */
 
+import { SKILLS, type Skill } from "@app/engine";
+
+const SKILL_SET = new Set<string>(SKILLS);
+
+function splitSkillList(text: string): string[] {
+  return text
+    .split(/\s+and\s+|,\s*|\s*;\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 type BackgroundBenefit = {
   name?: string | null;
   desc?: string | null;
@@ -24,6 +35,20 @@ export function backgroundBenefitSummary(
     (b) => b.type === "skill_proficiency",
   );
   return skills?.desc?.trim() ?? null;
+}
+
+/** Parse structured skill_proficiency benefits into SRD skill names. */
+export function backgroundSkillProficiencies(
+  raw: Record<string, unknown>,
+): Skill[] {
+  const benefit = backgroundBenefits(raw).find(
+    (b) => b.type === "skill_proficiency",
+  );
+  const desc = benefit?.desc?.trim();
+  if (!desc) return [];
+  return splitSkillList(desc).filter((part): part is Skill =>
+    SKILL_SET.has(part),
+  );
 }
 
 /** Display helpers for Open5e feat rows in the Codex UI. */

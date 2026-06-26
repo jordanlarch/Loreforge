@@ -21,7 +21,7 @@ import {
 } from "@app/db";
 
 import { sortSizes } from "@/lib/codex-monster-filters";
-import { backgroundBenefitSummary } from "@/lib/codex-background-feat-display";
+import { backgroundBenefitSummary, backgroundSkillProficiencies } from "@/lib/codex-background-feat-display";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -433,6 +433,9 @@ export const codexRouter = createTRPCRouter({
           rows.map(({ raw, ...row }) => ({
             ...row,
             skillSummary: backgroundBenefitSummary(
+              raw as Record<string, unknown>,
+            ),
+            skillProficiencies: backgroundSkillProficiencies(
               raw as Record<string, unknown>,
             ),
           })),

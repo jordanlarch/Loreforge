@@ -267,6 +267,16 @@ export function CreationWizard() {
     [backgrounds.data, backgroundSlug],
   );
 
+  const backgroundSkills = useMemo(
+    () => selectedBackground?.skillProficiencies ?? [],
+    [selectedBackground],
+  );
+
+  const allSkillProficiencies = useMemo(
+    () => [...new Set([...backgroundSkills, ...skills])],
+    [backgroundSkills, skills],
+  );
+
   function switchMethod(next: AbilityMethod) {
     setMethod(next);
     if (next === "point-buy") setBase(POINT_BUY_BASE);
@@ -343,7 +353,7 @@ export function CreationWizard() {
         baseAc: equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex),
         speed: selectedSpecies.speed,
         saveProficiencies: selectedClass.savingThrows,
-        skillProficiencies: skills,
+        skillProficiencies: allSkillProficiencies,
         equipment,
         notes: mergeNotes(notesBody, personality),
       });
@@ -446,6 +456,7 @@ export function CreationWizard() {
           {step === 5 && (
             <SkillsStep
               selectedClass={selectedClass}
+              backgroundSkills={backgroundSkills}
               skills={skills}
               setSkills={setSkills}
               remaining={skillsRemaining}
@@ -478,7 +489,7 @@ export function CreationWizard() {
               className={selectedClass?.name ?? "—"}
               background={selectedBackground?.name ?? "—"}
               finalScores={finalScores}
-              skills={skills}
+              skills={allSkillProficiencies}
               equipment={equipment}
               maxHp={
                 selectedClass
@@ -894,11 +905,13 @@ function PointBuyControl({
 
 function SkillsStep({
   selectedClass,
+  backgroundSkills,
   skills,
   setSkills,
   remaining,
 }: {
   selectedClass: ClassItem | null;
+  backgroundSkills: string[];
   skills: string[];
   setSkills: React.Dispatch<React.SetStateAction<string[]>>;
   remaining: number;
@@ -913,6 +926,7 @@ function SkillsStep({
   }
 
   function toggle(skill: string) {
+    if (backgroundSkills.includes(skill)) return;
     setSkills((prev) => {
       if (prev.includes(skill)) return prev.filter((s) => s !== skill);
       if (prev.length >= selectedClass!.skillChoice.choose) return prev;
@@ -929,32 +943,46 @@ function SkillsStep({
         }`}
       >
         {remaining > 0
-          ? `Choose ${remaining} more skill${remaining === 1 ? "" : "s"}.`
-          : "All skill choices made."}
+          ? `Choose ${remaining} more class skill${remaining === 1 ? "" : "s"}.`
+          : "All class skill choices made."}
       </p>
+      {backgroundSkills.length > 0 && (
+        <p className="mt-2 text-xs text-lore-muted">
+          From background (automatic):{" "}
+          <span className="text-lore-accent">{backgroundSkills.join(", ")}</span>
+        </p>
+      )}
       <div className="mt-6 grid gap-2 sm:grid-cols-2">
         {selectedClass.skillChoice.from.map((skill) => {
-          const checked = skills.includes(skill);
+          const fromBackground = backgroundSkills.includes(skill);
+          const checked = fromBackground || skills.includes(skill);
           const atLimit = !checked && remaining === 0;
           return (
             <label
               key={skill}
               className={`flex items-center gap-3 rounded border px-3 py-2 text-sm transition-colors ${
-                checked
-                  ? "border-lore-accent bg-lore-accent-dim"
-                  : atLimit
-                    ? "border-lore-border opacity-40"
-                    : "border-lore-border bg-lore-surface hover:border-lore-accent"
+                fromBackground
+                  ? "border-lore-accent/60 bg-lore-accent-dim/50 opacity-90"
+                  : checked
+                    ? "border-lore-accent bg-lore-accent-dim"
+                    : atLimit
+                      ? "border-lore-border opacity-40"
+                      : "border-lore-border bg-lore-surface hover:border-lore-accent"
               }`}
             >
               <input
                 type="checkbox"
                 checked={checked}
-                disabled={atLimit}
+                disabled={fromBackground || atLimit}
                 onChange={() => toggle(skill)}
                 className="accent-lore-accent"
               />
               <SrdHint kind="skill" skill={skill} />
+              {fromBackground && (
+                <span className="ml-auto text-[10px] uppercase tracking-wide text-lore-muted">
+                  Background
+                </span>
+              )}
             </label>
           );
         })}
@@ -1237,6 +1265,7 @@ type BackgroundItem = {
   name: string;
   description: string | null;
   skillSummary: string | null;
+  skillProficiencies: string[];
 };
 
 function BackgroundStep({
@@ -1254,8 +1283,8 @@ function BackgroundStep({
     <section>
       <h2 className="font-display text-2xl">Choose Your Background</h2>
       <p className="mt-1 text-sm text-lore-muted">
-        SRD backgrounds from the Codex. Skill proficiencies are noted; full
-        feature wiring comes later.
+        SRD backgrounds from the Codex. Skill proficiencies auto-apply when
+        structured in the source data.
       </p>
       {loading ? (
         <p className="mt-6 text-lore-muted">Loading backgrounds…</p>

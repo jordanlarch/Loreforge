@@ -91,18 +91,17 @@ export function CharacterHud({
   portraitUrl,
   onViewSheet,
   onAbilityCheck,
+  /** Hide turn controls duplicated by the combat turn bar (#214). */
+  statsOnly = false,
 }: {
   session: HudSession;
   entityId?: string;
-  /** Sheet-derived weapons for the focused entity (#98); generic Strike if absent. */
   weapons?: WeaponAttack[];
-  /** Sheet-derived quick-use consumables (#98). */
   items?: { name: string; quantity: number }[];
   portraitUrl?: string | null;
-  /** Open the full character sheet overlay when the roster id is known. */
   onViewSheet?: () => void;
-  /** Route a quick ability/save roll through chat (engine resolves on next turn). */
   onAbilityCheck?: (ability: keyof EntityState["abilityScores"]) => void;
+  statsOnly?: boolean;
 }) {
   const [compact, setCompact] = useState(false);
   const [targetId, setTargetId] = useState("");
@@ -120,14 +119,12 @@ export function CharacterHud({
     Math.min(100, Math.round((entity.hp.current / Math.max(1, entity.hp.max)) * 100)),
   );
 
-  // Primary weapon: the first sheet-derived weapon (#98), or a generic Strike
-  // when no roster is bridged in. The map action bar offers the full list.
-  const strike = weapons?.[0] ?? genericStrike(entity);
-
-  const chosenTarget = targetId || targets[0]?.id || "";
+  const strike = statsOnly ? null : weapons?.[0] ?? genericStrike(entity);
+  const chosenTarget =
+    statsOnly ? "" : targetId || targets[0]?.id || "";
 
   function onStrike() {
-    if (!chosenTarget) return;
+    if (!strike || !chosenTarget) return;
     session.attack(
       entity.id,
       chosenTarget,
@@ -240,8 +237,8 @@ export function CharacterHud({
         {entity.hp.temp > 0 && <span>THP {entity.hp.temp}</span>}
       </div>
 
-      {/* Action economy (combat only) */}
-      {entity.actionEconomy && (
+      {/* Action economy — turn bar owns this during combat (#214). */}
+      {!statsOnly && entity.actionEconomy && (
         <Section title="Action Economy">
           <div className="flex flex-wrap gap-1.5 text-xs">
             <Chip
@@ -313,10 +310,11 @@ export function CharacterHud({
         </Section>
       )}
 
-      {/* Attacks */}
-      <Section title="Attacks">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-lore-text">{strike.label}</span>
+      {/* Attacks — turn bar owns attack/cast during combat (#214). */}
+      {!statsOnly && strike && (
+        <Section title="Attacks">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-lore-text">{strike.label}</span>
           {targets.length > 0 ? (
             <>
               <select
@@ -344,11 +342,10 @@ export function CharacterHud({
           )}
         </div>
       </Section>
+      )}
 
-      {/* Inventory quick-use — real consumables from the sheet (#98); using an
-          item is still a narrative action (sendChat) until item effects route
-          through the engine (SMITH-7). */}
-      {items && items.length > 0 && (
+      {/* Inventory quick-use — turn bar lists consumables during combat (#98). */}
+      {!statsOnly && items && items.length > 0 && (
         <Section title="Quick Use">
           <div className="flex flex-wrap gap-1.5">
             {items.map((item) => (
@@ -368,7 +365,7 @@ export function CharacterHud({
         </Section>
       )}
 
-      {yourTurn && (
+      {!statsOnly && yourTurn && (
         <button
           type="button"
           onClick={session.endTurn}

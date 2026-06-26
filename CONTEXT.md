@@ -60,6 +60,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 | **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
 | **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
+**Recently shipped (Jun 2026, post-#245):** Characters dashboard sweep (⋯ menu, XP bars, Play Now, 10-step creation wizard) · sheet Features + Personality tabs · 3-step level-up · PLAY-3 party-rail HUD **statsOnly** dedup (turn controls stay on combat bar).
+
 **Recently shipped (#244, Jun 2026):** ENG-2 batch 11 — registry **103 → 120** (top-120 declarative curation complete) + golden snapshots.
 
 **Recently shipped (#243, Jun 2026):** ENG-2 batch 10 — registry **92 → 103** (Hold Monster, Dominate Person, Fear, Suggestion, Wall of Fire, Chain Lightning, Otto's Irresistible Dance, Power Word Stun, Sleep, Greater Restoration, Crown of Madness) + golden snapshots.

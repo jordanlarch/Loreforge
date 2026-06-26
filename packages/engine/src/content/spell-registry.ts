@@ -37,6 +37,10 @@
  *   - Batch 10 (ENG-2): Hold Monster, Dominate Person, Fear, Suggestion,
  *     Wall of Fire, Chain Lightning, Otto's Irresistible Dance, Power Word Stun,
  *     Sleep, Greater Restoration, Crown of Madness.
+ *   - Batch 11 (ENG-2): Banishment, Slow, Darkness, Silence, Lesser Restoration,
+ *     Compulsion, Heroism, Ice Storm, Sunburst, Meteor Swarm, Dominate Monster,
+ *     Mass Suggestion, Cloudkill, Insect Plague, Finger of Death, Power Word Heal,
+ *     Sunbeam — **top-120 curation complete** (103 → 120).
  *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
  * a malformed registry entry fails CI rather than at cast time, and every
@@ -2189,6 +2193,337 @@ const CROWN_OF_MADNESS: SpellDefinition = {
     "One humanoid you can see must succeed on a Wisdom saving throw or be charmed for the duration and must use its action before moving on each turn to make a melee attack against a creature other than itself that you mentally choose.",
 };
 
+// ───────────────────────── Batch 11 (ENG-2) — top-120 complete ─────────
+
+const BANISHMENT: SpellDefinition = {
+  id: "banishment",
+  name: "Banishment",
+  level: 4,
+  school: "abjuration",
+  classes: ["Cleric", "Paladin", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "an item distasteful to the target" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "cha", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "incapacitated",
+  description:
+    "You attempt to send one creature you can see to another plane of existence. On a failed Charisma save the target is incapacitated (tracer: removed from play narrated).",
+};
+
+const SLOW: SpellDefinition = {
+  id: "slow",
+  name: "Slow",
+  level: 3,
+  school: "transmutation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 40 } },
+  components: { verbal: true, somatic: true, material: "a drop of molasses" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "poisoned",
+  description:
+    "Up to six creatures in a 40-foot cube must succeed on a Wisdom saving throw or have speed halved and −2 AC (tracer: poisoned on a failed save).",
+};
+
+const DARKNESS: SpellDefinition = {
+  id: "darkness",
+  name: "Darkness",
+  level: 2,
+  school: "evocation",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 15 } },
+  components: { verbal: true, somatic: false, material: "bat fur and a drop of pitch or piece of coal" },
+  duration: { unit: "minute", amount: 10 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "blinded",
+  description:
+    "Magical darkness spreads from a point (tracer: creatures in the 15-foot sphere fail a Wisdom save or become blinded until they leave the darkness).",
+};
+
+const SILENCE: SpellDefinition = {
+  id: "silence",
+  name: "Silence",
+  level: 2,
+  school: "illusion",
+  classes: ["Bard", "Cleric", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 10 },
+  concentration: true,
+  ritual: true,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "deafened",
+  description:
+    "For the duration, no sound can be created within or pass through a 20-foot-radius sphere (tracer: Constitution save or deafened).",
+};
+
+const LESSER_RESTORATION: SpellDefinition = {
+  id: "lesser-restoration",
+  name: "Lesser Restoration",
+  level: 2,
+  school: "abjuration",
+  classes: ["Bard", "Cleric", "Druid", "Paladin", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  healing: { dice: "2d4", addSpellMod: true },
+  description:
+    "You touch a creature and end one disease or condition afflicting it (tracer: 2d4 + spellcasting modifier HP restored).",
+};
+
+const COMPULSION: SpellDefinition = {
+  id: "compulsion",
+  name: "Compulsion",
+  level: 4,
+  school: "enchantment",
+  classes: ["Bard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "Creatures of your choice that you can see must succeed on a Wisdom saving throw or be charmed until the spell ends (tracer: single target).",
+};
+
+const HEROISM: SpellDefinition = {
+  id: "heroism",
+  name: "Heroism",
+  level: 1,
+  school: "enchantment",
+  classes: ["Bard", "Paladin"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedEffects: [
+    {
+      name: "Heroism",
+      scope: "targets",
+      modifier: { type: "attack_roll_bonus", dice: "1d4" },
+      concentration: true,
+    },
+  ],
+  description:
+    "A willing creature you touch is imbued with bravery: it can't be frightened and makes attack rolls with a +1d4 bonus (tracer: attack bonus only).",
+};
+
+const ICE_STORM: SpellDefinition = {
+  id: "ice-storm",
+  name: "Ice Storm",
+  level: 4,
+  school: "evocation",
+  classes: ["Druid", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 300, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true, material: "a pinch of dust and a few drops of water" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "6d8", type: "bludgeoning" }],
+  description:
+    "Hail falls in a 20-foot-radius cylinder (tracer: 6d8 bludgeoning on a failed Dexterity save, half on success; 4d6 cold narrated).",
+};
+
+const SUNBURST: SpellDefinition = {
+  id: "sunburst",
+  name: "Sunburst",
+  level: 8,
+  school: "evocation",
+  classes: ["Cleric", "Druid", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 150, area: { shape: "sphere", size: 60 } },
+  components: { verbal: true, somatic: true, material: "fire and a piece of sunstone" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "12d6", type: "radiant" }],
+  failedSaveCondition: "blinded",
+  description:
+    "Brilliant sunlight flashes in a 60-foot radius. Each creature in the area makes a Constitution save, taking 12d6 radiant on a failure or half on a success, and is blinded on a failure.",
+};
+
+const METEOR_SWARM: SpellDefinition = {
+  id: "meteor-swarm",
+  name: "Meteor Swarm",
+  level: 9,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 5280, area: { shape: "sphere", size: 40 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "20d6", type: "fire" }],
+  description:
+    "Blazing orbs plummet to the ground at four points you can see (tracer: 40-ft burst, Dex save half 20d6 fire; bludgeoning splash narrated).",
+};
+
+const DOMINATE_MONSTER: SpellDefinition = {
+  id: "dominate-monster",
+  name: "Dominate Monster",
+  level: 8,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "You attempt to beguile a creature you can see. It must succeed on a Wisdom saving throw or be charmed by you for the duration.",
+};
+
+const MASS_SUGGESTION: SpellDefinition = {
+  id: "mass-suggestion",
+  name: "Mass Suggestion",
+  level: 6,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "a snake's tongue and either a bit of honeycomb or a drop of sweet oil" },
+  duration: { unit: "hour", amount: 24 },
+  concentration: true,
+  ritual: false,
+  targeting: "multi",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "Up to twelve creatures of your choice that you can see must succeed on a Wisdom saving throw or be charmed for the duration (tracer: up to three targets).",
+};
+
+const CLOUDKILL: SpellDefinition = {
+  id: "cloudkill",
+  name: "Cloudkill",
+  level: 5,
+  school: "conjuration",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 10 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  damage: [{ dice: "5d8", type: "poison" }],
+  description:
+    "A poisonous yellow fog fills a 20-foot-radius sphere. Each creature in the area when the spell is cast makes a Constitution save, taking 5d8 poison damage on a failure.",
+};
+
+const INSECT_PLAGUE: SpellDefinition = {
+  id: "insect-plague",
+  name: "Insect Plague",
+  level: 5,
+  school: "conjuration",
+  classes: ["Cleric", "Druid", "Sorcerer"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 300, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true, material: "a few grains of sugar, some kernels of grain, and a smear of fat" },
+  duration: { unit: "minute", amount: 10 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "4d10", type: "piercing" }],
+  description:
+    "Swarming, biting locusts fill a 20-foot-radius sphere. Each creature in the area makes a Dexterity save, taking 4d10 piercing damage on a failure or half on a success.",
+};
+
+const FINGER_OF_DEATH: SpellDefinition = {
+  id: "finger-of-death",
+  name: "Finger of Death",
+  level: 7,
+  school: "necromancy",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "7d8+30", type: "necrotic" }],
+  description:
+    "You send negative energy coursing through a creature you can see. The target makes a Constitution saving throw, taking 7d8 + 30 necrotic damage on a failure or half as much on a success.",
+};
+
+const POWER_WORD_HEAL: SpellDefinition = {
+  id: "power-word-heal",
+  name: "Power Word Heal",
+  level: 9,
+  school: "evocation",
+  classes: ["Bard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  healing: { dice: "4d4", addSpellMod: true },
+  description:
+    "A wave of healing energy washes over a creature you can see, restoring all its hit points (tracer: 4d4 + spellcasting modifier HP restored).",
+};
+
+const SUNBEAM: SpellDefinition = {
+  id: "sunbeam",
+  name: "Sunbeam",
+  level: 6,
+  school: "evocation",
+  classes: ["Druid", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "cone", size: 60 } },
+  components: { verbal: true, somatic: true, material: "a magnifying glass" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "6d8", type: "radiant" }],
+  failedSaveCondition: "blinded",
+  description:
+    "A beam of brilliant light shines in a 60-foot line (tracer: 60-ft cone). Each creature in the area makes a Constitution save, taking 6d8 radiant on a failure or half on a success, and is blinded on a failure.",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -2294,6 +2629,23 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [SLEEP.id]: SLEEP,
   [GREATER_RESTORATION.id]: GREATER_RESTORATION,
   [CROWN_OF_MADNESS.id]: CROWN_OF_MADNESS,
+  [BANISHMENT.id]: BANISHMENT,
+  [SLOW.id]: SLOW,
+  [DARKNESS.id]: DARKNESS,
+  [SILENCE.id]: SILENCE,
+  [LESSER_RESTORATION.id]: LESSER_RESTORATION,
+  [COMPULSION.id]: COMPULSION,
+  [HEROISM.id]: HEROISM,
+  [ICE_STORM.id]: ICE_STORM,
+  [SUNBURST.id]: SUNBURST,
+  [METEOR_SWARM.id]: METEOR_SWARM,
+  [DOMINATE_MONSTER.id]: DOMINATE_MONSTER,
+  [MASS_SUGGESTION.id]: MASS_SUGGESTION,
+  [CLOUDKILL.id]: CLOUDKILL,
+  [INSECT_PLAGUE.id]: INSECT_PLAGUE,
+  [FINGER_OF_DEATH.id]: FINGER_OF_DEATH,
+  [POWER_WORD_HEAL.id]: POWER_WORD_HEAL,
+  [SUNBEAM.id]: SUNBEAM,
 };
 
 /** Look up an authored spell definition by slug id. */

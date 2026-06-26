@@ -23,10 +23,13 @@ import {
 import type { OverworldGridConfig } from "@app/db";
 import { trpc } from "@/lib/trpc/client";
 
+import { SettlementMapPanel } from "./settlement-map-panel";
+
 type OverworldGridProps = {
   campaignId: string;
   grid: OverworldGridConfig;
   entities: OverworldEntity[];
+  parentSettlementByEntity: Record<string, string | undefined>;
   mode: "edit" | "view";
   fill?: boolean;
   isOwner?: boolean;
@@ -37,6 +40,7 @@ export function OverworldGrid({
   campaignId,
   grid,
   entities,
+  parentSettlementByEntity,
   mode,
   fill = false,
   isOwner = true,
@@ -60,6 +64,11 @@ export function OverworldGrid({
     },
   });
   const setPin = trpc.campaigns.setOverworldPin.useMutation({
+    onSuccess: async () => {
+      await utils.campaigns.overworldMap.invalidate({ campaignId });
+    },
+  });
+  const setSettlementPin = trpc.campaigns.setSettlementPin.useMutation({
     onSuccess: async () => {
       await utils.campaigns.overworldMap.invalidate({ campaignId });
     },
@@ -97,6 +106,21 @@ export function OverworldGrid({
   const regionOptions = entities.filter((e) => e.type === "region");
   const settlementOptions = entities.filter((e) => e.type === "settlement");
   const pinOptions = entities.filter((e) => isPinType(e.type));
+
+  const parentSettlementIdForActive =
+    activeEntity && isPinType(activeEntity.type)
+      ? parentSettlementByEntity[activeEntity.id]
+      : undefined;
+  const parentSettlement = parentSettlementIdForActive
+    ? entities.find((e) => e.id === parentSettlementIdForActive)
+    : undefined;
+  const poisInSettlement = parentSettlementIdForActive
+    ? entities.filter(
+        (e) =>
+          isPinType(e.type) &&
+          parentSettlementByEntity[e.id] === parentSettlementIdForActive,
+      )
+    : [];
 
   const persistTerritory = useCallback(
     async (entityId: string, territory: string[]) => {
@@ -262,10 +286,29 @@ export function OverworldGrid({
             <span className="text-xs text-lore-muted">
               Active:{" "}
               <span className="text-lore-text">{activeEntity.name}</span> (
-              {REALM_TYPE_LABEL[activeEntity.type]})
+              {REALM_TYPE_LABEL[activeEntity.type as RealmEntityType]})
             </span>
           ) : null}
         </div>
+      ) : null}
+
+      {mode === "edit" &&
+      tool === "pin" &&
+      activeEntity &&
+      isPinType(activeEntity.type) &&
+      parentSettlement ? (
+        <SettlementMapPanel
+          settlement={parentSettlement}
+          poi={activeEntity}
+          poisInSettlement={poisInSettlement}
+          onPlacePin={(col, row) => {
+            void setSettlementPin.mutateAsync({
+              campaignId,
+              entityId: activeEntity.id,
+              settlementPin: { col, row },
+            });
+          }}
+        />
       ) : null}
 
       <div className="flex shrink-0 items-center justify-end gap-2 px-1">
@@ -497,6 +540,7 @@ export function OverworldMapShell({
       campaignId={campaignId}
       grid={map.data.grid}
       entities={map.data.entities}
+      parentSettlementByEntity={map.data.parentSettlementByEntity}
       mode={mode}
       fill={fill}
       isOwner={isOwner}

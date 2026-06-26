@@ -8,8 +8,11 @@ import {
   filterCellsWithinRegion,
   ownerAtCell,
   parentRegionId,
+  parentSettlementId,
   parseCellKey,
   seedOverworldLayout,
+  syncOverworldPinFromSettlement,
+  syncSettlementPinFromOverworld,
   toggleTerritoryCell,
   type OverworldEntity,
 } from "./overworld-map";
@@ -81,6 +84,33 @@ describe("parent region resolution", () => {
     const regions = new Set(["r1"]);
     expect(parentRegionId("s1", regions, locatedIn)).toBe("r1");
     expect(parentRegionId("b1", regions, locatedIn)).toBe("r1");
+  });
+});
+
+describe("POI dual-coordinate sync (UX-4)", () => {
+  const territory = ["10,10", "11,10", "10,11", "11,11"];
+
+  it("derives settlementPin from overworld pin inside territory", () => {
+    const synced = syncSettlementPinFromOverworld(
+      { pin: { col: 11, row: 10 } },
+      territory,
+    );
+    expect(synced.settlementPin).toEqual({ col: 1, row: 0 });
+  });
+
+  it("derives overworld pin from settlement local coords", () => {
+    const synced = syncOverworldPinFromSettlement(
+      { settlementPin: { col: 0, row: 1 } },
+      territory,
+    );
+    expect(synced.pin).toEqual({ col: 10, row: 11 });
+  });
+
+  it("finds parent settlement via located_in chain", () => {
+    const locatedIn = buildLocatedInMap([
+      { fromId: "t1", toId: "s1", kind: "located_in" },
+    ]);
+    expect(parentSettlementId("t1", new Set(["s1"]), locatedIn)).toBe("s1");
   });
 });
 

@@ -240,6 +240,113 @@ export function hasAnyOverworldGeometry(
   );
 }
 
+export type TerritoryBounds = {
+  minCol: number;
+  minRow: number;
+  width: number;
+  height: number;
+};
+
+/** Bounding box of a territory cell set (for settlement local pin coords). */
+export function territoryBounds(cells: readonly string[]): TerritoryBounds | null {
+  if (cells.length === 0) return null;
+  let minCol = Infinity;
+  let minRow = Infinity;
+  let maxCol = -Infinity;
+  let maxRow = -Infinity;
+  for (const key of cells) {
+    const cell = parseCellKey(key);
+    if (!cell) continue;
+    minCol = Math.min(minCol, cell.col);
+    minRow = Math.min(minRow, cell.row);
+    maxCol = Math.max(maxCol, cell.col);
+    maxRow = Math.max(maxRow, cell.row);
+  }
+  if (!Number.isFinite(minCol)) return null;
+  return {
+    minCol,
+    minRow,
+    width: maxCol - minCol + 1,
+    height: maxRow - minRow + 1,
+  };
+}
+
+export function overworldToSettlementPin(
+  pin: { col: number; row: number },
+  bounds: TerritoryBounds,
+): { col: number; row: number } {
+  return { col: pin.col - bounds.minCol, row: pin.row - bounds.minRow };
+}
+
+export function settlementToOverworldPin(
+  local: { col: number; row: number },
+  bounds: TerritoryBounds,
+): { col: number; row: number } {
+  return { col: bounds.minCol + local.col, row: bounds.minRow + local.row };
+}
+
+/** Keep settlementPin in sync when the overworld pin moves inside a settlement. */
+export function syncSettlementPinFromOverworld(
+  layer: CampaignOverworldMapLayer,
+  settlementTerritory: readonly string[],
+): CampaignOverworldMapLayer {
+  if (!layer.pin || settlementTerritory.length === 0) {
+    const next = { ...layer };
+    delete next.settlementPin;
+    return next;
+  }
+  const bounds = territoryBounds(settlementTerritory);
+  if (!bounds) return layer;
+  const key = cellKey(layer.pin.col, layer.pin.row);
+  if (!settlementTerritory.includes(key)) {
+    const next = { ...layer };
+    delete next.settlementPin;
+    return next;
+  }
+  return {
+    ...layer,
+    settlementPin: overworldToSettlementPin(layer.pin, bounds),
+  };
+}
+
+/** Keep overworld pin in sync when editing on the settlement district map. */
+export function syncOverworldPinFromSettlement(
+  layer: CampaignOverworldMapLayer,
+  settlementTerritory: readonly string[],
+): CampaignOverworldMapLayer {
+  if (!layer.settlementPin || settlementTerritory.length === 0) return layer;
+  const bounds = territoryBounds(settlementTerritory);
+  if (!bounds) return layer;
+  const localCol = layer.settlementPin.col;
+  const localRow = layer.settlementPin.row;
+  if (localCol < 0 || localRow < 0 || localCol >= bounds.width || localRow >= bounds.height) {
+    return layer;
+  }
+  return {
+    ...layer,
+    pin: settlementToOverworldPin(layer.settlementPin, bounds),
+  };
+}
+
+export function parentSettlementId(
+  entityId: string,
+  settlementIds: ReadonlySet<string>,
+  locatedIn: ReadonlyMap<string, string>,
+): string | undefined {
+  let current: string | undefined = entityId;
+  const seen = new Set<string>();
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (settlementIds.has(current)) return current;
+    current = locatedIn.get(current);
+  }
+  return undefined;
+}
+
+export function stubSupportsEncounters(type: RealmEntityType): boolean {
+  return type === "region" || type === "settlement" || type === "dungeon";
+}
+
 export function mergeSeededLayers(
   entities: readonly OverworldEntity[],
   seeded: ReadonlyMap<string, CampaignOverworldMapLayer>,

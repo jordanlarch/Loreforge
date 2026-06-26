@@ -23,8 +23,10 @@ export type OverworldGridConfig = {
 export type CampaignOverworldMapLayer = {
   /** `"col,row"` keys for region/settlement territories. */
   territory?: string[];
-  /** Grid cell for a POI pin. */
+  /** Grid cell for a POI pin on the campaign overworld. */
   pin?: { col: number; row: number };
+  /** Local grid cell on the parent settlement's district map (UX-4 sync). */
+  settlementPin?: { col: number; row: number };
 };
 
 export const DEFAULT_OVERWORLD_GRID: OverworldGridConfig = {

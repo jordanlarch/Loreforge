@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 
 import type { CharacterSheet } from "@app/engine";
+import { spellcastingAbilityForClasses } from "@app/engine";
 
 import {
   CodexSpellAddPicker,
@@ -32,11 +33,13 @@ import {
 export function SpellsTab({
   spells,
   sheet,
+  classes,
   saving,
   onSave,
 }: {
   spells: SpellLoadout;
   sheet?: CharacterSheet;
+  classes?: { class: string; level: number }[];
   saving: boolean;
   onSave: (spells: SpellLoadout) => void;
 }) {
@@ -97,13 +100,22 @@ export function SpellsTab({
       .filter((g) => g.spells.length > 0);
   }, [grouped, search]);
 
-  const spellMod = sheet
-    ? sheet.abilityModifiers.int >= sheet.abilityModifiers.wis
-      ? sheet.abilityModifiers.int >= sheet.abilityModifiers.cha
-        ? { ability: "INT", mod: sheet.abilityModifiers.int }
-        : { ability: "CHA", mod: sheet.abilityModifiers.cha }
-      : { ability: "WIS", mod: sheet.abilityModifiers.wis }
+  const castingAbility = classes
+    ? spellcastingAbilityForClasses(classes)
     : null;
+  const spellMod =
+    sheet && castingAbility
+      ? {
+          ability: castingAbility.toUpperCase(),
+          mod: sheet.abilityModifiers[castingAbility],
+        }
+      : sheet
+        ? sheet.abilityModifiers.int >= sheet.abilityModifiers.wis
+          ? sheet.abilityModifiers.int >= sheet.abilityModifiers.cha
+            ? { ability: "INT", mod: sheet.abilityModifiers.int }
+            : { ability: "CHA", mod: sheet.abilityModifiers.cha }
+          : { ability: "WIS", mod: sheet.abilityModifiers.wis }
+        : null;
   const saveDc = spellMod ? 8 + sheet!.proficiencyBonus + spellMod.mod : null;
 
   return (

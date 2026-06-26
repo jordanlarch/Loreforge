@@ -287,6 +287,33 @@ const EXTRA_ASI_LEVELS: Record<string, number[]> = {
   Rogue: [10],
 };
 
+/** Primary spellcasting ability by SRD class display name (null = non-caster). */
+export const CLASS_SPELLCASTING_ABILITY: Partial<Record<string, Ability>> = {
+  Bard: "cha",
+  Cleric: "wis",
+  Druid: "wis",
+  Paladin: "cha",
+  Ranger: "wis",
+  Sorcerer: "cha",
+  Warlock: "cha",
+  Wizard: "int",
+};
+
+/**
+ * Spellcasting ability for a character's class list. Uses the highest-level
+ * class that can cast; ties break toward the first entry in `classes`.
+ */
+export function spellcastingAbilityForClasses(
+  classes: { class: string; level: number }[],
+): Ability | null {
+  let best: { class: string; level: number } | null = null;
+  for (const cl of classes) {
+    if (!CLASS_SPELLCASTING_ABILITY[cl.class]) continue;
+    if (!best || cl.level > best.level) best = cl;
+  }
+  return best ? (CLASS_SPELLCASTING_ABILITY[best.class] ?? null) : null;
+}
+
 /** Whether a class gains an ASI/feat choice at the given level. */
 export function grantsAsiAtLevel(className: string, level: number): boolean {
   return (

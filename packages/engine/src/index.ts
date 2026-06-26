@@ -167,6 +167,8 @@ export {
   pointBuyRemaining,
   SKILL_ABILITY,
   SKILLS,
+  spellcastingAbilityForClasses,
+  CLASS_SPELLCASTING_ABILITY,
   STANDARD_ARRAY,
   totalPointBuyCost,
   xpForLevel,

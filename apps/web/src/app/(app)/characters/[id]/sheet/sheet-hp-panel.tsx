@@ -2,16 +2,24 @@
 
 import { useState } from "react";
 
+type HitDiePool = { class: string; current: number; max: number };
+
 export function SheetHpPanel({
   current,
   max,
   temp,
+  hitDice,
   onPatch,
+  onShortRest,
+  onLongRest,
 }: {
   current: number;
   max: number;
   temp: number;
+  hitDice: HitDiePool[];
   onPatch: (patch: { currentHp?: number; tempHp?: number }) => void;
+  onShortRest: () => void;
+  onLongRest: () => void;
 }) {
   const [damage, setDamage] = useState("");
   const [heal, setHeal] = useState("");
@@ -99,18 +107,35 @@ export function SheetHpPanel({
           </button>
         </div>
       </div>
+      {hitDice.length > 0 && (
+        <div className="mt-3 border-t border-lore-border pt-3">
+          <div className="text-[10px] uppercase tracking-widest text-lore-muted">
+            Hit Dice
+          </div>
+          <ul className="mt-1 space-y-1 text-xs">
+            {hitDice.map((hd) => (
+              <li key={hd.class} className="flex justify-between text-lore-muted">
+                <span>{hd.class}</span>
+                <span className="font-mono tabular-nums">
+                  {hd.current}/{hd.max}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="mt-3 flex gap-2">
         <button
           type="button"
-          className="flex-1 rounded border border-lore-border py-1 text-xs text-lore-muted hover:text-lore-text"
-          title="Short rest — resource refresh deferred to engine"
+          onClick={onShortRest}
+          className="flex-1 rounded border border-lore-border py-1 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text"
         >
           Short rest
         </button>
         <button
           type="button"
-          className="flex-1 rounded border border-lore-border py-1 text-xs text-lore-muted hover:text-lore-text"
-          title="Long rest — resource refresh deferred to engine"
+          onClick={onLongRest}
+          className="flex-1 rounded border border-lore-border py-1 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text"
         >
           Long rest
         </button>

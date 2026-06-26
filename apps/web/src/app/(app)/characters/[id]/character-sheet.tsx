@@ -15,6 +15,12 @@ import {
   patchPersonalityFields,
   patchSessionNotes,
 } from "@/lib/character-sheet-storage";
+import {
+  applyLongRestMeta,
+  applyShortRestMeta,
+  ensureHitDice,
+  refreshSpellSlots,
+} from "@/lib/sheet-rest";
 
 import { AbilitiesPanel } from "./abilities-panel";
 import { AboutTab } from "./about-tab";
@@ -115,6 +121,14 @@ export function CharacterSheetView({
   const currentHp = parsed.meta.currentHp ?? character.maxHp;
   const tempHp = parsed.meta.tempHp ?? 0;
   const notesRaw = character.notes;
+  const metaWithHitDice = ensureHitDice(parsed.meta, character.classes);
+  const hitDiceList = Object.entries(metaWithHitDice.hitDice ?? {}).map(
+    ([className, pool]) => ({
+      class: className,
+      current: pool.current,
+      max: pool.max,
+    }),
+  );
 
   function saveNotes(nextRaw: string) {
     update.mutate({ id, notes: nextRaw });
@@ -132,6 +146,23 @@ export function CharacterSheetView({
 
   function patchSession(sessionNotes: string) {
     saveNotes(patchSessionNotes(notesRaw, sessionNotes));
+  }
+
+  const charMaxHp = character.maxHp;
+  const charSpells = character.spells;
+
+  function shortRest() {
+    const nextMeta = applyShortRestMeta(metaWithHitDice);
+    saveNotes(patchCharacterMeta(notesRaw, nextMeta));
+  }
+
+  function longRest() {
+    const nextMeta = applyLongRestMeta(metaWithHitDice, charMaxHp);
+    saveNotes(patchCharacterMeta(notesRaw, nextMeta));
+    update.mutate({
+      id,
+      spells: refreshSpellSlots(charSpells),
+    });
   }
 
   return (
@@ -168,7 +199,10 @@ export function CharacterSheetView({
           current={currentHp}
           max={character.maxHp}
           temp={tempHp}
+          hitDice={hitDiceList}
           onPatch={patchMeta}
+          onShortRest={shortRest}
+          onLongRest={longRest}
         />
       </div>
 
@@ -227,7 +261,7 @@ export function CharacterSheetView({
             {tab === "Combat" && (
               <CombatTab
                 character={character}
-                meta={parsed.meta}
+                meta={metaWithHitDice}
                 onPatchMeta={patchMeta}
               />
             )}
@@ -235,6 +269,7 @@ export function CharacterSheetView({
               <SpellsTab
                 spells={character.spells}
                 sheet={sheet}
+                classes={character.classes}
                 saving={update.isPending}
                 onSave={(spells) => update.mutate({ id, spells })}
               />
@@ -242,7 +277,7 @@ export function CharacterSheetView({
             {tab === "Inventory" && (
               <InventoryTab
                 equipment={character.equipment}
-                meta={parsed.meta}
+                meta={metaWithHitDice}
                 saving={update.isPending}
                 onSaveEquipment={(equipment) =>
                   update.mutate({ id, equipment })
@@ -255,14 +290,14 @@ export function CharacterSheetView({
                 species={character.species}
                 background={character.background}
                 classes={character.classes}
-                meta={parsed.meta}
+                meta={metaWithHitDice}
                 onPatchMeta={patchMeta}
               />
             )}
             {tab === "Notes" && (
               <NotesTab
                 sessionNotes={parsed.sessionNotes}
-                meta={parsed.meta}
+                meta={metaWithHitDice}
                 onPatchSessionNotes={patchSession}
                 onPatchMeta={patchMeta}
               />
@@ -271,7 +306,7 @@ export function CharacterSheetView({
               <AboutTab
                 background={character.background}
                 personality={parsed.personality}
-                meta={parsed.meta}
+                meta={metaWithHitDice}
                 onPatchPersonality={patchPersonality}
                 onPatchMeta={patchMeta}
               />
@@ -282,7 +317,7 @@ export function CharacterSheetView({
         <div className="space-y-4">
           <SheetRightRail
             sheet={sheet}
-            meta={parsed.meta}
+            meta={metaWithHitDice}
             inspiration={parsed.meta.inspiration ?? false}
             onPatchMeta={patchMeta}
           />

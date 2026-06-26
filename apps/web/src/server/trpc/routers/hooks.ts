@@ -402,7 +402,7 @@ export const questsRouter = createTRPCRouter({
         });
       }
 
-      let status: HookStatus = result.completed ? "resolved" : "active";
+      const status: HookStatus = result.completed ? "resolved" : "active";
 
       let data = result.data as Record<string, unknown>;
       if (status === "resolved") {

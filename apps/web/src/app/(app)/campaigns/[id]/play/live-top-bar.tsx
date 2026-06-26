@@ -133,9 +133,9 @@ export function LivePlayTopBar({
             <Link
               href={backHref}
               className="text-sm text-lore-muted transition-colors hover:text-lore-text"
-              title="Back to workspace (session keeps running)"
+              title="Back to campaign prep (session keeps running)"
             >
-              ← Workspace
+              ← Prep
             </Link>
           )}
           <h1 className="font-display text-xl leading-tight">{title}</h1>

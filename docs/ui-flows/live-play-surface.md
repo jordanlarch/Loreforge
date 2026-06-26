@@ -1,8 +1,10 @@
 # Live Play Surface
 
-*The dedicated play interface at `/campaigns/[id]/play` — invoked from the workspace's `[▶ Start Live Session]` button. The single surface where humans play their characters under the AI-GM. Hybrid text-chat backbone with the **always-on map of the current location above the chat log**. **Exploration** scenes (map, no active encounter) show a compact PC panel in the right sidebar; **combat** scenes use an initiative strip above the map, a left party rail, and a horizontal turn bar above chat (no full character sidebar during fights). Designed for solo async sessions on a laptop and live multiplayer sessions across multiple connected clients with real-time sync.*
+> **IA supersession (Jun 2026):** Play shell layout (center map above chat with **Current | World** tabs, left-nav lightboxes, **collapsible right character rail**), entry/handoff rules, and map hierarchy are **canonical in [`unified-campaign-ux.md`](./unified-campaign-ux.md)**. This doc retains combat mechanics, chat modes, pacing, and shipped vs target detail; where layout/entry conflicts with the unified spec, follow the unified spec. Implementation: `docs/deferrals.md` **CAMP-UX**.
 
-> **Doc convention:** sections labeled **Shipped** match the running app today. Sections labeled **Target design** describe v1 intent that is not fully built yet — see `docs/deferrals.md` §3.7 (PLAY-*).
+*The dedicated **play shell** at `/campaigns/[id]/play` — invoked via **Play Now** / **Continue** from prep. The single surface where humans play their characters under the AI-GM. Hybrid text-chat backbone with the **always-on map above the chat log** in the **center column**. **Exploration** scenes show a collapsible PC rail on the right; **combat** adds an initiative strip above the map and a turn bar between map and chat. Designed for solo async sessions on a laptop and live multiplayer sessions across multiple connected clients with real-time sync.*
+
+> **Doc convention:** sections labeled **Shipped** match the running app today. Sections labeled **Target design** describe v1 intent that is not fully built yet — see `docs/deferrals.md` §3.7 (PLAY-*) and **CAMP-UX**.
 
 ## Entry Points
 

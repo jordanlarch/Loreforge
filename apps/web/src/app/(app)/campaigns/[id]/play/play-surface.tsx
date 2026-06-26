@@ -81,8 +81,7 @@ import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { GraduationModal } from "./graduation-modal";
 import { LivePlayTopBar } from "./live-top-bar";
 import { MapViewport } from "./map-viewport";
-import { PartyRail } from "./party-rail";
-import { PlaySurfaceLayout } from "./play-surface-layout";
+import { PlayShellChrome } from "./play-shell-chrome";
 import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
 import { useSceneTransition, useCombatTransition } from "./use-scene-transition";
@@ -301,9 +300,7 @@ function LiveBattle({
   const [paused, setPaused] = useState(false);
 
   // End-session (PLAY-12, #151): record the session + generate a recap (MEM-4),
-  // then return to the workspace Sessions tab where the recap appears. Only for
-  // real campaigns (the sandbox has nothing to record against).
-  const router = useRouter();
+  // then show the memory-pin lightbox (CAMP-UX: stay in play on dismiss).
   const [endedSession, setEndedSession] = useState<EndedSessionState | null>(
     null,
   );
@@ -666,7 +663,14 @@ function LiveBattle({
       }
       return (
         <>
-          <PlaySurfaceLayout
+          <PlayShellChrome
+            campaignId={campaignId}
+            state={session.state}
+            partyRoster={partyRoster}
+            companionExpected={companionExpected}
+            onViewSheet={viewPartySheet}
+            onEnterLocation={(id) => session.enterLocation(id)}
+            onOpenCharacterSheet={openSheet}
             header={
               <>
                 <LivePlayTopBar
@@ -714,19 +718,11 @@ function LiveBattle({
                 )}
               </>
             }
-            partyRail={
-              <div className="h-full" data-coachmark="tut-party">
-                <PartyRail
-                  state={session.state}
-                  roster={partyRoster}
-                  layout="column"
-                  companionExpected={companionExpected}
-                  onViewSheet={viewPartySheet}
-                />
-              </div>
-            }
-            map={
-              <section className="flex min-h-0 flex-1 flex-col" data-coachmark="tut-scene1-map">
+            mapCurrent={
+              <section
+                className="flex h-full min-h-0 flex-1 flex-col"
+                data-coachmark="tut-scene1-map"
+              >
                 <MapViewport
                   fill
                   sceneBanner={sceneBanner}
@@ -750,7 +746,7 @@ function LiveBattle({
                 </p>
               ) : undefined
             }
-            sidebar={
+            characterRail={
               <>
                 {tutorialControls}
                 {pc && (
@@ -764,7 +760,10 @@ function LiveBattle({
               </>
             }
             chat={
-              <div className="flex min-h-0 flex-1 flex-col" data-coachmark="tut-scene1-chat">
+              <div
+                className="flex min-h-0 flex-1 flex-col"
+                data-coachmark="tut-scene1-chat"
+              >
                 <ChatZone
                   fill
                   entries={chatEntries}
@@ -804,10 +803,24 @@ function LiveBattle({
     ? session.state.scenes[session.state.currentSceneId]?.name
     : undefined;
 
+  const playerPc =
+    (pcCharacterId && session.state.entities[pcCharacterId]) ||
+    Object.values(session.state.entities).find((e) => e.kind === "character");
+
+  const openPlayerSheet = pcCharacterId
+    ? () => setSheetOpen(true)
+    : undefined;
 
   return (
     <>
-      <PlaySurfaceLayout
+      <PlayShellChrome
+        campaignId={campaignId}
+        state={session.state}
+        partyRoster={partyRoster}
+        companionExpected={companionExpected}
+        onViewSheet={viewPartySheet}
+        onEnterLocation={(id) => session.enterLocation(id)}
+        onOpenCharacterSheet={openPlayerSheet}
         header={
           <>
             <LivePlayTopBar
@@ -839,9 +852,6 @@ function LiveBattle({
               }}
             />
             {endSessionError}
-            {tutorialControls ? (
-              <div className="mt-2">{tutorialControls}</div>
-            ) : null}
             {joinPrompt && (
               <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
                 <span>⚡ {joinPrompt}</span>
@@ -865,19 +875,11 @@ function LiveBattle({
             />
           </div>
         }
-        partyRail={
-          <div className="h-full" data-coachmark="tut-party">
-            <PartyRail
-              state={session.state}
-              roster={partyRoster}
-              layout="column"
-              companionExpected={companionExpected}
-              onViewSheet={viewPartySheet}
-            />
-          </div>
-        }
-        map={
-          <section className="flex min-h-0 flex-1 flex-col" data-coachmark="tut-scene1-map">
+        mapCurrent={
+          <section
+            className="flex h-full min-h-0 flex-1 flex-col"
+            data-coachmark="tut-scene1-map"
+          >
             <MapViewport
               fill
               sceneBanner={sceneBanner}
@@ -906,11 +908,11 @@ function LiveBattle({
                     armed.spell.maxTargets > 1
                   ? "Tap allies to bless (up to three) — selected chips highlight — then Confirm."
                   : armed?.kind === "cast" &&
-                    armed.spell.targetKind === "ally"
-                  ? "Tap a highlighted ally (or yourself) to cast — the engine applies the effect."
-                  : armed
-                    ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
-                  : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready in the panel. The engine validates everything."}
+                      armed.spell.targetKind === "ally"
+                    ? "Tap a highlighted ally (or yourself) to cast — the engine applies the effect."
+                    : armed
+                      ? "Tap a highlighted enemy to resolve the action — the engine rolls and applies the result."
+                      : "Drag the highlighted active token within its movement radius, or arm an Attack/Cast/Ready in the panel. The engine validates everything."}
           </p>
         }
         actionBar={
@@ -960,6 +962,19 @@ function LiveBattle({
             }
           />
         }
+        characterRail={
+          <>
+            {tutorialControls}
+            {playerPc ? (
+              <CompactCharacterHud
+                pc={playerPc}
+                openSheet={openPlayerSheet}
+                hudExtra={hudExtra}
+                coachmark="tut-scene1-hud"
+              />
+            ) : null}
+          </>
+        }
         chat={
           <ChatZone
             fill
@@ -990,10 +1005,7 @@ function LiveBattle({
             <PostSessionPins
               campaignId={campaignId}
               ended={endedSession}
-              onClose={() => {
-                setEndedSession(null);
-                router.push(`/campaigns/${campaignId}?tab=sessions`);
-              }}
+              onClose={() => setEndedSession(null)}
             />
           </div>
         </div>

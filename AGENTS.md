@@ -12,6 +12,7 @@ You are picking up Loreforge — a modern AI-GM 5E SRD 5.2 web app. Design phase
 6. **`docs/data-sources.md`** — when you're working with external services (LLM, embeddings, TTS, image gen, SRD ingest, map libraries)
 7. The specific drill-down doc for whatever surface you're touching:
    - **Building / discussing UI?** → the matching file in `docs/ui-flows/`
+     - **Campaign prep or play?** → `docs/ui-flows/unified-campaign-ux.md` first (canonical IA); then `campaigns-workspace.md` / `live-play-surface.md` for drill-down
    - **Building the engine?** → `docs/engine/architecture.md` *(§16 solo phasing + top-120 are locked; other sections may still be proposals — see "Where Things Came From")*
    - **Building a generator?** → `docs/generators/forms-and-pages.md`; sample outputs live in `docs/generators/samples/`
    - **Working on onboarding?** → `docs/onboarding/tutorial-adventure.md`
@@ -152,6 +153,7 @@ Three provenance categories for the docs in this repo:
 - `docs/ui-flows/realms-library.md`
 - `docs/ui-flows/campaigns-workspace.md`
 - `docs/ui-flows/live-play-surface.md`
+- `docs/ui-flows/unified-campaign-ux.md` *(canonical campaign prep/play IA — Jun 2026 grill)*
 
 **3. Authored from chat decisions and project context during the design phase:**
 - `CONTEXT.md`

@@ -200,13 +200,16 @@ detail, Expand-with-Generator, generate→navigate, Advanced Form at the spec pa
 
 ### 3.6 Campaigns workspace — `docs/ui-flows/campaigns-workspace.md`
 
+**Canonical IA (Jun 2026):** [`docs/ui-flows/unified-campaign-ux.md`](ui-flows/unified-campaign-ux.md) — two shells (prep `/campaigns/[id]` + play `/campaigns/[id]/play`), seven-tab prep nav, center map-above-chat play layout, stub-scoped encounters, hybrid map hierarchy. Grilled and locked; supersedes conflicting sections in `campaigns-workspace.md` and `live-play-surface.md`.
+
 **The `/campaigns/[id]` workspace shell now exists** (#55): nine-tab bar with the
 Overview tab populated from real data; the other eight tabs are stubbed and land
 in their own slices. Opening a campaign (from the browser or after create) goes
-to the workspace, not straight to `/play`.
+to the workspace, not straight to `/play`. **Target:** refactor toward unified spec (**CAMP-UX**).
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
+| CAMP-UX | **Unified Campaign UX** — prep/play shells, 7-tab prep, center `[Current\|World]` map, lightbox nav, collapsible character rail, territory painting, stub-scoped encounters, `startingSceneId`, Realms edit lightbox | M6.5+ | doc-only | Partial | **Spec locked** Jun 2026 in `docs/ui-flows/unified-campaign-ux.md`. **UX-1 shipped:** play shell layout — left nav rail, `PlayMapZone` Current\|World tabs, `PlayLightbox` panels (Party/Quests/World/Memories/Sessions/Notes/Settings), collapsible `CharacterRail`, `WorldMapCanvas` in play World tab, `enterLocation` from play, end-session dismiss stays in play, top bar **← Prep**. **Next:** UX-2 prep tab merge → UX-3 overworld grid → … |
 | CAMP-1 | Workspace shell at `/campaigns/[id]` (header, sidebar, tab bar, right pane, footer) | P4 / M5 | #55 | Partial | **#55**: shell built — header (back link, Live:Off indicator, title, pinned Start Live Session) + nine-tab bar with `?tab=` deep links; non-Overview tabs stubbed. Collapsible left sidebar, contextual right pane, and footer/toast layer deferred to later tab slices. |
 | CAMP-2 | Tab 1 Overview (continue/next session, party/world/hooks/NPC/session widgets, activity feed, pinned memory) | P4 / M5 | #55 | Partial | **#55**: Overview shows hero (name + pitch with inline edit via `campaigns.update`), Start Live Session + Continue entry points, a party summary + count from the membership link (`campaigns.party`), world/hooks/sessions stat cards (stubbed), and created/updated metadata. Activity feed and AI next-step hints deferred (CAMP-13); **pinned AI-memory highlights now shipped** as the Pinned Memory panel (MEM-8, #155). |
 | CAMP-3 | Tab 2 Party (campaign-scoped character dashboard, companions, shared resources, bench) | P4 / M5 | #61 | Partial | **#61**: Party tab — add/remove roster via `characters.addToCampaign`; PCs / Companions / Bench cards + Live Play entry. **Mid-campaign roster sync shipped:** `sync_party` WS message + `add_combatant` / `create_entity` join commands when Live Play connects or roster grows (`buildPartyMemberJoinCommands`). Party-composition analysis, NPC-companion generator, shared currency/inventory pool, bench/deceased ⋯ menu deferred. |

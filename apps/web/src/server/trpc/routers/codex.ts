@@ -21,7 +21,11 @@ import {
 } from "@app/db";
 
 import { sortSizes } from "@/lib/codex-monster-filters";
-import { backgroundBenefitSummary, backgroundSkillProficiencies } from "@/lib/codex-background-feat-display";
+import {
+  backgroundBenefitSummary,
+  backgroundSkillProficiencies,
+} from "@/lib/codex-background-feat-display";
+import { codexSpellFlags } from "@/lib/codex-spell-flags";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -67,6 +71,7 @@ export const codexRouter = createTRPCRouter({
             level: codexSpells.level,
             school: codexSpells.school,
             source: codexSpells.source,
+            raw: codexSpells.raw,
           })
           .from(codexSpells)
           .where(where)
@@ -76,7 +81,13 @@ export const codexRouter = createTRPCRouter({
         db.select({ value: count() }).from(codexSpells).where(where),
       ]);
 
-      return { spells: rows, total: total?.value ?? 0 };
+      return {
+        spells: rows.map(({ raw, ...row }) => ({
+          ...row,
+          ...codexSpellFlags(raw as Record<string, unknown>),
+        })),
+        total: total?.value ?? 0,
+      };
     }),
 
   /** Distinct filter facets (levels + schools) for the sidebar. */

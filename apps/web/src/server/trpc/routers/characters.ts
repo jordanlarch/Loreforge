@@ -91,6 +91,9 @@ const characterSpell = z.object({
   prepared: z.boolean(),
   alwaysPrepared: z.boolean().optional(),
   source: z.string().trim().max(80).optional(),
+  concentration: z.boolean().optional(),
+  ritual: z.boolean().optional(),
+  codexSlug: z.string().trim().max(120).optional(),
 });
 
 /** Unified spell loadout: one list + per-level slot pools keyed "1".."9". */

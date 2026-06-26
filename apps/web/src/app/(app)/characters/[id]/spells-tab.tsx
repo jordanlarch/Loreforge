@@ -17,6 +17,7 @@ import {
 import {
   SheetSearchBar,
   SheetSection,
+  SheetTag,
   StubBanner,
 } from "@/components/character-sheet/sheet-ui";
 import {
@@ -226,6 +227,16 @@ export function SpellsTab({
                         placeholder="Spell name"
                         className={`${INPUT} min-w-[160px] flex-1`}
                       />
+                      {(spell.concentration || spell.ritual) && (
+                        <span className="flex gap-1">
+                          {spell.concentration && (
+                            <SheetTag label="C" title="Concentration" />
+                          )}
+                          {spell.ritual && (
+                            <SheetTag label="R" title="Ritual" />
+                          )}
+                        </span>
+                      )}
                       <select
                         aria-label="Spell level"
                         value={spell.level}
@@ -282,8 +293,7 @@ export function SpellsTab({
       )}
 
       <StubBanner>
-        Ritual (R) and Concentration (C) badges and cast-to-chat wire up when
-        spell metadata is linked from the Codex.
+        Cast-to-chat from the sheet ships with Live Play spell command wiring.
       </StubBanner>
 
       <div className="mt-4 flex flex-wrap gap-2">

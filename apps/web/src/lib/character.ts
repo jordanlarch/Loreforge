@@ -26,6 +26,9 @@ export type CharacterSpell = {
   prepared: boolean;
   alwaysPrepared?: boolean;
   source?: string;
+  concentration?: boolean;
+  ritual?: boolean;
+  codexSlug?: string;
 };
 
 export type SpellLoadout = {

@@ -49,6 +49,9 @@ export function CodexSpellAddPicker({
     name: string;
     level: string | null;
     school: string | null;
+    slug: string;
+    concentration?: boolean;
+    ritual?: boolean;
   }) {
     const next = codexSpellToCharacterSpell(spell);
     if (existingKeys.has(spellKey(next))) {
@@ -94,6 +97,8 @@ export function CodexSpellAddPicker({
               >
                 <span>{spell.name}</span>
                 <span className="text-xs capitalize text-lore-muted">
+                  {spell.concentration ? "C · " : ""}
+                  {spell.ritual ? "R · " : ""}
                   {spellLevelBadge(spell.level ?? "0")} · {spell.school ?? "—"}
                 </span>
               </button>

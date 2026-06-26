@@ -13,6 +13,25 @@ import {
 /** Default play tempo for a campaign (Q19c hybrid model). */
 export type CampaignPlayMode = "async" | "live";
 
+/** Square-grid dimensions for the campaign overworld (CAMP-UX UX-3). */
+export type OverworldGridConfig = {
+  width: number;
+  height: number;
+};
+
+/** Per-entity L0 map layer on a campaign (territory cells or POI pin). */
+export type CampaignOverworldMapLayer = {
+  /** `"col,row"` keys for region/settlement territories. */
+  territory?: string[];
+  /** Grid cell for a POI pin. */
+  pin?: { col: number; row: number };
+};
+
+export const DEFAULT_OVERWORLD_GRID: OverworldGridConfig = {
+  width: 32,
+  height: 20,
+};
+
 /**
  * Campaigns — the top-level unit of play, owned by a Supabase auth user.
  *
@@ -52,6 +71,11 @@ export const campaigns = pgTable(
      * through the same surfaces.
      */
     isTutorial: boolean("is_tutorial").notNull().default(false),
+    /** L0 overworld square grid size (CAMP-UX UX-3). */
+    overworldGrid: jsonb("overworld_grid")
+      .$type<OverworldGridConfig>()
+      .notNull()
+      .default(DEFAULT_OVERWORLD_GRID),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -123,6 +147,11 @@ export const campaignWorldEntities = pgTable(
     ownerId: uuid("owner_id").notNull(),
     /** Whether the party has discovered this entity in this campaign (Q11). */
     discovered: boolean("discovered").notNull().default(false),
+    /** L0 territory cells or POI pin for this campaign membership (UX-3). */
+    overworldMap: jsonb("overworld_map")
+      .$type<CampaignOverworldMapLayer>()
+      .notNull()
+      .default({}),
     addedAt: timestamp("added_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

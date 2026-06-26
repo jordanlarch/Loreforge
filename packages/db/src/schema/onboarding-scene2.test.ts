@@ -21,6 +21,7 @@ const DDL = `
     play_mode text NOT NULL DEFAULT 'async',
     art_style text NOT NULL DEFAULT '',
     is_tutorial boolean NOT NULL DEFAULT false,
+    overworld_grid jsonb NOT NULL DEFAULT '{"width":32,"height":20}'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   );

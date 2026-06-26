@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 
-import { WorldMapCanvas } from "./world-map-canvas";
+import { OverworldMapShell } from "./overworld-grid";
 
 /**
- * Map tab (CAMP-7 / CAMP-UX UX-2): prep-shell strategic canvas — embeds {@link WorldMapCanvas}.
+ * Map tab (CAMP-7 / CAMP-UX UX-3): prep-shell overworld grid editor.
  */
 export function WorldMapTab({ campaignId }: { campaignId: string }) {
   return (
@@ -14,7 +14,8 @@ export function WorldMapTab({ campaignId }: { campaignId: string }) {
         <div>
           <h2 className="font-display text-2xl">Map</h2>
           <p className="mt-1 text-sm text-lore-muted">
-            Strategic view of campaign locations. Drag to pan.
+            Paint region and settlement territories on the campaign overworld grid.
+            Place POI pins for buildings, dungeons, and NPCs.
           </p>
         </div>
         <Link
@@ -24,7 +25,7 @@ export function WorldMapTab({ campaignId }: { campaignId: string }) {
           Manage in Locations →
         </Link>
       </div>
-      <WorldMapCanvas campaignId={campaignId} />
+      <OverworldMapShell campaignId={campaignId} mode="edit" />
     </div>
   );
 }

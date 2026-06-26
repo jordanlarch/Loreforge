@@ -6,12 +6,19 @@
  * `characters.update`. The deterministic engine still owns cast resolution; this
  * is the character's spellbook of record.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import type { CharacterSheet } from "@app/engine";
 
 import {
   CodexSpellAddPicker,
   SmithySpellAddPicker,
 } from "@/components/character-library-pickers";
+import {
+  SheetSearchBar,
+  SheetSection,
+  StubBanner,
+} from "@/components/character-sheet/sheet-ui";
 import {
   blankSpell,
   groupSpellsByLevel,
@@ -23,16 +30,19 @@ import {
 
 export function SpellsTab({
   spells,
+  sheet,
   saving,
   onSave,
 }: {
   spells: SpellLoadout;
+  sheet?: CharacterSheet;
   saving: boolean;
   onSave: (spells: SpellLoadout) => void;
 }) {
   const [draft, setDraft] = useState<SpellLoadout>(spells);
   const [codexOpen, setCodexOpen] = useState(false);
   const [smithyOpen, setSmithyOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const dirty = JSON.stringify(draft) !== JSON.stringify(spells);
 
   function addSpell(spell: CharacterSpell) {
@@ -75,9 +85,42 @@ export function SpellsTab({
   }
 
   const grouped = groupSpellsByLevel(draft.spells);
+  const filteredGroups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return grouped;
+    return grouped
+      .map((g) => ({
+        ...g,
+        spells: g.spells.filter((s) => s.name.toLowerCase().includes(q)),
+      }))
+      .filter((g) => g.spells.length > 0);
+  }, [grouped, search]);
+
+  const spellMod = sheet
+    ? sheet.abilityModifiers.int >= sheet.abilityModifiers.wis
+      ? sheet.abilityModifiers.int >= sheet.abilityModifiers.cha
+        ? { ability: "INT", mod: sheet.abilityModifiers.int }
+        : { ability: "CHA", mod: sheet.abilityModifiers.cha }
+      : { ability: "WIS", mod: sheet.abilityModifiers.wis }
+    : null;
+  const saveDc = spellMod ? 8 + sheet!.proficiencyBonus + spellMod.mod : null;
 
   return (
     <div>
+      {sheet && spellMod && (
+        <div className="mb-4 flex flex-wrap justify-end gap-4 text-sm">
+          <span>
+            Spell Save DC{" "}
+            <strong className="text-lore-accent">{saveDc}</strong>
+          </span>
+          <span>
+            {spellMod.ability}{" "}
+            <strong>{spellMod.mod >= 0 ? `+${spellMod.mod}` : spellMod.mod}</strong>
+          </span>
+        </div>
+      )}
+
+      <SheetSearchBar value={search} onChange={setSearch} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-lore-muted">
           {draft.spells.length} spell{draft.spells.length === 1 ? "" : "s"} known
@@ -162,11 +205,11 @@ export function SpellsTab({
         </p>
       ) : (
         <div className="space-y-5">
-          {grouped.map((group) => (
-            <section key={group.level}>
-              <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
-                {spellLevelLabel(group.level)}
-              </h3>
+          {filteredGroups.map((group) => (
+            <SheetSection
+              key={group.level}
+              title={spellLevelLabel(group.level)}
+            >
               <ul className="space-y-2">
                 {group.spells.map((spell) => {
                   const index = draft.spells.indexOf(spell);
@@ -233,10 +276,15 @@ export function SpellsTab({
                   );
                 })}
               </ul>
-            </section>
+            </SheetSection>
           ))}
         </div>
       )}
+
+      <StubBanner>
+        Ritual (R) and Concentration (C) badges and cast-to-chat wire up when
+        spell metadata is linked from the Codex.
+      </StubBanner>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button

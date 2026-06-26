@@ -1327,7 +1327,7 @@ function FlavorStep({
   setBackstory: (v: string) => void;
 }) {
   function patch(key: keyof PersonalityFields, value: string) {
-    setPersonality((p) => ({ ...p, [key]: value }));
+    setPersonality((p: PersonalityFields) => ({ ...p, [key]: value }));
   }
 
   return (

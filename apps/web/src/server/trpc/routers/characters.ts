@@ -37,6 +37,11 @@ import {
   grantCampaignPartyXp,
   grantCharacterXp,
 } from "../../characters-xp";
+import {
+  createAdminClient,
+  isAllowedPortraitType,
+  PORTRAIT_BUCKET,
+} from "@/lib/supabase/admin";
 
 /** Hard 5E ceiling for a single class and for total character level. */
 const MAX_LEVEL = 20;
@@ -725,5 +730,86 @@ export const charactersRouter = createTRPCRouter({
         });
       }
       return row;
+    }),
+
+  /**
+   * Upload a portrait image to Supabase Storage and set `portrait_url`.
+   * Requires `SUPABASE_SERVICE_ROLE_KEY` and a public `character-portraits` bucket.
+   */
+  uploadPortrait: protectedProcedure
+    .input(
+      z.object({
+        characterId: z.string().uuid(),
+        fileName: z.string().trim().min(1).max(200),
+        contentType: z.string().trim().min(1).max(100),
+        dataBase64: z.string().min(1).max(4_000_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isAllowedPortraitType(input.contentType)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Portrait must be JPEG, PNG, WebP, or GIF.",
+        });
+      }
+
+      const admin = createAdminClient();
+      if (!admin) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Portrait upload is not configured (missing SUPABASE_SERVICE_ROLE_KEY).",
+        });
+      }
+
+      const db = getDb();
+      const [owned] = await db
+        .select({ id: characters.id })
+        .from(characters)
+        .where(
+          and(
+            eq(characters.id, input.characterId),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!owned) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+
+      const ext =
+        input.fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+        "jpg";
+      const path = `${ctx.user.id}/${input.characterId}.${ext}`;
+      const buffer = Buffer.from(input.dataBase64, "base64");
+
+      const { error: uploadError } = await admin.storage
+        .from(PORTRAIT_BUCKET)
+        .upload(path, buffer, {
+          contentType: input.contentType,
+          upsert: true,
+        });
+      if (uploadError) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: uploadError.message,
+        });
+      }
+
+      const { data: publicData } = admin.storage
+        .from(PORTRAIT_BUCKET)
+        .getPublicUrl(path);
+      const portraitUrl = `${publicData.publicUrl}?v=${Date.now()}`;
+
+      const [updated] = await db
+        .update(characters)
+        .set({ portraitUrl, updatedAt: new Date() })
+        .where(eq(characters.id, input.characterId))
+        .returning({ portraitUrl: characters.portraitUrl });
+
+      return { portraitUrl: updated?.portraitUrl ?? portraitUrl };
     }),
 });

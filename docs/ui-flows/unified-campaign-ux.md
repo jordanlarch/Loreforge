@@ -300,7 +300,7 @@ Co-GM role and read-only prep deferred (CAMP-14).
 | **UX-4** | POI dual-coordinate sync; stub encounter authoring UI; Test in Play — **shipped** (#237) |
 | **UX-5** | `startingSceneId` gate + Settings; end-session lightbox stays in play — **shipped** (#238) |
 | **UX-6** | Realms edit lightbox from prep; player-only play access hardening — **shipped** (#239) |
-| **UX-7** | Scroll L0→L4 polish (PLAY-7) when UX-1–6 stable |
+| **UX-7** | Scroll L0→L4 polish (PLAY-7): L0 wheel zoom, L3/L4 badges, Return-to-scene pill — **shipped** (#240) |
 
 ---
 

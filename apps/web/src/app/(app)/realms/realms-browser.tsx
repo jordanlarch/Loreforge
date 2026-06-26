@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { trpc } from "@/lib/trpc/client";
 import {
@@ -19,14 +19,27 @@ type ViewMode = "grid" | "list" | "graph";
 
 export function RealmsBrowser() {
   const [typeFilter, setTypeFilter] = useState<RealmEntityType | undefined>();
+  const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
   const [view, setView] = useState<ViewMode>("grid");
   const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [createType, setCreateType] = useState<RealmEntityType>("npc");
 
-  const counts = trpc.realms.counts.useQuery();
+  const listInput = useMemo(
+    () => ({
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(campaignFilter ? { campaignId: campaignFilter } : {}),
+    }),
+    [typeFilter, campaignFilter],
+  );
+  const hasListInput = Object.keys(listInput).length > 0;
+
+  const campaignFilters = trpc.realms.campaignFilters.useQuery();
+  const counts = trpc.realms.counts.useQuery(
+    campaignFilter ? { campaignId: campaignFilter } : undefined,
+  );
   const list = trpc.realms.list.useQuery(
-    typeFilter ? { type: typeFilter } : undefined,
+    hasListInput ? listInput : undefined,
   );
 
   function startCreating() {
@@ -42,34 +55,66 @@ export function RealmsBrowser() {
 
   return (
     <div className="grid gap-6 md:grid-cols-[200px_1fr]">
-      <aside className="space-y-1.5">
-        <div className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
-          Type
+      <aside className="space-y-6">
+        <div>
+          <div className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
+            Type
+          </div>
+          <div className="space-y-1.5">
+            <TypeChip
+              active={typeFilter === undefined}
+              onClick={() => setTypeFilter(undefined)}
+              count={counts.data?.all}
+            >
+              All
+            </TypeChip>
+            {REALM_ENTITY_TYPES.map((t) => (
+              <TypeChip
+                key={t}
+                active={typeFilter === t}
+                onClick={() => setTypeFilter(t)}
+                count={counts.data?.byType[t]}
+              >
+                {REALM_TYPE_LABEL_PLURAL[t]}
+              </TypeChip>
+            ))}
+          </div>
         </div>
-        <TypeChip
-          active={typeFilter === undefined}
-          onClick={() => setTypeFilter(undefined)}
-          count={counts.data?.all}
-        >
-          All
-        </TypeChip>
-        {REALM_ENTITY_TYPES.map((t) => (
-          <TypeChip
-            key={t}
-            active={typeFilter === t}
-            onClick={() => setTypeFilter(t)}
-            count={counts.data?.byType[t]}
-          >
-            {REALM_TYPE_LABEL_PLURAL[t]}
-          </TypeChip>
-        ))}
+
+        {(campaignFilters.data?.length ?? 0) > 0 && (
+          <div>
+            <div className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
+              Campaign
+            </div>
+            <div className="space-y-1.5">
+              <TypeChip
+                active={campaignFilter === undefined}
+                onClick={() => setCampaignFilter(undefined)}
+              >
+                All campaigns
+              </TypeChip>
+              {(campaignFilters.data ?? []).map((c) => (
+                <TypeChip
+                  key={c.id}
+                  active={campaignFilter === c.id}
+                  onClick={() => setCampaignFilter(c.id)}
+                  count={c.entityCount}
+                >
+                  <span className="truncate">{c.name}</span>
+                </TypeChip>
+              ))}
+            </div>
+          </div>
+        )}
       </aside>
 
       <section>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-lore-muted">
             {view === "graph"
-              ? "World graph"
+              ? campaignFilter
+                ? "Campaign world graph"
+                : "World graph"
               : list.isLoading
                 ? "Loading…"
                 : `${list.data?.length ?? 0} ${
@@ -136,14 +181,15 @@ export function RealmsBrowser() {
         )}
 
         {view === "graph" ? (
-          <GraphView />
+          <GraphView campaignId={campaignFilter} />
         ) : !list.isLoading &&
           (list.data?.length ?? 0) === 0 &&
           !creating &&
           !generating ? (
           <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
-            No entities here yet. Create your first one to begin populating your
-            world.
+            {campaignFilter
+              ? "No entities on this campaign's world yet."
+              : "No entities here yet. Create your first one to begin populating your world."}
           </div>
         ) : view === "grid" ? (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -176,40 +222,101 @@ type EntityListItem = {
 };
 
 function EntityCard({ entity }: { entity: EntityListItem }) {
+  const utils = trpc.useUtils();
+  const [confirming, setConfirming] = useState(false);
+  const remove = trpc.realms.delete.useMutation({
+    onSuccess: async () => {
+      setConfirming(false);
+      await Promise.all([
+        utils.realms.list.invalidate(),
+        utils.realms.counts.invalidate(),
+        utils.realms.campaignFilters.invalidate(),
+        utils.realms.graph.invalidate(),
+      ]);
+    },
+  });
+
   return (
-    <Link
-      href={`/realms/${entity.id}`}
-      className={`flex h-full flex-col gap-2 rounded-lg border bg-lore-surface p-5 transition-colors hover:border-lore-accent ${
+    <div
+      className={`flex h-full flex-col rounded-lg border bg-lore-surface transition-colors hover:border-lore-accent ${
         entity.isStub
           ? "border-dashed border-lore-border"
           : "border-lore-border"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="font-display text-lg leading-tight">
-          {entity.name}
+      <Link
+        href={`/realms/${entity.id}`}
+        className="flex flex-1 flex-col gap-2 p-5"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <span className="font-display text-lg leading-tight">
+            {entity.name}
+          </span>
+          {entity.isStub && <StubBadge />}
+        </div>
+        <span className="text-xs uppercase tracking-wide text-lore-muted">
+          {REALM_TYPE_LABEL[entity.type]}
         </span>
-        {entity.isStub && <StubBadge />}
+        {entity.summary && (
+          <span className="line-clamp-3 text-sm text-lore-muted">
+            {entity.summary}
+          </span>
+        )}
+      </Link>
+
+      <div className="border-t border-lore-border px-5 py-3">
+        {confirming ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-lore-muted">Delete permanently?</span>
+            <button
+              type="button"
+              onClick={() => remove.mutate({ id: entity.id })}
+              disabled={remove.isPending}
+              className="rounded border border-red-500/60 bg-red-500/10 px-2 py-1 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-40"
+            >
+              {remove.isPending ? "Deleting…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={remove.isPending}
+              className="text-xs text-lore-muted transition-colors hover:text-lore-text"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="text-xs text-red-300/80 transition-colors hover:text-red-300"
+          >
+            Delete entity
+          </button>
+        )}
       </div>
-      <span className="text-xs uppercase tracking-wide text-lore-muted">
-        {REALM_TYPE_LABEL[entity.type]}
-      </span>
-      {entity.summary && (
-        <span className="line-clamp-3 text-sm text-lore-muted">
-          {entity.summary}
-        </span>
-      )}
-    </Link>
+    </div>
   );
 }
 
 function EntityRow({ entity }: { entity: EntityListItem }) {
+  const utils = trpc.useUtils();
+  const [confirming, setConfirming] = useState(false);
+  const remove = trpc.realms.delete.useMutation({
+    onSuccess: async () => {
+      setConfirming(false);
+      await Promise.all([
+        utils.realms.list.invalidate(),
+        utils.realms.counts.invalidate(),
+        utils.realms.campaignFilters.invalidate(),
+        utils.realms.graph.invalidate(),
+      ]);
+    },
+  });
+
   return (
-    <Link
-      href={`/realms/${entity.id}`}
-      className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-lore-surface"
-    >
-      <div className="min-w-0">
+    <div className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-lore-surface">
+      <Link href={`/realms/${entity.id}`} className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-display text-base">{entity.name}</span>
           {entity.isStub && <StubBadge />}
@@ -219,11 +326,40 @@ function EntityRow({ entity }: { entity: EntityListItem }) {
             {entity.summary}
           </span>
         )}
+      </Link>
+      <div className="flex shrink-0 items-center gap-4">
+        <span className="text-xs uppercase tracking-wide text-lore-muted">
+          {REALM_TYPE_LABEL[entity.type]}
+        </span>
+        {confirming ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => remove.mutate({ id: entity.id })}
+              disabled={remove.isPending}
+              className="rounded border border-red-500/60 bg-red-500/10 px-2 py-1 text-xs font-medium text-red-300"
+            >
+              {remove.isPending ? "…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="text-xs text-lore-muted hover:text-lore-text"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="text-xs text-red-300/80 hover:text-red-300"
+          >
+            Delete
+          </button>
+        )}
       </div>
-      <span className="shrink-0 text-xs uppercase tracking-wide text-lore-muted">
-        {REALM_TYPE_LABEL[entity.type]}
-      </span>
-    </Link>
+    </div>
   );
 }
 
@@ -278,15 +414,15 @@ function TypeChip({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded border px-3 py-1.5 text-left text-sm transition-colors ${
+      className={`flex w-full items-center justify-between gap-2 rounded border px-3 py-1.5 text-left text-sm transition-colors ${
         active
           ? "border-lore-accent bg-lore-accent-dim text-lore-text"
           : "border-lore-border text-lore-muted hover:text-lore-text"
       }`}
     >
-      <span>{children}</span>
+      <span className="min-w-0 truncate">{children}</span>
       {count !== undefined && (
-        <span className="ml-2 tabular-nums text-xs text-lore-muted">
+        <span className="shrink-0 tabular-nums text-xs text-lore-muted">
           {count}
         </span>
       )}

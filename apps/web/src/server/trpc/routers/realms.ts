@@ -16,7 +16,13 @@ import { runs, tasks } from "@trigger.dev/sdk/v3";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { getDb, realmEntities, realmRelationships } from "@app/db";
+import {
+  campaignWorldEntities,
+  campaigns,
+  getDb,
+  realmEntities,
+  realmRelationships,
+} from "@app/db";
 import { LlmGenerationError } from "@app/llm";
 
 import type {
@@ -29,11 +35,13 @@ import {
   REALM_RELATIONSHIP_KINDS,
   type RealmEntityType,
 } from "@/lib/realms";
+import { edgesWithin } from "@/lib/campaign-world";
 import {
   deleteCrossLinkEmbeddingsBestEffort,
   embedCrossLinkOnWrite,
 } from "@/server/memory/cross-link";
 import { embedRealmEntityOnWrite } from "@/server/memory/embed";
+import { deleteRealmEntitiesForOwner } from "@/server/realms/delete-entities";
 import { parseData } from "@/server/realms/schemas";
 import { wireCascadeNpcLocations, wireCascadeQuestInheritance } from "@/server/realms/cascade-wiring";
 import {
@@ -47,9 +55,41 @@ import {
   regenerateEntityCandidate,
 } from "@/server/realms/generator";
 
+import { assertCampaignOwner } from "./campaigns";
 import { createTRPCRouter, protectedProcedure } from "../init";
 
 const realmType = z.enum(REALM_ENTITY_TYPES);
+
+const listFilterInput = z
+  .object({
+    type: realmType.optional(),
+    campaignId: z.string().uuid().optional(),
+  })
+  .optional();
+
+/** Shared type + optional campaign-world scope for list/counts/graph. */
+async function assertListFilterCampaign(
+  userId: string,
+  campaignId: string | undefined,
+): Promise<void> {
+  if (campaignId) {
+    await assertCampaignOwner(userId, campaignId);
+  }
+}
+
+function countByTypeFromRows(
+  rows: { type: RealmEntityType; count: number }[],
+): { all: number; byType: Record<RealmEntityType, number> } {
+  const counts = Object.fromEntries(
+    REALM_ENTITY_TYPES.map((t) => [t, 0]),
+  ) as Record<RealmEntityType, number>;
+  let all = 0;
+  for (const row of rows) {
+    counts[row.type] = row.count;
+    all += row.count;
+  }
+  return { all, byType: counts };
+}
 
 /** Map generator/LLM failures onto clean tRPC errors. */
 function toTRPCError(err: unknown): TRPCError {
@@ -140,52 +180,180 @@ async function assertOwnedEntities(
 }
 
 export const realmsRouter = createTRPCRouter({
-  /** Entities owned by the current user, optionally filtered by type. */
-  list: protectedProcedure
-    .input(z.object({ type: realmType.optional() }).optional())
+  /** Entities owned by the current user, optionally filtered by type and campaign world. */
+  list: protectedProcedure.input(listFilterInput).query(async ({ ctx, input }) => {
+    const db = getDb();
+    await assertListFilterCampaign(ctx.user.id, input?.campaignId);
+
+    if (input?.campaignId) {
+      return db
+        .select({
+          id: realmEntities.id,
+          ownerId: realmEntities.ownerId,
+          type: realmEntities.type,
+          name: realmEntities.name,
+          summary: realmEntities.summary,
+          isStub: realmEntities.isStub,
+          data: realmEntities.data,
+          createdAt: realmEntities.createdAt,
+          updatedAt: realmEntities.updatedAt,
+        })
+        .from(realmEntities)
+        .innerJoin(
+          campaignWorldEntities,
+          and(
+            eq(campaignWorldEntities.entityId, realmEntities.id),
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .where(
+          and(
+            eq(realmEntities.ownerId, ctx.user.id),
+            input.type ? eq(realmEntities.type, input.type) : undefined,
+          ),
+        )
+        .orderBy(desc(realmEntities.createdAt));
+    }
+
+    const conditions = [
+      eq(realmEntities.ownerId, ctx.user.id),
+      input?.type ? eq(realmEntities.type, input.type) : undefined,
+    ].filter(Boolean);
+    return db
+      .select()
+      .from(realmEntities)
+      .where(and(...conditions))
+      .orderBy(desc(realmEntities.createdAt));
+  }),
+
+  /** Per-type counts for the sidebar, optionally scoped to a campaign's world. */
+  counts: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const db = getDb();
-      const conditions = [
-        eq(realmEntities.ownerId, ctx.user.id),
-        input?.type ? eq(realmEntities.type, input.type) : undefined,
-      ].filter(Boolean);
-      return db
-        .select()
+      await assertListFilterCampaign(ctx.user.id, input?.campaignId);
+
+      if (input?.campaignId) {
+        const rows = await db
+          .select({
+            type: realmEntities.type,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(realmEntities)
+          .innerJoin(
+            campaignWorldEntities,
+            and(
+              eq(campaignWorldEntities.entityId, realmEntities.id),
+              eq(campaignWorldEntities.campaignId, input.campaignId),
+              eq(campaignWorldEntities.ownerId, ctx.user.id),
+            ),
+          )
+          .where(eq(realmEntities.ownerId, ctx.user.id))
+          .groupBy(realmEntities.type);
+        return countByTypeFromRows(rows);
+      }
+
+      const rows = await db
+        .select({
+          type: realmEntities.type,
+          count: sql<number>`count(*)::int`,
+        })
         .from(realmEntities)
-        .where(and(...conditions))
-        .orderBy(desc(realmEntities.createdAt));
+        .where(eq(realmEntities.ownerId, ctx.user.id))
+        .groupBy(realmEntities.type);
+
+      return countByTypeFromRows(rows);
     }),
 
-  /** Per-type counts for the sidebar, plus a grand total under `all`. */
-  counts: protectedProcedure.query(async ({ ctx }) => {
+  /**
+   * Campaigns the user owns that have at least one world entity — powers the
+   * Realms sidebar campaign filter.
+   */
+  campaignFilters: protectedProcedure.query(async ({ ctx }) => {
     const db = getDb();
-    const rows = await db
+    const camps = await db
+      .select({ id: campaigns.id, name: campaigns.name })
+      .from(campaigns)
+      .where(eq(campaigns.ownerId, ctx.user.id))
+      .orderBy(desc(campaigns.createdAt));
+
+    const countRows = await db
       .select({
-        type: realmEntities.type,
+        campaignId: campaignWorldEntities.campaignId,
         count: sql<number>`count(*)::int`,
       })
-      .from(realmEntities)
-      .where(eq(realmEntities.ownerId, ctx.user.id))
-      .groupBy(realmEntities.type);
+      .from(campaignWorldEntities)
+      .where(eq(campaignWorldEntities.ownerId, ctx.user.id))
+      .groupBy(campaignWorldEntities.campaignId);
 
-    const counts = Object.fromEntries(
-      REALM_ENTITY_TYPES.map((t) => [t, 0]),
-    ) as Record<RealmEntityType, number>;
-    let all = 0;
-    for (const row of rows) {
-      counts[row.type] = row.count;
-      all += row.count;
-    }
-    return { all, byType: counts };
+    const countByCampaign = new Map(
+      countRows.map((r) => [r.campaignId, r.count]),
+    );
+
+    return camps
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        entityCount: countByCampaign.get(c.id) ?? 0,
+      }))
+      .filter((c) => c.entityCount > 0);
   }),
 
   /**
    * The whole owned world as a node-link graph: minimal entity nodes plus the
    * typed relationship edges. Powers the Realms Graph view (#50) — a single
    * round trip so the client can lay the graph out without N per-node fetches.
+   * Optional `campaignId` limits nodes to that campaign's world subset.
    */
-  graph: protectedProcedure.query(async ({ ctx }) => {
+  graph: protectedProcedure.input(listFilterInput).query(async ({ ctx, input }) => {
     const db = getDb();
+    await assertListFilterCampaign(ctx.user.id, input?.campaignId);
+
+    if (input?.campaignId) {
+      const worldRows = await db
+        .select({ entityId: campaignWorldEntities.entityId })
+        .from(campaignWorldEntities)
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        );
+      const nodeIds = worldRows.map((r) => r.entityId);
+      if (nodeIds.length === 0) {
+        return { nodes: [], edges: [] };
+      }
+
+      const nodes = await db
+        .select({
+          id: realmEntities.id,
+          name: realmEntities.name,
+          type: realmEntities.type,
+          isStub: realmEntities.isStub,
+        })
+        .from(realmEntities)
+        .where(
+          and(
+            eq(realmEntities.ownerId, ctx.user.id),
+            inArray(realmEntities.id, nodeIds),
+          ),
+        );
+
+      const allEdges = await db
+        .select({
+          id: realmRelationships.id,
+          fromId: realmRelationships.fromId,
+          toId: realmRelationships.toId,
+          kind: realmRelationships.kind,
+        })
+        .from(realmRelationships)
+        .where(eq(realmRelationships.ownerId, ctx.user.id));
+
+      const edges = edgesWithin(allEdges, new Set(nodeIds));
+      return { nodes, edges };
+    }
+
     const [nodes, edges] = await Promise.all([
       db
         .select({
@@ -419,7 +587,29 @@ export const realmsRouter = createTRPCRouter({
           });
         }
       }
-      return row;
+    return row;
+  }),
+
+  /** Permanently delete an owned entity and its relationships / world links. */
+  delete: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select({ id: realmEntities.id })
+        .from(realmEntities)
+        .where(
+          and(
+            eq(realmEntities.id, input.id),
+            eq(realmEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entity not found." });
+      }
+      await deleteRealmEntitiesForOwner(db, ctx.user.id, [input.id]);
+      return { ok: true };
     }),
 
   /** Delete an owned relationship edge. */

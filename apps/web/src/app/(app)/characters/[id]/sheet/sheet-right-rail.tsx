@@ -22,11 +22,14 @@ export function SheetRightRail({
   meta,
   inspiration,
   onPatchMeta,
+  liveConditions,
 }: {
   sheet: CharacterSheet;
   meta: CharacterSheetMeta;
   inspiration: boolean;
   onPatchMeta: (patch: Partial<CharacterSheetMeta>) => void;
+  /** When set (Live Play), show engine-tracked conditions instead of the stub. */
+  liveConditions?: { condition: string; level?: number }[];
 }) {
   const perception = sheet.skills.find((s) => s.skill === "Perception");
   const investigation = sheet.skills.find((s) => s.skill === "Investigation");
@@ -68,10 +71,29 @@ export function SheetRightRail({
         <h3 className="mb-2 text-[10px] uppercase tracking-widest text-lore-muted">
           Conditions
         </h3>
-        <p className="text-sm text-lore-muted">No conditions (out of combat).</p>
-        <StubBanner>
-          Live conditions sync from the engine during Live Play.
-        </StubBanner>
+        {liveConditions && liveConditions.length > 0 ? (
+          <ul className="flex flex-wrap gap-1">
+            {liveConditions.map((c) => (
+              <SheetTag
+                key={`${c.condition}-${c.level ?? 0}`}
+                label={
+                  c.level != null && c.level > 0
+                    ? `${c.condition} ${c.level}`
+                    : c.condition
+                }
+              />
+            ))}
+          </ul>
+        ) : liveConditions ? (
+          <p className="text-sm text-lore-muted">No active conditions.</p>
+        ) : (
+          <>
+            <p className="text-sm text-lore-muted">No conditions (out of combat).</p>
+            <StubBanner>
+              Live conditions sync from the engine during Live Play.
+            </StubBanner>
+          </>
+        )}
       </section>
 
       <section className="rounded-lg border border-lore-border bg-lore-surface p-3">

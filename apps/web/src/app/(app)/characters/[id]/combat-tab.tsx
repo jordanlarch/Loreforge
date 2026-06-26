@@ -9,10 +9,10 @@ import {
   SheetSection,
   SheetTableHeader,
   ResourceBoxes,
-  StubBanner,
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
 import { deriveWeaponAttacks } from "@/lib/sheet-loadout";
+import { weaponMasteriesForEquipment } from "@/lib/weapon-mastery";
 import type { EquipmentItem } from "@/lib/character";
 import type { ActiveEffect, CharacterSheetMeta } from "@/lib/character-sheet-storage";
 
@@ -66,6 +66,7 @@ export function CombatTab({
     [character],
   );
   const attacks = deriveWeaponAttacks(entity, character.equipment);
+  const masteries = weaponMasteriesForEquipment(character.equipment);
   const filteredAttacks = useSheetSearch(attacks, search, (a) => a.label);
 
   const deathSaves = meta.deathSaves ?? { successes: 0, failures: 0 };
@@ -131,8 +132,26 @@ export function CombatTab({
 
       <div className="mt-4">
         <SheetSection title="Weapon Mastery">
-          <p className="text-sm text-lore-muted">No masteries</p>
-          <StubBanner>2024 weapon mastery properties ship with full SRD item ingest.</StubBanner>
+          {masteries.length === 0 ? (
+            <p className="text-sm text-lore-muted">
+              Equip a recognized martial weapon to see 2024 mastery properties.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {masteries.map((m) => (
+                <li
+                  key={m.weapon}
+                  className="rounded border border-lore-border px-3 py-2 text-sm"
+                >
+                  <div className="font-medium">
+                    {m.weapon}{" "}
+                    <span className="text-lore-accent">({m.property})</span>
+                  </div>
+                  <p className="mt-1 text-xs text-lore-muted">{m.description}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </SheetSection>
       </div>
 

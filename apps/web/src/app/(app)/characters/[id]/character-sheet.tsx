@@ -51,9 +51,12 @@ type Tab = (typeof TABS)[number];
 export function CharacterSheetView({
   id,
   embedded = false,
+  onFeatureUse,
 }: {
   id: string;
   embedded?: boolean;
+  /** Live Play overlay: post feature use to campaign chat. */
+  onFeatureUse?: (featureName: string) => void;
 }) {
   const utils = trpc.useUtils();
   const query = trpc.characters.get.useQuery({ id });
@@ -151,13 +154,19 @@ export function CharacterSheetView({
   const charMaxHp = character.maxHp;
   const charSpells = character.spells;
 
+  const charClasses = character.classes;
+
   function shortRest() {
-    const nextMeta = applyShortRestMeta(metaWithHitDice);
+    const nextMeta = applyShortRestMeta(metaWithHitDice, charClasses);
     saveNotes(patchCharacterMeta(notesRaw, nextMeta));
   }
 
   function longRest() {
-    const nextMeta = applyLongRestMeta(metaWithHitDice, charMaxHp);
+    const nextMeta = applyLongRestMeta(
+      metaWithHitDice,
+      charClasses,
+      charMaxHp,
+    );
     saveNotes(patchCharacterMeta(notesRaw, nextMeta));
     update.mutate({
       id,
@@ -294,6 +303,7 @@ export function CharacterSheetView({
                 classes={character.classes}
                 meta={metaWithHitDice}
                 onPatchMeta={patchMeta}
+                onFeatureUse={onFeatureUse}
               />
             )}
             {tab === "Notes" && (

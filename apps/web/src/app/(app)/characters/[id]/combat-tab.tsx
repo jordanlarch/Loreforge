@@ -161,10 +161,10 @@ export function CombatTab({
 
       <div className="mt-4">
         <SheetSection title="Bonus Actions">
-          <StubBanner>
-            Class bonus actions (Second Wind, etc.) appear under Features with use
-            trackers. Short/long rest buttons on the HP panel refresh resources.
-          </StubBanner>
+          <p className="text-sm text-lore-muted">
+            Class bonus actions (Second Wind, etc.) are under Features &amp;
+            Traits — use the Use button or resource boxes there.
+          </p>
         </SheetSection>
       </div>
 

@@ -182,6 +182,13 @@ export {
   classFeaturesForLevel,
   type ClassFeature,
 } from "./entities/class-features";
+export {
+  featureRechargeMap,
+  featureResourceKey,
+  refreshResourceUsesOnRest,
+  remainingFeatureUses,
+  spendFeatureUse,
+} from "./entities/feature-resources";
 
 export {
   buildStartingCharacterStats,

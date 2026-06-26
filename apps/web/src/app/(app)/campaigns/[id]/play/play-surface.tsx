@@ -763,6 +763,9 @@ function LiveBattle({
             <CharacterSheetOverlay
               characterId={pcCharacterId}
               onClose={() => setSheetOpen(false)}
+              onFeatureUse={(name) =>
+                session.sendChat(`uses ${name}`, "use_feature")
+              }
             />
           ) : null}
           {sheetPeekId ? (
@@ -963,6 +966,9 @@ function LiveBattle({
         <CharacterSheetOverlay
           characterId={pcCharacterId}
           onClose={() => setSheetOpen(false)}
+          onFeatureUse={(name) =>
+            session.sendChat(`uses ${name}`, "use_feature")
+          }
         />
       ) : null}
       {sheetPeekId ? (

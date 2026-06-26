@@ -3,7 +3,11 @@
  * Engine `short_rest` / `long_rest` commands apply during Live Play; this mirrors
  * the same outcomes for out-of-combat sheet tracking.
  */
-import type { ClassFeature } from "@app/engine";
+import {
+  featureRechargeMap,
+  refreshResourceUsesOnRest,
+  type ClassFeature,
+} from "@app/engine";
 
 import type { CharacterSheetMeta } from "./character-sheet-storage";
 import type { SpellLoadout } from "./character";
@@ -11,28 +15,29 @@ import type { SpellLoadout } from "./character";
 /** Reset spent resource checkboxes for features with matching recharge. */
 export function refreshResourceUses(
   meta: CharacterSheetMeta,
-  recharge: ClassFeature["recharge"] | "all",
+  classes: { class: string; level: number }[],
+  rest: "short_rest" | "long_rest",
 ): CharacterSheetMeta {
-  const uses = meta.resourceUses ?? {};
-  if (recharge === "all" || Object.keys(uses).length === 0) {
-    const cleared: Record<string, boolean[]> = {};
-    for (const [key, slots] of Object.entries(uses)) {
-      cleared[key] = slots.map(() => false);
-    }
-    return { ...meta, resourceUses: cleared };
-  }
-  return meta;
+  const recharge = featureRechargeMap(classes);
+  return {
+    ...meta,
+    resourceUses: refreshResourceUsesOnRest(meta.resourceUses, recharge, rest),
+  };
 }
 
-export function applyShortRestMeta(meta: CharacterSheetMeta): CharacterSheetMeta {
-  return refreshResourceUses(meta, "short_rest");
+export function applyShortRestMeta(
+  meta: CharacterSheetMeta,
+  classes: { class: string; level: number }[],
+): CharacterSheetMeta {
+  return refreshResourceUses(meta, classes, "short_rest");
 }
 
 export function applyLongRestMeta(
   meta: CharacterSheetMeta,
+  classes: { class: string; level: number }[],
   maxHp: number,
 ): CharacterSheetMeta {
-  let next = refreshResourceUses(meta, "all");
+  let next = refreshResourceUses(meta, classes, "long_rest");
   next = {
     ...next,
     currentHp: maxHp,
@@ -77,3 +82,6 @@ export function ensureHitDice(
   }
   return { ...meta, hitDice };
 }
+
+// Re-export for tests / callers that need the type only.
+export type { ClassFeature };

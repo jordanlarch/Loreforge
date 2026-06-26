@@ -14,7 +14,11 @@ import {
   type PendingRealmHook,
 } from "@/lib/campaign-hooks";
 import { trpc } from "@/lib/trpc/client";
-import { parseQuestInstanceData } from "@app/engine";
+import {
+  branchChoicesForStep,
+  formatQuestResolveRewardsLine,
+  parseQuestInstanceData,
+} from "@app/engine";
 
 type Hook = {
   id: string;
@@ -27,7 +31,7 @@ type Hook = {
   updatedAt: Date | string;
 };
 
-type HooksView = "kanban" | "timeline";
+type HooksView = "kanban" | "list" | "timeline";
 
 /**
  * Hooks tab (#59, Q7): a five-column Kanban over the campaign's plot hooks with
@@ -36,7 +40,13 @@ type HooksView = "kanban" | "timeline";
  */
 export function HooksTab({ campaignId }: { campaignId: string }) {
   const utils = trpc.useUtils();
-  const hooks = trpc.hooks.list.useQuery({ campaignId });
+  const [filterTag, setFilterTag] = useState("");
+  const [filterStatus, setFilterStatus] = useState<HookStatus | "">("");
+  const hooks = trpc.quests.list.useQuery({
+    campaignId,
+    ...(filterTag.trim() ? { tag: filterTag.trim() } : {}),
+    ...(filterStatus ? { status: filterStatus } : {}),
+  });
   const world = trpc.campaigns.world.useQuery({ campaignId });
   const entities = trpc.realms.list.useQuery();
   const sessions = trpc.sessions.list.useQuery({ campaignId });
@@ -46,17 +56,17 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   async function refresh() {
-    await utils.hooks.list.invalidate({ campaignId });
+    await utils.quests.list.invalidate({ campaignId });
   }
 
-  const setStatus = trpc.hooks.setStatus.useMutation({ onSuccess: refresh });
-  const remove = trpc.hooks.remove.useMutation({
+  const setStatus = trpc.quests.setStatus.useMutation({ onSuccess: refresh });
+  const remove = trpc.quests.remove.useMutation({
     onSuccess: async () => {
       setSelectedId(null);
       await refresh();
     },
   });
-  const accept = trpc.hooks.acceptFromRealms.useMutation({ onSuccess: refresh });
+  const accept = trpc.quests.acceptFromRealms.useMutation({ onSuccess: refresh });
 
   const list = (hooks.data ?? []) as Hook[];
   const grouped = groupHooksByStatus(list);
@@ -97,6 +107,11 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
             label="Kanban"
           />
           <ViewToggle
+            active={view === "list"}
+            onClick={() => setView("list")}
+            label="List"
+          />
+          <ViewToggle
             active={view === "timeline"}
             onClick={() => setView("timeline")}
             label="Timeline"
@@ -104,10 +119,43 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs uppercase tracking-widest text-lore-muted">
+          Filter by tag
+          <input
+            value={filterTag}
+            onChange={(e) => setFilterTag(e.target.value)}
+            placeholder="e.g. social"
+            className="mt-1 block min-w-[8rem] rounded border border-lore-border bg-lore-bg px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs uppercase tracking-widest text-lore-muted">
+          Status
+          <select
+            value={filterStatus}
+            onChange={(e) =>
+              setFilterStatus(
+                e.target.value && isHookStatus(e.target.value)
+                  ? e.target.value
+                  : "",
+              )
+            }
+            className="mt-1 block rounded border border-lore-border bg-lore-bg px-2 py-1 text-sm"
+          >
+            <option value="">All</option>
+            {HOOK_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {HOOK_STATUS_LABEL[status]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <NewHookForm campaignId={campaignId} onCreated={refresh} />
 
       {hooks.isLoading ? (
-        <p className="text-sm text-lore-muted">Loading hooks…</p>
+        <p className="text-sm text-lore-muted">Loading quests…</p>
       ) : view === "kanban" ? (
         <div className="grid gap-3 lg:grid-cols-5">
           {HOOK_STATUSES.map((status) => (
@@ -137,6 +185,12 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
             />
           ))}
         </div>
+      ) : view === "list" ? (
+        <QuestList
+          hooks={list}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
       ) : (
         <HookTimeline
           hooks={list}
@@ -399,7 +453,7 @@ function NewHookForm({
 }) {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
-  const create = trpc.hooks.create.useMutation({
+  const create = trpc.quests.create.useMutation({
     onSuccess: async () => {
       setTitle("");
       setSummary("");
@@ -444,6 +498,68 @@ function NewHookForm({
   );
 }
 
+function QuestList({
+  hooks,
+  selectedId,
+  onSelect,
+}: {
+  hooks: Hook[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  if (hooks.length === 0) {
+    return (
+      <p className="text-sm text-lore-muted">No quests match these filters.</p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-lore-border">
+      <table className="w-full min-w-[32rem] text-left text-sm">
+        <thead className="border-b border-lore-border bg-lore-bg/60 text-xs uppercase tracking-widest text-lore-muted">
+          <tr>
+            <th className="px-3 py-2">Title</th>
+            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">Tags</th>
+            <th className="px-3 py-2">Step</th>
+          </tr>
+        </thead>
+        <tbody>
+          {hooks.map((hook) => {
+            const instance = parseQuestInstanceData(hook.data);
+            const template = instance.templateSnapshot;
+            const currentStep = template?.steps?.find(
+              (s) => s.id === instance.currentStepId,
+            );
+            return (
+              <tr
+                key={hook.id}
+                onClick={() => onSelect(hook.id)}
+                className={`cursor-pointer border-b border-lore-border/60 transition-colors hover:bg-lore-surface/60 ${
+                  hook.id === selectedId ? "bg-lore-accent-dim/30" : ""
+                }`}
+              >
+                <td className="px-3 py-2 font-medium">{hook.title}</td>
+                <td className="px-3 py-2 text-lore-muted">
+                  {isHookStatus(hook.status)
+                    ? HOOK_STATUS_LABEL[hook.status]
+                    : hook.status}
+                </td>
+                <td className="px-3 py-2 text-lore-muted">
+                  {(template?.tags ?? []).join(", ") || "—"}
+                </td>
+                <td className="px-3 py-2 text-lore-muted">
+                  {currentStep?.title ?? "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function HookDetail({
   hook,
   statusBusy,
@@ -466,13 +582,30 @@ function HookDetail({
   const [summary, setSummary] = useState(hook.summary);
   const instance = parseQuestInstanceData(hook.data);
   const template = instance.templateSnapshot;
+  const [branchStepId, setBranchStepId] = useState<string>("");
 
-  const update = trpc.hooks.update.useMutation({
+  const update = trpc.quests.update.useMutation({
     onSuccess: async () => {
       setEditing(false);
       await onSaved();
     },
   });
+  const completeStep = trpc.quests.completeStep.useMutation({
+    onSuccess: async () => {
+      setBranchStepId("");
+      await onSaved();
+    },
+  });
+
+  const currentStepId =
+    instance.currentStepId ?? template?.steps?.[0]?.id;
+  const branchChoices =
+    template && currentStepId
+      ? branchChoicesForStep(template, currentStepId)
+      : [];
+  const rewardsLine = instance.rewardsGranted
+    ? formatQuestResolveRewardsLine(instance.rewardsGranted)
+    : undefined;
 
   function onSave(event: React.FormEvent) {
     event.preventDefault();
@@ -581,19 +714,85 @@ function HookDetail({
                 Steps
               </p>
               <ol className="mt-1 list-decimal space-y-1 pl-5 text-lore-muted">
-                {(template.steps ?? []).map((step) => (
-                  <li
-                    key={step.id}
-                    className={
-                      step.id === instance.currentStepId
-                        ? "font-medium text-lore-text"
-                        : undefined
-                    }
-                  >
-                    {step.title}
-                  </li>
-                ))}
+                {(template.steps ?? []).map((step) => {
+                  const done = instance.completedStepIds?.includes(step.id);
+                  return (
+                    <li
+                      key={step.id}
+                      className={
+                        step.id === instance.currentStepId
+                          ? "font-medium text-lore-text"
+                          : done
+                            ? "line-through opacity-60"
+                            : undefined
+                      }
+                    >
+                      {step.title}
+                      {step.encounterRef && (
+                        <span className="ml-1 text-xs text-lore-muted">
+                          (encounter: {step.encounterRef})
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
+              {hook.status === "active" && currentStepId && (
+                <div className="mt-3 space-y-2">
+                  {branchChoices.length > 1 && (
+                    <fieldset className="rounded border border-lore-border p-2">
+                      <legend className="px-1 text-xs text-lore-muted">
+                        Choose branch
+                      </legend>
+                      {branchChoices.map((step) => (
+                        <label
+                          key={step.id}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="radio"
+                            name={`branch-${hook.id}`}
+                            checked={branchStepId === step.id}
+                            onChange={() => setBranchStepId(step.id)}
+                          />
+                          {step.title}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      completeStep.mutate({
+                        id: hook.id,
+                        ...(branchStepId ? { branchStepId } : {}),
+                      })
+                    }
+                    disabled={
+                      completeStep.isPending ||
+                      (branchChoices.length > 1 && !branchStepId)
+                    }
+                    className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm disabled:opacity-40"
+                  >
+                    {completeStep.isPending
+                      ? "Advancing…"
+                      : "Complete current step"}
+                  </button>
+                  {completeStep.error && (
+                    <p className="text-sm text-red-400">
+                      {completeStep.error.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {rewardsLine && (
+            <div>
+              <p className="text-xs uppercase tracking-widest text-lore-muted">
+                Rewards granted
+              </p>
+              <p className="mt-1 text-lore-muted">{rewardsLine}</p>
             </div>
           )}
           {hook.status === "open" && (

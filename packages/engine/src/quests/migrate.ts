@@ -75,8 +75,30 @@ function normalizeQuestTemplate(
           title: asString(step.title) ?? `Step ${stepIndex + 1}`,
           description: asString(step.description),
           gmInstructions: asString(step.gmInstructions),
+          encounterRef: asString(step.encounterRef),
+          nextStepId: asString(step.nextStepId),
+          alternateNextStepIds: Array.isArray(step.alternateNextStepIds)
+            ? step.alternateNextStepIds.filter(
+                (id): id is string => typeof id === "string" && id.trim().length > 0,
+              )
+            : undefined,
         }))
     : [];
+
+  const rewardsRaw = isRecord(raw.rewards) ? raw.rewards : undefined;
+  const rewards =
+    rewardsRaw &&
+    (typeof rewardsRaw.xp === "number" ||
+      asString(rewardsRaw.lootNotes) ||
+      asString(rewardsRaw.reputationNotes))
+      ? {
+          ...(typeof rewardsRaw.xp === "number" && rewardsRaw.xp > 0
+            ? { xp: rewardsRaw.xp }
+            : {}),
+          lootNotes: asString(rewardsRaw.lootNotes),
+          reputationNotes: asString(rewardsRaw.reputationNotes),
+        }
+      : undefined;
 
   return {
     id,
@@ -88,10 +110,20 @@ function normalizeQuestTemplate(
     teaseText,
     offerText: asString(raw.offerText),
     gmInstructions: asString(raw.gmInstructions),
+    minLevel:
+      typeof raw.minLevel === "number" && raw.minLevel > 0
+        ? raw.minLevel
+        : undefined,
+    prerequisiteQuestTemplateIds: Array.isArray(raw.prerequisiteQuestTemplateIds)
+      ? raw.prerequisiteQuestTemplateIds.filter(
+          (id): id is string => typeof id === "string" && id.trim().length > 0,
+        )
+      : undefined,
     startingLocationEntityId: asString(raw.startingLocationEntityId),
     questGiverNpcEntityId: asString(raw.questGiverNpcEntityId),
     triggers,
     steps,
+    rewards,
     source:
       raw.source === "generator" ||
       raw.source === "manual" ||

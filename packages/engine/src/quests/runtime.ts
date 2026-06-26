@@ -3,6 +3,10 @@ import {
   templateFromInstance,
   type QuestInstanceRef,
 } from "./instance";
+import {
+  evaluateQuestPrerequisites,
+  type QuestPrerequisiteContext,
+} from "./prerequisites";
 import type { QuestTemplate, QuestTrigger } from "./types";
 
 export type NpcRef = { entityId: string; name: string };
@@ -92,6 +96,7 @@ export function resolveQuestOfferForNpc(
   instances: readonly QuestInstanceRef[],
   npc: NpcRef,
   playerText: string,
+  prerequisiteContext?: QuestPrerequisiteContext,
 ): { instanceId: string; questTitle: string; offerText: string } | undefined {
   if (!playerTextReferencesNpc(playerText, npc.name)) return undefined;
 
@@ -99,6 +104,11 @@ export function resolveQuestOfferForNpc(
     if (instance.status !== "open") continue;
     const template = templateFromInstance(instance);
     if (!template) continue;
+
+    if (prerequisiteContext) {
+      const gate = evaluateQuestPrerequisites(template, prerequisiteContext);
+      if (!gate.met) continue;
+    }
 
     if (!npcCanDeliverOffer(template, npc.entityId)) continue;
 

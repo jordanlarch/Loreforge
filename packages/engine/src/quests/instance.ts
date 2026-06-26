@@ -1,3 +1,4 @@
+import type { QuestRewardsGranted } from "./rewards";
 import type { QuestTemplate } from "./types";
 
 /** Campaign quest instance payload stored in `plot_hooks.data`. */
@@ -9,6 +10,8 @@ export type QuestInstanceData = {
   acceptedAt?: string;
   resolvedAt?: string;
   outcomeNotes?: string;
+  /** Set when status → Resolved and engine grants template rewards (Phase D). */
+  rewardsGranted?: QuestRewardsGranted;
 };
 
 export type QuestInstanceStatus =
@@ -51,6 +54,9 @@ export function parseQuestInstanceData(data: unknown): QuestInstanceData {
       typeof data.resolvedAt === "string" ? data.resolvedAt : undefined,
     outcomeNotes:
       typeof data.outcomeNotes === "string" ? data.outcomeNotes : undefined,
+    rewardsGranted: isRecord(data.rewardsGranted)
+      ? (data.rewardsGranted as QuestInstanceData["rewardsGranted"])
+      : undefined,
   };
 }
 

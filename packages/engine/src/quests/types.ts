@@ -10,6 +10,22 @@ export type QuestTriggerType = (typeof QUEST_TRIGGER_TYPES)[number];
 
 export type QuestDelivery = "tease" | "offer" | "briefing";
 
+export const QUEST_TAGS = [
+  "mystery",
+  "puzzle",
+  "social",
+  "investigation",
+  "combat",
+  "exploration",
+  "horror",
+  "political",
+  "dungeon",
+  "rescue",
+  "heist",
+] as const;
+
+export type QuestTag = (typeof QUEST_TAGS)[number];
+
 export type QuestTrigger = {
   type: QuestTriggerType;
   delivery: QuestDelivery;
@@ -19,11 +35,23 @@ export type QuestTrigger = {
   };
 };
 
+export type QuestRewards = {
+  xp?: number;
+  lootNotes?: string;
+  reputationNotes?: string;
+};
+
 export type QuestStep = {
   id: string;
   title: string;
   description?: string;
   gmInstructions?: string;
+  /** Phase D: optional encounter spawn hint. */
+  encounterRef?: string;
+  /** Phase D: explicit linear successor. */
+  nextStepId?: string;
+  /** Phase D: branch targets when multiple paths exist. */
+  alternateNextStepIds?: string[];
 };
 
 /** Tracer-depth template embedded on Realms entities (`data.quests`). */
@@ -35,10 +63,16 @@ export type QuestTemplate = {
   teaseText?: string;
   offerText?: string;
   gmInstructions?: string;
+  /** Hard gate — highest PC level in party must meet this. */
+  minLevel?: number;
+  /** Hard gate — template ids that must be Resolved in the campaign. */
+  prerequisiteQuestTemplateIds?: string[];
   startingLocationEntityId?: string;
   questGiverNpcEntityId?: string;
   triggers?: QuestTrigger[];
   steps?: QuestStep[];
+  /** Stored on template; engine grants on Resolve (Phase D). */
+  rewards?: QuestRewards;
   source?: "generator" | "manual" | "migrated";
 };
 

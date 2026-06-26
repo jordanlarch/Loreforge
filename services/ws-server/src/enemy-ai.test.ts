@@ -357,6 +357,23 @@ describe("planMonsterTurn", () => {
     expect(plan.map((a) => a.type)).toEqual(["end_turn"]);
   });
 
+  it("fires a ranged attack without moving when the foe is in range but not adjacent (PLAY-15)", () => {
+    const sides = { bandit: "foes", hero: "party" };
+    const bandit = ent({
+      id: "bandit",
+      position: { x: 0, y: 0 },
+      rangedAttackRangeFt: 80,
+      rangedDamage: { notation: "1d8+1", type: "piercing" },
+      actionEconomy: turnEconomy(30),
+    });
+    const hero = ent({ id: "hero", kind: "character", position: { x: 0, y: 5 } });
+    const plan = planMonsterTurn(battle([bandit, hero], sides), "bandit");
+    expect(plan.map((a) => a.type)).toEqual(["attack", "end_turn"]);
+    const attack = plan[0] as { target: string; rangeFt?: number };
+    expect(attack.target).toBe("hero");
+    expect(attack.rangeFt).toBe(80);
+  });
+
   it("ends the turn when dead or targetless", () => {
     const dead = ent({
       id: "goblin",

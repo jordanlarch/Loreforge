@@ -150,6 +150,10 @@ export type EntityState = {
    * Defaults to 5 ft when omitted. Set from equipped reach weapons at seed time.
    */
   meleeReachFt?: number;
+  /** Ranged weapon reach for monster AI (PLAY-15). */
+  rangedAttackRangeFt?: number;
+  rangedAttackBonus?: number;
+  rangedDamage?: { notation: string; type: string };
 };
 
 export type DeathSaveTally = { successes: number; failures: number };
@@ -236,6 +240,10 @@ export type EntityInit = {
   attacksPerAction?: number;
   /** Melee reach for OA provoke (reach weapons). Defaults to 5 ft. */
   meleeReachFt?: number;
+  /** Ranged weapon profile for monster AI (PLAY-15). */
+  rangedAttackRangeFt?: number;
+  rangedAttackBonus?: number;
+  rangedDamage?: { notation: string; type: string };
   sceneId?: SceneId;
   position?: GridPosition;
   spellcasting?: SpellcastingInit;

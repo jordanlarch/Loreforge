@@ -53,10 +53,11 @@ export type CharacterSpell = {
   /** 0 = cantrip, 1–9 = spell level. */
   level: number;
   prepared: boolean;
-  /** Granted always-prepared (domain/oath/feat); doesn't count against prepared. */
   alwaysPrepared?: boolean;
-  /** What grants it, e.g. a class or feat name. */
   source?: string;
+  concentration?: boolean;
+  ritual?: boolean;
+  codexSlug?: string;
 };
 
 /**

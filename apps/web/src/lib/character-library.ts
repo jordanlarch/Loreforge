@@ -16,12 +16,17 @@ type SmithySpellRow = {
   name: string;
   level: number;
   school: string;
+  concentration?: boolean;
+  ritual?: boolean;
 };
 
 type CodexSpellRow = {
   name: string;
   level: string | null;
   school: string | null;
+  slug?: string;
+  concentration?: boolean;
+  ritual?: boolean;
 };
 
 export function smithyItemToEquipment(item: SmithyItemRow): EquipmentItem {
@@ -43,6 +48,8 @@ export function smithySpellToCharacterSpell(spell: SmithySpellRow): CharacterSpe
     level: spell.level,
     prepared: false,
     source: `Smithy · ${spell.school}`,
+    concentration: spell.concentration,
+    ritual: spell.ritual,
   };
 }
 
@@ -52,6 +59,9 @@ export function codexSpellToCharacterSpell(spell: CodexSpellRow): CharacterSpell
     level: Number(spell.level ?? 0) || 0,
     prepared: false,
     source: `Codex · ${spell.school ?? "unknown"}`,
+    concentration: spell.concentration,
+    ritual: spell.ritual,
+    codexSlug: spell.slug,
   };
 }
 

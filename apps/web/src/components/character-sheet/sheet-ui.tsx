@@ -98,13 +98,18 @@ export function SheetSearchBar({
 
 export function SheetTag({
   label,
+  title,
   onRemove,
 }: {
   label: string;
+  title?: string;
   onRemove?: () => void;
 }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-lore-border bg-lore-bg px-2.5 py-0.5 text-xs text-lore-text">
+    <span
+      title={title}
+      className="inline-flex items-center gap-1 rounded-full border border-lore-border bg-lore-bg px-2.5 py-0.5 text-xs text-lore-text"
+    >
       {label}
       {onRemove && (
         <button

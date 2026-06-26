@@ -92,6 +92,17 @@ export function CharacterSheetView({
     },
   });
 
+  const uploadPortrait = trpc.characters.uploadPortrait.useMutation({
+    async onSuccess(data) {
+      await utils.characters.get.invalidate({ id });
+      if (data.portraitUrl) {
+        utils.characters.get.setData({ id }, (old) =>
+          old ? { ...old, portraitUrl: data.portraitUrl } : old,
+        );
+      }
+    },
+  });
+
   const character = query.data;
   const parsed = useMemo(
     () => parseCharacterNotes(character?.notes ?? ""),
@@ -204,6 +215,23 @@ export function CharacterSheetView({
           onPortraitChange={(portraitUrl) =>
             update.mutate({ id, portraitUrl })
           }
+          onPortraitUpload={(file) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result;
+              if (typeof result !== "string") return;
+              const base64 = result.split(",")[1];
+              if (!base64) return;
+              uploadPortrait.mutate({
+                characterId: id,
+                fileName: file.name,
+                contentType: file.type,
+                dataBase64: base64,
+              });
+            };
+            reader.readAsDataURL(file);
+          }}
+          portraitUploading={uploadPortrait.isPending}
           onLevelUp={() => setLevelingUp(true)}
           canLevelUp={progress.canLevelUp}
           atCap={atCap}

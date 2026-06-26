@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, useState } from "react";
 
 import {
   MAX_CHARACTER_LEVEL,
@@ -26,6 +27,8 @@ export function SheetHeader({
   onSpeciesChange,
   onBackgroundChange,
   onPortraitChange,
+  onPortraitUpload,
+  portraitUploading,
   onLevelUp,
   canLevelUp,
   atCap,
@@ -39,12 +42,16 @@ export function SheetHeader({
   onSpeciesChange: (species: string) => void;
   onBackgroundChange: (background: string) => void;
   onPortraitChange: (url: string) => void;
+  onPortraitUpload?: (file: File) => void;
+  portraitUploading?: boolean;
   onLevelUp: () => void;
   canLevelUp: boolean;
   atCap: boolean;
   onXpChange: (xp: number) => void;
   xpRemaining: number | null;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const progress = xpProgress(character.xp, sheet.level);
   const subclassLine = character.classes
     .map((c) =>
@@ -52,22 +59,53 @@ export function SheetHeader({
     )
     .join(" · ");
 
+  function onFilePicked(file: File | undefined) {
+    if (!file || !onPortraitUpload) return;
+    setUploadError(null);
+    if (file.size > 2_000_000) {
+      setUploadError("Max 2 MB.");
+      return;
+    }
+    onPortraitUpload(file);
+  }
+
   return (
     <header className="rounded-lg border border-lore-border bg-lore-surface p-4">
       <div className="flex flex-wrap gap-4">
         <div className="relative shrink-0">
-          {character.portraitUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={character.portraitUrl}
-              alt=""
-              className="h-24 w-24 rounded-lg border border-lore-border object-cover"
-            />
-          ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-lore-border bg-lore-bg text-xs text-lore-muted">
-              Portrait
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={portraitUploading}
+            className="group relative block disabled:opacity-60"
+            aria-label="Upload portrait"
+          >
+            {character.portraitUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={character.portraitUrl}
+                alt=""
+                className="h-24 w-24 rounded-lg border border-lore-border object-cover"
+              />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-lore-border bg-lore-bg text-xs text-lore-muted">
+                Portrait
+              </div>
+            )}
+            <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 text-[10px] uppercase tracking-wide text-white opacity-0 transition-opacity group-hover:opacity-100">
+              {portraitUploading ? "Uploading…" : "Upload"}
+            </span>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={(e) => {
+              onFilePicked(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
           <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded bg-lore-accent px-2 py-0.5 font-display text-sm text-lore-bg">
             {sheet.level}
           </span>
@@ -170,6 +208,9 @@ export function SheetHeader({
             }}
             className="mt-1 w-full rounded border border-lore-border bg-lore-bg px-2 py-1 text-xs outline-none focus:border-lore-accent"
           />
+          {uploadError && (
+            <p className="mt-1 text-xs text-red-400">{uploadError}</p>
+          )}
         </div>
       </div>
     </header>

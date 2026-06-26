@@ -11,7 +11,21 @@ description: >-
 Run this checklist after implementation is code-complete and tests pass locally.
 Do not skip steps; execute them in order.
 
-## 0. Classify the slice (before you ship)
+## Master flow (every ship)
+
+| Step | Section | Engine-only? | UI/workspace? |
+|------|---------|--------------|---------------|
+| 1. Local verify | §1 | Required | Required |
+| 2. Commit | §2 | Required | Required |
+| 3. Branch + open PR | §3 | Required | Required |
+| 4. CI green | §4 | Required | Required |
+| 5. Merge | §5 | Required | Required |
+| 6. Migrations (if any) | §6 | If schema changed | If schema changed |
+| 7. Docs (`deferrals`, `CONTEXT`) | §7 | When applicable | When applicable |
+| 8. Prod verify | §8 | **Skip** (CI = verify) | **Required** (1–3 steps on prod) |
+| 9. Handoff / next slice | §9 | After CI merge | After prod verify passes |
+
+Never start the next slice until the verify bar for the current slice is met (§0).
 
 | Slice type | Verify bar | Start next slice when… |
 |------------|------------|-------------------------|

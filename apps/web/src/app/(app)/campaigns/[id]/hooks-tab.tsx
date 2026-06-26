@@ -26,6 +26,7 @@ type Hook = {
   summary: string;
   status: string;
   sourceEntityId: string | null;
+  sourceTemplateId?: string | null;
   data?: unknown;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -81,10 +82,28 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
           name: row.name,
           data: row.data,
         })),
-        accepted: list,
+        accepted: list.map((h) => ({
+          sourceEntityId: h.sourceEntityId,
+          title: h.title,
+          summary: h.summary,
+          sourceTemplateId: h.sourceTemplateId,
+          status: h.status,
+        })),
       }),
     [world.data, entities.data, list],
   );
+
+  const showSuggestedInList =
+    !filterStatus || filterStatus === "suggested";
+  const listRows = showSuggestedInList
+    ? [
+        ...suggestedFromRealms.map((hook) => ({
+          kind: "pending" as const,
+          hook,
+        })),
+        ...list.map((hook) => ({ kind: "instance" as const, hook })),
+      ]
+    : list.map((hook) => ({ kind: "instance" as const, hook }));
 
   function onDrop(status: HookStatus) {
     if (dragId) {
@@ -187,9 +206,19 @@ export function HooksTab({ campaignId }: { campaignId: string }) {
         </div>
       ) : view === "list" ? (
         <QuestList
-          hooks={list}
+          rows={listRows}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          onAccept={(pending) =>
+            accept.mutate({
+              campaignId,
+              entityId: pending.entityId,
+              title: pending.title,
+              summary: pending.summary,
+              templateId: pending.templateId,
+            })
+          }
+          acceptBusy={accept.isPending}
         />
       ) : (
         <HookTimeline
@@ -294,6 +323,7 @@ function KanbanColumn({
             type="button"
             onClick={() => onAccept(hook)}
             disabled={acceptBusy}
+            aria-label={`Accept quest: ${hook.title} from ${hook.entityName}`}
             className="mt-2 rounded border border-lore-accent px-2 py-1 text-xs text-lore-accent transition-colors hover:bg-lore-accent-dim disabled:opacity-40"
           >
             Accept → Open
@@ -499,15 +529,22 @@ function NewHookForm({
 }
 
 function QuestList({
-  hooks,
+  rows,
   selectedId,
   onSelect,
+  onAccept,
+  acceptBusy,
 }: {
-  hooks: Hook[];
+  rows: Array<
+    | { kind: "instance"; hook: Hook }
+    | { kind: "pending"; hook: PendingRealmHook }
+  >;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onAccept: (hook: PendingRealmHook) => void;
+  acceptBusy: boolean;
 }) {
-  if (hooks.length === 0) {
+  if (rows.length === 0) {
     return (
       <p className="text-sm text-lore-muted">No quests match these filters.</p>
     );
@@ -522,10 +559,39 @@ function QuestList({
             <th className="px-3 py-2">Status</th>
             <th className="px-3 py-2">Tags</th>
             <th className="px-3 py-2">Step</th>
+            <th className="px-3 py-2">Source</th>
           </tr>
         </thead>
         <tbody>
-          {hooks.map((hook) => {
+          {rows.map((row) => {
+            if (row.kind === "pending") {
+              const hook = row.hook;
+              return (
+                <tr
+                  key={`pending:${hook.entityId}:${hook.title}`}
+                  className="border-b border-lore-border/60 bg-lore-surface/40"
+                >
+                  <td className="px-3 py-2 font-medium">{hook.title}</td>
+                  <td className="px-3 py-2 text-lore-muted">Suggested</td>
+                  <td className="px-3 py-2 text-lore-muted">—</td>
+                  <td className="px-3 py-2 text-lore-muted">—</td>
+                  <td className="px-3 py-2">
+                    <span className="text-lore-muted">{hook.entityName}</span>
+                    <button
+                      type="button"
+                      onClick={() => onAccept(hook)}
+                      disabled={acceptBusy}
+                      aria-label={`Accept quest: ${hook.title} from ${hook.entityName}`}
+                      className="ml-2 rounded border border-lore-accent px-2 py-0.5 text-xs text-lore-accent transition-colors hover:bg-lore-accent-dim disabled:opacity-40"
+                    >
+                      Accept
+                    </button>
+                  </td>
+                </tr>
+              );
+            }
+
+            const hook = row.hook;
             const instance = parseQuestInstanceData(hook.data);
             const template = instance.templateSnapshot;
             const currentStep = template?.steps?.find(
@@ -550,6 +616,9 @@ function QuestList({
                 </td>
                 <td className="px-3 py-2 text-lore-muted">
                   {currentStep?.title ?? "—"}
+                </td>
+                <td className="px-3 py-2 text-lore-muted">
+                  {hook.sourceEntityId ? "Realms" : "Campaign"}
                 </td>
               </tr>
             );

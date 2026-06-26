@@ -1,9 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { trpc } from "@/lib/trpc/client";
+
+import { CampaignPartyPrompt } from "./campaign-party-prompt";
 
 type CreatePath = "quick" | "guided" | "empty";
 
@@ -13,17 +14,28 @@ type CreatePath = "quick" | "guided" | "empty";
  * (bare workspace). Every path lands in `/campaigns/[id]`.
  */
 export function CampaignCreateModal({ onClose }: { onClose: () => void }) {
-  const router = useRouter();
   const utils = trpc.useUtils();
   const forgeStatus = trpc.campaigns.forgeStatus.useQuery();
   const [path, setPath] = useState<CreatePath | null>(null);
+  const [createdCampaign, setCreatedCampaign] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
-  async function land(id: string) {
+  async function land(id: string, name?: string) {
     await utils.campaigns.list.invalidate();
-    router.push(`/campaigns/${id}`);
+    setCreatedCampaign({ id, name: name?.trim() || "New campaign" });
   }
 
   return (
+    <>
+    {createdCampaign && (
+      <CampaignPartyPrompt
+        campaignId={createdCampaign.id}
+        campaignName={createdCampaign.name}
+        onClose={onClose}
+      />
+    )}
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:p-8"
       role="dialog"
@@ -78,6 +90,7 @@ export function CampaignCreateModal({ onClose }: { onClose: () => void }) {
         )}
       </div>
     </div>
+    </>
   );
 }
 
@@ -175,12 +188,12 @@ function QuickForge({
   onDone,
 }: {
   forgeConfigured: boolean;
-  onDone: (id: string) => Promise<void>;
+  onDone: (id: string, name?: string) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [pitch, setPitch] = useState("");
   const forge = trpc.campaigns.forge.useMutation({
-    onSuccess: (res) => onDone(res.id),
+    onSuccess: (res) => onDone(res.id, name.trim()),
   });
 
   const canForge = name.trim().length > 0 && !forge.isPending;
@@ -250,7 +263,7 @@ function GuidedSetup({
   onDone,
 }: {
   forgeConfigured: boolean;
-  onDone: (id: string) => Promise<void>;
+  onDone: (id: string, name?: string) => Promise<void>;
 }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -260,7 +273,7 @@ function GuidedSetup({
   const [openingScene, setOpeningScene] = useState("");
 
   const forge = trpc.campaigns.forge.useMutation({
-    onSuccess: (res) => onDone(res.id),
+    onSuccess: (res) => onDone(res.id, name.trim()),
   });
 
   const isLast = step === GUIDED_STEPS.length - 1;
@@ -359,9 +372,9 @@ function GuidedSetup({
 
       {step === 4 && (
         <p className="text-sm text-lore-muted">
-          Party slots are managed on the campaign&apos;s Party tab once the
-          workspace opens — add your characters or reserve seats for invitees
-          there.
+          After the workspace opens, you&apos;ll be prompted to create a
+          character or add one from your library. You can also invite players
+          later from the Party tab.
         </p>
       )}
 
@@ -418,12 +431,16 @@ function GuidedSetup({
   );
 }
 
-function EmptyWorld({ onDone }: { onDone: (id: string) => Promise<void> }) {
+function EmptyWorld({
+  onDone,
+}: {
+  onDone: (id: string, name?: string) => Promise<void>;
+}) {
   const [name, setName] = useState("");
   const [pitch, setPitch] = useState("");
   const create = trpc.campaigns.create.useMutation({
     onSuccess: (campaign) => {
-      if (campaign) return onDone(campaign.id);
+      if (campaign) return onDone(campaign.id, name.trim());
     },
   });
   const canCreate = name.trim().length > 0 && !create.isPending;

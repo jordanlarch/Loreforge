@@ -194,6 +194,8 @@ export function CharacterSheetView({
           onLevelUp={() => setLevelingUp(true)}
           canLevelUp={progress.canLevelUp}
           atCap={atCap}
+          onXpChange={(xp) => update.mutate({ id, xp })}
+          xpRemaining={progress.remaining}
         />
         <SheetHpPanel
           current={currentHp}

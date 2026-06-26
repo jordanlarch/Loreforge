@@ -32,6 +32,7 @@ import {
 import { HOOK_STATUSES, type HookStatus } from "@/lib/campaign-hooks";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
+import { grantCampaignPartyXp } from "../../characters-xp";
 import { assertCampaignOwner } from "./campaigns";
 
 const hookStatus = z.enum(HOOK_STATUSES);
@@ -127,29 +128,9 @@ async function grantQuestXpToParty(
   ownerId: string,
   xp: number,
 ) {
-  const db = getDb();
-  const pcs = await db
-    .select({ id: characters.id })
-    .from(campaignCharacters)
-    .innerJoin(characters, eq(campaignCharacters.characterId, characters.id))
-    .where(
-      and(
-        eq(campaignCharacters.campaignId, campaignId),
-        eq(campaignCharacters.ownerId, ownerId),
-        eq(campaignCharacters.role, "pc"),
-        eq(campaignCharacters.status, "active"),
-      ),
-    );
-
-  for (const pc of pcs) {
-    await db
-      .update(characters)
-      .set({
-        xp: sql`${characters.xp} + ${xp}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(characters.id, pc.id));
-  }
+  await grantCampaignPartyXp(getDb(), ownerId, campaignId, xp, {
+    split: false,
+  });
 }
 
 export const questsRouter = createTRPCRouter({

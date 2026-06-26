@@ -14,6 +14,7 @@ import {
   isValidAsiChoice,
   levelUpSeed,
   totalLevel,
+  xpProgress,
   createSeededRng,
   type AsiChoice,
   type HpMethod,
@@ -32,6 +33,10 @@ import {
 } from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
+import {
+  grantCampaignPartyXp,
+  grantCharacterXp,
+} from "../../characters-xp";
 
 /** Hard 5E ceiling for a single class and for total character level. */
 const MAX_LEVEL = 20;
@@ -381,6 +386,18 @@ export const charactersRouter = createTRPCRouter({
         });
       }
 
+      const currentTotalLevel = totalLevel(classes);
+      const xpGate = xpProgress(character.xp, currentTotalLevel);
+      if (!xpGate.canLevelUp) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            xpGate.remaining != null
+              ? `Need ${xpGate.remaining.toLocaleString()} more XP to level up.`
+              : "Character cannot level up further.",
+        });
+      }
+
       // Resolve the hit die from the Codex by display name (classes store the
       // name, not the slug). Required so the engine — not the app — computes HP.
       const [klass] = await db
@@ -455,6 +472,74 @@ export const charactersRouter = createTRPCRouter({
         .returning();
 
       return { character: row, hpGain };
+    }),
+
+  /** Add XP to one owned character (GM adjust or encounter share). */
+  grantXp: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        amount: z.number().int().min(1).max(500_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      try {
+        const xp = await grantCharacterXp(
+          db,
+          ctx.user.id,
+          input.id,
+          input.amount,
+        );
+        return { xp };
+      } catch {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+    }),
+
+  /** Award encounter XP split evenly among active campaign PCs. */
+  awardCampaignXp: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        totalXp: z.number().int().min(1).max(500_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [campaign] = await db
+        .select({ id: campaigns.id })
+        .from(campaigns)
+        .where(
+          and(
+            eq(campaigns.id, input.campaignId),
+            eq(campaigns.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!campaign) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Campaign not found.",
+        });
+      }
+      try {
+        return await grantCampaignPartyXp(
+          db,
+          ctx.user.id,
+          input.campaignId,
+          input.totalXp,
+        );
+      } catch (err) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            err instanceof Error ? err.message : "Could not award XP.",
+        });
+      }
     }),
 
   /* ----------------------------------------------------------------------- *

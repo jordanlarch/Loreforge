@@ -9,8 +9,9 @@ import {
   abilityModifier,
   applyAbilityBonuses,
   baseArmorClass,
-  featureStubsForLevel,
+  buildStartingCharacterStats,
   classFeaturesForLevel,
+  featureStubsForLevel,
   isValidPointBuy,
   MANUAL_MAX,
   MANUAL_MIN,
@@ -23,7 +24,13 @@ import {
   STANDARD_ARRAY,
   type Ability,
   type AbilityScores,
+  type LevelAdvanceChoice,
 } from "@app/engine";
+
+import {
+  AdvancementStep,
+  advancementComplete,
+} from "./advancement-step";
 
 import { trpc } from "@/lib/trpc/client";
 import type { EquipmentItem } from "@/lib/character";
@@ -50,7 +57,7 @@ const RANDOM_NAMES = [
   "Jorah Penn",
 ];
 
-const STEPS = [
+const BASE_STEPS = [
   "Concept",
   "Species",
   "Class",
@@ -59,8 +66,6 @@ const STEPS = [
   "Skills",
   "Equipment",
   "Features",
-  "Flavor",
-  "Review",
 ] as const;
 
 type AbilityMethod = "point-buy" | "standard-array" | "manual" | "roll-4d6";
@@ -153,6 +158,8 @@ export function CreationWizard() {
     bonds: "",
     flaws: "",
   });
+  const [startingLevel, setStartingLevel] = useState(1);
+  const [advances, setAdvances] = useState<LevelAdvanceChoice[]>([]);
   const [backstory, setBackstory] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -278,6 +285,35 @@ export function CreationWizard() {
     [backgroundSkills, skills],
   );
 
+  const steps = useMemo(() => {
+    const list: string[] = [...BASE_STEPS];
+    if (startingLevel > 1) list.push("Advancement");
+    list.push("Flavor", "Review");
+    return list;
+  }, [startingLevel]);
+
+  const hasAdvancement = startingLevel > 1;
+  const flavorStep = hasAdvancement ? 9 : 8;
+  const reviewStep = hasAdvancement ? 10 : 9;
+
+  const previewStats = useMemo(() => {
+    if (!selectedClass) return null;
+    if (startingLevel <= 1) {
+      return {
+        maxHp: maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con),
+        abilityScores: finalScores,
+        xp: 0,
+      };
+    }
+    return buildStartingCharacterStats(
+      selectedClass.hitDie,
+      startingLevel,
+      finalScores,
+      advances,
+      `create-preview:${name.trim() || "hero"}`,
+    );
+  }, [selectedClass, startingLevel, finalScores, advances, name]);
+
   function switchMethod(next: AbilityMethod) {
     setMethod(next);
     if (next === "point-buy") setBase(POINT_BUY_BASE);
@@ -314,6 +350,11 @@ export function CreationWizard() {
   const skillsValid = selectedClass != null && skillsRemaining === 0;
   const nameValid = name.trim().length > 0;
 
+  const advancementOk =
+    !hasAdvancement ||
+    (selectedClass != null &&
+      advancementComplete(selectedClass.name, startingLevel, advances));
+
   const stepValid = [
     nameValid,
     selectedSpecies != null,
@@ -323,6 +364,7 @@ export function CreationWizard() {
     skillsValid,
     equipment.length > 0,
     selectedClass != null,
+    ...(hasAdvancement ? [advancementOk] : []),
     true,
     nameValid,
   ];
@@ -334,7 +376,8 @@ export function CreationWizard() {
     abilitiesValid &&
     skillsValid &&
     equipment.length > 0 &&
-    nameValid;
+    nameValid &&
+    advancementOk;
 
   async function submit() {
     if (!canCreate || !selectedSpecies || !selectedClass || !selectedBackground)
@@ -344,13 +387,28 @@ export function CreationWizard() {
     try {
       const notesParts = [concept.trim(), backstory.trim()].filter(Boolean);
       const notesBody = notesParts.join("\n\n");
+      const stats =
+        startingLevel > 1
+          ? buildStartingCharacterStats(
+              selectedClass.hitDie,
+              startingLevel,
+              finalScores,
+              advances,
+              `create:${name.trim()}`,
+            )
+          : {
+              maxHp: maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con),
+              abilityScores: finalScores,
+              xp: 0,
+            };
       const row = await create.mutateAsync({
         name: name.trim(),
         species: selectedSpecies.name,
         background: selectedBackground.name,
-        classes: [{ class: selectedClass.name, level: 1 }],
-        abilityScores: finalScores,
-        maxHp: maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con),
+        classes: [{ class: selectedClass.name, level: startingLevel }],
+        abilityScores: stats.abilityScores,
+        maxHp: stats.maxHp,
+        xp: stats.xp,
         baseAc: equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex),
         speed: selectedSpecies.speed,
         saveProficiencies: selectedClass.savingThrows,
@@ -397,7 +455,7 @@ export function CreationWizard() {
         </span>
       </div>
 
-      <Stepper current={step} valid={stepValid} onJump={setStep} />
+      <Stepper current={step} valid={stepValid} steps={steps} onJump={setStep} />
 
       {successToast && (
         <p className="mt-4 rounded border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
@@ -429,9 +487,12 @@ export function CreationWizard() {
               loading={classes.isLoading}
               items={classes.data ?? []}
               selected={classSlug}
+              startingLevel={startingLevel}
+              onStartingLevel={setStartingLevel}
               onSelect={(slug) => {
                 setClassSlug(slug);
                 setSkills([]);
+                setAdvances([]);
               }}
             />
           )}
@@ -473,7 +534,17 @@ export function CreationWizard() {
           {step === 7 && (
             <FeaturesStep className={selectedClass?.name ?? "Adventurer"} />
           )}
-          {step === 8 && (
+          {step === 8 && hasAdvancement && selectedClass && (
+            <AdvancementStep
+              className={selectedClass.name}
+              hitDie={selectedClass.hitDie}
+              startingLevel={startingLevel}
+              abilityScores={finalScores}
+              advances={advances}
+              onChange={setAdvances}
+            />
+          )}
+          {step === flavorStep && (
             <FlavorStep
               personality={personality}
               setPersonality={setPersonality}
@@ -481,22 +552,22 @@ export function CreationWizard() {
               setBackstory={setBackstory}
             />
           )}
-          {step === 9 && (
+          {step === reviewStep && (
             <ReviewStep
               name={name}
               setName={setName}
               nameValid={nameValid}
               species={selectedSpecies?.name ?? "—"}
-              className={selectedClass?.name ?? "—"}
+              className={
+                selectedClass
+                  ? `${selectedClass.name} ${startingLevel}`
+                  : "—"
+              }
               background={selectedBackground?.name ?? "—"}
-              finalScores={finalScores}
+              finalScores={previewStats?.abilityScores ?? finalScores}
               skills={allSkillProficiencies}
               equipment={equipment}
-              maxHp={
-                selectedClass
-                  ? maxHpAtFirstLevel(selectedClass.hitDie, finalScores.con)
-                  : 0
-              }
+              maxHp={previewStats?.maxHp ?? 0}
               baseAc={equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex)}
               speed={selectedSpecies?.speed ?? 30}
               error={createError}
@@ -523,10 +594,10 @@ export function CreationWizard() {
           Back
         </button>
 
-        {step < STEPS.length - 1 ? (
+        {step < steps.length - 1 ? (
           <button
             type="button"
-            onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+            onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
             disabled={!stepValid[step]}
             className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -550,15 +621,17 @@ export function CreationWizard() {
 function Stepper({
   current,
   valid,
+  steps,
   onJump,
 }: {
   current: number;
   valid: boolean[];
+  steps: string[];
   onJump: (step: number) => void;
 }) {
   return (
     <ol className="flex flex-wrap gap-2">
-      {STEPS.map((label, i) => {
+      {steps.map((label, i) => {
         const active = i === current;
         const done = i < current && valid[i];
         return (
@@ -662,11 +735,15 @@ function ClassStep({
   loading,
   items,
   selected,
+  startingLevel,
+  onStartingLevel,
   onSelect,
 }: {
   loading: boolean;
   items: ClassItem[];
   selected: string | null;
+  startingLevel: number;
+  onStartingLevel: (level: number) => void;
   onSelect: (slug: string) => void;
 }) {
   return (
@@ -675,6 +752,27 @@ function ClassStep({
       <p className="mt-1 text-sm text-lore-muted">
         Determines hit die, saving throws, and skill choices.
       </p>
+      <label className="mt-4 block max-w-xs">
+        <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
+          Starting level
+        </span>
+        <select
+          value={startingLevel}
+          onChange={(e) => onStartingLevel(Number(e.target.value))}
+          className="w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm"
+        >
+          {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              Level {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      {startingLevel > 1 && (
+        <p className="mt-2 text-xs text-lore-accent">
+          You will choose HP and features for each level after equipment.
+        </p>
+      )}
       {loading ? (
         <p className="mt-6 text-lore-muted">Loading classes…</p>
       ) : (

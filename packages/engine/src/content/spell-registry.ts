@@ -1777,7 +1777,7 @@ const SPIRITUAL_WEAPON: SpellDefinition = {
   ritual: false,
   targeting: "single",
   attackAgainst: { type: "ranged" },
-  damage: [{ dice: "1d8", addSpellMod: true, type: "force" }],
+  damage: [{ dice: "1d8+4", type: "force" }],
   upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
   description:
     "You create a floating, spectral weapon that attacks once as a bonus action on subsequent turns (tracer: one immediate ranged spell attack for 1d8 + spellcasting modifier force damage).",

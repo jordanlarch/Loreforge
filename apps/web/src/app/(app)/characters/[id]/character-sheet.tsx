@@ -54,11 +54,13 @@ export function CharacterSheetView({
   embedded = false,
   onFeatureUse,
   onCastSpell,
+  liveConditions,
 }: {
   id: string;
   embedded?: boolean;
   onFeatureUse?: (featureName: string) => void;
   onCastSpell?: (spell: CastableSpell) => void;
+  liveConditions?: { condition: string; level?: number }[];
 }) {
   const utils = trpc.useUtils();
   const query = trpc.characters.get.useQuery({ id });
@@ -335,6 +337,7 @@ export function CharacterSheetView({
             meta={metaWithHitDice}
             inspiration={parsed.meta.inspiration ?? false}
             onPatchMeta={patchMeta}
+            liveConditions={liveConditions}
           />
           <SheetLiveHud
             sheet={sheet}

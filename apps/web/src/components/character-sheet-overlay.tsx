@@ -9,11 +9,13 @@ export function CharacterSheetOverlay({
   onClose,
   onFeatureUse,
   onCastSpell,
+  liveConditions,
 }: {
   characterId: string;
   onClose: () => void;
   onFeatureUse?: (featureName: string) => void;
   onCastSpell?: (spell: CastableSpell) => void;
+  liveConditions?: { condition: string; level?: number }[];
 }) {
   return (
     <div
@@ -48,6 +50,7 @@ export function CharacterSheetOverlay({
             embedded
             onFeatureUse={onFeatureUse}
             onCastSpell={onCastSpell}
+            liveConditions={liveConditions}
           />
         </div>
       </div>

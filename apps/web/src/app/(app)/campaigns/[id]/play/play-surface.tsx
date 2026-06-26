@@ -113,6 +113,20 @@ type ViewModel = {
   order: InitiativeChip[];
 };
 
+/** Engine conditions for the character sheet right rail during Live Play. */
+function liveEntityConditions(
+  state: WorldState | undefined,
+  entityId: string,
+): { condition: string; level?: number }[] | undefined {
+  if (!state) return undefined;
+  const entity = state.entities[entityId];
+  if (!entity) return [];
+  return entity.conditions.map((c) => ({
+    condition: c.condition,
+    level: c.level,
+  }));
+}
+
 function buildViewModel(state: WorldState): ViewModel | null {
   const sceneId = state.currentSceneId;
   const scene = sceneId ? state.scenes[sceneId] : undefined;
@@ -772,6 +786,10 @@ function LiveBattle({
                   "cast_spell",
                 )
               }
+              liveConditions={liveEntityConditions(
+                session.state,
+                pcCharacterId,
+              )}
             />
           ) : null}
           {sheetPeekId ? (
@@ -981,6 +999,7 @@ function LiveBattle({
               "cast_spell",
             )
           }
+          liveConditions={liveEntityConditions(session.state, pcCharacterId)}
         />
       ) : null}
       {sheetPeekId ? (

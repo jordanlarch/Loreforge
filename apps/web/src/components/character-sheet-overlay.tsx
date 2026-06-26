@@ -6,9 +6,12 @@ import { CharacterSheetView } from "@/app/(app)/characters/[id]/character-sheet"
 export function CharacterSheetOverlay({
   characterId,
   onClose,
+  onFeatureUse,
 }: {
   characterId: string;
   onClose: () => void;
+  /** Live Play: post feature use to campaign chat. */
+  onFeatureUse?: (featureName: string) => void;
 }) {
   return (
     <div
@@ -38,7 +41,11 @@ export function CharacterSheetOverlay({
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-5">
-          <CharacterSheetView id={characterId} embedded />
+          <CharacterSheetView
+            id={characterId}
+            embedded
+            onFeatureUse={onFeatureUse}
+          />
         </div>
       </div>
     </div>

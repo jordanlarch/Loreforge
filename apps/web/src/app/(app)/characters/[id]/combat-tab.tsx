@@ -163,7 +163,7 @@ export function CombatTab({
         <SheetSection title="Bonus Actions">
           <StubBanner>
             Class bonus actions (Second Wind, etc.) appear under Features with use
-            trackers until engine resource commands ship.
+            trackers. Short/long rest buttons on the HP panel refresh resources.
           </StubBanner>
         </SheetSection>
       </div>

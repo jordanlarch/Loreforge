@@ -34,6 +34,9 @@
  *   - Batch 9 (ENG-2): Spiritual Weapon, Mirror Image, Charm Person,
  *     Blindness/Deafness, Call Lightning, Blight, Revivify, Tasha's Hideous
  *     Laughter, Command, Greater Invisibility, Mass Cure Wounds.
+ *   - Batch 10 (ENG-2): Hold Monster, Dominate Person, Fear, Suggestion,
+ *     Wall of Fire, Chain Lightning, Otto's Irresistible Dance, Power Word Stun,
+ *     Sleep, Greater Restoration, Crown of Madness.
  *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
  * a malformed registry entry fails CI rather than at cast time, and every
@@ -1976,6 +1979,216 @@ const MASS_CURE_WOUNDS: SpellDefinition = {
     "Up to six creatures of your choice in range each regain 3d8 + your spellcasting modifier hit points. When cast with a slot of 6th level or higher, the healing increases by 1d8 for each slot level above 5th.",
 };
 
+// ───────────────────────── Batch 10 (ENG-2) ─────────────────────────
+
+const HOLD_MONSTER: SpellDefinition = {
+  id: "hold-monster",
+  name: "Hold Monster",
+  level: 5,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 90 },
+  components: { verbal: true, somatic: true, material: "a small, straight piece of iron" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "paralyzed",
+  description:
+    "Choose a creature you can see. The target must succeed on a Wisdom saving throw or be paralyzed for the duration.",
+};
+
+const DOMINATE_PERSON: SpellDefinition = {
+  id: "dominate-person",
+  name: "Dominate Person",
+  level: 5,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "You attempt to beguile a humanoid you can see. It must succeed on a Wisdom saving throw or be charmed by you for the duration.",
+};
+
+const FEAR: SpellDefinition = {
+  id: "fear",
+  name: "Fear",
+  level: 3,
+  school: "illusion",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self", area: { shape: "cone", size: 30 } },
+  components: { verbal: true, somatic: true, material: "a white feather or the heart of a hen" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "frightened",
+  description:
+    "Each creature in a 30-foot cone must succeed on a Wisdom saving throw or drop what it is holding and become frightened for the duration.",
+};
+
+const SUGGESTION: SpellDefinition = {
+  id: "suggestion",
+  name: "Suggestion",
+  level: 2,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: false, material: "a snake's tongue and either a bit of honeycomb or a drop of sweet oil" },
+  duration: { unit: "hour", amount: 8 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "You suggest a course of activity to a creature you can see. It must succeed on a Wisdom saving throw or be charmed for the duration and pursue the suggested activity.",
+};
+
+const WALL_OF_FIRE: SpellDefinition = {
+  id: "wall-of-fire",
+  name: "Wall of Fire",
+  level: 4,
+  school: "evocation",
+  classes: ["Druid", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true, material: "a small piece of phosphorus" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "5d8", type: "fire" }],
+  description:
+    "You create a wall of fire on a solid surface (tracer: 20-ft burst at a point). Each creature in the area when the wall appears makes a Dexterity save, taking 5d8 fire damage on a failure or half on a success.",
+};
+
+const CHAIN_LIGHTNING: SpellDefinition = {
+  id: "chain-lightning",
+  name: "Chain Lightning",
+  level: 6,
+  school: "evocation",
+  classes: ["Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 150 },
+  components: { verbal: true, somatic: true, material: "a bit of fur; a piece of amber, glass, or a crystal rod; and three silver pins" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "10d8", type: "lightning" }],
+  description:
+    "A bolt of lightning leaps toward a target you can see. The target makes a Dexterity saving throw, taking 10d8 lightning damage on a failure or half on a success (arcs to three more targets narrated).",
+};
+
+const OTTOS_IRRESISTIBLE_DANCE: SpellDefinition = {
+  id: "ottos-irresistible-dance",
+  name: "Otto's Irresistible Dance",
+  level: 6,
+  school: "enchantment",
+  classes: ["Bard", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "incapacitated",
+  description:
+    "Choose one creature you can see. The target must succeed on a Wisdom saving throw or begin a comic dance, becoming incapacitated and unable to move voluntarily for the duration.",
+};
+
+const POWER_WORD_STUN: SpellDefinition = {
+  id: "power-word-stun",
+  name: "Power Word Stun",
+  level: 8,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "minute", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "stunned",
+  description:
+    "You speak a word of power that can overwhelm a creature. If the target has 150 hit points or fewer it is stunned (tracer: Constitution save or stunned for creatures above that threshold narrated).",
+};
+
+const SLEEP: SpellDefinition = {
+  id: "sleep",
+  name: "Sleep",
+  level: 1,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 90, area: { shape: "sphere", size: 20 } },
+  components: { verbal: true, somatic: true, material: "a pinch of fine sand, rose petals, or a cricket" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "unconscious",
+  description:
+    "Roll 5d8; the spell affects creatures in a 20-foot-radius sphere in ascending order of current hit points (tracer: Wisdom save or unconscious in the area).",
+};
+
+const GREATER_RESTORATION: SpellDefinition = {
+  id: "greater-restoration",
+  name: "Greater Restoration",
+  level: 5,
+  school: "abjuration",
+  classes: ["Bard", "Cleric", "Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true, material: "diamond dust worth at least 100 gp" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  healing: { dice: "4d4", addSpellMod: true },
+  description:
+    "You imbue a creature you touch with positive energy to end one debilitating effect and restore vitality (tracer: 4d4 + spellcasting modifier HP restored).",
+};
+
+const CROWN_OF_MADNESS: SpellDefinition = {
+  id: "crown-of-madness",
+  name: "Crown of Madness",
+  level: 2,
+  school: "enchantment",
+  classes: ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "One humanoid you can see must succeed on a Wisdom saving throw or be charmed for the duration and must use its action before moving on each turn to make a melee attack against a creature other than itself that you mentally choose.",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -2070,6 +2283,17 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [COMMAND.id]: COMMAND,
   [GREATER_INVISIBILITY.id]: GREATER_INVISIBILITY,
   [MASS_CURE_WOUNDS.id]: MASS_CURE_WOUNDS,
+  [HOLD_MONSTER.id]: HOLD_MONSTER,
+  [DOMINATE_PERSON.id]: DOMINATE_PERSON,
+  [FEAR.id]: FEAR,
+  [SUGGESTION.id]: SUGGESTION,
+  [WALL_OF_FIRE.id]: WALL_OF_FIRE,
+  [CHAIN_LIGHTNING.id]: CHAIN_LIGHTNING,
+  [OTTOS_IRRESISTIBLE_DANCE.id]: OTTOS_IRRESISTIBLE_DANCE,
+  [POWER_WORD_STUN.id]: POWER_WORD_STUN,
+  [SLEEP.id]: SLEEP,
+  [GREATER_RESTORATION.id]: GREATER_RESTORATION,
+  [CROWN_OF_MADNESS.id]: CROWN_OF_MADNESS,
 };
 
 /** Look up an authored spell definition by slug id. */

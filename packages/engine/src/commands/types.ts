@@ -214,6 +214,14 @@ export type EndConcentrationCommand = {
   entity: EntityRef;
 };
 
+/** Dispel Magic — end one spell effect or concentration-linked condition on a target. */
+export type DispelMagicCommand = {
+  type: "dispel_magic";
+  caster: EntityRef;
+  target: EntityRef;
+  slotLevel: number;
+};
+
 /**
  * An opportunity attack: a reaction-cost attack against a creature that left the
  * reactor's reach. Valid only against the mover of an open reaction window.
@@ -286,6 +294,7 @@ export type Command =
   | LongRestCommand
   | StartConcentrationCommand
   | EndConcentrationCommand
+  | DispelMagicCommand
   | OpportunityAttackCommand
   | ReadyActionCommand
   | TriggerReadiedCommand
@@ -326,6 +335,7 @@ export type ValidationCode =
   | "SPELL_NOT_PREPARED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
+  | "NO_MAGIC_TO_DISPEL"
   | "OUT_OF_RANGE";
 
 export type ValidationFailure = {

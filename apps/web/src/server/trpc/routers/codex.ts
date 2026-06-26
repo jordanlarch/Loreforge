@@ -4,7 +4,7 @@
  * is reused by Smithy and Realms. Write paths (Copy to Smithy, etc.) arrive in
  * later phases.
  */
-import { and, asc, count, eq, gte, ilike, lte } from "drizzle-orm";
+import { and, asc, count, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -33,6 +33,8 @@ export const codexRouter = createTRPCRouter({
         search: z.string().trim().max(100).optional(),
         level: z.string().optional(),
         school: z.string().optional(),
+        concentration: z.boolean().optional(),
+        ritual: z.boolean().optional(),
         limit: z.number().int().min(1).max(100).default(48),
         offset: z.number().int().min(0).default(0),
       }),
@@ -43,6 +45,16 @@ export const codexRouter = createTRPCRouter({
         input.search ? ilike(codexSpells.name, `%${input.search}%`) : undefined,
         input.level ? eq(codexSpells.level, input.level) : undefined,
         input.school ? eq(codexSpells.school, input.school) : undefined,
+        input.concentration === true
+          ? sql`lower(${codexSpells.raw}->>'concentration') in ('yes', 'true')`
+          : input.concentration === false
+            ? sql`coalesce(lower(${codexSpells.raw}->>'concentration'), '') not in ('yes', 'true')`
+            : undefined,
+        input.ritual === true
+          ? sql`lower(${codexSpells.raw}->>'ritual') in ('yes', 'true')`
+          : input.ritual === false
+            ? sql`coalesce(lower(${codexSpells.raw}->>'ritual'), '') not in ('yes', 'true')`
+            : undefined,
       ].filter(Boolean);
       const where = conditions.length > 0 ? and(...conditions) : undefined;
 

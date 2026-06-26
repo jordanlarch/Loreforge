@@ -14,6 +14,8 @@ import {
   hasLineOfSight,
   withinBurst,
   withinCone,
+  withinCube,
+  withinLine,
 } from "../combat/grid";
 import { getSpell } from "../content/spell-registry";
 import { isSpellPrepared } from "../content/spell-id";
@@ -46,7 +48,9 @@ import {
   attacksAgainstHaveDisadvantage,
   effectFromSpec,
   effectiveAc,
+  effectiveSpeedForEntity,
   huntersMarkOn,
+  spellDurationRounds,
 } from "../combat/effects";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
@@ -67,6 +71,7 @@ import {
   type ApplyHealingCommand,
   type AttackCommand,
   type CastSpellCommand,
+  type DispelMagicCommand,
   type ChangeSceneCommand,
   type Command,
   type CommandResult,
@@ -377,7 +382,7 @@ function handleMoveEntity(
     return reject("TARGET_DEAD", `${entity.name} cannot move while dead.`);
   }
 
-  if (effectiveSpeed(entity.speed, entity.conditions) === 0) {
+  if (effectiveSpeedForEntity(entity) === 0) {
     return reject("IMMOBILIZED", `${entity.name} cannot move (speed 0).`);
   }
 
@@ -757,6 +762,11 @@ function handleEndTurn(
       type: "RoundAdvanced",
       ...meta(ctx, "system"),
       payload: { round: nextRound },
+    });
+    events.push({
+      type: "EffectsDurationTicked",
+      ...meta(ctx, "system"),
+      payload: {},
     });
   }
   events.push({
@@ -1373,6 +1383,118 @@ function handleEndConcentration(
   };
 }
 
+function handleDispelMagic(
+  cmd: DispelMagicCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const caster = ctx.world.entities[cmd.caster];
+  if (!caster) {
+    return reject("ACTOR_NOT_FOUND", `Caster ${cmd.caster} does not exist.`);
+  }
+  if (!caster.spellcasting) {
+    return reject("NOT_A_SPELLCASTER", `${caster.name} cannot cast spells.`);
+  }
+  const target = ctx.world.entities[cmd.target];
+  if (!target) {
+    return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
+  }
+  const slotLevel = Math.floor(cmd.slotLevel);
+  if (slotLevel < 3) {
+    return reject(
+      "INVALID_PAYLOAD",
+      "Dispel Magic requires a level-3 slot or higher.",
+    );
+  }
+  const slot = caster.spellcasting.slots[slotLevel];
+  if (!slot || slot.current <= 0) {
+    return reject(
+      "NO_SPELL_SLOT",
+      `${caster.name} has no level-${slotLevel} spell slot available.`,
+      { slotLevel },
+    );
+  }
+
+  const events: DraftEvent[] = [
+    {
+      type: "SpellSlotExpended",
+      ...meta(ctx, cmd.caster),
+      payload: { entity: cmd.caster, slotLevel },
+    },
+  ];
+
+  const effects = target.effects ?? [];
+  if (effects.length > 0) {
+    events.push({
+      type: "EffectRemoved",
+      ...meta(ctx, cmd.caster),
+      payload: { target: cmd.target, effectId: effects[0]!.id },
+    });
+    return {
+      accepted: true,
+      events,
+      summary: { target: cmd.target, dispelled: "effect" },
+    };
+  }
+
+  const linked = target.conditions.find((c) => c.concentrationSpell);
+  if (linked) {
+    events.push({
+      type: "ConditionRemoved",
+      ...meta(ctx, cmd.caster),
+      payload: { target: cmd.target, condition: linked.condition },
+    });
+    return {
+      accepted: true,
+      events,
+      summary: { target: cmd.target, dispelled: "condition" },
+    };
+  }
+
+  return {
+    accepted: true,
+    events,
+    summary: { target: cmd.target, dispelled: "none" },
+  };
+}
+
+function spellConditionPayload(
+  spell: SpellDefinition,
+  casterId: EntityRef,
+  targetId: EntityRef,
+  condition: NonNullable<SpellDefinition["failedSaveCondition"]>,
+) {
+  return {
+    target: targetId,
+    condition,
+    source: casterId,
+    ...(spell.concentration
+      ? { concentrationSpell: spell.name, concentrationHolder: casterId }
+      : {}),
+  };
+}
+
+function effectOptsFromSpell(
+  spell: SpellDefinition,
+  ctx: ExecutionContext,
+  casterId: EntityRef,
+  targetId: EntityRef,
+  spec: import("../content/spells").SpellAppliedEffect,
+) {
+  const timed =
+    !spec.concentration && !spec.expiresStartOfNextTurn
+      ? spellDurationRounds(spell)
+      : undefined;
+  return {
+    id: `${ctx.commandId}:${spell.id}:${targetId}`,
+    source: casterId,
+    concentrationHolder: spec.concentration ? casterId : undefined,
+    concentrationSpell: spec.concentration ? spell.name : undefined,
+    markedBy: spec.modifier.type === "hunters_mark" ? casterId : undefined,
+    expiresStartOfTurn: spec.expiresStartOfNextTurn ? targetId : undefined,
+    remainingRounds: timed,
+  };
+}
+
 function handleOpportunityAttack(
   cmd: OpportunityAttackCommand,
   ctx: ExecutionContext,
@@ -1572,21 +1694,18 @@ function diceNotation(count: number, sides: number, modifier: number): string {
   return `${count}d${sides}${mod}`;
 }
 
-/** Roll a spell's damage (first component), applying cantrip character-level
- * scaling (level-0 spells), doubling dice on a crit, and adding upcast dice for
- * slot levels above the spell's base level. */
-function rollSpellDamage(
+/** Roll one damage component (cantrip scaling + upcast on index 0 only). */
+function rollDamageComponent(
   ctx: ExecutionContext,
+  component: { dice: string; type: string },
   spell: SpellDefinition,
   casterLevel: number,
   extraLevels: number,
   crit: boolean,
   scopeBase: string,
+  componentIndex: number,
 ): { amount: number; events: DraftEvent[] } {
-  const component = spell.damage![0]!;
   const events: DraftEvent[] = [];
-  // Cantrips scale their base dice count by character level; leveled spells
-  // roll their printed dice and scale via slot upcast instead.
   const parsed = parseDice(component.dice);
   const baseCount =
     spell.level === 0
@@ -1594,11 +1713,19 @@ function rollSpellDamage(
       : parsed.count;
   const scaledNotation = diceNotation(baseCount, parsed.sides, parsed.modifier);
   const baseNotation = crit ? criticalNotation(scaledNotation) : scaledNotation;
-  const baseRoll = ctx.roll(baseNotation, `${scopeBase}:base`);
+  const scope =
+    componentIndex === 0
+      ? `${scopeBase}:base`
+      : `${scopeBase}:${component.type}`;
+  const baseRoll = ctx.roll(baseNotation, scope);
   events.push(rollDiceEvent(ctx, baseRoll));
   let amount = Math.max(0, baseRoll.total);
 
-  if (spell.upcastScaling?.appliesTo === "damage" && extraLevels > 0) {
+  if (
+    componentIndex === 0 &&
+    spell.upcastScaling?.appliesTo === "damage" &&
+    extraLevels > 0
+  ) {
     const per = parseDice(spell.upcastScaling.perSlotDice);
     const count = per.count * extraLevels * (crit ? 2 : 1);
     const upRoll = ctx.roll(`${count}d${per.sides}`, `${scopeBase}:upcast`);
@@ -1606,6 +1733,37 @@ function rollSpellDamage(
     amount += Math.max(0, upRoll.total);
   }
   return { amount, events };
+}
+
+/** Roll every damage component on a spell (multi-type hits like Ice Storm). */
+function rollSpellDamage(
+  ctx: ExecutionContext,
+  spell: SpellDefinition,
+  casterLevel: number,
+  extraLevels: number,
+  crit: boolean,
+  scopeBase: string,
+): { amount: number; events: DraftEvent[]; rolls: { amount: number; type: string }[] } {
+  const components = spell.damage ?? [];
+  const events: DraftEvent[] = [];
+  const rolls: { amount: number; type: string }[] = [];
+  let total = 0;
+  for (let i = 0; i < components.length; i += 1) {
+    const rolled = rollDamageComponent(
+      ctx,
+      components[i]!,
+      spell,
+      casterLevel,
+      extraLevels,
+      crit,
+      scopeBase,
+      i,
+    );
+    events.push(...rolled.events);
+    rolls.push({ amount: rolled.amount, type: components[i]!.type });
+    total += rolled.amount;
+  }
+  return { amount: total, events, rolls };
 }
 
 /** Roll a spell's healing: base dice (+ the caster's spellcasting modifier when
@@ -1658,6 +1816,29 @@ function applyLedgerDamage(
     },
     ...concentrationCheckEvents(ctx, target, amount, hpAfter),
   ];
+}
+
+/** Apply each rolled damage component after save scaling (Ice Storm, etc.). */
+function applySpellRollsToTarget(
+  ctx: ExecutionContext,
+  target: EntityState,
+  rolls: { amount: number; type: string }[],
+  ledger: HpLedger,
+  saveSuccess: boolean,
+  onSuccess: import("../content/spells").SaveOutcome | undefined,
+): DraftEvent[] {
+  const events: DraftEvent[] = [];
+  for (const roll of rolls) {
+    let amount = roll.amount;
+    if (saveSuccess) {
+      amount =
+        onSuccess === "half_damage" ? Math.floor(amount / 2) : 0;
+    }
+    if (amount > 0) {
+      events.push(...applyLedgerDamage(ctx, target, amount, roll.type, ledger));
+    }
+  }
+  return events;
 }
 
 /**
@@ -1819,6 +2000,72 @@ function handleCastSpell(
   // Resolve the affected-target list. Projectile spells (Magic Missile) take one
   // target entry per dart; single/multi spells take one entry per target.
   const targets = cmd.targets ?? [];
+
+  if (spell.id === "misty-step") {
+    if (!cmd.origin) {
+      return reject(
+        "INVALID_PAYLOAD",
+        "Misty Step requires a destination cell.",
+      );
+    }
+    if (!caster.position || !caster.sceneId) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `${caster.name} must be placed on the map to teleport.`,
+      );
+    }
+    if (distanceFeet(caster.position, cmd.origin) > 30) {
+      return reject(
+        "OUT_OF_RANGE",
+        "Misty Step can only teleport up to 30 feet.",
+      );
+    }
+    const occupied = Object.values(ctx.world.entities).some(
+      (e) =>
+        e.id !== caster.id &&
+        e.alive &&
+        e.sceneId === caster.sceneId &&
+        e.position &&
+        sameCell(e.position, cmd.origin!),
+    );
+    if (occupied) {
+      return reject("INVALID_TARGET", "That square is occupied.");
+    }
+    const events: DraftEvent[] = [
+      {
+        type: "SpellCast",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          caster: cmd.caster,
+          spellId: spell.id,
+          spellName: spell.name,
+          slotLevel,
+          targets: [cmd.caster],
+          bonusAction: true,
+        },
+      },
+      {
+        type: "SpellSlotExpended",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, slotLevel },
+      },
+      {
+        type: "EntityRelocated",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          entity: cmd.caster,
+          sceneId: caster.sceneId,
+          position: cmd.origin,
+        },
+      },
+    ];
+    return {
+      accepted: true,
+      events,
+      summary: { caster: cmd.caster, spellId: spell.id, teleported: true },
+    };
+  }
+
   let dartCount: number | undefined;
   if (spell.targeting === "area") {
     // Area spells resolve from `origin` + the area shape below; `targets` is
@@ -1908,6 +2155,123 @@ function handleCastSpell(
     }
   }
 
+  if (spell.id === "dispel-magic") {
+    const targetId = targets[0];
+    if (!targetId) {
+      return reject(
+        "INVALID_PAYLOAD",
+        "Dispel Magic requires a target creature.",
+      );
+    }
+    return handleDispelMagic(
+      {
+        type: "dispel_magic",
+        caster: cmd.caster,
+        target: targetId,
+        slotLevel: slotLevel || 3,
+      },
+      ctx,
+    );
+  }
+
+  if (spell.id === "counterspell") {
+    const targetId = targets[0];
+    if (!targetId) {
+      return reject(
+        "INVALID_PAYLOAD",
+        "Counterspell requires the opposing caster as its target.",
+      );
+    }
+    const events: DraftEvent[] = [
+      {
+        type: "SpellCast",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          caster: cmd.caster,
+          spellId: spell.id,
+          spellName: spell.name,
+          slotLevel,
+          targets: [targetId],
+        },
+      },
+      {
+        type: "SpellSlotExpended",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, slotLevel },
+      },
+    ];
+    if (caster.reaction !== undefined) {
+      events.push({
+        type: "ReactionTaken",
+        ...meta(ctx, cmd.caster),
+        payload: { reactor: cmd.caster, trigger: "spell" },
+      });
+    }
+    return {
+      accepted: true,
+      events,
+      summary: { caster: cmd.caster, countered: targetId },
+    };
+  }
+
+  if (spell.id === "polymorph") {
+    const targetId = targets[0];
+    if (!targetId) {
+      return reject("INVALID_PAYLOAD", "Polymorph requires a target creature.");
+    }
+    const target = ctx.world.entities[targetId];
+    if (!target) {
+      return reject("TARGET_NOT_FOUND", `Target ${targetId} does not exist.`);
+    }
+    const events: DraftEvent[] = [
+      {
+        type: "SpellCast",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          caster: cmd.caster,
+          spellId: spell.id,
+          spellName: spell.name,
+          slotLevel,
+          targets: [targetId],
+        },
+      },
+      {
+        type: "SpellSlotExpended",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, slotLevel },
+      },
+      {
+        type: "ConditionApplied",
+        ...meta(ctx, cmd.caster),
+        payload: spellConditionPayload(
+          spell,
+          cmd.caster,
+          targetId,
+          "restrained",
+        ),
+      },
+    ];
+    if (spell.concentration) {
+      if (caster.concentration) {
+        events.push({
+          type: "ConcentrationBroken",
+          ...meta(ctx, cmd.caster),
+          payload: { entity: cmd.caster, reason: "recast" },
+        });
+      }
+      events.push({
+        type: "ConcentrationStarted",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, spell: spell.name },
+      });
+    }
+    return {
+      accepted: true,
+      events,
+      summary: { caster: cmd.caster, target: targetId, polymorphed: true },
+    };
+  }
+
   // Area spells (Fireball, Burning Hands) resolve from `origin` + the area
   // shape into the set of caught creatures; `targets` is unused. Validating
   // here keeps a rejected area cast side-effect-free.
@@ -1922,10 +2286,12 @@ function handleCastSpell(
     }
     const origin = cmd.origin;
     const isCone = area.shape === "cone";
-    if (isCone && !caster.position) {
+    const isLine = area.shape === "line";
+    const usesPointOrigin = !isCone && !isLine;
+    if ((isCone || isLine) && !caster.position) {
       return reject(
         "INVALID_PAYLOAD",
-        `${spell.name} is a cone and needs the caster's position.`,
+        `${spell.name} needs the caster's position.`,
       );
     }
     const map = caster.sceneId
@@ -1936,7 +2302,7 @@ function handleCastSpell(
 
     // A point-target sphere (range in feet) must be in range and visible — you
     // can't lob a Fireball past a wall or beyond its reach.
-    if (!isCone && caster.position && spell.range.type === "feet") {
+    if (usesPointOrigin && caster.position && spell.range.type === "feet") {
       const max = spell.range.amount;
       if (max !== undefined && distanceFeet(caster.position, origin) > max) {
         return reject(
@@ -1954,15 +2320,20 @@ function handleCastSpell(
 
     // A sphere bursts from its center; a cone emanates from the caster. A wall
     // between that source and a creature shields it from the blast.
-    const source = isCone ? caster.position! : origin;
+    const source = isCone || isLine ? caster.position! : origin;
     areaAffected = Object.values(ctx.world.entities)
       .filter((e) => {
         if (e.sceneId !== caster.sceneId || !e.alive || !e.position) {
           return false;
         }
-        const inShape = isCone
-          ? withinCone(caster.position!, origin, e.position, area.size)
-          : withinBurst(origin, e.position, area.size);
+        const inShape =
+          isCone
+            ? withinCone(caster.position!, origin, e.position, area.size)
+            : isLine
+              ? withinLine(caster.position!, origin, e.position, area.size)
+              : area.shape === "cube"
+                ? withinCube(origin, e.position, area.size)
+                : withinBurst(origin, e.position, area.size);
         if (!inShape) return false;
         return !map || hasLineOfSight(source, e.position, wallBlocked);
       })
@@ -2093,6 +2464,7 @@ function handleCastSpell(
     events.push(rollDiceEvent(ctx, d20));
 
     let damage: number | undefined;
+    let damageRolls: { amount: number; type: string }[] = [];
     if (hit) {
       const rolled = rollSpellDamage(
         ctx,
@@ -2104,6 +2476,7 @@ function handleCastSpell(
       );
       events.push(...rolled.events);
       damage = rolled.amount;
+      damageRolls = rolled.rolls;
     }
     events.push({
       type: "AttackResolved",
@@ -2119,10 +2492,12 @@ function handleCastSpell(
         ...(damage !== undefined ? { damage } : {}),
       },
     });
-    if (hit && damage !== undefined) {
-      events.push(
-        ...applyLedgerDamage(ctx, target, damage, spell.damage[0]!.type, ledger),
-      );
+    if (hit && damageRolls.length > 0) {
+      for (const comp of damageRolls) {
+        events.push(
+          ...applyLedgerDamage(ctx, target, comp.amount, comp.type, ledger),
+        );
+      }
     }
     Object.assign(summary, {
       target: target.id,
@@ -2157,29 +2532,39 @@ function handleCastSpell(
     for (const target of affected) {
       const save = rollSpellSave(ctx, target, ability, dc);
       events.push(...save.events);
-      let amount = rolled.amount;
-      if (save.success) {
-        amount = onSuccess === "half_damage" ? Math.floor(rolled.amount / 2) : 0;
-      } else {
+      if (!save.success) {
         failures += 1;
         if (spell.failedSaveCondition) {
           events.push({
             type: "ConditionApplied",
             ...meta(ctx, caster.id),
-            payload: {
-              target: target.id,
-              condition: spell.failedSaveCondition,
-              source: caster.id,
-            },
+            payload: spellConditionPayload(
+              spell,
+              caster.id,
+              target.id,
+              spell.failedSaveCondition,
+            ),
           });
         }
       }
-      if (amount > 0) {
-        events.push(
-          ...applyLedgerDamage(ctx, target, amount, damageType, ledger),
-        );
-      }
-      totalDamage += amount;
+      events.push(
+        ...applySpellRollsToTarget(
+          ctx,
+          target,
+          rolled.rolls,
+          ledger,
+          save.success,
+          onSuccess,
+        ),
+      );
+      totalDamage += rolled.rolls.reduce((sum, comp) => {
+        let amount = comp.amount;
+        if (save.success) {
+          amount =
+            onSuccess === "half_damage" ? Math.floor(comp.amount / 2) : 0;
+        }
+        return sum + amount;
+      }, 0);
     }
     Object.assign(summary, {
       targets: affected.length,
@@ -2220,10 +2605,12 @@ function handleCastSpell(
         `spell-damage:${caster.id}:${targetId}`,
       );
       events.push(...rolled.events);
-      totalDamage += rolled.amount;
-      events.push(
-        ...applyLedgerDamage(ctx, target, rolled.amount, damageType, ledger),
-      );
+      for (const comp of rolled.rolls) {
+        totalDamage += comp.amount;
+        events.push(
+          ...applyLedgerDamage(ctx, target, comp.amount, comp.type, ledger),
+        );
+      }
     }
     Object.assign(summary, { targets: targets.length, damage: totalDamage });
   } else if (spell.healing) {
@@ -2271,11 +2658,12 @@ function handleCastSpell(
           events.push({
             type: "ConditionApplied",
             ...meta(ctx, caster.id),
-            payload: {
-              target: target.id,
-              condition: spell.failedSaveCondition,
-              source: caster.id,
-            },
+            payload: spellConditionPayload(
+              spell,
+              caster.id,
+              target.id,
+              spell.failedSaveCondition,
+            ),
           });
         }
         if (spell.appliedEffects?.length) {
@@ -2283,17 +2671,10 @@ function handleCastSpell(
             const recipients =
               spec.scope === "caster" ? [caster.id] : [target.id];
             for (const targetId of recipients) {
-              const effect = effectFromSpec(spec, {
-                id: `${ctx.commandId}:${spell.id}:${targetId}`,
-                source: caster.id,
-                concentrationHolder: spec.concentration ? caster.id : undefined,
-                concentrationSpell: spec.concentration ? spell.name : undefined,
-                markedBy:
-                  spec.modifier.type === "hunters_mark" ? caster.id : undefined,
-                expiresStartOfTurn: spec.expiresStartOfNextTurn
-                  ? targetId
-                  : undefined,
-              });
+              const effect = effectFromSpec(
+                spec,
+                effectOptsFromSpell(spell, ctx, caster.id, targetId, spec),
+              );
               events.push({
                 type: "EffectApplied",
                 ...meta(ctx, caster.id),
@@ -2323,17 +2704,10 @@ function handleCastSpell(
       const recipients =
         spec.scope === "caster" ? [caster.id] : effectTargets;
       for (const targetId of recipients) {
-        const effect = effectFromSpec(spec, {
-          id: `${ctx.commandId}:${spell.id}:${targetId}`,
-          source: caster.id,
-          concentrationHolder: spec.concentration ? caster.id : undefined,
-          concentrationSpell: spec.concentration ? spell.name : undefined,
-          markedBy:
-            spec.modifier.type === "hunters_mark" ? caster.id : undefined,
-          expiresStartOfTurn: spec.expiresStartOfNextTurn
-            ? targetId
-            : undefined,
-        });
+        const effect = effectFromSpec(
+          spec,
+          effectOptsFromSpell(spell, ctx, caster.id, targetId, spec),
+        );
         events.push({
           type: "EffectApplied",
           ...meta(ctx, caster.id),
@@ -2351,11 +2725,12 @@ function handleCastSpell(
       events.push({
         type: "ConditionApplied",
         ...meta(ctx, caster.id),
-        payload: {
-          target: targetId,
-          condition: spell.appliedCondition,
-          source: caster.id,
-        },
+        payload: spellConditionPayload(
+          spell,
+          caster.id,
+          targetId,
+          spell.appliedCondition,
+        ),
       });
     }
     Object.assign(summary, { conditionApplied: spell.appliedCondition });
@@ -2416,6 +2791,8 @@ export function handleCommand(
       return handleStartConcentration(command, ctx);
     case "end_concentration":
       return handleEndConcentration(command, ctx);
+    case "dispel_magic":
+      return handleDispelMagic(command, ctx);
     case "opportunity_attack":
       return handleOpportunityAttack(command, ctx);
     case "ready_action":

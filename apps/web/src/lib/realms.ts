@@ -321,11 +321,42 @@ export const REALM_FIELDS: Record<
     { key: "climate", label: "Climate", kind: "text", section: "Geography & Defenses", placeholder: "Temperate, arid…" },
     { key: "defenses", label: "Defenses", kind: "textarea", section: "Geography & Defenses", placeholder: "Walls, garrison, readiness…" },
     { key: "districts", label: "Districts", kind: "list", section: "Geography & Defenses", itemLabel: "District", placeholder: "The Gate Quarter" },
-    // —— Society & Economy ——
+    // —— Government ——
+    { key: "ruler", label: "Ruler / Mayor", kind: "text", section: "Government", placeholder: "Who holds executive power" },
+    { key: "council", label: "Council / Court", kind: "textarea", section: "Government", placeholder: "Governing body, advisors, succession…" },
+    { key: "laws", label: "Notable Laws", kind: "list", section: "Government", itemLabel: "Law", placeholder: "Curfew, trade restrictions…" },
+    // —— History ——
+    { key: "founding", label: "Founding", kind: "textarea", section: "History", placeholder: "How the settlement began" },
+    { key: "history", label: "History", kind: "textarea", section: "History", placeholder: "Major eras and turning points" },
+    { key: "recentEvents", label: "Recent Events", kind: "list", section: "History", itemLabel: "Event", placeholder: "Something that happened lately" },
+    // —— Law & Order ——
+    { key: "lawEnforcement", label: "Law Enforcement", kind: "textarea", section: "Law & Order", placeholder: "Guard, watch, militia…" },
+    { key: "crimeLevel", label: "Crime Level", kind: "select", section: "Law & Order", options: ["Negligible", "Low", "Moderate", "High", "Rampant"] },
+    { key: "punishment", label: "Justice & Punishment", kind: "textarea", section: "Law & Order", placeholder: "Trials, prisons, exile…" },
+    // —— Culture ——
+    { key: "religion", label: "Religion & Temples", kind: "textarea", section: "Culture", placeholder: "Faiths, shrines, holy days" },
+    { key: "festivals", label: "Festivals", kind: "list", section: "Culture", itemLabel: "Festival", placeholder: "Harvest fair, solstice rite…" },
+    { key: "customs", label: "Customs & Taboos", kind: "textarea", section: "Culture", placeholder: "Greetings, dress codes, superstitions" },
+    // —— Economy (detail) ——
+    { key: "tradeGoods", label: "Trade Goods", kind: "list", section: "Economy", itemLabel: "Good", placeholder: "Iron ingots, wool, spices…" },
+    { key: "taxes", label: "Taxes & Tariffs", kind: "textarea", section: "Economy", placeholder: "Gate tolls, market fees…" },
+    {
+      key: "districtDetails",
+      label: "District Details",
+      kind: "group",
+      section: "Districts",
+      itemLabel: "District",
+      fields: [
+        { key: "name", label: "Name", kind: "text", placeholder: "Dockside" },
+        { key: "population", label: "Population", kind: "number", min: 0 },
+        { key: "character", label: "Character", kind: "textarea", placeholder: "Who lives here and what it feels like" },
+        { key: "notable", label: "Notable Feature", kind: "text", placeholder: "Landmark or hook" },
+      ],
+    },
     { key: "demographics", label: "Demographics", kind: "textarea", section: "Society & Economy", placeholder: "Peoples and their proportions" },
     { key: "culture", label: "Culture", kind: "textarea", section: "Society & Economy", placeholder: "Customs, religion, festivals…" },
     { key: "economy", label: "Economy", kind: "textarea", section: "Society & Economy", placeholder: "Trade, industry, resources" },
-    // —— Notable Places ——
+    // —— Society & Economy ——
     {
       key: "notableLocations",
       label: "Notable Locations",

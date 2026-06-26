@@ -166,6 +166,12 @@ const commandSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("end_concentration"), entity: z.string() }),
   z.object({
+    type: z.literal("dispel_magic"),
+    caster: z.string(),
+    target: z.string(),
+    slotLevel: z.number().int().min(3).max(9),
+  }),
+  z.object({
     type: z.literal("opportunity_attack"),
     reactor: z.string(),
     target: z.string(),

@@ -133,6 +133,8 @@ export type ConditionAppliedPayload = {
   condition: Condition;
   source?: EntityRef;
   level?: number;
+  concentrationSpell?: string;
+  concentrationHolder?: EntityRef;
 };
 
 export type ConditionRemovedPayload = {
@@ -208,6 +210,9 @@ export type EffectRemovedPayload = {
   target: EntityRef;
   effectId: string;
 };
+
+/** Decrement `remainingRounds` on all timed effects (combat round boundary). */
+export type EffectsDurationTickedPayload = Record<string, never>;
 
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
@@ -324,7 +329,11 @@ export type EngineEvent =
       payload: SpellSlotsRestoredPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
-  | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload });
+  | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })
+  | (EventMeta & {
+      type: "EffectsDurationTicked";
+      payload: EffectsDurationTickedPayload;
+    });
 
 export type EngineEventType = EngineEvent["type"];
 

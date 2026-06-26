@@ -142,8 +142,10 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
   if (spell.targeting === "area") {
     const origin =
       spell.range.type === "self"
-        ? { x: 0, y: 0 }
-        : spell.range.area?.shape === "cone"
+        ? spell.range.area?.shape === "line"
+          ? { x: 1, y: 0 }
+          : { x: 0, y: 0 }
+        : spell.range.area?.shape === "cone" || spell.range.area?.shape === "line"
           ? { x: 1, y: 0 }
           : { x: 10, y: 10 };
     return { ...base, origin };
@@ -158,6 +160,9 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
             ? ["a1", "a2"]
             : ["a1"],
     };
+  }
+  if (spell.targeting === "self" && spell.id === "misty-step") {
+    return { ...base, origin: { x: 0, y: -2 } };
   }
   if (spell.targeting === "self") {
     return { ...base, targets: ["pc:caster"] };

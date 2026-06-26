@@ -79,6 +79,7 @@ import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
 import { ChatZone } from "./chat-zone";
 import { type ArmedAction } from "./combat-action-bar";
 import { CombatTurnBar } from "./combat-turn-bar";
+import { CharacterHud } from "./character-hud";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { GraduationModal } from "./graduation-modal";
 import { LivePlayTopBar } from "./live-top-bar";
@@ -585,6 +586,34 @@ function LiveBattle({
       ? quickUseItems(activeSheet.equipment)
       : undefined;
 
+  const pcEntity =
+    pcCharacterId && state ? state.entities[pcCharacterId] : undefined;
+  const pcSheet = pcCharacterId ? loadouts?.[pcCharacterId] : undefined;
+  const pcPortrait = partyRoster?.find((m) => m.id === pcCharacterId)?.portraitUrl;
+  const combatPlayerHud =
+    inCombat && pcEntity ? (
+      <CharacterHud
+        session={session}
+        entityId={pcCharacterId}
+        weapons={
+          pcSheet
+            ? deriveWeaponAttacks(pcEntity, pcSheet.equipment)
+            : [genericStrike(pcEntity)]
+        }
+        items={pcSheet ? quickUseItems(pcSheet.equipment) : undefined}
+        portraitUrl={pcPortrait}
+        onViewSheet={
+          pcCharacterId ? () => setSheetOpen(true) : undefined
+        }
+        onAbilityCheck={(ab) =>
+          session.sendChat(
+            `rolls a ${ab.toUpperCase()} check`,
+            "ability_check",
+          )
+        }
+      />
+    ) : undefined;
+
   if (session.error) {
     const wsMisconfigured =
       LIVE_WS_URL.includes("localhost") || LIVE_WS_URL.includes("127.0.0.1");
@@ -772,7 +801,8 @@ function LiveBattle({
         onEnterLocation={(id) => session.enterLocation(id)}
         onOpenCharacterSheet={openPlayerSheet}
         tutorialControls={tutorialControls}
-        playerHudExtra={hudExtra}
+        playerHudExtra={combatPlayerHud ?? hudExtra}
+        inCombat={inCombat}
         header={
           <>
             <LivePlayTopBar

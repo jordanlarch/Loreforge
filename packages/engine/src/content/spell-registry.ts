@@ -1572,7 +1572,7 @@ const RAY_OF_ENFEEBLEMENT: SpellDefinition = {
     "Ranged spell attack for 2d8 necrotic; on a hit the target's attacks deal half damage (tracer: damage only).",
 };
 
-/** Lightning Bolt — 100-ft line tracer as a 10-ft sphere at a point; Dex save half 8d6 lightning. */
+/** Lightning Bolt — 100-ft line; Dex save half 8d6 lightning. */
 const LIGHTNING_BOLT: SpellDefinition = {
   id: "lightning-bolt",
   name: "Lightning Bolt",
@@ -1580,7 +1580,7 @@ const LIGHTNING_BOLT: SpellDefinition = {
   school: "evocation",
   classes: ["Sorcerer", "Wizard"],
   castingTime: { unit: "action", amount: 1 },
-  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 10 } },
+  range: { type: "feet", amount: 120, area: { shape: "line", size: 100 } },
   components: { verbal: true, somatic: true, material: "a bit of fur and a rod of amber, crystal, or glass" },
   duration: { unit: "instantaneous" },
   concentration: false,
@@ -1590,7 +1590,7 @@ const LIGHTNING_BOLT: SpellDefinition = {
   damage: [{ dice: "8d6", type: "lightning" }],
   upcastScaling: { perSlotDice: "1d6", appliesTo: "damage" },
   description:
-    "A stroke of lightning forming a line 100 feet long and 5 feet wide (tracer: 10-ft sphere at a point). Each creature in the area makes a Dexterity save, taking 8d6 lightning on a failure or half on a success.",
+    "A stroke of lightning forming a line 100 feet long and 5 feet wide. Each creature in the area makes a Dexterity save, taking 8d6 lightning on a failure or half on a success.",
 };
 
 const INVISIBILITY: SpellDefinition = {
@@ -1745,9 +1745,15 @@ const HASTE: SpellDefinition = {
       modifier: { type: "ac_bonus", amount: 2 },
       concentration: true,
     },
+    {
+      name: "Haste",
+      scope: "targets",
+      modifier: { type: "speed_bonus", amount: 30 },
+      concentration: true,
+    },
   ],
   description:
-    "Choose a willing creature. Until the spell ends, its speed is doubled, it gains +2 AC, it has advantage on Dexterity saving throws, and it gains an additional action (tracer: +2 AC only).",
+    "Choose a willing creature. Until the spell ends, its speed is doubled (+30 ft at tracer depth), it gains +2 AC, it has advantage on Dexterity saving throws, and it gains an additional action (tracer: +2 AC and +30 speed).",
 };
 
 const HYPNOTIC_PATTERN: SpellDefinition = {
@@ -2347,9 +2353,12 @@ const ICE_STORM: SpellDefinition = {
   ritual: false,
   targeting: "area",
   saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
-  damage: [{ dice: "6d8", type: "bludgeoning" }],
+  damage: [
+    { dice: "2d8", type: "bludgeoning" },
+    { dice: "4d6", type: "cold" },
+  ],
   description:
-    "Hail falls in a 20-foot-radius cylinder (tracer: 6d8 bludgeoning on a failed Dexterity save, half on success; 4d6 cold narrated).",
+    "Hail falls in a 20-foot-radius, 40-foot-high cylinder. Each creature in the area makes a Dexterity save, taking 2d8 bludgeoning + 4d6 cold on a failure or half on a success.",
 };
 
 const SUNBURST: SpellDefinition = {
@@ -2511,7 +2520,7 @@ const SUNBEAM: SpellDefinition = {
   school: "evocation",
   classes: ["Druid", "Sorcerer", "Wizard"],
   castingTime: { unit: "action", amount: 1 },
-  range: { type: "self", area: { shape: "cone", size: 60 } },
+  range: { type: "self", area: { shape: "line", size: 60 } },
   components: { verbal: true, somatic: true, material: "a magnifying glass" },
   duration: { unit: "minute", amount: 1 },
   concentration: true,
@@ -2521,7 +2530,75 @@ const SUNBEAM: SpellDefinition = {
   damage: [{ dice: "6d8", type: "radiant" }],
   failedSaveCondition: "blinded",
   description:
-    "A beam of brilliant light shines in a 60-foot line (tracer: 60-ft cone). Each creature in the area makes a Constitution save, taking 6d8 radiant on a failure or half on a success, and is blinded on a failure.",
+    "A beam of brilliant light shines in a 60-foot line. Each creature in the area makes a Constitution save, taking 6d8 radiant on a failure or half on a success, and is blinded on a failure.",
+};
+
+const MISTY_STEP: SpellDefinition = {
+  id: "misty-step",
+  name: "Misty Step",
+  level: 2,
+  school: "conjuration",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "self" },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "self",
+  description:
+    "Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space you can see.",
+};
+
+const DISPEL_MAGIC: SpellDefinition = {
+  id: "dispel-magic",
+  name: "Dispel Magic",
+  level: 3,
+  school: "abjuration",
+  classes: ["Bard", "Cleric", "Druid", "Paladin", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  description:
+    "Choose one creature, object, or magical effect within range. Any ongoing spell of level 3 or lower on the target ends.",
+};
+
+const COUNTERSPELL: SpellDefinition = {
+  id: "counterspell",
+  name: "Counterspell",
+  level: 3,
+  school: "abjuration",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "reaction", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: false, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  description:
+    "You interrupt a creature in the process of casting a spell. If the spell is 3rd level or lower, it fails (tracer: reaction slot spent).",
+};
+
+const POLYMORPH: SpellDefinition = {
+  id: "polymorph",
+  name: "Polymorph",
+  level: 4,
+  school: "transmutation",
+  classes: ["Bard", "Druid", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true, material: "a caterpillar cocoon" },
+  duration: { unit: "hour", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  description:
+    "Transform a willing creature or one that fails a Wisdom save into a new form (tracer: restrained until concentration ends).",
 };
 
 /** All authored spells, keyed by slug id. */
@@ -2646,6 +2723,10 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [FINGER_OF_DEATH.id]: FINGER_OF_DEATH,
   [POWER_WORD_HEAL.id]: POWER_WORD_HEAL,
   [SUNBEAM.id]: SUNBEAM,
+  [MISTY_STEP.id]: MISTY_STEP,
+  [DISPEL_MAGIC.id]: DISPEL_MAGIC,
+  [COUNTERSPELL.id]: COUNTERSPELL,
+  [POLYMORPH.id]: POLYMORPH,
 };
 
 /** Look up an authored spell definition by slug id. */

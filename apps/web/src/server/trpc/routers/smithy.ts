@@ -288,6 +288,69 @@ export const smithyRouter = createTRPCRouter({
       return row;
     }),
 
+  /** Update an existing homebrew spell (SMITH-1). */
+  updateSpell: protectedProcedure
+    .input(
+      createSpellInput.extend({
+        id: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const definition: SpellDefinition = {
+        id: spellId(input.name),
+        name: input.name,
+        level: input.level as SpellDefinition["level"],
+        school: input.school,
+        classes: input.classes,
+        castingTime: input.castingTime,
+        range: input.range,
+        components: input.components,
+        duration: input.duration,
+        concentration: input.concentration,
+        ritual: input.ritual,
+        targeting: input.targeting,
+        saveAgainst: input.saveAgainst,
+        attackAgainst: input.attackAgainst,
+        damage: input.damage,
+        healing: input.healing,
+        upcastScaling: input.upcastScaling,
+        description: input.description,
+      };
+
+      const errors = validateSpellDefinition(definition);
+      if (errors.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: errors.join(" "),
+        });
+      }
+
+      const db = getDb();
+      const [row] = await db
+        .update(homebrewSpells)
+        .set({
+          name: definition.name,
+          level: definition.level,
+          school: definition.school,
+          description: definition.description,
+          definition,
+          source: input.source,
+          copiedFromSlug: input.copiedFromSlug,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(homebrewSpells.id, input.id),
+            eq(homebrewSpells.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Spell not found." });
+      }
+      return row;
+    }),
+
   /**
    * Copy an ingested Codex spell into the owner's Smithy grimoire (CODEX-2 /
    * SMITH-6). Idempotent per owner+slug — returns the existing homebrew row if

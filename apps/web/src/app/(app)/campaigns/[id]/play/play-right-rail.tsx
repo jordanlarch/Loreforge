@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { WorldState } from "@app/engine";
 
@@ -31,6 +31,7 @@ export function PlayRightRail({
   onOpenCharacterSheet,
   playerHudExtra,
   tutorialControls,
+  inCombat = false,
   collapsed,
   onToggle,
 }: {
@@ -42,6 +43,7 @@ export function PlayRightRail({
   onOpenCharacterSheet?: () => void;
   playerHudExtra?: ReactNode;
   tutorialControls?: ReactNode;
+  inCombat?: boolean;
   collapsed: boolean;
   onToggle: () => void;
 }) {
@@ -54,6 +56,9 @@ export function PlayRightRail({
 
   const activeId = activeMemberId(state);
   const [playerExpanded, setPlayerExpanded] = useState(true);
+  useEffect(() => {
+    if (inCombat) setPlayerExpanded(true);
+  }, [inCombat]);
   const [expandedNpcIds, setExpandedNpcIds] = useState<Set<string>>(() => new Set());
 
   function toggleNpc(id: string) {
@@ -90,9 +95,7 @@ export function PlayRightRail({
                 expandable={npc}
                 expanded={npc && expandedNpcIds.has(member.id)}
                 onToggleExpand={npc ? () => toggleNpc(member.id) : undefined}
-                onViewSheet={
-                  !npc && member.kind === "character" ? undefined : onViewSheet
-                }
+                onViewSheet={onViewSheet}
               />
             );
           })}

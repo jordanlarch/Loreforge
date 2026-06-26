@@ -2,10 +2,11 @@
  * Minimal active-effect system (ENG-13 tracer).
  *
  * Spells attach {@link ActiveEffect} records to entities; combat resolution
- * reads them for AC, attack, and on-hit damage modifiers.
+ * reads them for AC, attack, speed, and on-hit damage modifiers.
  */
 import type { EntityRef, EntityState } from "../entities/types";
-import type { SpellAppliedEffect } from "../content/spells";
+import type { SpellAppliedEffect, SpellDefinition } from "../content/spells";
+import { effectiveSpeed } from "./conditions";
 
 export type EffectModifier =
   | { type: "ac_bonus"; amount: number }
@@ -13,7 +14,8 @@ export type EffectModifier =
   | { type: "attack_roll_penalty"; dice: string }
   | { type: "hunters_mark"; dice: string; markedBy: EntityRef }
   | { type: "attacks_against_advantage" }
-  | { type: "attacks_against_disadvantage" };
+  | { type: "attacks_against_disadvantage" }
+  | { type: "speed_bonus"; amount: number };
 
 export type ActiveEffect = {
   id: string;
@@ -24,6 +26,8 @@ export type ActiveEffect = {
   concentration?: { holder: EntityRef; spell: string };
   /** Removed at the start of this entity's next turn (Shield). */
   expiresStartOfTurn?: EntityRef;
+  /** Combat rounds remaining (non-concentration timed effects). */
+  remainingRounds?: number;
 };
 
 export function effectiveAc(entity: EntityState): number {
@@ -32,6 +36,17 @@ export function effectiveAc(entity: EntityState): number {
     if (fx.modifier.type === "ac_bonus") ac += fx.modifier.amount;
   }
   return ac;
+}
+
+/** Speed after conditions and effect riders (Haste, etc.). */
+export function effectiveSpeedForEntity(entity: EntityState): number {
+  let speed = effectiveSpeed(entity.speed, entity.conditions);
+  for (const fx of entity.effects ?? []) {
+    if (fx.modifier.type === "speed_bonus") {
+      speed += fx.modifier.amount;
+    }
+  }
+  return speed;
 }
 
 /** Bless-style d4 (etc.) dice to roll and add to an attack total. */
@@ -91,6 +106,7 @@ export function effectFromSpec(
     concentrationSpell?: string;
     markedBy?: EntityRef;
     expiresStartOfTurn?: EntityRef;
+    remainingRounds?: number;
   },
 ): ActiveEffect {
   let modifier: EffectModifier;
@@ -104,6 +120,8 @@ export function effectFromSpec(
     modifier = { type: "attacks_against_advantage" };
   } else if (spec.modifier.type === "attacks_against_disadvantage") {
     modifier = { type: "attacks_against_disadvantage" };
+  } else if (spec.modifier.type === "speed_bonus") {
+    modifier = { type: "speed_bonus", amount: spec.modifier.amount };
   } else {
     modifier = {
       type: "hunters_mark",
@@ -127,7 +145,26 @@ export function effectFromSpec(
     ...(opts.expiresStartOfTurn
       ? { expiresStartOfTurn: opts.expiresStartOfTurn }
       : {}),
+    ...(opts.remainingRounds !== undefined
+      ? { remainingRounds: opts.remainingRounds }
+      : {}),
   };
+}
+
+/** Map spell duration to combat rounds for timed (non-concentration) effects. */
+export function spellDurationRounds(spell: SpellDefinition): number | undefined {
+  if (spell.concentration || spell.duration.unit === "instantaneous") {
+    return undefined;
+  }
+  const amount = spell.duration.amount ?? 1;
+  switch (spell.duration.unit) {
+    case "round":
+      return amount;
+    case "minute":
+      return amount * 10;
+    default:
+      return undefined;
+  }
 }
 
 /** Strip effects that expire when `entityId` begins their turn. */
@@ -159,6 +196,48 @@ export function stripConcentrationEffects(
     if (effects.length !== (entity.effects ?? []).length) {
       next[id] = { ...entity, effects };
     }
+  }
+  return next;
+}
+
+/** Remove concentration-linked conditions across all entities. */
+export function stripConcentrationConditions(
+  entities: Record<EntityRef, EntityState>,
+  holder: EntityRef,
+  spell: string,
+): Record<EntityRef, EntityState> {
+  const next = { ...entities };
+  for (const id of Object.keys(next)) {
+    const entity = next[id]!;
+    const conditions = entity.conditions.filter(
+      (c) =>
+        !(
+          c.concentrationHolder === holder && c.concentrationSpell === spell
+        ),
+    );
+    if (conditions.length !== entity.conditions.length) {
+      next[id] = { ...entity, conditions };
+    }
+  }
+  return next;
+}
+
+/** Decrement timed effects in-place on the entity map. */
+export function applyTimedEffectTick(
+  entities: Record<EntityRef, EntityState>,
+): Record<EntityRef, EntityState> {
+  const next = { ...entities };
+  for (const id of Object.keys(next)) {
+    const entity = next[id]!;
+    if (!entity.effects?.some((fx) => fx.remainingRounds !== undefined)) {
+      continue;
+    }
+    const effects = (entity.effects ?? []).flatMap((fx) => {
+      if (fx.remainingRounds === undefined) return [fx];
+      const remaining = fx.remainingRounds - 1;
+      return remaining > 0 ? [{ ...fx, remainingRounds: remaining }] : [];
+    });
+    next[id] = { ...entity, effects };
   }
   return next;
 }

@@ -29,6 +29,7 @@ export type PartyRosterRow = {
   speed: number;
   abilityScores: AbilityScores;
   classes: ClassLevel[];
+  portraitUrl?: string | null;
 };
 
 /** Stable ordering: PCs first, then allies, alphabetical within each group. */

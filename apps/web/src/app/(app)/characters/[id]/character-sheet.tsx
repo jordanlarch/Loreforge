@@ -134,8 +134,10 @@ export function CharacterSheetView({
   }
 
   const sheet = buildCharacterSheet(character);
+  const milestoneXp = parsed.meta.milestoneXp ?? false;
   const progress = xpProgress(character.xp, sheet.level);
   const atCap = sheet.level >= MAX_CHARACTER_LEVEL;
+  const canLevelUp = milestoneXp ? !atCap : progress.canLevelUp;
   const currentHp = parsed.meta.currentHp ?? character.maxHp;
   const tempHp = parsed.meta.tempHp ?? 0;
   const notesRaw = character.notes;
@@ -233,10 +235,12 @@ export function CharacterSheetView({
           }}
           portraitUploading={uploadPortrait.isPending}
           onLevelUp={() => setLevelingUp(true)}
-          canLevelUp={progress.canLevelUp}
+          canLevelUp={canLevelUp}
           atCap={atCap}
+          milestoneXp={milestoneXp}
+          onMilestoneXpChange={(enabled) => patchMeta({ milestoneXp: enabled })}
           onXpChange={(xp) => update.mutate({ id, xp })}
-          xpRemaining={progress.remaining}
+          xpRemaining={milestoneXp ? null : progress.remaining}
         />
         <SheetHpPanel
           current={currentHp}
@@ -313,6 +317,10 @@ export function CharacterSheetView({
                 spells={character.spells}
                 sheet={sheet}
                 classes={character.classes}
+                pactMagic={parsed.meta.pactMagic ?? null}
+                onPatchPactMagic={(pool) =>
+                  patchMeta({ pactMagic: pool ?? undefined })
+                }
                 saving={update.isPending}
                 onSave={(spells) => update.mutate({ id, spells })}
                 onCastSpell={onCastSpell}
@@ -336,6 +344,7 @@ export function CharacterSheetView({
                 classes={character.classes}
                 meta={metaWithHitDice}
                 onPatchMeta={patchMeta}
+                onUpdateClasses={(classes) => update.mutate({ id, classes })}
                 onFeatureUse={onFeatureUse}
               />
             )}
@@ -401,6 +410,7 @@ export function CharacterSheetView({
       {levelingUp && (
         <LevelUpDialog
           character={character}
+          milestoneXp={milestoneXp}
           onClose={() => setLevelingUp(false)}
         />
       )}

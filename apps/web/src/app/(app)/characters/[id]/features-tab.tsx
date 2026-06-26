@@ -5,8 +5,12 @@ import { useState } from "react";
 import {
   classFeaturesForLevel,
   featureResourceKey,
+  FIGHTING_STYLES,
+  fightingStylePickLevel,
   remainingFeatureUses,
   spendFeatureUse,
+  subclassOptionsFor,
+  subclassPickLevel,
   type ClassLevel,
 } from "@app/engine";
 
@@ -17,6 +21,7 @@ import {
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
 import type { CharacterSheetMeta } from "@/lib/character-sheet-storage";
+import { trpc } from "@/lib/trpc/client";
 
 type FeatureRow = {
   id: string;
@@ -32,6 +37,7 @@ export function FeaturesTab({
   classes,
   meta,
   onPatchMeta,
+  onUpdateClasses,
   onFeatureUse,
 }: {
   species: string;
@@ -39,15 +45,51 @@ export function FeaturesTab({
   classes: ClassLevel[];
   meta: CharacterSheetMeta;
   onPatchMeta: (patch: Partial<CharacterSheetMeta>) => void;
-  /** Live Play: post feature use to campaign chat. */
+  onUpdateClasses?: (classes: ClassLevel[]) => void;
   onFeatureUse?: (featureName: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  const bgQuery = trpc.codex.getBackgroundByName.useQuery(
+    { name: background },
+    { enabled: background.trim().length > 0 },
+  );
 
   const classFeatures: FeatureRow[] = [];
   for (const cl of classes) {
     for (let level = 1; level <= cl.level; level++) {
       for (const f of classFeaturesForLevel(cl.class, level)) {
+        if (f.name === "Fighting Style") {
+          const style = meta.fightingStyles?.[cl.class];
+          classFeatures.push({
+            id: featureResourceKey(cl.class, level, f.id),
+            name: style ? `Fighting Style: ${style}` : f.name,
+            source: `${cl.class} ${level}`,
+            description: style
+              ? `${f.description} Selected: ${style}.`
+              : f.description,
+          });
+          continue;
+        }
+        if (
+          f.name.includes("Archetype") ||
+          f.name.includes("College") ||
+          f.name.includes("Domain") ||
+          f.name.includes("Tradition") ||
+          f.name.includes("Path") ||
+          f.name.includes("Oath") ||
+          f.name.includes("Origin") ||
+          f.name.includes("Patron")
+        ) {
+          classFeatures.push({
+            id: featureResourceKey(cl.class, level, f.id),
+            name: cl.subclass ?? f.name,
+            source: `${cl.class} ${level}`,
+            description: cl.subclass
+              ? `${f.description} Selected: ${cl.subclass}.`
+              : f.description,
+          });
+          continue;
+        }
         classFeatures.push({
           id: featureResourceKey(cl.class, level, f.id),
           name: f.name,
@@ -62,29 +104,34 @@ export function FeaturesTab({
   const speciesTraits: FeatureRow[] = species
     ? [
         {
-          id: "species-darkvision",
+          id: "species-traits",
           name: "Species traits",
           source: species,
-          description: `${species} racial traits from the Codex — stub until species ingest wires traits.`,
+          description: `${species} racial traits from the Codex.`,
         },
       ]
     : [];
 
-  const backgroundFeatures: FeatureRow[] = background
-    ? [
-        {
-          id: "background-feature",
-          name: "Background feature",
-          source: background,
-          description: `Feature granted by ${background} background.`,
-        },
-      ]
-    : [];
+  const backgroundFeatures: FeatureRow[] =
+    bgQuery.data?.featureEntries.map((entry, i) => ({
+      id: `background-${i}`,
+      name: entry.name,
+      source: background,
+      description: entry.description,
+    })) ?? [];
+
+  const featRows: FeatureRow[] = (meta.feats ?? []).map((name, i) => ({
+    id: `feat-${i}`,
+    name,
+    source: "Feat",
+    description: "Recorded on your character sheet. Mechanical benefits apply where wired.",
+  }));
 
   const all = [...speciesTraits, ...classFeatures, ...backgroundFeatures];
   const filtered = useSheetSearch(all, search, (f) => `${f.name} ${f.source}`);
 
   const resourceUses = meta.resourceUses ?? {};
+  const primary = classes[0];
 
   function toggleResource(id: string, index: number, total: number) {
     const current = resourceUses[id] ?? Array.from({ length: total }, () => false);
@@ -101,18 +148,83 @@ export function FeaturesTab({
     onFeatureUse?.(row.name);
   }
 
+  function setFightingStyle(className: string, style: string) {
+    onPatchMeta({
+      fightingStyles: { ...meta.fightingStyles, [className]: style },
+    });
+  }
+
+  function setSubclass(className: string, subclass: string) {
+    if (!onUpdateClasses) return;
+    onUpdateClasses(
+      classes.map((c) => (c.class === className ? { ...c, subclass } : c)),
+    );
+  }
+
   return (
     <div>
       <SheetSearchBar value={search} onChange={setSearch} />
 
-      <SheetSection title="Species Traits">
-        <FeatureList
-          rows={filtered.filter((r) => r.id.startsWith("species"))}
-          resourceUses={resourceUses}
-          onToggleResource={toggleResource}
-          onUseFeature={useFeature}
-        />
-      </SheetSection>
+      {primary && fightingStylePickLevel(primary.class) != null && (
+        <SheetSection title="Fighting Style">
+          <div className="flex flex-wrap gap-2">
+            {FIGHTING_STYLES.map((style) => (
+              <button
+                key={style}
+                type="button"
+                onClick={() => setFightingStyle(primary.class, style)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  meta.fightingStyles?.[primary.class] === style
+                    ? "border-lore-accent bg-lore-accent-dim"
+                    : "border-lore-border text-lore-muted"
+                }`}
+              >
+                {style}
+              </button>
+            ))}
+          </div>
+        </SheetSection>
+      )}
+
+      {classes.map((cl) => {
+        const pick = subclassPickLevel(cl.class);
+        const options = subclassOptionsFor(cl.class);
+        if (!pick || cl.level < pick || options.length === 0) return null;
+        return (
+          <div key={cl.class} className="mt-4">
+            <SheetSection title={`${cl.class} subclass`}>
+              <div className="flex flex-wrap gap-2">
+                {options.map((sub) => (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => setSubclass(cl.class, sub)}
+                    disabled={!onUpdateClasses}
+                    className={`rounded border px-3 py-1.5 text-xs disabled:opacity-50 ${
+                      cl.subclass === sub
+                        ? "border-lore-accent bg-lore-accent-dim"
+                        : "border-lore-border text-lore-muted"
+                    }`}
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </SheetSection>
+          </div>
+        );
+      })}
+
+      <div className="mt-4">
+        <SheetSection title="Species Traits">
+          <FeatureList
+            rows={filtered.filter((r) => r.id.startsWith("species"))}
+            resourceUses={resourceUses}
+            onToggleResource={toggleResource}
+            onUseFeature={useFeature}
+          />
+        </SheetSection>
+      </div>
 
       <div className="mt-4">
         <SheetSection title="Class Features">
@@ -130,18 +242,31 @@ export function FeaturesTab({
 
       <div className="mt-4">
         <SheetSection title="Background">
-          <FeatureList
-            rows={filtered.filter((r) => r.id.startsWith("background"))}
-            resourceUses={resourceUses}
-            onToggleResource={toggleResource}
-            onUseFeature={useFeature}
-          />
+          {bgQuery.isLoading && background ? (
+            <p className="text-sm text-lore-muted">Loading background…</p>
+          ) : (
+            <FeatureList
+              rows={filtered.filter((r) => r.id.startsWith("background"))}
+              resourceUses={resourceUses}
+              onToggleResource={toggleResource}
+              onUseFeature={useFeature}
+            />
+          )}
         </SheetSection>
       </div>
 
       <div className="mt-4">
         <SheetSection title="Feats">
-          <p className="text-sm text-lore-muted">No feats recorded.</p>
+          {featRows.length === 0 ? (
+            <p className="text-sm text-lore-muted">No feats recorded.</p>
+          ) : (
+            <FeatureList
+              rows={featRows}
+              resourceUses={resourceUses}
+              onToggleResource={toggleResource}
+              onUseFeature={useFeature}
+            />
+          )}
         </SheetSection>
       </div>
     </div>

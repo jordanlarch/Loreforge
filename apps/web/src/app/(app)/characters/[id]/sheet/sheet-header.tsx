@@ -32,6 +32,8 @@ export function SheetHeader({
   onLevelUp,
   canLevelUp,
   atCap,
+  milestoneXp,
+  onMilestoneXpChange,
   onXpChange,
   xpRemaining,
 }: {
@@ -47,6 +49,8 @@ export function SheetHeader({
   onLevelUp: () => void;
   canLevelUp: boolean;
   atCap: boolean;
+  milestoneXp?: boolean;
+  onMilestoneXpChange?: (enabled: boolean) => void;
   onXpChange: (xp: number) => void;
   xpRemaining: number | null;
 }) {
@@ -143,42 +147,64 @@ export function SheetHeader({
             />
           </p>
           <div className="mt-2 max-w-sm">
-            <div className="mb-1 flex justify-between text-xs text-lore-muted">
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs text-lore-muted">
               <label className="flex items-center gap-1">
-                XP
-                <input
-                  type="number"
-                  min={0}
-                  defaultValue={character.xp}
-                  key={character.xp}
-                  onBlur={(e) => {
-                    const next = Math.max(0, Number(e.target.value) || 0);
-                    if (next !== character.xp) onXpChange(next);
-                  }}
-                  className="w-20 rounded border border-lore-border bg-lore-bg px-1 py-0.5 text-right font-mono tabular-nums outline-none focus:border-lore-accent"
-                  aria-label="Experience points"
-                />
+                {milestoneXp ? (
+                  <span>Milestone XP · Lvl {sheet.level}</span>
+                ) : (
+                  <>
+                    XP
+                    <input
+                      type="number"
+                      min={0}
+                      defaultValue={character.xp}
+                      key={character.xp}
+                      onBlur={(e) => {
+                        const next = Math.max(0, Number(e.target.value) || 0);
+                        if (next !== character.xp) onXpChange(next);
+                      }}
+                      className="w-20 rounded border border-lore-border bg-lore-bg px-1 py-0.5 text-right font-mono tabular-nums outline-none focus:border-lore-accent"
+                      aria-label="Experience points"
+                    />
+                  </>
+                )}
               </label>
+              {onMilestoneXpChange && (
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={milestoneXp ?? false}
+                    onChange={(e) => onMilestoneXpChange(e.target.checked)}
+                    className="accent-lore-accent"
+                  />
+                  Milestone
+                </label>
+              )}
               {atCap ? (
                 <span>Max level</span>
               ) : progress.nextLevel ? (
                 <span>
                   → Lvl {progress.nextLevel}
-                  {!canLevelUp && xpRemaining != null && xpRemaining > 0 && (
-                    <span className="text-lore-accent">
-                      {" "}
-                      ({xpRemaining.toLocaleString()} to unlock)
-                    </span>
-                  )}
+                  {!canLevelUp &&
+                    !milestoneXp &&
+                    xpRemaining != null &&
+                    xpRemaining > 0 && (
+                      <span className="text-lore-accent">
+                        {" "}
+                        ({xpRemaining.toLocaleString()} to unlock)
+                      </span>
+                    )}
                 </span>
               ) : null}
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-lore-bg">
-              <div
-                className="h-full rounded-full bg-lore-accent"
-                style={{ width: `${Math.round(progress.fraction * 100)}%` }}
-              />
-            </div>
+            {!milestoneXp && (
+              <div className="h-1.5 overflow-hidden rounded-full bg-lore-bg">
+                <div
+                  className="h-full rounded-full bg-lore-accent"
+                  style={{ width: `${Math.round(progress.fraction * 100)}%` }}
+                />
+              </div>
+            )}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button

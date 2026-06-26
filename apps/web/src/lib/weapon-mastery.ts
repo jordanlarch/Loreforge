@@ -85,6 +85,56 @@ const MASTERY_BY_WEAPON: Record<
     description:
       "If you hit a creature with this weapon, you have Advantage on your next attack roll against that creature before the end of your next turn.",
   },
+  lightcrossbow: {
+    property: "Slow",
+    description:
+      "If you hit a creature with this weapon, you can reduce its Speed by 10 feet until the start of your next turn.",
+  },
+  crossbow: {
+    property: "Slow",
+    description:
+      "If you hit a creature with this weapon, you can reduce its Speed by 10 feet until the start of your next turn.",
+  },
+  shortbow: {
+    property: "Vex",
+    description:
+      "If you hit a creature with this weapon, you have Advantage on your next attack roll against that creature before the end of your next turn.",
+  },
+  mace: {
+    property: "Sap",
+    description:
+      "If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn.",
+  },
+  morningstar: {
+    property: "Sap",
+    description:
+      "If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn.",
+  },
+  spear: {
+    property: "Sap",
+    description:
+      "If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn.",
+  },
+  trident: {
+    property: "Topple",
+    description:
+      "If you hit a creature with this weapon, you can force it to make a Constitution saving throw; on a failed save, it has the Prone condition.",
+  },
+  pike: {
+    property: "Push",
+    description:
+      "If you hit a creature with this weapon, you can push it up to 10 feet away from you.",
+  },
+  javelin: {
+    property: "Slow",
+    description:
+      "If you hit a creature with this weapon, you can reduce its Speed by 10 feet until the start of your next turn.",
+  },
+  quarterstaff: {
+    property: "Topple",
+    description:
+      "If you hit a creature with this weapon, you can force it to make a Constitution saving throw; on a failed save, it has the Prone condition.",
+  },
 };
 
 function catalogKey(name: string): string | undefined {

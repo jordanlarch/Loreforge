@@ -90,6 +90,20 @@ export type CharacterSheetMeta = {
   noteCategories?: NoteCategory[];
   /** className → { current, max } hit dice remaining */
   hitDice?: Record<string, { current: number; max: number }>;
+  /** Feats chosen instead of ASI or from background origin. */
+  feats?: string[];
+  /** className → fighting style label (Fighter, Ranger, Paladin). */
+  fightingStyles?: Record<string, string>;
+  /** When true, level-up ignores XP thresholds (milestone mode). */
+  milestoneXp?: boolean;
+  /** Warlock pact magic — separate from pooled spell slots. */
+  pactMagic?: PactMagicPool;
+};
+
+export type PactMagicPool = {
+  max: number;
+  used: number;
+  slotLevel: number;
 };
 
 export type ParsedCharacterNotes = {

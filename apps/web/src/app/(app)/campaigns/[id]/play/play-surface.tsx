@@ -75,6 +75,7 @@ import {
   sheetReactionSpells,
   type WeaponAttack,
 } from "@/lib/sheet-loadout";
+import { handleSheetSpellCast } from "@/lib/spell-cast-from-sheet";
 import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
 import { ChatZone } from "./chat-zone";
 import { type ArmedAction } from "./combat-action-bar";
@@ -536,6 +537,14 @@ function LiveBattle({
 
   const viewPartySheet = (characterId: string) => setSheetPeekId(characterId);
 
+  function onCastFromSheet(spell: CastableSpell) {
+    if (!pcCharacterId) return;
+    handleSheetSpellCast(spell, pcCharacterId, session, (armedSpell) => {
+      setArmed({ kind: "cast", spell: armedSpell });
+      setSheetOpen(false);
+    });
+  }
+
   function onCastFromBar(spell: CastableSpell) {
     if (spell.targetKind === "self" && !spell.reaction && activeEntity) {
       session.castSpell(
@@ -780,12 +789,7 @@ function LiveBattle({
               onFeatureUse={(name) =>
                 session.sendChat(`uses ${name}`, "use_feature")
               }
-              onCastSpell={(spell) =>
-                session.sendChat(
-                  `casts ${spell.name}${spell.level > 0 ? ` (level ${spell.level})` : ""}`,
-                  "cast_spell",
-                )
-              }
+              onCastSpell={onCastFromSheet}
               liveConditions={liveEntityConditions(
                 session.state,
                 pcCharacterId,
@@ -993,12 +997,7 @@ function LiveBattle({
           onFeatureUse={(name) =>
             session.sendChat(`uses ${name}`, "use_feature")
           }
-          onCastSpell={(spell) =>
-            session.sendChat(
-              `casts ${spell.name}${spell.level > 0 ? ` (level ${spell.level})` : ""}`,
-              "cast_spell",
-            )
-          }
+          onCastSpell={onCastFromSheet}
           liveConditions={liveEntityConditions(session.state, pcCharacterId)}
         />
       ) : null}

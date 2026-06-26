@@ -183,6 +183,16 @@ export {
   type ClassFeature,
 } from "./entities/class-features";
 export {
+  FIGHTING_STYLES,
+  fightingStylePickLevel,
+  needsFightingStylePick,
+  needsSubclassPick,
+  subclassOptionsFor,
+  subclassPickLevel,
+  SUBCLASS_OPTIONS,
+  type FightingStyle,
+} from "./entities/class-choices";
+export {
   featureRechargeMap,
   featureResourceKey,
   refreshResourceUsesOnRest,
@@ -255,6 +265,11 @@ export {
   sheetSlotPoolsFromClasses,
   spellSlotsForClasses,
 } from "./content/multiclass-spell-slots";
+export {
+  warlockLevelFromClasses,
+  warlockPactMagic,
+  type PactMagicPool,
+} from "./content/warlock-pact-slots";
 export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
 export { isSpellPrepared, spellNameToId } from "./content/spell-id";
 export {

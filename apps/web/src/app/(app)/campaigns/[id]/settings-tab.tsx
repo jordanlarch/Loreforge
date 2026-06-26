@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { isExplorableRealmType, entityIdFromSceneId } from "@app/engine";
+import {
+  OVERWORLD_SCALE_PRESETS,
+  resolveOverworldMilesPerCell,
+} from "@/lib/map-scale";
 import { REALM_TYPE_LABEL, type RealmEntityType } from "@/lib/realms";
 import { trpc } from "@/lib/trpc/client";
 
@@ -35,6 +39,7 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
   const [gmPersona, setGmPersona] = useState("");
   const [playMode, setPlayMode] = useState<PlayMode>("async");
   const [artStyle, setArtStyle] = useState("");
+  const [overworldMilesPerCell, setOverworldMilesPerCell] = useState(6);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   // Seed local state once the campaign loads (and after a refetch).
@@ -44,6 +49,9 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
     setGmPersona(loaded.gmPersona ?? "");
     setPlayMode((loaded.playMode as PlayMode) ?? "async");
     setArtStyle(loaded.artStyle ?? "");
+    setOverworldMilesPerCell(
+      resolveOverworldMilesPerCell(loaded.overworldGrid ?? undefined),
+    );
   }, [loaded]);
 
   const update = trpc.campaigns.update.useMutation({
@@ -63,11 +71,19 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
   const dirty =
     gmPersona !== (campaign.data.gmPersona ?? "") ||
     playMode !== ((campaign.data.playMode as PlayMode) ?? "async") ||
-    artStyle !== (campaign.data.artStyle ?? "");
+    artStyle !== (campaign.data.artStyle ?? "") ||
+    overworldMilesPerCell !==
+      resolveOverworldMilesPerCell(campaign.data.overworldGrid ?? undefined);
 
   function onSave(event: React.FormEvent) {
     event.preventDefault();
-    update.mutate({ id: campaignId, gmPersona, playMode, artStyle });
+    update.mutate({
+      id: campaignId,
+      gmPersona,
+      playMode,
+      artStyle,
+      overworldMilesPerCell,
+    });
   }
 
   return (
@@ -125,6 +141,49 @@ export function SettingsTab({ campaignId }: { campaignId: string }) {
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-lore-text">
+            World map scale (L0)
+          </span>
+          <span className="text-xs text-lore-muted">
+            Miles per overworld grid cell. DMG presets: province 1, kingdom 6,
+            continent 60.
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={
+                OVERWORLD_SCALE_PRESETS.some(
+                  (p) => p.milesPerCell === overworldMilesPerCell,
+                )
+                  ? String(overworldMilesPerCell)
+                  : "custom"
+              }
+              onChange={(e) => {
+                if (e.target.value === "custom") return;
+                setOverworldMilesPerCell(Number(e.target.value));
+              }}
+              className="w-56 rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
+            >
+              {OVERWORLD_SCALE_PRESETS.map((preset) => (
+                <option key={preset.milesPerCell} value={preset.milesPerCell}>
+                  {preset.label}
+                </option>
+              ))}
+              <option value="custom">Custom…</option>
+            </select>
+            <input
+              type="number"
+              min={0.25}
+              max={120}
+              step={0.25}
+              value={overworldMilesPerCell}
+              onChange={(e) => setOverworldMilesPerCell(Number(e.target.value))}
+              className="w-24 rounded border border-lore-border bg-lore-bg px-3 py-2 text-sm outline-none focus:border-lore-accent"
+            />
+            <span className="text-sm text-lore-muted">mi/cell</span>
+          </div>
         </label>
 
         <div className="flex items-center gap-3">

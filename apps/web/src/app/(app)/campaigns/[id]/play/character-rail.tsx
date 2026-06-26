@@ -8,10 +8,12 @@ import type { ReactNode } from "react";
 export function CharacterRail({
   collapsed,
   onToggle,
+  label = "Character",
   children,
 }: {
   collapsed: boolean;
   onToggle: () => void;
+  label?: string;
   children: ReactNode;
 }) {
   if (collapsed) {
@@ -31,10 +33,10 @@ export function CharacterRail({
   }
 
   return (
-    <aside className="flex w-52 shrink-0 flex-col gap-1.5 overflow-y-auto border-l border-lore-border py-1 pl-2 lg:w-60">
+    <aside className="flex w-56 shrink-0 flex-col gap-1.5 overflow-y-auto border-l border-lore-border py-1 pl-2 lg:w-64">
       <div className="flex items-center justify-between gap-1 pr-1">
         <span className="text-[10px] uppercase tracking-widest text-lore-muted">
-          Character
+          {label}
         </span>
         <button
           type="button"

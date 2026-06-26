@@ -15,13 +15,12 @@ import {
 import type { PartyRosterRow } from "@/lib/live-party";
 
 import { WorldMapCanvas } from "../world-map-canvas";
-import { CharacterRail } from "./character-rail";
 import { PlayLightbox } from "./play-lightbox";
 import { PlayMapZone } from "./play-map-zone";
 import { PlayNavRail } from "./play-nav-rail";
 import { PlayPanelContent } from "./play-panel-content";
+import { PlayRightRail } from "./play-right-rail";
 import { PlaySurfaceLayout } from "./play-surface-layout";
-import { PartyRail } from "./party-rail";
 
 type PlayShellChromeProps = {
   campaignId?: string;
@@ -29,20 +28,22 @@ type PlayShellChromeProps = {
   state: WorldState;
   partyRoster?: readonly PartyRosterRow[];
   companionExpected?: boolean;
+  pcCharacterId?: string;
   onViewSheet?: (characterId: string) => void;
   onEnterLocation?: (entityId: string) => void;
   onOpenCharacterSheet?: () => void;
+  playerHudExtra?: ReactNode;
+  tutorialControls?: ReactNode;
   combatStrip?: ReactNode;
   mapCurrent: ReactNode;
   mapFooter?: ReactNode;
   actionBar?: ReactNode;
   chat: ReactNode;
-  characterRail: ReactNode;
 };
 
 /**
  * Play shell chrome (CAMP-UX UX-1): left nav, Current|World map tabs, lightboxes,
- * collapsible character rail wrapper.
+ * unified collapsible party rail on the right.
  */
 export function PlayShellChrome({
   campaignId,
@@ -50,15 +51,17 @@ export function PlayShellChrome({
   state,
   partyRoster,
   companionExpected,
+  pcCharacterId,
   onViewSheet,
   onEnterLocation,
   onOpenCharacterSheet,
+  playerHudExtra,
+  tutorialControls,
   combatStrip,
   mapCurrent,
   mapFooter,
   actionBar,
   chat,
-  characterRail,
 }: PlayShellChromeProps) {
   const [mapTab, setMapTab] = useState<PlayMapTab>("current");
   const [lightbox, setLightbox] = useState<PlayNavId | null>(null);
@@ -114,17 +117,6 @@ export function PlayShellChrome({
           <PlayMapZone
             mapTab={mapTab}
             onMapTabChange={setMapTab}
-            partyChips={
-              <div data-coachmark="tut-party">
-                <PartyRail
-                  state={state}
-                  roster={partyRoster}
-                  layout="row"
-                  companionExpected={companionExpected}
-                  onViewSheet={onViewSheet}
-                />
-              </div>
-            }
             currentMap={mapCurrent}
             worldMap={
               campaignId ? (
@@ -145,9 +137,20 @@ export function PlayShellChrome({
         actionBar={actionBar}
         chat={chat}
         characterRail={
-          <CharacterRail collapsed={railCollapsed} onToggle={toggleRail}>
-            {characterRail}
-          </CharacterRail>
+          <div data-coachmark="tut-party">
+            <PlayRightRail
+              state={state}
+              roster={partyRoster}
+              pcCharacterId={pcCharacterId}
+              companionExpected={companionExpected}
+              onViewSheet={onViewSheet}
+              onOpenCharacterSheet={onOpenCharacterSheet}
+              playerHudExtra={playerHudExtra}
+              tutorialControls={tutorialControls}
+              collapsed={railCollapsed}
+              onToggle={toggleRail}
+            />
+          </div>
         }
       />
 

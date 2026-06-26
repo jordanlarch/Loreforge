@@ -20,6 +20,7 @@ import {
   campaigns,
   characters,
   chatMessages,
+  DEFAULT_OVERWORLD_GRID,
   encounters,
   engineCommandLog,
   engineEvents,
@@ -30,10 +31,20 @@ import {
   realmEntities,
   realmRelationships,
   tutorialProgress,
+  type CampaignOverworldMapLayer,
+  type OverworldGridConfig,
 } from "@app/db";
 import { MONSTER_TEMPLATES } from "@app/engine";
 
 import { edgesWithin } from "@/lib/campaign-world";
+import {
+  buildLocatedInMap,
+  filterCellsWithinRegion,
+  hasAnyOverworldGeometry,
+  parentRegionId,
+  seedOverworldLayout,
+  type OverworldEntity,
+} from "@/lib/overworld-map";
 import {
   clearCampaignChatLog,
   resetCampaignLog,
@@ -65,6 +76,122 @@ const foeRowSchema = z.object({
 });
 
 const mapPresetSchema = z.enum(["ambush", "arena", "corridor"]);
+
+const overworldCellSchema = z.object({
+  col: z.number().int().min(0).max(128),
+  row: z.number().int().min(0).max(128),
+});
+
+const overworldTerritorySchema = z.array(
+  z.string().regex(/^\d+,\d+$/),
+);
+
+async function loadOverworldEntities(
+  userId: string,
+  campaignId: string,
+): Promise<{
+  grid: OverworldGridConfig;
+  entities: OverworldEntity[];
+  locatedIn: Map<string, string>;
+}> {
+  const db = getDb();
+  const [campaign] = await db
+    .select({ overworldGrid: campaigns.overworldGrid })
+    .from(campaigns)
+    .where(and(eq(campaigns.id, campaignId), eq(campaigns.ownerId, userId)))
+    .limit(1);
+  if (!campaign) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Campaign not found." });
+  }
+
+  const rows = await db
+    .select({
+      membershipId: campaignWorldEntities.id,
+      discovered: campaignWorldEntities.discovered,
+      overworldMap: campaignWorldEntities.overworldMap,
+      id: realmEntities.id,
+      name: realmEntities.name,
+      type: realmEntities.type,
+    })
+    .from(campaignWorldEntities)
+    .innerJoin(
+      realmEntities,
+      eq(realmEntities.id, campaignWorldEntities.entityId),
+    )
+    .where(
+      and(
+        eq(campaignWorldEntities.campaignId, campaignId),
+        eq(campaignWorldEntities.ownerId, userId),
+      ),
+    )
+    .orderBy(asc(realmEntities.name));
+
+  const entityIds = new Set(rows.map((r) => r.id));
+  const allEdges = await db
+    .select({
+      fromId: realmRelationships.fromId,
+      toId: realmRelationships.toId,
+      kind: realmRelationships.kind,
+    })
+    .from(realmRelationships)
+    .where(eq(realmRelationships.ownerId, userId));
+  const locatedIn = buildLocatedInMap(
+    edgesWithin(allEdges, entityIds).filter((e) => e.kind === "located_in"),
+  );
+
+  const grid = campaign.overworldGrid ?? DEFAULT_OVERWORLD_GRID;
+  const entities: OverworldEntity[] = rows.map((row) => ({
+    membershipId: row.membershipId,
+    discovered: row.discovered,
+    overworldMap: row.overworldMap ?? {},
+    id: row.id,
+    name: row.name,
+    type: row.type as OverworldEntity["type"],
+  }));
+
+  return { grid, entities, locatedIn };
+}
+
+async function persistOverworldSeed(
+  userId: string,
+  campaignId: string,
+  entities: OverworldEntity[],
+  grid: OverworldGridConfig,
+  locatedIn: Map<string, string>,
+): Promise<OverworldEntity[]> {
+  const regionIds = new Set(
+    entities.filter((e) => e.type === "region").map((e) => e.id),
+  );
+  const parentBySettlement = new Map<string, string>();
+  for (const entity of entities) {
+    if (entity.type === "settlement" || entity.type === "building" || entity.type === "tavern" || entity.type === "shop" || entity.type === "dungeon" || entity.type === "npc" || entity.type === "faction") {
+      const parent = parentRegionId(entity.id, regionIds, locatedIn);
+      if (parent) parentBySettlement.set(entity.id, parent);
+    }
+  }
+
+  const seeded = seedOverworldLayout(entities, grid, parentBySettlement);
+  const db = getDb();
+  await Promise.all(
+    [...seeded.entries()].map(([entityId, layer]) =>
+      db
+        .update(campaignWorldEntities)
+        .set({ overworldMap: layer })
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, campaignId),
+            eq(campaignWorldEntities.entityId, entityId),
+            eq(campaignWorldEntities.ownerId, userId),
+          ),
+        ),
+    ),
+  );
+
+  return entities.map((entity) => ({
+    ...entity,
+    overworldMap: seeded.get(entity.id) ?? entity.overworldMap,
+  }));
+}
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -510,6 +637,7 @@ export const campaignsRouter = createTRPCRouter({
         .select({
           membershipId: campaignWorldEntities.id,
           discovered: campaignWorldEntities.discovered,
+          overworldMap: campaignWorldEntities.overworldMap,
           addedAt: campaignWorldEntities.addedAt,
           id: realmEntities.id,
           name: realmEntities.name,
@@ -570,6 +698,183 @@ export const campaignsRouter = createTRPCRouter({
         .where(eq(realmRelationships.ownerId, ctx.user.id));
       const edges = edgesWithin(allEdges, new Set(nodes.map((n) => n.id)));
       return { nodes, edges };
+    }),
+
+  /**
+   * Campaign overworld grid + painted territories / POI pins (CAMP-UX UX-3).
+   * Auto-seeds a deterministic layout when entities exist but nothing is painted yet.
+   */
+  overworldMap: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      let { grid, entities, locatedIn } = await loadOverworldEntities(
+        ctx.user.id,
+        input.campaignId,
+      );
+
+      if (entities.length > 0 && !hasAnyOverworldGeometry(entities)) {
+        entities = await persistOverworldSeed(
+          ctx.user.id,
+          input.campaignId,
+          entities,
+          grid,
+          locatedIn,
+        );
+      }
+
+      const regionIds = new Set(
+        entities.filter((e) => e.type === "region").map((e) => e.id),
+      );
+      const parentRegionByEntity: Record<string, string | undefined> = {};
+      for (const entity of entities) {
+        parentRegionByEntity[entity.id] = parentRegionId(
+          entity.id,
+          regionIds,
+          locatedIn,
+        );
+      }
+
+      return { grid, entities, parentRegionByEntity };
+    }),
+
+  /** Replace territory cells for a region or settlement on the overworld map. */
+  setOverworldTerritory: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+        territory: overworldTerritorySchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const { grid, entities, locatedIn } = await loadOverworldEntities(
+        ctx.user.id,
+        input.campaignId,
+      );
+      const entity = entities.find((e) => e.id === input.entityId);
+      if (!entity) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entity not in campaign." });
+      }
+      if (entity.type !== "region" && entity.type !== "settlement") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only regions and settlements have territories.",
+        });
+      }
+
+      let territory = [...new Set(input.territory)];
+      if (entity.type === "settlement") {
+        const regionIds = new Set(
+          entities.filter((e) => e.type === "region").map((e) => e.id),
+        );
+        const parentId = parentRegionId(entity.id, regionIds, locatedIn);
+        const parent = parentId
+          ? entities.find((e) => e.id === parentId)
+          : undefined;
+        const parentCells = new Set(parent?.overworldMap.territory ?? []);
+        if (parentCells.size === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Paint the parent region territory first.",
+          });
+        }
+        territory = filterCellsWithinRegion(territory, parentCells);
+      }
+
+      for (const key of territory) {
+        const [colRaw, rowRaw] = key.split(",");
+        const col = Number(colRaw);
+        const row = Number(rowRaw);
+        if (
+          !Number.isInteger(col) ||
+          !Number.isInteger(row) ||
+          col >= grid.width ||
+          row >= grid.height
+        ) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Cell out of bounds." });
+        }
+      }
+
+      const layer: CampaignOverworldMapLayer = {
+        ...entity.overworldMap,
+        territory,
+      };
+      const db = getDb();
+      const [row] = await db
+        .update(campaignWorldEntities)
+        .set({ overworldMap: layer })
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.entityId, input.entityId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .returning({ overworldMap: campaignWorldEntities.overworldMap });
+      return row?.overworldMap ?? layer;
+    }),
+
+  /** Place or move a POI pin on the overworld grid. Pass null pin to clear. */
+  setOverworldPin: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        entityId: z.string().uuid(),
+        pin: overworldCellSchema.nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const { grid, entities } = await loadOverworldEntities(
+        ctx.user.id,
+        input.campaignId,
+      );
+      const entity = entities.find((e) => e.id === input.entityId);
+      if (!entity) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entity not in campaign." });
+      }
+      if (
+        entity.type !== "building" &&
+        entity.type !== "tavern" &&
+        entity.type !== "shop" &&
+        entity.type !== "dungeon" &&
+        entity.type !== "npc" &&
+        entity.type !== "faction"
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This entity type uses a pin, not a territory.",
+        });
+      }
+
+      if (
+        input.pin &&
+        (input.pin.col >= grid.width || input.pin.row >= grid.height)
+      ) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Pin out of bounds." });
+      }
+
+      const layer: CampaignOverworldMapLayer = {
+        ...entity.overworldMap,
+        pin: input.pin ?? undefined,
+      };
+      if (!input.pin) delete layer.pin;
+
+      const db = getDb();
+      const [row] = await db
+        .update(campaignWorldEntities)
+        .set({ overworldMap: layer })
+        .where(
+          and(
+            eq(campaignWorldEntities.campaignId, input.campaignId),
+            eq(campaignWorldEntities.entityId, input.entityId),
+            eq(campaignWorldEntities.ownerId, ctx.user.id),
+          ),
+        )
+        .returning({ overworldMap: campaignWorldEntities.overworldMap });
+      return row?.overworldMap ?? layer;
     }),
 
   /** Add an owned Realms entity to an owned campaign (idempotent on the pair). */

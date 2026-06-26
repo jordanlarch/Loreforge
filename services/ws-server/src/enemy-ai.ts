@@ -152,6 +152,19 @@ export function monsterAttackProfile(monster: EntityState): {
   return { attackBonus, damage: { notation, type: "slashing" } };
 }
 
+/** Ranged weapon profile when the monster was seeded with one (PLAY-15). */
+export function monsterRangedProfile(
+  monster: EntityState,
+): { attackBonus: number; damage: { notation: string; type: string }; rangeFt: number } | null {
+  if (!monster.rangedAttackRangeFt || !monster.rangedDamage) return null;
+  const melee = monsterAttackProfile(monster);
+  return {
+    attackBonus: monster.rangedAttackBonus ?? melee.attackBonus,
+    damage: monster.rangedDamage,
+    rangeFt: monster.rangedAttackRangeFt,
+  };
+}
+
 /** Remaining movement, in whole cells (5-5-5: every step is 5 ft). */
 function movementCells(monster: EntityState): number {
   const m = monster.actionEconomy?.movement;
@@ -273,12 +286,25 @@ function targetsInMeleeReach(
   );
 }
 
-/** Plan repeated melee strikes against the weakest foe in reach. */
-function planMeleeAttacks(
+/** Hostile targets within `rangeFt` but outside melee reach. */
+function targetsInRangedReach(
+  targets: EntityState[],
+  position: GridPosition,
+  rangeFt: number,
+): EntityState[] {
+  return targets.filter((t) => {
+    const dist = distanceFeet(position, t.position!);
+    return dist > REACH_FEET && dist <= rangeFt;
+  });
+}
+
+/** Plan repeated attacks against the weakest foe in reach. */
+function planAttacks(
   monsterId: string,
   profile: ReturnType<typeof monsterAttackProfile>,
   victim: EntityState,
   count: number,
+  rangeFt: number,
 ): BattleAction[] {
   const actions: BattleAction[] = [];
   for (let i = 0; i < count; i += 1) {
@@ -288,7 +314,7 @@ function planMeleeAttacks(
         victim.id,
         profile.attackBonus,
         profile.damage,
-        REACH_FEET,
+        rangeFt,
       ),
     );
   }
@@ -315,6 +341,7 @@ export function planMonsterTurn(
   if (targets.length === 0) return [endTurn];
 
   const profile = monsterAttackProfile(monster);
+  const ranged = monsterRangedProfile(monster);
   const budget = attacksRemaining(monster);
 
   // Already adjacent to one or more foes → spend the full attack budget, then end.
@@ -322,9 +349,29 @@ export function planMonsterTurn(
   if (inReach.length > 0 && budget > 0) {
     const victim = lowestHp(inReach);
     return [
-      ...planMeleeAttacks(monster.id, profile, victim, budget),
+      ...planAttacks(monster.id, profile, victim, budget, REACH_FEET),
       endTurn,
     ];
+  }
+
+  // In ranged weapon range but not melee → fire without closing (PLAY-15).
+  if (ranged && budget > 0) {
+    const inRange = targetsInRangedReach(
+      targets,
+      monster.position,
+      ranged.rangeFt,
+    );
+    if (inRange.length > 0) {
+      const victim = lowestHp(inRange);
+      const rangedProfile = {
+        attackBonus: ranged.attackBonus,
+        damage: ranged.damage,
+      };
+      return [
+        ...planAttacks(monster.id, rangedProfile, victim, budget, ranged.rangeFt),
+        endTurn,
+      ];
+    }
   }
 
   // Otherwise close on the chosen target; strike if the move lands in reach.
@@ -334,7 +381,20 @@ export function planMonsterTurn(
     const actions: BattleAction[] = [moveAction(monster.id, step)];
     if (distanceFeet(step, target.position!) <= REACH_FEET && budget > 0) {
       actions.push(
-        ...planMeleeAttacks(monster.id, profile, target, budget),
+        ...planAttacks(monster.id, profile, target, budget, REACH_FEET),
+      );
+    } else if (
+      ranged &&
+      budget > 0 &&
+      distanceFeet(step, target.position!) <= ranged.rangeFt &&
+      distanceFeet(step, target.position!) > REACH_FEET
+    ) {
+      const rangedProfile = {
+        attackBonus: ranged.attackBonus,
+        damage: ranged.damage,
+      };
+      actions.push(
+        ...planAttacks(monster.id, rangedProfile, target, budget, ranged.rangeFt),
       );
     }
     actions.push(endTurn);

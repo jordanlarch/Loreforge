@@ -27,6 +27,12 @@ export type MonsterTemplate = {
   xp: number;
   /** Attacks per Attack action (Multiattack). Defaults to 1 when omitted. */
   attacksPerAction?: number;
+  /** Optional ranged attack profile for enemy AI (PLAY-15). */
+  rangedAttack?: {
+    rangeFt: number;
+    attackBonus?: number;
+    damage: { notation: string; type: string };
+  };
 };
 
 /** The curated foe templates, keyed by slug. */
@@ -80,6 +86,10 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     speed: 30,
     cr: "1/8",
     xp: 25,
+    rangedAttack: {
+      rangeFt: 80,
+      damage: { notation: "1d8+1", type: "piercing" },
+    },
   },
   ogre: {
     slug: "ogre",

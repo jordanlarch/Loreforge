@@ -119,6 +119,9 @@ export type FoeSpec = {
   speed: number;
   /** Monster Multiattack override; defaults to 1 attack per Attack action. */
   attacksPerAction?: number;
+  rangedAttackRangeFt?: number;
+  rangedAttackBonus?: number;
+  rangedDamage?: { notation: string; type: string };
 };
 
 /** The two goblin foes the default ambush fields, as {@link FoeSpec}s. */
@@ -239,6 +242,13 @@ export function buildPartyBattleCommands(
         ...(f.attacksPerAction !== undefined
           ? { attacksPerAction: f.attacksPerAction }
           : {}),
+        ...(f.rangedAttackRangeFt !== undefined
+          ? { rangedAttackRangeFt: f.rangedAttackRangeFt }
+          : {}),
+        ...(f.rangedAttackBonus !== undefined
+          ? { rangedAttackBonus: f.rangedAttackBonus }
+          : {}),
+        ...(f.rangedDamage !== undefined ? { rangedDamage: f.rangedDamage } : {}),
       },
     })),
     {
@@ -267,6 +277,11 @@ export function expandEncounterFoes(
     baseAc: number;
     speed: number;
     attacksPerAction?: number;
+    rangedAttack?: {
+      rangeFt: number;
+      attackBonus?: number;
+      damage: { notation: string; type: string };
+    };
   } | undefined,
 ): FoeSpec[] {
   const foes: FoeSpec[] = [];
@@ -286,6 +301,15 @@ export function expandEncounterFoes(
         speed: template.speed,
         ...(template.attacksPerAction !== undefined
           ? { attacksPerAction: template.attacksPerAction }
+          : {}),
+        ...(template.rangedAttack
+          ? {
+              rangedAttackRangeFt: template.rangedAttack.rangeFt,
+              ...(template.rangedAttack.attackBonus !== undefined
+                ? { rangedAttackBonus: template.rangedAttack.attackBonus }
+                : {}),
+              rangedDamage: template.rangedAttack.damage,
+            }
           : {}),
       });
     }

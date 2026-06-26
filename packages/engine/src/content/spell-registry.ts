@@ -31,6 +31,9 @@
  *   - Batch 8 (ENG-2 / Rung 2): Lightning Bolt, Invisibility, Hold Person, Web,
  *     Entangle, Flame Strike, Phantasmal Killer, Stinking Cloud, Haste,
  *     Hypnotic Pattern — plus ENG-13 condition-on-failed-save + Blur disadvantage.
+ *   - Batch 9 (ENG-2): Spiritual Weapon, Mirror Image, Charm Person,
+ *     Blindness/Deafness, Call Lightning, Blight, Revivify, Tasha's Hideous
+ *     Laughter, Command, Greater Invisibility, Mass Cure Wounds.
  *
  * Every definition is validated by `validateSpellDefinition` in a unit test, so
  * a malformed registry entry fails CI rather than at cast time, and every
@@ -1759,6 +1762,220 @@ const HYPNOTIC_PATTERN: SpellDefinition = {
     "You create a twisting pattern of colors in a 30-foot cube. Each creature in the area who sees the pattern must succeed on a Wisdom saving throw or become charmed for the duration.",
 };
 
+/** Spiritual Weapon — bonus-action ranged spell attack for 1d8+mod force (+1d8/upcast). */
+const SPIRITUAL_WEAPON: SpellDefinition = {
+  id: "spiritual-weapon",
+  name: "Spiritual Weapon",
+  level: 2,
+  school: "evocation",
+  classes: ["Cleric"],
+  castingTime: { unit: "bonus", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  attackAgainst: { type: "ranged" },
+  damage: [{ dice: "1d8", addSpellMod: true, type: "force" }],
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
+  description:
+    "You create a floating, spectral weapon that attacks once as a bonus action on subsequent turns (tracer: one immediate ranged spell attack for 1d8 + spellcasting modifier force damage).",
+};
+
+const MIRROR_IMAGE: SpellDefinition = {
+  id: "mirror-image",
+  name: "Mirror Image",
+  level: 2,
+  school: "illusion",
+  classes: ["Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "self" },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "self",
+  appliedEffects: [
+    {
+      name: "Mirror Image",
+      scope: "caster",
+      modifier: { type: "attacks_against_disadvantage" },
+    },
+  ],
+  description:
+    "Three illusory duplicates appear; attack rolls against you have disadvantage while any duplicate remains (tracer: Blur-style disadvantage).",
+};
+
+const CHARM_PERSON: SpellDefinition = {
+  id: "charm-person",
+  name: "Charm Person",
+  level: 1,
+  school: "enchantment",
+  classes: ["Bard", "Druid", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "hour", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "charmed",
+  description:
+    "You attempt to charm a humanoid you can see. It must succeed on a Wisdom saving throw or be charmed by you for the duration.",
+};
+
+const BLINDNESS_DEAFNESS: SpellDefinition = {
+  id: "blindness-deafness",
+  name: "Blindness/Deafness",
+  level: 2,
+  school: "necromancy",
+  classes: ["Bard", "Cleric", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "minute", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "blinded",
+  description:
+    "One creature you can see must succeed on a Constitution saving throw or become blinded for the duration (deafness rider narrated).",
+};
+
+const CALL_LIGHTNING: SpellDefinition = {
+  id: "call-lightning",
+  name: "Call Lightning",
+  level: 3,
+  school: "conjuration",
+  classes: ["Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 120, area: { shape: "sphere", size: 10 } },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 10 },
+  concentration: true,
+  ritual: false,
+  targeting: "area",
+  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "3d10", type: "lightning" }],
+  description:
+    "A storm cloud appears; the first bolt strikes a point you choose (tracer: 10-ft sphere, Dex save half 3d10 lightning). Subsequent bolts on later turns are narrated.",
+};
+
+const BLIGHT: SpellDefinition = {
+  id: "blight",
+  name: "Blight",
+  level: 4,
+  school: "necromancy",
+  classes: ["Druid", "Sorcerer", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "half_damage" },
+  damage: [{ dice: "8d8", type: "necrotic" }],
+  description:
+    "Necromantic energy withers a creature you can see. The target makes a Constitution saving throw, taking 8d8 necrotic damage on a failure or half as much on a success.",
+};
+
+const REVIVIFY: SpellDefinition = {
+  id: "revivify",
+  name: "Revivify",
+  level: 3,
+  school: "necromancy",
+  classes: ["Cleric", "Druid", "Paladin", "Ranger"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true, material: "diamonds worth 300 gp" },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  healing: { dice: "1d1+1" },
+  description:
+    "You touch a creature that died within the last minute and return it to life with 1 hit point (tracer: flat 2 HP heal on a living wounded ally).",
+};
+
+const TASHAS_HIDEOUS_LAUGHTER: SpellDefinition = {
+  id: "tashas-hideous-laughter",
+  name: "Tasha's Hideous Laughter",
+  level: 1,
+  school: "enchantment",
+  classes: ["Bard", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 30 },
+  components: { verbal: true, somatic: true, material: "tiny tarts and a feather" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "incapacitated",
+  description:
+    "A creature of your choice must succeed on a Wisdom saving throw or fall prone, becoming incapacitated and unable to stand (tracer: incapacitated on failed save).",
+};
+
+const COMMAND: SpellDefinition = {
+  id: "command",
+  name: "Command",
+  level: 1,
+  school: "enchantment",
+  classes: ["Cleric", "Paladin"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: false },
+  duration: { unit: "round", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  failedSaveCondition: "prone",
+  description:
+    "You speak a one-word command to a creature you can see. On a failed Wisdom save it obeys (tracer: prone for one-word commands like 'Grovel').",
+};
+
+const GREATER_INVISIBILITY: SpellDefinition = {
+  id: "greater-invisibility",
+  name: "Greater Invisibility",
+  level: 4,
+  school: "illusion",
+  classes: ["Bard", "Sorcerer", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch" },
+  components: { verbal: true, somatic: true, material: "an eyelash encased in gum arabic" },
+  duration: { unit: "minute", amount: 1 },
+  concentration: true,
+  ritual: false,
+  targeting: "single",
+  appliedCondition: "invisible",
+  description:
+    "A creature you touch becomes invisible until the spell ends. Anything it wears or carries is invisible as long as it stays on the target.",
+};
+
+const MASS_CURE_WOUNDS: SpellDefinition = {
+  id: "mass-cure-wounds",
+  name: "Mass Cure Wounds",
+  level: 5,
+  school: "evocation",
+  classes: ["Cleric", "Druid"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "feet", amount: 60 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "multi",
+  healing: { dice: "3d8", addSpellMod: true },
+  upcastScaling: { perSlotDice: "1d8", appliesTo: "healing" },
+  description:
+    "Up to six creatures of your choice in range each regain 3d8 + your spellcasting modifier hit points. When cast with a slot of 6th level or higher, the healing increases by 1d8 for each slot level above 5th.",
+};
+
 /** All authored spells, keyed by slug id. */
 export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -1842,6 +2059,17 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [STINKING_CLOUD.id]: STINKING_CLOUD,
   [HASTE.id]: HASTE,
   [HYPNOTIC_PATTERN.id]: HYPNOTIC_PATTERN,
+  [SPIRITUAL_WEAPON.id]: SPIRITUAL_WEAPON,
+  [MIRROR_IMAGE.id]: MIRROR_IMAGE,
+  [CHARM_PERSON.id]: CHARM_PERSON,
+  [BLINDNESS_DEAFNESS.id]: BLINDNESS_DEAFNESS,
+  [CALL_LIGHTNING.id]: CALL_LIGHTNING,
+  [BLIGHT.id]: BLIGHT,
+  [REVIVIFY.id]: REVIVIFY,
+  [TASHAS_HIDEOUS_LAUGHTER.id]: TASHAS_HIDEOUS_LAUGHTER,
+  [COMMAND.id]: COMMAND,
+  [GREATER_INVISIBILITY.id]: GREATER_INVISIBILITY,
+  [MASS_CURE_WOUNDS.id]: MASS_CURE_WOUNDS,
 };
 
 /** Look up an authored spell definition by slug id. */

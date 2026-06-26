@@ -708,10 +708,12 @@ export const campaignsRouter = createTRPCRouter({
     .input(z.object({ campaignId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       await assertCampaignOwner(ctx.user.id, input.campaignId);
-      let { grid, entities, locatedIn } = await loadOverworldEntities(
+      const loaded = await loadOverworldEntities(
         ctx.user.id,
         input.campaignId,
       );
+      const { grid, locatedIn } = loaded;
+      let { entities } = loaded;
 
       if (entities.length > 0 && !hasAnyOverworldGeometry(entities)) {
         entities = await persistOverworldSeed(

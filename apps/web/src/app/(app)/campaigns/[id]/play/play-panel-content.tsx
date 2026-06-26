@@ -27,6 +27,8 @@ export function PlayPanelContent({
   onEnterLocation?: (entityId: string) => void;
   onClose: () => void;
 }) {
+  const access = trpc.campaigns.access.useQuery({ campaignId });
+
   switch (panel) {
     case "party":
       return <PartyTab campaignId={campaignId} />;
@@ -39,7 +41,14 @@ export function PlayPanelContent({
             Discovered locations in this campaign. Enter a site to travel there
             without leaving play.
           </p>
-          <WorldTab campaignId={campaignId} />
+          <WorldTab
+            campaignId={campaignId}
+            variant="play"
+            onEnterLocation={(id) => {
+              onEnterLocation?.(id);
+              onClose();
+            }}
+          />
           <div className="h-[min(40vh,20rem)]">
             <WorldMapCanvas
               campaignId={campaignId}
@@ -59,7 +68,13 @@ export function PlayPanelContent({
     case "notes":
       return <NotesTab campaignId={campaignId} />;
     case "settings":
-      return <SettingsTab campaignId={campaignId} />;
+      return access.data?.role === "owner" ? (
+        <SettingsTab campaignId={campaignId} />
+      ) : (
+        <p className="text-sm text-lore-muted">
+          Campaign settings are available to the campaign owner in prep.
+        </p>
+      );
     default:
       return null;
   }

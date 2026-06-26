@@ -205,6 +205,59 @@ async function persistOverworldSeed(
 import { createTRPCRouter, protectedProcedure } from "../init";
 
 /** Throw unless the campaign exists and belongs to the given user. */
+export async function resolveCampaignRole(
+  userId: string,
+  campaignId: string,
+): Promise<"owner" | "player" | null> {
+  const db = getDb();
+  const [owned] = await db
+    .select({ id: campaigns.id })
+    .from(campaigns)
+    .where(
+      and(eq(campaigns.id, campaignId), eq(campaigns.ownerId, userId)),
+    )
+    .limit(1);
+  if (owned) return "owner";
+
+  const [seat] = await db
+    .select({ id: campaignCharacters.id })
+    .from(campaignCharacters)
+    .where(
+      and(
+        eq(campaignCharacters.campaignId, campaignId),
+        eq(campaignCharacters.playerUserId, userId),
+      ),
+    )
+    .limit(1);
+  if (seat) return "player";
+
+  const [invite] = await db
+    .select({ id: campaignInvites.id })
+    .from(campaignInvites)
+    .where(
+      and(
+        eq(campaignInvites.campaignId, campaignId),
+        eq(campaignInvites.redeemedByUserId, userId),
+      ),
+    )
+    .limit(1);
+  if (invite) return "player";
+
+  return null;
+}
+
+/** Throw unless the user is the campaign owner or a seated player. */
+export async function assertCampaignAccess(
+  userId: string,
+  campaignId: string,
+): Promise<"owner" | "player"> {
+  const role = await resolveCampaignRole(userId, campaignId);
+  if (!role) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Campaign not found." });
+  }
+  return role;
+}
+
 export async function assertCampaignOwner(
   userId: string,
   campaignId: string,
@@ -318,15 +371,30 @@ export const campaignsRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const role = await resolveCampaignRole(ctx.user.id, input.id);
+      if (!role) return null;
       const db = getDb();
       const [row] = await db
         .select()
         .from(campaigns)
-        .where(
-          and(eq(campaigns.id, input.id), eq(campaigns.ownerId, ctx.user.id)),
-        )
+        .where(eq(campaigns.id, input.id))
         .limit(1);
       return row ?? null;
+    }),
+
+  /** Prep vs play access for the current user (CAMP-UX UX-6). */
+  access: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const role = await resolveCampaignRole(ctx.user.id, input.campaignId);
+      if (!role) {
+        return { role: null as null, canAccessPrep: false, canAccessPlay: false };
+      }
+      return {
+        role,
+        canAccessPrep: role === "owner",
+        canAccessPlay: true,
+      };
     }),
 
   /** Create a campaign owned by the current user. */
@@ -700,7 +768,7 @@ export const campaignsRouter = createTRPCRouter({
   party: protectedProcedure
     .input(z.object({ campaignId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      await assertCampaignAccess(ctx.user.id, input.campaignId);
       const db = getDb();
       return db
         .select({
@@ -727,12 +795,7 @@ export const campaignsRouter = createTRPCRouter({
           characters,
           eq(characters.id, campaignCharacters.characterId),
         )
-        .where(
-          and(
-            eq(campaignCharacters.campaignId, input.campaignId),
-            eq(campaignCharacters.ownerId, ctx.user.id),
-          ),
-        )
+        .where(eq(campaignCharacters.campaignId, input.campaignId))
         .orderBy(asc(campaignCharacters.joinedAt));
     }),
 
@@ -746,7 +809,7 @@ export const campaignsRouter = createTRPCRouter({
   partyLoadout: protectedProcedure
     .input(z.object({ campaignId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      await assertCampaignAccess(ctx.user.id, input.campaignId);
       const db = getDb();
       return db
         .select({
@@ -759,12 +822,7 @@ export const campaignsRouter = createTRPCRouter({
           characters,
           eq(characters.id, campaignCharacters.characterId),
         )
-        .where(
-          and(
-            eq(campaignCharacters.campaignId, input.campaignId),
-            eq(campaignCharacters.ownerId, ctx.user.id),
-          ),
-        );
+        .where(eq(campaignCharacters.campaignId, input.campaignId));
     }),
 
   /* ----------------------------------------------------------------------- *
@@ -775,9 +833,9 @@ export const campaignsRouter = createTRPCRouter({
   world: protectedProcedure
     .input(z.object({ campaignId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertCampaignOwner(ctx.user.id, input.campaignId);
+      const role = await assertCampaignAccess(ctx.user.id, input.campaignId);
       const db = getDb();
-      return db
+      const rows = await db
         .select({
           membershipId: campaignWorldEntities.id,
           discovered: campaignWorldEntities.discovered,
@@ -794,13 +852,12 @@ export const campaignsRouter = createTRPCRouter({
           realmEntities,
           eq(realmEntities.id, campaignWorldEntities.entityId),
         )
-        .where(
-          and(
-            eq(campaignWorldEntities.campaignId, input.campaignId),
-            eq(campaignWorldEntities.ownerId, ctx.user.id),
-          ),
-        )
+        .where(eq(campaignWorldEntities.campaignId, input.campaignId))
         .orderBy(asc(realmEntities.name));
+      if (role === "player") {
+        return rows.filter((row) => row.discovered);
+      }
+      return rows;
     }),
 
   /**

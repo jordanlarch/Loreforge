@@ -8,6 +8,7 @@
  * (not the React layer) honours the deterministic-engine decision — the app
  * only collects choices; the engine owns the math.
  */
+import { classFeaturesForLevel } from "./class-features";
 import { rollDice } from "../rng/dice";
 import { createSeededRng, type Rng } from "../rng/prng";
 import { abilityModifier } from "./abilities";
@@ -294,12 +295,51 @@ export function grantsAsiAtLevel(className: string, level: number): boolean {
   );
 }
 
+/** ASI choice at level-up: +2 to one ability or +1 to two (5E). Feat choice deferred. */
+export type AsiChoice =
+  | { mode: "increase"; ability: Ability; amount: 2 }
+  | { mode: "split"; first: Ability; second: Ability };
+
+const MAX_ABILITY_SCORE = 20;
+
+/** Whether an ASI choice is legal under 5E (+2 one or +1 two, cap 20). */
+export function isValidAsiChoice(
+  scores: AbilityScores,
+  choice: AsiChoice,
+): boolean {
+  if (choice.mode === "increase") {
+    return choice.amount === 2 && scores[choice.ability] + 2 <= MAX_ABILITY_SCORE;
+  }
+  if (choice.first === choice.second) return false;
+  return (
+    scores[choice.first] + 1 <= MAX_ABILITY_SCORE &&
+    scores[choice.second] + 1 <= MAX_ABILITY_SCORE
+  );
+}
+
+/** Apply an ASI to a spread; throws if the choice would exceed the cap. */
+export function applyAsi(
+  scores: AbilityScores,
+  choice: AsiChoice,
+): AbilityScores {
+  if (!isValidAsiChoice(scores, choice)) {
+    throw new Error("Invalid ASI choice for current ability scores.");
+  }
+  if (choice.mode === "increase") {
+    return {
+      ...scores,
+      [choice.ability]: scores[choice.ability] + choice.amount,
+    };
+  }
+  return {
+    ...scores,
+    [choice.first]: scores[choice.first] + 1,
+    [choice.second]: scores[choice.second] + 1,
+  };
+}
+
 /**
- * Stub labels for the choices a class gains at a given level.
- *
- * Scaffolding only (#11): we surface *that* a choice exists ("Ability Score
- * Improvement", generic new class features) without wiring the real ASI/feat or
- * per-class feature data — full feature ingestion + selection UI is a follow-up.
+ * Labels for features gained at a class level (real SRD names + ASI when applicable).
  */
 export function featureStubsForLevel(
   className: string,
@@ -309,6 +349,6 @@ export function featureStubsForLevel(
   if (grantsAsiAtLevel(className, level)) {
     stubs.push("Ability Score Improvement / Feat");
   }
-  stubs.push(`New ${className} features`);
+  stubs.push(...classFeaturesForLevel(className, level).map((f) => f.name));
   return stubs;
 }

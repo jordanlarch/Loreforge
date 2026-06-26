@@ -8,10 +8,14 @@
  */
 import {
   abilityModifier,
+  applyAsi,
+  grantsAsiAtLevel,
   hpGainOnLevelUp,
+  isValidAsiChoice,
   levelUpSeed,
   totalLevel,
   createSeededRng,
+  type AsiChoice,
   type HpMethod,
 } from "@app/engine";
 import { TRPCError } from "@trpc/server";
@@ -33,6 +37,19 @@ import { createTRPCRouter, protectedProcedure } from "../init";
 const MAX_LEVEL = 20;
 
 const ABILITY = z.enum(["str", "dex", "con", "int", "wis", "cha"]);
+
+const asiChoiceInput = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("increase"),
+    ability: ABILITY,
+    amount: z.literal(2),
+  }),
+  z.object({
+    mode: z.literal("split"),
+    first: ABILITY,
+    second: ABILITY,
+  }),
+]);
 
 const abilityScores = z.object({
   str: z.number().int().min(1).max(30),
@@ -309,7 +326,7 @@ export const charactersRouter = createTRPCRouter({
    * matching the stored class display name, so the app layer never computes
    * mechanics. Increments the chosen class's level and adds the HP gain to
    * `maxHp`. Feature/ASI choices are surfaced as stubs in the UI; nothing here
-   * applies them yet. Rejects past level 20 (per-class and total).
+   * applies ASI when the new level grants one. Rejects past level 20 (per-class and total).
    */
   levelUp: protectedProcedure
     .input(
@@ -317,6 +334,7 @@ export const charactersRouter = createTRPCRouter({
         id: z.string().uuid(),
         classIndex: z.number().int().min(0).default(0),
         hpMethod: z.enum(["average", "roll"]),
+        asi: asiChoiceInput.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -377,7 +395,33 @@ export const charactersRouter = createTRPCRouter({
 
       const newClassLevel = target.level + 1;
       const newTotalLevel = totalLevel(classes) + 1;
-      const conMod = abilityModifier(character.abilityScores.con);
+
+      const grantsAsi = grantsAsiAtLevel(target.class, newClassLevel);
+      if (grantsAsi && !input.asi) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This level grants an Ability Score Improvement — choose +2 to one ability or +1 to two.",
+        });
+      }
+      if (input.asi && !grantsAsi) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This level does not grant an Ability Score Improvement.",
+        });
+      }
+      let nextScores = character.abilityScores;
+      if (input.asi) {
+        const choice = input.asi as AsiChoice;
+        if (!isValidAsiChoice(character.abilityScores, choice)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid ASI choice (abilities cannot exceed 20).",
+          });
+        }
+        nextScores = applyAsi(character.abilityScores, choice);
+      }
+
+      const conMod = abilityModifier(nextScores.con);
       const method: HpMethod = input.hpMethod;
       const hpGain = hpGainOnLevelUp(klass.hitDie, conMod, {
         mode: method,
@@ -395,6 +439,7 @@ export const charactersRouter = createTRPCRouter({
         .update(characters)
         .set({
           classes: nextClasses,
+          abilityScores: nextScores,
           maxHp: character.maxHp + hpGain,
           updatedAt: new Date(),
         })

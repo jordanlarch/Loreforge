@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 
-import { featureStubsForLevel, type ClassLevel } from "@app/engine";
+import { classFeaturesForLevel, type ClassLevel } from "@app/engine";
 
 import {
   ResourceBoxes,
   SheetSearchBar,
   SheetSection,
-  StubBanner,
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
 import type { CharacterSheetMeta } from "@/lib/character-sheet-storage";
@@ -25,6 +24,15 @@ const RESOURCE_FEATURES: Record<string, number> = {
   "Second Wind": 1,
   "Action Surge": 1,
   "Fighting Spirit": 3,
+  Rage: 2,
+  "Bardic Inspiration": 3,
+  "Channel Divinity": 1,
+  "Wild Shape": 2,
+  Ki: 2,
+  "Divine Sense": 1,
+  "Lay on Hands": 1,
+  Indomitable: 1,
+  "Arcane Recovery": 1,
 };
 
 export function FeaturesTab({
@@ -45,13 +53,13 @@ export function FeaturesTab({
   const classFeatures: FeatureRow[] = [];
   for (const cl of classes) {
     for (let level = 1; level <= cl.level; level++) {
-      for (const label of featureStubsForLevel(cl.class, level)) {
+      for (const f of classFeaturesForLevel(cl.class, level)) {
         classFeatures.push({
-          id: `${cl.class}-${level}-${label}`,
-          name: label,
+          id: `${cl.class}-${level}-${f.id}`,
+          name: f.name,
           source: `${cl.class} ${level}`,
-          description: `Full ${label} rules load from SRD feature ingest.`,
-          uses: RESOURCE_FEATURES[label.split(" / ")[0] ?? label],
+          description: f.description,
+          uses: f.uses ?? RESOURCE_FEATURES[f.name],
         });
       }
     }
@@ -94,10 +102,6 @@ export function FeaturesTab({
   return (
     <div>
       <SheetSearchBar value={search} onChange={setSearch} />
-      <StubBanner>
-        Feature descriptions and &ldquo;Use&rdquo; actions connect to the engine when
-        class-feature ingest ships. Resource boxes track manual uses today.
-      </StubBanner>
 
       <SheetSection title="Species Traits">
         <FeatureList

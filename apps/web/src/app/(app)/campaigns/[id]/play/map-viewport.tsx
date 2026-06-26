@@ -6,14 +6,26 @@
  * so PixiJS hit-testing stays correct), middle-mouse drag pan, and wheel zoom.
  * Layer toggles cover the grid and movement-radius overlay.
  *
- * Hierarchical L0–L4 zoom (world/region/settlement maps), fog of war, Edit Map
- * authoring, token context menus, and text-driven movement are deferred
- * follow-ups (see docs/deferrals.md PLAY-7).
+ * Hierarchical L1–L2 parent-map scroll-out, fog of war, Edit Map authoring,
+ * token context menus, and text-driven movement are deferred follow-ups
+ * (see docs/deferrals.md PLAY-7). UX-7 adds L-level badges and a
+ * "Return to scene" pill when manual zoom diverges from 100%.
  */
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CELL_SIZE } from "@/lib/battle-map/geometry";
+import {
+  mapLevelBadge,
+  type MapZoomLevel,
+} from "@/lib/map-zoom-level";
+import {
+  clampZoom,
+  scrollForZoom,
+  TACTICAL_ZOOM_MAX,
+  TACTICAL_ZOOM_MIN,
+  TACTICAL_ZOOM_STEP,
+} from "@/lib/map-viewport-zoom";
 
 import type { BattleMapProps } from "./battle-map";
 import { SceneBanner } from "./scene-banner";
@@ -28,49 +40,22 @@ const BattleMap = dynamic(() => import("./battle-map"), {
   ),
 });
 
-const ZOOM_MIN = 0.6;
-const ZOOM_MAX = 1.6;
-const ZOOM_STEP = 0.2;
-
-/** Clamp + round a zoom factor to avoid floating-point drift across steps. */
-export function clampZoom(z: number): number {
-  return Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
-}
-
-/** Keep the content point under the cursor fixed when zoom changes. */
-export function scrollForZoom(params: {
-  scrollLeft: number;
-  scrollTop: number;
-  clientX: number;
-  clientY: number;
-  rect: { left: number; top: number };
-  oldZoom: number;
-  newZoom: number;
-}): { scrollLeft: number; scrollTop: number } {
-  const { scrollLeft, scrollTop, clientX, clientY, rect, oldZoom, newZoom } =
-    params;
-  if (oldZoom === newZoom) return { scrollLeft, scrollTop };
-
-  const offsetX = clientX - rect.left + scrollLeft;
-  const offsetY = clientY - rect.top + scrollTop;
-  const ratio = newZoom / oldZoom;
-  return {
-    scrollLeft: offsetX * ratio - (clientX - rect.left),
-    scrollTop: offsetY * ratio - (clientY - rect.top),
-  };
-}
-
 export function MapViewport({
   sceneBanner,
   transitioning,
   reachable,
   fill = false,
+  mapLevel,
+  sceneName,
   ...mapProps
 }: BattleMapProps & {
   sceneBanner: SceneBannerInfo | null;
   transitioning: boolean;
   /** Expand to fill the play-surface map column (wheel zoom stays contained). */
   fill?: boolean;
+  /** Native scene depth for the level badge (L3 exploration / L4 combat). */
+  mapLevel?: MapZoomLevel;
+  sceneName?: string;
 }) {
   const [zoom, setZoom] = useState(1);
   const [showGrid, setShowGrid] = useState(true);
@@ -91,7 +76,7 @@ export function MapViewport({
     (next: number, anchor?: { clientX: number; clientY: number }) => {
       const el = scrollRef.current;
       setZoom((prev) => {
-        const clamped = clampZoom(next);
+        const clamped = clampZoom(next, TACTICAL_ZOOM_MIN, TACTICAL_ZOOM_MAX);
         if (clamped === prev) return prev;
         if (el && anchor) {
           const rect = el.getBoundingClientRect();
@@ -119,9 +104,13 @@ export function MapViewport({
     (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      const delta = e.deltaY > 0 ? -TACTICAL_ZOOM_STEP : TACTICAL_ZOOM_STEP;
       applyZoom(
-        clampZoom(zoomRef.current + delta),
+        clampZoom(
+          zoomRef.current + delta,
+          TACTICAL_ZOOM_MIN,
+          TACTICAL_ZOOM_MAX,
+        ),
         { clientX: e.clientX, clientY: e.clientY },
       );
     },
@@ -185,12 +174,31 @@ export function MapViewport({
     >
       <SceneBanner banner={sceneBanner} />
 
+      {zoom !== 1 && sceneName && mapLevel != null ? (
+        <button
+          type="button"
+          onClick={() => applyZoom(1)}
+          className="absolute left-2 top-2 z-10 max-w-[min(100%,18rem)] truncate rounded-full border border-lore-accent/40 bg-lore-accent-dim/95 px-3 py-1 text-xs text-lore-text shadow-sm transition-colors hover:border-lore-accent"
+          title={`Reset zoom to ${sceneName}`}
+        >
+          Return to {sceneName} ({mapLevelBadge(mapLevel)})
+        </button>
+      ) : null}
+
       <div className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1.5">
         <div className="flex items-center gap-1 rounded border border-lore-border bg-lore-surface/95 px-1.5 py-1 text-xs">
+          {mapLevel != null ? (
+            <span
+              className="rounded bg-lore-bg px-1.5 py-0.5 tabular-nums text-[10px] font-medium uppercase tracking-wide text-lore-muted"
+              title="Current map depth"
+            >
+              {mapLevelBadge(mapLevel)}
+            </span>
+          ) : null}
           <button
             type="button"
-            onClick={() => applyZoom(zoom - ZOOM_STEP)}
-            disabled={zoom <= ZOOM_MIN}
+            onClick={() => applyZoom(zoom - TACTICAL_ZOOM_STEP)}
+            disabled={zoom <= TACTICAL_ZOOM_MIN}
             className="rounded px-1.5 text-lore-muted transition-colors hover:text-lore-text disabled:opacity-30"
             title="Zoom out"
           >
@@ -206,8 +214,8 @@ export function MapViewport({
           </button>
           <button
             type="button"
-            onClick={() => applyZoom(zoom + ZOOM_STEP)}
-            disabled={zoom >= ZOOM_MAX}
+            onClick={() => applyZoom(zoom + TACTICAL_ZOOM_STEP)}
+            disabled={zoom >= TACTICAL_ZOOM_MAX}
             className="rounded px-1.5 text-lore-muted transition-colors hover:text-lore-text disabled:opacity-30"
             title="Zoom in"
           >

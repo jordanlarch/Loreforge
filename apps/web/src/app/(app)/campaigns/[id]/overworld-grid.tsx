@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   OVERWORLD_CELL_PX,
@@ -15,6 +15,14 @@ import {
   type OverworldEntity,
   type OverworldTool,
 } from "@/lib/overworld-map";
+import { mapLevelBadge } from "@/lib/map-zoom-level";
+import {
+  clampZoom,
+  OVERWORLD_ZOOM_MAX,
+  OVERWORLD_ZOOM_MIN,
+  OVERWORLD_ZOOM_STEP,
+  panForSvgZoom,
+} from "@/lib/map-viewport-zoom";
 import {
   REALM_TYPE_COLOR,
   REALM_TYPE_LABEL,
@@ -50,6 +58,7 @@ export function OverworldGrid({
   const [tool, setTool] = useState<OverworldTool>("pan");
   const [activeEntityId, setActiveEntityId] = useState<string>("");
   const [pan, setPan] = useState({ x: 24, y: 24 });
+  const [zoom, setZoom] = useState(1);
   const [showHidden, setShowHidden] = useState(false);
   const [painting, setPainting] = useState(false);
   const [paintAdd, setPaintAdd] = useState(true);
@@ -57,6 +66,62 @@ export function OverworldGrid({
   const drag = useRef<{ ox: number; oy: number; px: number; py: number } | null>(
     null,
   );
+  const mapRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = useRef(pan);
+  panRef.current = pan;
+
+  const applyZoom = useCallback(
+    (next: number, anchor?: { clientX: number; clientY: number }) => {
+      const el = mapRef.current;
+      setZoom((prev) => {
+        const clamped = clampZoom(next, OVERWORLD_ZOOM_MIN, OVERWORLD_ZOOM_MAX);
+        if (clamped === prev) return prev;
+        if (el && anchor) {
+          const rect = el.getBoundingClientRect();
+          const nextPan = panForSvgZoom({
+            panX: panRef.current.x,
+            panY: panRef.current.y,
+            clientX: anchor.clientX,
+            clientY: anchor.clientY,
+            rect,
+            oldZoom: prev,
+            newZoom: clamped,
+          });
+          const updated = { x: nextPan.panX, y: nextPan.panY };
+          panRef.current = updated;
+          setPan(updated);
+        }
+        return clamped;
+      });
+    },
+    [],
+  );
+
+  const onWheel = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -OVERWORLD_ZOOM_STEP : OVERWORLD_ZOOM_STEP;
+      applyZoom(
+        clampZoom(
+          zoomRef.current + delta,
+          OVERWORLD_ZOOM_MIN,
+          OVERWORLD_ZOOM_MAX,
+        ),
+        { clientX: e.clientX, clientY: e.clientY },
+      );
+    },
+    [applyZoom],
+  );
+
+  useEffect(() => {
+    const el = mapRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onWheel]);
 
   const setTerritory = trpc.campaigns.setOverworldTerritory.useMutation({
     onSuccess: async () => {
@@ -152,8 +217,8 @@ export function OverworldGrid({
   function cellFromEvent(e: React.PointerEvent<SVGElement>): OverworldCell | null {
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
-    const x = e.clientX - rect.left - pan.x;
-    const y = e.clientY - rect.top - pan.y;
+    const x = (e.clientX - rect.left - pan.x) / zoom;
+    const y = (e.clientY - rect.top - pan.y) / zoom;
     const col = Math.floor(x / OVERWORLD_CELL_PX);
     const row = Math.floor(y / OVERWORLD_CELL_PX);
     if (!cellInBounds(col, row, grid)) return null;
@@ -333,8 +398,49 @@ export function OverworldGrid({
         </div>
       ) : (
         <div
+          ref={mapRef}
           className={`relative overflow-hidden rounded-lg border border-lore-border bg-lore-bg ${heightClass}`}
         >
+          <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded border border-lore-border bg-lore-surface/95 px-1.5 py-1 text-xs">
+            <span
+              className="rounded bg-lore-bg px-1.5 py-0.5 tabular-nums text-[10px] font-medium uppercase tracking-wide text-lore-muted"
+              title="Campaign overworld depth"
+            >
+              {mapLevelBadge(0)}
+            </span>
+            <button
+              type="button"
+              onClick={() => applyZoom(zoom - OVERWORLD_ZOOM_STEP)}
+              disabled={zoom <= OVERWORLD_ZOOM_MIN}
+              className="rounded px-1.5 text-lore-muted transition-colors hover:text-lore-text disabled:opacity-30"
+              title="Zoom out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                applyZoom(1);
+                const reset = { x: 24, y: 24 };
+                panRef.current = reset;
+                setPan(reset);
+              }}
+              className="min-w-[2.75rem] rounded px-1 tabular-nums text-lore-muted transition-colors hover:text-lore-text"
+              title="Reset zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={() => applyZoom(zoom + OVERWORLD_ZOOM_STEP)}
+              disabled={zoom >= OVERWORLD_ZOOM_MAX}
+              className="rounded px-1.5 text-lore-muted transition-colors hover:text-lore-text disabled:opacity-30"
+              title="Zoom in"
+            >
+              +
+            </button>
+          </div>
+
           <svg
             className={`h-full w-full touch-none ${
               tool === "pan" || mode === "view" ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"
@@ -344,7 +450,7 @@ export function OverworldGrid({
             onPointerUp={onGridPointerUp}
             onPointerLeave={onGridPointerUp}
           >
-            <g transform={`translate(${pan.x} ${pan.y})`}>
+            <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
               {Array.from({ length: grid.height }, (_, row) =>
                 Array.from({ length: grid.width }, (_, col) => (
                   <rect
@@ -436,11 +542,8 @@ export function OverworldGrid({
               })}
             </g>
           </svg>
-          <div
-            className="pointer-events-none absolute bottom-2 right-2 rounded bg-lore-bg/80 px-2 py-1 text-[10px] text-lore-muted"
-            style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}
-          >
-            {grid.width}×{grid.height} grid
+          <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-lore-bg/80 px-2 py-1 text-[10px] text-lore-muted">
+            {grid.width}×{grid.height} grid · scroll to zoom
           </div>
         </div>
       )}

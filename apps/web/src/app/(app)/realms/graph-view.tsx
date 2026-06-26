@@ -17,9 +17,10 @@ import {
 const SIZE = 1000;
 const NODE_RADIUS = 14;
 
-export function GraphView() {
+export function GraphView({ campaignId }: { campaignId?: string }) {
   const router = useRouter();
-  const graph = trpc.realms.graph.useQuery();
+  const graphInput = campaignId ? { campaignId } : undefined;
+  const graph = trpc.realms.graph.useQuery(graphInput);
 
   const { nodes, edges, positions } = useMemo(() => {
     const nodes = graph.data?.nodes ?? [];

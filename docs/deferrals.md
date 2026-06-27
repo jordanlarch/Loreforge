@@ -169,7 +169,7 @@ are metadata-only. Diverges sharply from the full "homebrew forge."
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| SMITH-1 | Edit existing homebrew (`update`/`updateSpell` mutations + edit UI/modal) | P2 (deepen) | doc-only | Partial | **`smithy.updateSpell` mutation shipped (Jun 2026)** — owner-scoped update with engine validation. **Still deferred:** edit UI/modal on detail pages, item edit, browse-card Edit action. |
+| SMITH-1 | Edit existing homebrew (`update`/`updateSpell` mutations + edit UI/modal) | P2 (deepen) | doc-only | Done | **`smithy.updateSpell` + `smithy.update` + detail-page edit UI** (spell/item forms extracted; browse-card Edit deferred to SMITH-3). |
 | SMITH-2 | Full Codex-mirror category sidebar (Species, Backgrounds, Classes, Animals, Monsters, Feats, Advanced) + unified "All My Homebrew" landing | P2 (deepen) | doc-only | Missing | Today: Items (6 subtypes) + Spells only. |
 | SMITH-3 | Browse-card actions (Edit, Duplicate, Delete-on-card, Use in Character) + timestamps + description snippets | P2 (deepen) | doc-only | Missing | Cards link to detail only. |
 | SMITH-4 | Text search + filters (Last Edited, Source Copied/Original) + Grid/List/Table toggle | P2 (deepen) | doc-only | Missing | — |

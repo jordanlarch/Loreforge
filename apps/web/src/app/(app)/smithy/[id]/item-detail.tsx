@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
+import { SmithyItemForm } from "@/components/smithy-item-form";
 import { trpc } from "@/lib/trpc/client";
 import { useRecordSmithyView } from "@/lib/use-record-smithy-view";
 
 export function ItemDetail({ id }: { id: string }) {
   const router = useRouter();
   const utils = trpc.useUtils();
+  const [editing, setEditing] = useState(false);
   const query = trpc.smithy.get.useQuery({ id });
 
   useRecordSmithyView("item", id, query.data?.name);
@@ -63,45 +66,75 @@ export function ItemDetail({ id }: { id: string }) {
             {item.source === "codex" && " · copied from Codex"}
           </p>
         </div>
-        <button
-          onClick={() => remove.mutate({ id })}
-          disabled={remove.isPending}
-          className="rounded border border-red-500/40 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
-        >
-          {remove.isPending ? "Deleting…" : "Delete"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setEditing(true)}
+            className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => remove.mutate({ id })}
+            disabled={remove.isPending}
+            className="rounded border border-red-500/40 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+          >
+            {remove.isPending ? "Deleting…" : "Delete"}
+          </button>
+        </div>
       </header>
 
-      {item.properties.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-            Properties
-          </h2>
-          <ul className="flex flex-wrap gap-2">
-            {item.properties.map((p) => (
-              <li
-                key={p}
-                className="rounded-full border border-lore-border bg-lore-surface px-3 py-1 text-sm"
-              >
-                {p}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {editing ? (
+        <SmithyItemForm
+          mode="edit"
+          itemId={id}
+          initial={{
+            name: item.name,
+            type: item.type,
+            rarity: item.rarity,
+            properties: item.properties,
+            description: item.description,
+            requiresAttunement: item.requiresAttunement,
+            source: item.source,
+            copiedFromSlug: item.copiedFromSlug,
+          }}
+          onDone={() => setEditing(false)}
+          onCancel={() => setEditing(false)}
+          className="mt-8"
+        />
+      ) : (
+        <>
+          {item.properties.length > 0 && (
+            <section className="mt-8">
+              <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
+                Properties
+              </h2>
+              <ul className="flex flex-wrap gap-2">
+                {item.properties.map((p) => (
+                  <li
+                    key={p}
+                    className="rounded-full border border-lore-border bg-lore-surface px-3 py-1 text-sm"
+                  >
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
-          Description
-        </h2>
-        {item.description ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">
-            {item.description}
-          </p>
-        ) : (
-          <p className="text-sm text-lore-muted">No description yet.</p>
-        )}
-      </section>
+          <section className="mt-8">
+            <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
+              Description
+            </h2>
+            {item.description ? (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                {item.description}
+              </p>
+            ) : (
+              <p className="text-sm text-lore-muted">No description yet.</p>
+            )}
+          </section>
+        </>
+      )}
 
       {remove.error && (
         <p className="mt-6 text-sm text-red-400">{remove.error.message}</p>

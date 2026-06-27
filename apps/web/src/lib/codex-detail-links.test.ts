@@ -8,17 +8,15 @@ import {
 } from "./codex-detail-links";
 
 describe("codexDeepLink", () => {
-  it("builds query-param deep links", () => {
-    expect(codexDeepLink("Spells", "fireball")).toBe(
-      "/codex?category=Spells&slug=fireball",
-    );
+  it("builds path-based deep links", () => {
+    expect(codexDeepLink("Spells", "fireball")).toBe("/codex/spells/fireball");
   });
 });
 
 describe("codexShareUrl", () => {
   it("prefixes the app origin", () => {
     expect(codexShareUrl("Feats", "alert", "https://app.test")).toBe(
-      "https://app.test/codex?category=Feats&slug=alert",
+      "https://app.test/codex/feats/alert",
     );
   });
 });

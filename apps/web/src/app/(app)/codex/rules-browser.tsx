@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 
 import { RuleDetail } from "./rule-detail";
@@ -13,7 +14,7 @@ export function RulesBrowser({
   selectedSlug: string | null;
   onSelect: (slug: string | null) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
   const [chapterSlug, setChapterSlug] = useState<string | undefined>();
 
   const chapters = trpc.codex.listRuleChapters.useQuery();

@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import type { CodexCategory } from "@/lib/codex-categories";
+import { codexDeepLink } from "@/lib/codex-detail-links";
 
 /**
  * Inline link to another Codex entry with a hover preview of its summary text.
@@ -21,7 +22,7 @@ export function CodexRefLink({
   /** Preferred: single atomic navigation (avoids racing with modal close). */
   onNavigateRef?: (category: CodexCategory, slug: string) => void;
 }) {
-  const href = `/codex?${new URLSearchParams({ category, slug }).toString()}`;
+  const href = codexDeepLink(category, slug);
 
   const className =
     "text-lore-accent underline decoration-lore-accent/40 underline-offset-2 transition-colors hover:decoration-lore-accent";

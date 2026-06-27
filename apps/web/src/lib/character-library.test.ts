@@ -5,7 +5,9 @@ import {
   codexSpellToCharacterSpell,
   equipmentKey,
   mergeEquippedCodexItem,
+  mergeEquippedSmithyItem,
   mergePreparedCodexSpell,
+  mergePreparedSmithySpell,
   smithyItemToEquipment,
   smithySpellToCharacterSpell,
   spellKey,
@@ -130,6 +132,49 @@ describe("character-library mappers", () => {
       { name: "Chain Mail", quantity: 1, equipped: false, weight: 55 },
     ];
     const updated = mergeEquippedCodexItem(existing, item);
+    expect(updated).toHaveLength(1);
+    expect(updated[0]?.equipped).toBe(true);
+  });
+
+  it("mergePreparedSmithySpell adds or marks prepared", () => {
+    const empty: SpellLoadout = { spells: [], slots: {} };
+    const spell = { name: "Jordan's Bolt", level: 0, school: "evocation" };
+    const added = mergePreparedSmithySpell(empty, spell);
+    expect(added.spells).toHaveLength(1);
+    expect(added.spells[0]?.prepared).toBe(true);
+
+    const existing: SpellLoadout = {
+      spells: [{ name: "Jordan's Bolt", level: 0, prepared: false }],
+      slots: {},
+    };
+    const updated = mergePreparedSmithySpell(existing, spell);
+    expect(updated.spells).toHaveLength(1);
+    expect(updated.spells[0]?.prepared).toBe(true);
+  });
+
+  it("mergeEquippedSmithyItem adds or marks equipped", () => {
+    const item = {
+      id: "item-1",
+      name: "Flame Tongue",
+      type: "Weapon",
+      rarity: "Rare",
+      description: "A fiery blade.",
+      requiresAttunement: true,
+    };
+    const added = mergeEquippedSmithyItem([], item);
+    expect(added).toHaveLength(1);
+    expect(added[0]?.equipped).toBe(true);
+    expect(added[0]?.smithyItemId).toBe("item-1");
+
+    const existing: EquipmentItem[] = [
+      {
+        name: "Flame Tongue",
+        quantity: 1,
+        equipped: false,
+        smithyItemId: "item-1",
+      },
+    ];
+    const updated = mergeEquippedSmithyItem(existing, item);
     expect(updated).toHaveLength(1);
     expect(updated[0]?.equipped).toBe(true);
   });

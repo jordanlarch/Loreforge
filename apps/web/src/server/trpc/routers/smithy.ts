@@ -294,6 +294,42 @@ export const smithyRouter = createTRPCRouter({
       return row;
     }),
 
+  /** Duplicate an owned homebrew item as "(Copy)". */
+  duplicate: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [source] = await db
+        .select()
+        .from(homebrewItems)
+        .where(
+          and(
+            eq(homebrewItems.id, input.id),
+            eq(homebrewItems.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!source) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Item not found." });
+      }
+
+      const {
+        id: _id,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        ...rest
+      } = source;
+      const [row] = await db
+        .insert(homebrewItems)
+        .values({
+          ...rest,
+          name: `${source.name} (Copy)`,
+          ownerId: ctx.user.id,
+        })
+        .returning();
+      return row;
+    }),
+
   /** Delete an owned item. Throws NOT_FOUND if it doesn't exist / isn't owned. */
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
@@ -338,6 +374,8 @@ export const smithyRouter = createTRPCRouter({
           level: homebrewSpells.level,
           school: homebrewSpells.school,
           source: homebrewSpells.source,
+          updatedAt: homebrewSpells.updatedAt,
+          description: homebrewSpells.description,
         })
         .from(homebrewSpells)
         .where(and(...conditions))
@@ -560,6 +598,48 @@ export const smithyRouter = createTRPCRouter({
         slug: input.slug,
       }),
     ),
+
+  /** Duplicate an owned homebrew spell as "(Copy)". */
+  duplicateSpell: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [source] = await db
+        .select()
+        .from(homebrewSpells)
+        .where(
+          and(
+            eq(homebrewSpells.id, input.id),
+            eq(homebrewSpells.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!source) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Spell not found." });
+      }
+
+      const copyName = `${source.name} (Copy)`;
+      const definition: SpellDefinition = {
+        ...source.definition,
+        id: spellId(copyName),
+        name: copyName,
+      };
+
+      const [row] = await db
+        .insert(homebrewSpells)
+        .values({
+          ownerId: ctx.user.id,
+          name: copyName,
+          level: source.level,
+          school: source.school,
+          description: source.description,
+          definition,
+          source: source.source,
+          copiedFromSlug: source.copiedFromSlug,
+        })
+        .returning();
+      return row;
+    }),
 
   /** Delete an owned spell. Throws NOT_FOUND if it doesn't exist / isn't owned. */
   deleteSpell: protectedProcedure

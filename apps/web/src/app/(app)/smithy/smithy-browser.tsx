@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ITEM_TYPES, type ItemType } from "@app/engine";
 
 import { SmithyItemForm } from "@/components/smithy-item-form";
+import { SmithyLibraryCard } from "@/components/smithy-library-card";
 import {
   SMITHY_LIBRARY_CATEGORIES,
   smithyCategoryLabel,
@@ -84,29 +85,19 @@ function LibraryGrid({ category }: { category: SmithyLibraryCategory }) {
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {entries.map((entry) => (
             <li key={`${entry.kind}-${entry.id}`}>
-              <Link
+              <SmithyLibraryCard
+                id={entry.id}
+                kind={entry.kind}
+                name={entry.name}
                 href={entry.href}
-                className="flex h-full flex-col gap-2 rounded-lg border border-lore-border bg-lore-surface p-5 transition-colors hover:border-lore-accent"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-display text-lg leading-tight">
-                    {entry.name}
-                  </span>
-                  {entry.source === "codex" && (
-                    <span className="shrink-0 rounded bg-lore-bg px-2 py-0.5 text-xs text-lore-muted">
-                      Copied
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs capitalize text-lore-muted">
-                  {entry.subtitle}
-                </span>
-                {entry.descriptionSnippet ? (
-                  <span className="line-clamp-2 text-xs text-lore-muted">
-                    {entry.descriptionSnippet}
-                  </span>
-                ) : null}
-              </Link>
+                subtitle={entry.subtitle}
+                source={entry.source}
+                descriptionSnippet={entry.descriptionSnippet}
+                updatedAt={entry.updatedAt}
+                useOnCharacter={
+                  entry.kind === "spell" || entry.category === "Items"
+                }
+              />
             </li>
           ))}
         </ul>
@@ -185,27 +176,17 @@ function ItemsBrowser() {
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {(list.data ?? []).map((entry) => (
                 <li key={entry.id}>
-                  <Link
+                  <SmithyLibraryCard
+                    id={entry.id}
+                    kind="item"
+                    name={entry.name}
                     href={entry.href}
-                    className="flex h-full flex-col gap-2 rounded-lg border border-lore-border bg-lore-surface p-5 transition-colors hover:border-lore-accent"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-display text-lg leading-tight">
-                        {entry.name}
-                      </span>
-                      {entry.source === "codex" && (
-                        <span className="shrink-0 rounded bg-lore-bg px-2 py-0.5 text-xs text-lore-muted">
-                          Copied
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-lore-muted">{entry.subtitle}</span>
-                    {entry.descriptionSnippet ? (
-                      <span className="line-clamp-2 text-xs text-lore-muted">
-                        {entry.descriptionSnippet}
-                      </span>
-                    ) : null}
-                  </Link>
+                    subtitle={entry.subtitle}
+                    source={entry.source}
+                    descriptionSnippet={entry.descriptionSnippet}
+                    updatedAt={entry.updatedAt}
+                    useOnCharacter
+                  />
                 </li>
               ))}
             </ul>

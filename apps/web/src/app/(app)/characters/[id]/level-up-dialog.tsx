@@ -4,15 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   abilityModifier,
+  extraAttackCount,
+  fightingStylePickLevel,
   grantsAsiAtLevel,
   featureStubsForLevel,
   classFeaturesForLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
+  isSpellcastingClasses,
   levelUpSeed,
+  multiclassCasterLevel,
   proficiencyBonusForLevel,
+  sheetSlotPoolsFromClasses,
   subclassPickLevel,
   totalLevel,
+  warlockLevelFromClasses,
+  warlockPactMagic,
   type AbilityScores,
   type ClassLevel,
   type HpMethod,
@@ -23,11 +30,14 @@ import {
   asiFeatComplete,
   type AsiFeatSelection,
 } from "@/components/character-creation/asi-feat-choice";
-import { SubclassPicker } from "@/components/character-creation/class-choice-pickers";
+import {
+  FightingStylePicker,
+  SubclassPicker,
+} from "@/components/character-creation/class-choice-pickers";
+import { parseCharacterNotes } from "@/lib/character-sheet-storage";
 import { trpc } from "@/lib/trpc/client";
 
 const MAX_LEVEL = 20;
-const WIZARD_STEPS = ["Hit Points", "New Features", "Confirm"] as const;
 
 type Character = {
   id: string;
@@ -42,6 +52,29 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
+function previewClasses(
+  character: Character,
+  classIndex: number,
+  addingClass: string | null,
+): ClassLevel[] {
+  if (addingClass) {
+    return [...character.classes, { class: addingClass, level: 1 }];
+  }
+  return character.classes.map((c, i) =>
+    i === classIndex ? { ...c, level: c.level + 1 } : c,
+  );
+}
+
+function formatSlotTable(
+  classes: ClassLevel[],
+): { level: string; max: number }[] {
+  const pools = sheetSlotPoolsFromClasses(classes);
+  return Object.entries(pools)
+    .map(([level, pool]) => ({ level, max: pool.max }))
+    .filter((r) => r.max > 0)
+    .sort((a, b) => Number(a.level) - Number(b.level));
+}
+
 export function LevelUpDialog({
   character,
   milestoneXp,
@@ -53,6 +86,10 @@ export function LevelUpDialog({
 }) {
   const utils = trpc.useUtils();
   const codexClasses = trpc.codex.listClasses.useQuery();
+  const existingMeta = useMemo(
+    () => parseCharacterNotes(character.notes).meta,
+    [character.notes],
+  );
 
   const [wizardStep, setWizardStep] = useState(0);
   const [classIndex, setClassIndex] = useState(0);
@@ -60,7 +97,9 @@ export function LevelUpDialog({
   const [hpMethod, setHpMethod] = useState<HpMethod>("average");
   const [celebrating, setCelebrating] = useState(false);
   const [subclass, setSubclass] = useState("");
+  const [fightingStyle, setFightingStyle] = useState("");
   const [asiFeat, setAsiFeat] = useState<AsiFeatSelection | null>(null);
+  const [applySpellSlots, setApplySpellSlots] = useState(true);
 
   const levelUp = trpc.characters.levelUp.useMutation({
     onSuccess: async () => {
@@ -96,6 +135,28 @@ export function LevelUpDialog({
     );
   }, [codexClasses.data, target, addingClass, addNewClass]);
 
+  const nextClasses = useMemo(
+    () => previewClasses(character, classIndex, addNewClass),
+    [character, classIndex, addNewClass],
+  );
+
+  const showSpellsStep = useMemo(
+    () =>
+      isSpellcastingClasses(character.classes) ||
+      isSpellcastingClasses(nextClasses),
+    [character.classes, nextClasses],
+  );
+
+  const stepLabels = useMemo(() => {
+    const steps = ["Class", "Hit Points", "Features"];
+    if (showSpellsStep) steps.push("Spells & Magic");
+    steps.push("Review");
+    return steps;
+  }, [showSpellsStep]);
+
+  const reviewStepIndex = stepLabels.length - 1;
+  const featuresStepIndex = 2;
+
   if (!addingClass && !target) return null;
 
   const atClassCap = !addingClass && target!.level >= MAX_LEVEL;
@@ -129,10 +190,14 @@ export function LevelUpDialog({
   const grantsAsi = !addingClass && grantsAsiAtLevel(className, newClassLevel);
   const needsSubclass =
     !addingClass && subclassPickLevel(className) === newClassLevel;
+  const needsFightingStyle =
+    fightingStylePickLevel(className) === newClassLevel;
 
   const blocked = atClassCap || atTotalCap || hitDie == null;
   const asiInvalid = grantsAsi && !asiFeatComplete(asiFeat);
   const subclassInvalid = needsSubclass && !subclass.trim();
+  const fightingStyleInvalid =
+    needsFightingStyle && !fightingStyle.trim() && !existingMeta.fightingStyles?.[className];
 
   const canMulticlass =
     character.classes[0] != null &&
@@ -142,6 +207,17 @@ export function LevelUpDialog({
   const availableNewClasses = (codexClasses.data ?? []).filter(
     (c) => !character.classes.some((cl) => cl.class === c.name),
   );
+
+  const slotsBefore = formatSlotTable(character.classes);
+  const slotsAfter = formatSlotTable(nextClasses);
+  const casterLevelBefore = multiclassCasterLevel(character.classes);
+  const casterLevelAfter = multiclassCasterLevel(nextClasses);
+  const warlockBefore = warlockLevelFromClasses(character.classes);
+  const warlockAfter = warlockLevelFromClasses(nextClasses);
+  const pactAfter =
+    warlockAfter > 0 ? warlockPactMagic(warlockAfter) : null;
+  const extraAttacksBefore = extraAttackCount(character.classes);
+  const extraAttacksAfter = extraAttackCount(nextClasses);
 
   if (celebrating) {
     return (
@@ -164,6 +240,8 @@ export function LevelUpDialog({
     );
   }
 
+  const currentStepLabel = stepLabels[wizardStep] ?? "";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -179,7 +257,7 @@ export function LevelUpDialog({
         <header className="flex items-start justify-between gap-4 border-b border-lore-border pb-4">
           <div>
             <div className="text-xs uppercase tracking-widest text-lore-muted">
-              Level Up · Step {wizardStep + 1} of {WIZARD_STEPS.length}
+              Level Up · Step {wizardStep + 1} of {stepLabels.length}
             </div>
             <h2 className="mt-1 font-display text-2xl">
               {addingClass
@@ -198,7 +276,7 @@ export function LevelUpDialog({
         </header>
 
         <ol className="mt-4 flex flex-wrap gap-2">
-          {WIZARD_STEPS.map((label, i) => (
+          {stepLabels.map((label, i) => (
             <li
               key={label}
               className={`rounded-full border px-2.5 py-0.5 text-xs ${
@@ -222,7 +300,7 @@ export function LevelUpDialog({
           </p>
         ) : (
           <>
-            {wizardStep === 0 && (
+            {currentStepLabel === "Class" && (
               <>
                 {!addingClass && character.classes.length > 1 && (
                   <section className="mt-6">
@@ -284,48 +362,81 @@ export function LevelUpDialog({
                   </section>
                 )}
 
-                <section className="mt-6">
-                  <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
-                    Hit Points
-                  </h3>
-                  {addingClass ? (
-                    <p className="text-sm text-lore-muted">
-                      First level in a new class: {hitDie ?? "—"} + CON (
-                      {signed(conMod)}) = {hpGain ?? "—"} HP
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {(["average", "roll"] as HpMethod[]).map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setHpMethod(m)}
-                          className={`rounded-lg border px-3 py-3 text-left transition-colors ${
-                            hpMethod === m
-                              ? "border-lore-accent bg-lore-accent-dim"
-                              : "border-lore-border bg-lore-surface hover:border-lore-accent"
-                          }`}
-                        >
-                          <div className="text-sm font-medium">
-                            {m === "average" ? "Take average" : "Roll hit die"}
-                          </div>
-                          <div className="mt-0.5 text-xs text-lore-muted">
-                            {hitDie == null
-                              ? "—"
-                              : m === "average"
-                                ? `${Math.floor(hitDie / 2) + 1} + ${signed(conMod)} CON`
-                                : `1d${hitDie} + ${signed(conMod)} CON`}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
                 <section className="mt-6 rounded-lg border border-lore-border bg-lore-surface p-4">
                   <h3 className="mb-3 text-xs uppercase tracking-wide text-lore-muted">
-                    Preview
+                    Progression preview
                   </h3>
+                  <dl className="space-y-1.5 text-sm">
+                    <PreviewRow
+                      label="Total level"
+                      value={`${totalLevel(character.classes)} → ${newTotalLevel}`}
+                    />
+                    <PreviewRow
+                      label="Class line"
+                      value={
+                        addingClass
+                          ? `${character.classes.map((c) => `${c.class} ${c.level}`).join(" / ")} / ${addNewClass} 1`
+                          : `${target!.class} ${target!.level} → ${newClassLevel}`
+                      }
+                    />
+                    <PreviewRow
+                      label="Proficiency bonus"
+                      value={
+                        profBefore === profAfter
+                          ? signed(profAfter)
+                          : `${signed(profBefore)} → ${signed(profAfter)}`
+                      }
+                    />
+                    {extraAttacksAfter > extraAttacksBefore && (
+                      <PreviewRow
+                        label="Extra Attack"
+                        value={`${extraAttacksBefore} → ${extraAttacksAfter} per Attack action`}
+                      />
+                    )}
+                  </dl>
+                </section>
+              </>
+            )}
+
+            {currentStepLabel === "Hit Points" && (
+              <section className="mt-6">
+                <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
+                  Hit Points
+                </h3>
+                {addingClass ? (
+                  <p className="text-sm text-lore-muted">
+                    First level in a new class: {hitDie ?? "—"} + CON (
+                    {signed(conMod)}) = {hpGain ?? "—"} HP
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["average", "roll"] as HpMethod[]).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setHpMethod(m)}
+                        className={`rounded-lg border px-3 py-3 text-left transition-colors ${
+                          hpMethod === m
+                            ? "border-lore-accent bg-lore-accent-dim"
+                            : "border-lore-border bg-lore-surface hover:border-lore-accent"
+                        }`}
+                      >
+                        <div className="text-sm font-medium">
+                          {m === "average" ? "Take average" : "Roll hit die"}
+                        </div>
+                        <div className="mt-0.5 text-xs text-lore-muted">
+                          {hitDie == null
+                            ? "—"
+                            : m === "average"
+                              ? `${Math.floor(hitDie / 2) + 1} + ${signed(conMod)} CON`
+                              : `1d${hitDie} + ${signed(conMod)} CON`}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <section className="mt-6 rounded-lg border border-lore-border bg-lore-surface p-4">
                   <dl className="space-y-1.5 text-sm">
                     <PreviewRow
                       label="HP gain"
@@ -339,23 +450,15 @@ export function LevelUpDialog({
                           : `${character.maxHp} → ${character.maxHp + hpGain}`
                       }
                     />
-                    <PreviewRow
-                      label="Proficiency bonus"
-                      value={
-                        profBefore === profAfter
-                          ? signed(profAfter)
-                          : `${signed(profBefore)} → ${signed(profAfter)}`
-                      }
-                    />
                     {milestoneXp && (
                       <PreviewRow label="XP mode" value="Milestone (auto-sync)" />
                     )}
                   </dl>
                 </section>
-              </>
+              </section>
             )}
 
-            {wizardStep === 1 && (
+            {currentStepLabel === "Features" && (
               <section className="mt-6">
                 <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
                   New at {className} {newClassLevel}
@@ -368,7 +471,9 @@ export function LevelUpDialog({
                         className="rounded border border-lore-border px-3 py-2 text-sm"
                       >
                         <div className="font-medium">{f.name}</div>
-                        <p className="mt-1 text-xs text-lore-muted">{f.description}</p>
+                        <p className="mt-1 text-xs text-lore-muted">
+                          {f.description}
+                        </p>
                       </li>
                     ))}
                   </ul>
@@ -389,6 +494,19 @@ export function LevelUpDialog({
                   />
                 )}
 
+                {needsFightingStyle && (
+                  <FightingStylePicker
+                    className={className}
+                    level={newClassLevel}
+                    value={
+                      fightingStyle ||
+                      existingMeta.fightingStyles?.[className] ||
+                      ""
+                    }
+                    onChange={setFightingStyle}
+                  />
+                )}
+
                 {grantsAsi && (
                   <div className="mt-6">
                     <AsiFeatChoice
@@ -401,10 +519,85 @@ export function LevelUpDialog({
               </section>
             )}
 
-            {wizardStep === 2 && (
+            {currentStepLabel === "Spells & Magic" && (
+              <section className="mt-6 space-y-4">
+                <p className="text-sm text-lore-muted">
+                  Spell lists are managed on the Spells tab. This step updates
+                  slot maxima from your class levels (PHB multiclass pooling).
+                </p>
+
+                {casterLevelAfter > 0 && (
+                  <div className="rounded-lg border border-lore-border bg-lore-surface p-4 text-sm">
+                    <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+                      Pooled caster level
+                    </h3>
+                    <p className="mt-1">
+                      {casterLevelBefore === casterLevelAfter
+                        ? casterLevelAfter
+                        : `${casterLevelBefore} → ${casterLevelAfter}`}
+                    </p>
+                  </div>
+                )}
+
+                {slotsAfter.length > 0 && (
+                  <div className="rounded-lg border border-lore-border bg-lore-surface p-4">
+                    <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+                      Spell slots
+                    </h3>
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {slotsAfter.map((row) => {
+                        const before = slotsBefore.find(
+                          (s) => s.level === row.level,
+                        );
+                        return (
+                          <li key={row.level} className="flex justify-between">
+                            <span>Level {row.level}</span>
+                            <span className="font-mono tabular-nums">
+                              {before && before.max !== row.max
+                                ? `${before.max} → ${row.max}`
+                                : row.max}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {pactAfter && (
+                  <div className="rounded-lg border border-lore-border bg-lore-surface p-4 text-sm">
+                    <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+                      Pact Magic
+                    </h3>
+                    <p className="mt-1">
+                      {warlockBefore !== warlockAfter && warlockBefore > 0
+                        ? `${warlockBefore} → ${warlockAfter} Warlock levels · `
+                        : ""}
+                      {pactAfter.max} slot{pactAfter.max === 1 ? "" : "s"} at
+                      spell level {pactAfter.slotLevel}
+                    </p>
+                  </div>
+                )}
+
+                <label className="flex cursor-pointer items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={applySpellSlots}
+                    onChange={(e) => setApplySpellSlots(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Apply suggested slot maxima on level-up (keeps used counts
+                    capped to new max)
+                  </span>
+                </label>
+              </section>
+            )}
+
+            {currentStepLabel === "Review" && (
               <section className="mt-6 rounded-lg border border-lore-border bg-lore-surface p-4">
                 <h3 className="mb-3 text-xs uppercase tracking-wide text-lore-muted">
-                  Confirm level up
+                  Before → After
                 </h3>
                 <dl className="space-y-1.5 text-sm">
                   <PreviewRow label="Character" value={character.name} />
@@ -434,8 +627,37 @@ export function LevelUpDialog({
                   {subclass && (
                     <PreviewRow label="Subclass" value={subclass} />
                   )}
+                  {(fightingStyle ||
+                    existingMeta.fightingStyles?.[className]) && (
+                    <PreviewRow
+                      label="Fighting style"
+                      value={
+                        fightingStyle ||
+                        existingMeta.fightingStyles?.[className] ||
+                        ""
+                      }
+                    />
+                  )}
                   {asiFeat?.kind === "feat" && (
                     <PreviewRow label="Feat" value={asiFeat.featName} />
+                  )}
+                  {asiFeat?.kind === "asi" && (
+                    <PreviewRow
+                      label="ASI"
+                      value={Object.entries(asiFeat.asi)
+                        .filter(([, v]) => v > 0)
+                        .map(([k, v]) => `${k.toUpperCase()} +${v}`)
+                        .join(", ")}
+                    />
+                  )}
+                  {extraAttacksAfter > 1 && (
+                    <PreviewRow
+                      label="Attacks / action"
+                      value={String(extraAttacksAfter)}
+                    />
+                  )}
+                  {showSpellsStep && applySpellSlots && (
+                    <PreviewRow label="Spell slots" value="Apply PHB maxima" />
                   )}
                 </dl>
               </section>
@@ -463,13 +685,14 @@ export function LevelUpDialog({
             {wizardStep > 0 ? "Back" : "Cancel"}
           </button>
 
-          {!blocked && wizardStep < WIZARD_STEPS.length - 1 ? (
+          {!blocked && wizardStep < reviewStepIndex ? (
             <button
               type="button"
               onClick={() => setWizardStep((s) => s + 1)}
               disabled={
-                (wizardStep === 1 && asiInvalid) ||
-                (wizardStep === 1 && subclassInvalid)
+                (wizardStep === featuresStepIndex && asiInvalid) ||
+                (wizardStep === featuresStepIndex && subclassInvalid) ||
+                (wizardStep === featuresStepIndex && fightingStyleInvalid)
               }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -484,20 +707,24 @@ export function LevelUpDialog({
                   classIndex,
                   hpMethod,
                   addNewClass: addingClass ? addNewClass! : undefined,
-                  asi:
-                    asiFeat?.kind === "asi" ? asiFeat.asi : undefined,
-                  feat:
-                    asiFeat?.kind === "feat" ? asiFeat.featName : undefined,
+                  asi: asiFeat?.kind === "asi" ? asiFeat.asi : undefined,
+                  feat: asiFeat?.kind === "feat" ? asiFeat.featName : undefined,
                   subclass: subclass.trim() || undefined,
+                  fightingStyle:
+                    fightingStyle.trim() ||
+                    existingMeta.fightingStyles?.[className] ||
+                    undefined,
                   milestone: milestoneXp,
+                  applySpellSlots: showSpellsStep && applySpellSlots,
                 })
               }
               disabled={
                 blocked ||
                 levelUp.isPending ||
-                wizardStep < 2 ||
+                wizardStep < reviewStepIndex ||
                 asiInvalid ||
                 subclassInvalid ||
+                fightingStyleInvalid ||
                 (addingClass && !addNewClass)
               }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
@@ -515,9 +742,9 @@ export function LevelUpDialog({
 
 function PreviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-4">
       <dt className="text-lore-muted">{label}</dt>
-      <dd className="font-mono tabular-nums">{value}</dd>
+      <dd className="text-right font-mono text-sm tabular-nums">{value}</dd>
     </div>
   );
 }

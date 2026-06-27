@@ -269,6 +269,38 @@ export function FeaturesTab({
           )}
         </SheetSection>
       </div>
+
+      {(meta.levelHistory?.length ?? 0) > 0 && (
+        <div className="mt-4">
+          <SheetSection title="Level History">
+            <ul className="space-y-2 text-sm">
+              {[...(meta.levelHistory ?? [])]
+                .reverse()
+                .slice(0, 10)
+                .map((entry, i) => (
+                  <li
+                    key={`${entry.at}-${i}`}
+                    className="rounded border border-lore-border px-3 py-2"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium">
+                        Level {entry.totalLevel} — {entry.classGain}
+                      </span>
+                      <span className="text-xs text-lore-muted">
+                        {new Date(entry.at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-lore-muted">
+                      +{entry.hpGain} HP
+                      {entry.subclass ? ` · ${entry.subclass}` : ""}
+                      {entry.feat ? ` · Feat: ${entry.feat}` : ""}
+                    </p>
+                  </li>
+                ))}
+            </ul>
+          </SheetSection>
+        </div>
+      )}
     </div>
   );
 }

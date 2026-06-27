@@ -193,6 +193,15 @@ export {
   type FightingStyle,
 } from "./entities/class-choices";
 export {
+  aggregateFightingStyleModifiers,
+  effectiveArmorClass,
+  featModifiers,
+  fightingStyleModifiers,
+  styleModsForClass,
+  type FeatModifiers,
+  type FightingStyleModifiers,
+} from "./entities/character-modifiers";
+export {
   featureRechargeMap,
   featureResourceKey,
   refreshResourceUsesOnRest,
@@ -261,6 +270,7 @@ export {
 } from "./content/weapons";
 export { fullCasterSlots } from "./content/spell-slots";
 export {
+  isSpellcastingClasses,
   multiclassCasterLevel,
   sheetSlotPoolsFromClasses,
   spellSlotsForClasses,

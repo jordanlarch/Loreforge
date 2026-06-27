@@ -12,7 +12,13 @@
  * properties) and the *live* entity's ability mods + proficiency, so they track
  * engine state. Falls back to the generic Strike when no weapon is equipped.
  */
-import { abilityModifier, type EntityState } from "@app/engine";
+import {
+  abilityModifier,
+  aggregateFightingStyleModifiers,
+  extraAttackCount,
+  type ClassLevel,
+  type EntityState,
+} from "@app/engine";
 
 import type { EquipmentItem, SpellLoadout } from "./character";
 import {
@@ -144,6 +150,98 @@ function resolveWeapon(
     damage: { notation, type: spec.damageType },
     rangeFt,
   };
+}
+
+const TWO_HANDED = new Set([
+  "greataxe",
+  "greatsword",
+  "glaive",
+  "halberd",
+  "maul",
+]);
+
+const ARMOR_RE =
+  /armor|mail|plate|leather|scale|chain|studded|splint|hide|shield/i;
+
+/** Whether equipped gear suggests the character is wearing armor (Defense style). */
+export function equipmentHasArmor(
+  equipment: readonly EquipmentItem[],
+): boolean {
+  return equipment.some(
+    (e) => e.equipped && (e.quantity ?? 0) > 0 && ARMOR_RE.test(e.name),
+  );
+}
+
+function appendDamageMod(notation: string, bonus: number): string {
+  if (bonus === 0) return notation;
+  const m = notation.match(/^(\d+d\d+)([+-]\d+)?$/);
+  if (!m) return notation;
+  const mod = (m[2] ? parseInt(m[2], 10) : 0) + bonus;
+  return mod !== 0 ? `${m[1]}${mod >= 0 ? `+${mod}` : mod}` : m[1]!;
+}
+
+function isOneHandedMeleeWeapon(name: string, spec: WeaponSpec): boolean {
+  if (spec.ranged) return false;
+  const norm = normalize(name);
+  for (const key of TWO_HANDED) {
+    if (norm.includes(key)) return false;
+  }
+  return true;
+}
+
+/**
+ * Sheet Combat tab attacks: fighting-style modifiers + Extra Attack rows.
+ */
+export function deriveSheetCombatAttacks(
+  entity: EntityState,
+  equipment: readonly EquipmentItem[],
+  classes: ClassLevel[],
+  fightingStyles?: Record<string, string>,
+): WeaponAttack[] {
+  const base = deriveWeaponAttacks(entity, equipment);
+  const wearingArmor =
+    equipmentHasArmor(equipment) ||
+    entity.baseAc > 12 + abilityModifier(entity.abilityScores.dex);
+  const attackCount = extraAttackCount(classes);
+
+  return base.flatMap((attack) => {
+    const spec = matchWeapon(attack.label.split(" · ")[0] ?? "");
+    const weaponContext = {
+      wearingArmor,
+      oneHandedMelee: spec
+        ? isOneHandedMeleeWeapon(attack.label.split(" · ")[0] ?? "", spec)
+        : false,
+      ranged: spec?.ranged ?? false,
+    };
+    const style = aggregateFightingStyleModifiers(
+      classes,
+      fightingStyles,
+      weaponContext,
+    );
+    const modified: WeaponAttack = {
+      ...attack,
+      attackBonus: attack.attackBonus + style.rangedAttackBonus,
+      damage: {
+        ...attack.damage,
+        notation: appendDamageMod(
+          attack.damage.notation,
+          style.meleeDamageBonus,
+        ),
+      },
+    };
+    const weaponName = modified.label.split(" · ")[0] ?? "Attack";
+    return Array.from({ length: attackCount }, (_, i) => ({
+      ...modified,
+      id: `${attack.id}-extra-${i}`,
+      label:
+        attackCount > 1
+          ? modified.label.replace(
+              weaponName,
+              `${weaponName} (${i + 1}/${attackCount})`,
+            )
+          : modified.label,
+    }));
+  });
 }
 
 /** The generic Strike, shaped as a {@link WeaponAttack} (no weapon equipped). */

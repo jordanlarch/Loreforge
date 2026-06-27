@@ -12,13 +12,19 @@ export function SheetLiveHud({
   currentHp,
   tempHp,
   portraitUrl,
+  maxHp,
+  initiative,
 }: {
   sheet: CharacterSheet;
   currentHp: number;
   tempHp: number;
   portraitUrl: string;
+  maxHp?: number;
+  initiative?: number;
 }) {
-  const hpPct = Math.round((currentHp / Math.max(1, sheet.hp.max)) * 100);
+  const hpMax = maxHp ?? sheet.hp.max;
+  const hpPct = Math.round((currentHp / Math.max(1, hpMax)) * 100);
+  const init = initiative ?? sheet.initiative;
 
   return (
     <aside className="sticky top-4 rounded-lg border border-lore-border bg-lore-surface p-4">
@@ -62,7 +68,7 @@ export function SheetLiveHud({
         <div className="mb-1 flex justify-between text-xs text-lore-muted">
           <span>HP</span>
           <span>
-            {currentHp}/{sheet.hp.max}
+            {currentHp}/{hpMax}
             {tempHp > 0 ? ` (+${tempHp} temp)` : ""}
           </span>
         </div>
@@ -85,7 +91,7 @@ export function SheetLiveHud({
         </div>
         <div>
           <dt className="text-lore-muted">Init</dt>
-          <dd className="font-display text-lg">{signed(sheet.initiative)}</dd>
+          <dd className="font-display text-lg">{signed(init)}</dd>
         </div>
         <div>
           <dt className="text-lore-muted">Prof</dt>

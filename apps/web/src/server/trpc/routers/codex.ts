@@ -7,6 +7,8 @@
 import { and, asc, count, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { masteryFromOpen5eItemRaw } from "@app/engine";
+
 import {
   codexBackgrounds,
   codexClasses,
@@ -391,6 +393,28 @@ export const codexRouter = createTRPCRouter({
         .where(eq(codexItems.slug, input.slug))
         .limit(1);
       return row ?? null;
+    }),
+
+  /** Weapon mastery properties for equipped item names (Open5e raw JSON). */
+  resolveWeaponMasteries: protectedProcedure
+    .input(z.object({ names: z.array(z.string()).max(24) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const out: Record<string, { property: string; description: string }> =
+        {};
+      for (const rawName of input.names) {
+        const name = rawName.trim();
+        if (!name || out[name]) continue;
+        const [row] = await db
+          .select({ name: codexItems.name, raw: codexItems.raw })
+          .from(codexItems)
+          .where(ilike(codexItems.name, name))
+          .limit(1);
+        if (!row) continue;
+        const mastery = masteryFromOpen5eItemRaw(row.raw);
+        if (mastery) out[name] = mastery;
+      }
+      return out;
     }),
 
   /** Total ingested item count. */

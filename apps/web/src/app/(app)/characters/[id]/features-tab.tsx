@@ -8,7 +8,6 @@ import {
   FIGHTING_STYLES,
   fightingStylePickLevel,
   remainingFeatureUses,
-  spendFeatureUse,
   subclassOptionsFor,
   subclassPickLevel,
   type ClassLevel,
@@ -32,6 +31,7 @@ type FeatureRow = {
 };
 
 export function FeaturesTab({
+  characterId,
   species,
   background,
   classes,
@@ -39,7 +39,9 @@ export function FeaturesTab({
   onPatchMeta,
   onUpdateClasses,
   onFeatureUse,
+  onFeatureResult,
 }: {
+  characterId: string;
   species: string;
   background: string;
   classes: ClassLevel[];
@@ -47,8 +49,16 @@ export function FeaturesTab({
   onPatchMeta: (patch: Partial<CharacterSheetMeta>) => void;
   onUpdateClasses?: (classes: ClassLevel[]) => void;
   onFeatureUse?: (featureName: string) => void;
+  onFeatureResult?: (message: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  const utils = trpc.useUtils();
+  const useFeatureMut = trpc.characters.useFeature.useMutation({
+    onSuccess: (data) => {
+      onFeatureResult?.(data.message);
+      void utils.characters.get.invalidate({ id: characterId });
+    },
+  });
   const bgQuery = trpc.codex.getBackgroundByName.useQuery(
     { name: background },
     { enabled: background.trim().length > 0 },
@@ -142,9 +152,14 @@ export function FeaturesTab({
 
   function useFeature(row: FeatureRow) {
     if (!row.uses || row.uses <= 0) return;
-    const spent = spendFeatureUse(resourceUses[row.id], row.uses);
-    if (!spent) return;
-    onPatchMeta({ resourceUses: { ...resourceUses, [row.id]: spent } });
+    const remaining = remainingFeatureUses(resourceUses[row.id], row.uses);
+    if (remaining <= 0) return;
+    const spentCount = row.uses - remaining;
+    useFeatureMut.mutate({
+      id: characterId,
+      featureKey: row.id,
+      useIndex: spentCount,
+    });
     onFeatureUse?.(row.name);
   }
 
@@ -269,6 +284,12 @@ export function FeaturesTab({
           )}
         </SheetSection>
       </div>
+
+      {useFeatureMut.error && (
+        <p className="mt-4 text-sm text-red-400" role="alert">
+          {useFeatureMut.error.message}
+        </p>
+      )}
 
       {(meta.levelHistory?.length ?? 0) > 0 && (
         <div className="mt-4">

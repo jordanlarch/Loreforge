@@ -8,13 +8,13 @@ import {
   SheetSearchBar,
   SheetSection,
   SheetTableHeader,
-  ResourceBoxes,
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
 import { deriveSheetCombatAttacks } from "@/lib/sheet-loadout";
 import { weaponMasteriesForEquipment } from "@/lib/weapon-mastery";
 import type { EquipmentItem } from "@/lib/character";
 import type { ActiveEffect, CharacterSheetMeta } from "@/lib/character-sheet-storage";
+import { trpc } from "@/lib/trpc/client";
 
 type CombatInput = {
   id: string;
@@ -51,6 +51,19 @@ export function CombatTab({
   onPatchMeta: (patch: Partial<CharacterSheetMeta>) => void;
 }) {
   const [search, setSearch] = useState("");
+  const equippedNames = useMemo(
+    () =>
+      character.equipment
+        .filter((e) => e.equipped && (e.quantity ?? 0) > 0)
+        .map((e) => e.name.trim())
+        .filter(Boolean),
+    [character.equipment],
+  );
+  const codexMasteries = trpc.codex.resolveWeaponMasteries.useQuery(
+    { names: equippedNames },
+    { enabled: equippedNames.length > 0 },
+  );
+
   const entity = useMemo(
     () =>
       createEntityState({
@@ -65,18 +78,32 @@ export function CombatTab({
       }),
     [character],
   );
+  const combatToggles = meta.combatToggles ?? {};
   const attacks = deriveSheetCombatAttacks(
     entity,
     character.equipment,
     character.classes,
     meta.fightingStyles,
+    { feats: meta.feats, combatToggles },
   );
   const attacksPerAction = extraAttackCount(character.classes);
-  const masteries = weaponMasteriesForEquipment(character.equipment);
+  const masteries = weaponMasteriesForEquipment(
+    character.equipment,
+    codexMasteries.data,
+  );
   const filteredAttacks = useSheetSearch(attacks, search, (a) => a.label);
 
   const deathSaves = meta.deathSaves ?? { successes: 0, failures: 0 };
   const effects = meta.activeEffects ?? [];
+
+  function toggleCombatToggle(key: "sharpshooter" | "greatWeaponMaster") {
+    onPatchMeta({
+      combatToggles: {
+        ...combatToggles,
+        [key]: !combatToggles[key],
+      },
+    });
+  }
 
   function toggleDeathSave(field: "successes" | "failures", index: number) {
     const current = deathSaves[field];
@@ -104,9 +131,47 @@ export function CombatTab({
     });
   }
 
+  const hasSharpshooter = (meta.feats ?? []).some((f) =>
+    f.toLowerCase().includes("sharpshooter"),
+  );
+  const hasGwm = (meta.feats ?? []).some((f) =>
+    f.toLowerCase().includes("great weapon master"),
+  );
+
   return (
     <div>
       <SheetSearchBar value={search} onChange={setSearch} />
+
+      {(hasSharpshooter || hasGwm) && (
+        <div className="mb-4 flex flex-wrap gap-3 text-sm">
+          {hasSharpshooter && (
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={combatToggles.sharpshooter ?? false}
+                onChange={() => toggleCombatToggle("sharpshooter")}
+              />
+              Sharpshooter (−5 hit / +10 dmg ranged)
+            </label>
+          )}
+          {hasGwm && (
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={combatToggles.greatWeaponMaster ?? false}
+                onChange={() => toggleCombatToggle("greatWeaponMaster")}
+              />
+              Great Weapon Master (−5 hit / +10 dmg heavy melee)
+            </label>
+          )}
+        </div>
+      )}
+
+      {meta.actionSurgeReady && (
+        <p className="mb-4 rounded border border-lore-accent/40 bg-lore-accent-dim px-3 py-2 text-sm">
+          Action Surge ready — you have one additional action this turn.
+        </p>
+      )}
 
       <SheetSection title="Attacks">
         {attacksPerAction > 1 && (
@@ -132,7 +197,9 @@ export function CombatTab({
                 key={a.id}
                 className="grid grid-cols-6 items-center gap-2 py-2 text-sm"
               >
-                <span className="col-span-3 font-medium">{a.label.split(" · ")[0]}</span>
+                <span className="col-span-3 font-medium">
+                  {a.label.split(" · ")[0]}
+                </span>
                 <span className="text-lore-muted">{a.rangeFt} ft</span>
                 <span className="text-lore-accent">{fmtMod(a.attackBonus)}</span>
                 <span className="text-red-300">{a.damage.notation}</span>
@@ -174,7 +241,11 @@ export function CombatTab({
           ) : (
             <ul className="space-y-2">
               {effects.map((e) => (
-                <EffectRow key={e.id} effect={e} onToggle={() => toggleEffect(e.id)} />
+                <EffectRow
+                  key={e.id}
+                  effect={e}
+                  onToggle={() => toggleEffect(e.id)}
+                />
               ))}
             </ul>
           )}

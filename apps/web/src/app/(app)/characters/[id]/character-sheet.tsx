@@ -21,6 +21,7 @@ import {
   ensureHitDice,
   refreshSpellSlots,
 } from "@/lib/sheet-rest";
+import { effectiveSheetVitals } from "@/lib/sheet-modifiers";
 
 import { AbilitiesPanel } from "./abilities-panel";
 import { AboutTab } from "./about-tab";
@@ -67,6 +68,7 @@ export function CharacterSheetView({
   const [levelingUp, setLevelingUp] = useState(false);
   const [tab, setTab] = useState<Tab>("Combat");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [featureToast, setFeatureToast] = useState<string | null>(null);
 
   const update = trpc.characters.update.useMutation({
     async onMutate(vars) {
@@ -134,14 +136,22 @@ export function CharacterSheetView({
   }
 
   const sheet = buildCharacterSheet(character);
+  const metaWithHitDice = ensureHitDice(parsed.meta, character.classes);
+  const vitals = effectiveSheetVitals(
+    { ...character, equipment: character.equipment },
+    metaWithHitDice,
+  );
   const milestoneXp = parsed.meta.milestoneXp ?? false;
   const progress = xpProgress(character.xp, sheet.level);
   const atCap = sheet.level >= MAX_CHARACTER_LEVEL;
   const canLevelUp = milestoneXp ? !atCap : progress.canLevelUp;
-  const currentHp = parsed.meta.currentHp ?? character.maxHp;
+  const effectiveMaxHp = vitals.maxHp;
+  const currentHp = Math.min(
+    parsed.meta.currentHp ?? effectiveMaxHp,
+    effectiveMaxHp,
+  );
   const tempHp = parsed.meta.tempHp ?? 0;
   const notesRaw = character.notes;
-  const metaWithHitDice = ensureHitDice(parsed.meta, character.classes);
   const hitDiceList = Object.entries(metaWithHitDice.hitDice ?? {}).map(
     ([className, pool]) => ({
       class: className,
@@ -195,6 +205,12 @@ export function CharacterSheetView({
     <div
       className={`${embedded ? "py-4" : "mx-auto max-w-7xl px-4 py-10 pb-24"} space-y-4`}
     >
+      {featureToast && (
+        <p className="rounded border border-lore-accent/40 bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
+          {featureToast}
+        </p>
+      )}
+
       {update.error && (
         <p
           role="alert"
@@ -244,7 +260,7 @@ export function CharacterSheetView({
         />
         <SheetHpPanel
           current={currentHp}
-          max={character.maxHp}
+          max={effectiveMaxHp}
           temp={tempHp}
           hitDice={hitDiceList}
           onPatch={patchMeta}
@@ -339,6 +355,7 @@ export function CharacterSheetView({
             )}
             {tab === "Features & Traits" && (
               <FeaturesTab
+                characterId={id}
                 species={character.species}
                 background={character.background}
                 classes={character.classes}
@@ -346,6 +363,10 @@ export function CharacterSheetView({
                 onPatchMeta={patchMeta}
                 onUpdateClasses={(classes) => update.mutate({ id, classes })}
                 onFeatureUse={onFeatureUse}
+                onFeatureResult={(msg) => {
+                  setFeatureToast(msg);
+                  window.setTimeout(() => setFeatureToast(null), 5000);
+                }}
               />
             )}
             {tab === "Notes" && (
@@ -375,12 +396,19 @@ export function CharacterSheetView({
             inspiration={parsed.meta.inspiration ?? false}
             onPatchMeta={patchMeta}
             liveConditions={liveConditions}
+            effectiveAc={vitals.ac}
+            effectiveInitiative={vitals.initiative}
+            effectiveSpeed={vitals.speed}
+            passivePerceptionBonus={vitals.passivePerceptionBonus}
+            passiveInvestigationBonus={vitals.passiveInvestigationBonus}
           />
           <SheetLiveHud
             sheet={sheet}
             currentHp={currentHp}
             tempHp={tempHp}
             portraitUrl={character.portraitUrl}
+            maxHp={effectiveMaxHp}
+            initiative={vitals.initiative}
           />
         </div>
       </div>

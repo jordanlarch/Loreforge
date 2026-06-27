@@ -15,6 +15,21 @@ export function featureResourceKey(
   return `${className}-${level}-${featureId}`;
 }
 
+/** Parse {@link featureResourceKey} back into parts. */
+export function parseFeatureResourceKey(key: string): {
+  className: string;
+  level: number;
+  featureId: string;
+} | null {
+  const match = key.match(/^(.+)-(\d+)-(.+)$/);
+  if (!match) return null;
+  return {
+    className: match[1]!,
+    level: parseInt(match[2]!, 10),
+    featureId: match[3]!,
+  };
+}
+
 /** Map feature resource keys → recharge cadence for a character's classes. */
 export function featureRechargeMap(
   classes: ClassLevel[],

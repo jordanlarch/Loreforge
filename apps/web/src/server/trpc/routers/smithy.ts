@@ -171,6 +171,28 @@ export const smithyRouter = createTRPCRouter({
       return row;
     }),
 
+  /** Update an owned homebrew item (SMITH-1). */
+  update: protectedProcedure
+    .input(createInput.extend({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const { id, ...patch } = input;
+      const [row] = await db
+        .update(homebrewItems)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(
+          and(
+            eq(homebrewItems.id, id),
+            eq(homebrewItems.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Item not found." });
+      }
+      return row;
+    }),
+
   /** Delete an owned item. Throws NOT_FOUND if it doesn't exist / isn't owned. */
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))

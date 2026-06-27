@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { ITEM_RARITIES, ITEM_TYPES, type ItemType } from "@app/engine";
+import { ITEM_TYPES, type ItemType } from "@app/engine";
 
+import { SmithyItemForm } from "@/components/smithy-item-form";
 import { trpc } from "@/lib/trpc/client";
 
 import { SpellBrowser } from "./spell-browser";
@@ -89,7 +90,13 @@ function ItemsBrowser() {
           </div>
         </div>
 
-        {forging && <ForgeItemForm onForged={() => setForging(false)} />}
+        {forging ? (
+          <SmithyItemForm
+            mode="create"
+            className="mb-8"
+            onDone={() => setForging(false)}
+          />
+        ) : null}
 
         {!list.isLoading && (list.data?.length ?? 0) === 0 && !forging ? (
           <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
@@ -128,145 +135,6 @@ function ItemsBrowser() {
         )}
       </section>
     </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent";
-
-function ForgeItemForm({ onForged }: { onForged: () => void }) {
-  const utils = trpc.useUtils();
-  const create = trpc.smithy.create.useMutation({
-    onSuccess: async () => {
-      await utils.smithy.list.invalidate();
-      onForged();
-    },
-  });
-
-  const [name, setName] = useState("");
-  const [type, setType] = useState<ItemType>("Weapon");
-  const [rarity, setRarity] = useState<string>("Common");
-  const [propertiesText, setPropertiesText] = useState("");
-  const [description, setDescription] = useState("");
-  const [requiresAttunement, setRequiresAttunement] = useState(false);
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    create.mutate({
-      name: name.trim(),
-      type,
-      rarity: rarity as (typeof ITEM_RARITIES)[number],
-      properties: propertiesText
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean),
-      description: description.trim(),
-      requiresAttunement,
-    });
-  }
-
-  return (
-    <form
-      onSubmit={submit}
-      className="mb-8 space-y-5 rounded-lg border border-lore-border bg-lore-surface p-6"
-    >
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Name">
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Type">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as ItemType)}
-            className={inputClass}
-          >
-            {ITEM_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Rarity">
-          <select
-            value={rarity}
-            onChange={(e) => setRarity(e.target.value)}
-            className={inputClass}
-          >
-            {ITEM_RARITIES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
-
-      <Field label="Properties (comma-separated)">
-        <input
-          value={propertiesText}
-          onChange={(e) => setPropertiesText(e.target.value)}
-          placeholder="Heavy, Two-Handed, Special"
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label="Description">
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
-          placeholder="A greataxe wreathed in rolling thunder…"
-          className={inputClass}
-        />
-      </Field>
-
-      <label className="flex items-center gap-2 text-sm text-lore-muted">
-        <input
-          type="checkbox"
-          checked={requiresAttunement}
-          onChange={(e) => setRequiresAttunement(e.target.checked)}
-          className="accent-lore-accent"
-        />
-        Requires attunement
-      </label>
-
-      {create.error && (
-        <p className="text-sm text-red-400">{create.error.message}</p>
-      )}
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={create.isPending}
-          className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:opacity-50"
-        >
-          {create.isPending ? "Forging…" : "Forge item"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs uppercase tracking-wide text-lore-muted">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }
 

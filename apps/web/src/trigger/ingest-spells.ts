@@ -1,6 +1,7 @@
 import {
   closeDb,
   getDb,
+  ingestOpen5eAdvancedRules,
   ingestOpen5eBackgrounds,
   ingestOpen5eCreatures,
   ingestOpen5eFeats,
@@ -81,10 +82,25 @@ export const ingestSpellsNightly = schedules.task({
       });
       logger.info("Nightly Open5e rules ingest complete", { ...rules });
 
+      const advanced = await ingestOpen5eAdvancedRules({
+        db,
+        logger: (message) => logger.info(message),
+      });
+      logger.info("Nightly Open5e advanced rules ingest complete", { ...advanced });
+
       const options = await seedCharacterOptions(db);
       logger.info("Nightly SRD character-options seed complete", { ...options });
 
-      return { ...result, ...creatures, ...items, ...backgrounds, ...feats, ...rules, ...options };
+      return {
+        ...result,
+        ...creatures,
+        ...items,
+        ...backgrounds,
+        ...feats,
+        ...rules,
+        ...advanced,
+        ...options,
+      };
     } finally {
       await closeDb();
     }

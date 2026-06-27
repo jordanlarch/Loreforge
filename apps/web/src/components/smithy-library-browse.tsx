@@ -25,6 +25,7 @@ export type SmithyLibraryEntry = {
   href: string;
   updatedAt: Date | string;
   descriptionSnippet: string | null;
+  rarity?: string | null;
 };
 
 export type SmithyBrowseQuery = {
@@ -311,6 +312,7 @@ export function SmithyLibraryViews({
             useOnCharacter={
               entry.kind === "spell" || entry.category === "Items"
             }
+            rarity={entry.rarity}
           />
         </li>
       ))}

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import type { CharacterSpell, EquipmentItem } from "@/lib/character";
 import {
+  codexItemToEquipment,
   codexSpellToCharacterSpell,
   equipmentKey,
   smithyItemToEquipment,
@@ -113,6 +114,88 @@ export function CodexSpellAddPicker({
           Browse Codex
         </Link>
       </p>
+    </LibraryPickerModal>
+  );
+}
+
+/** Search Codex equipment and add one to a character loadout (SMITH-5). */
+export function CodexItemAddPicker({
+  existing,
+  onAdd,
+  onClose,
+}: {
+  existing: readonly EquipmentItem[];
+  onAdd: (item: EquipmentItem) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const list = trpc.codex.listItems.useQuery(
+    { search: search || undefined, limit: 24, offset: 0 },
+    { placeholderData: (prev) => prev },
+  );
+
+  const existingKeys = new Set(existing.map(equipmentKey));
+
+  function pick(item: {
+    name: string;
+    slug: string;
+    category?: string | null;
+    weight?: string | null;
+    description?: string | null;
+  }) {
+    const next = codexItemToEquipment({ ...item, slug: item.slug });
+    if (existingKeys.has(equipmentKey(next))) {
+      setNotice(`${next.name} is already on this character.`);
+      return;
+    }
+    onAdd(next);
+    onClose();
+  }
+
+  return (
+    <LibraryPickerModal
+      title="Add from Codex"
+      titleId="codex-item-add-title"
+      onClose={onClose}
+    >
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setNotice(null);
+        }}
+        placeholder="Search SRD gear…"
+        autoFocus
+        className={PICKER_SEARCH_INPUT}
+      />
+
+      {notice && <p className="mb-3 text-sm text-amber-400">{notice}</p>}
+
+      {list.isLoading ? (
+        <p className="text-sm text-lore-muted">Loading items…</p>
+      ) : (list.data?.items.length ?? 0) === 0 ? (
+        <p className="text-sm text-lore-muted">No items match.</p>
+      ) : (
+        <ul className={PICKER_LIST}>
+          {list.data!.items.map((item) => (
+            <li key={item.slug}>
+              <button
+                type="button"
+                onClick={() => pick(item)}
+                className={PICKER_ROW}
+              >
+                <span>{item.name}</span>
+                <span className="text-xs capitalize text-lore-muted">
+                  {item.category ?? "gear"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </LibraryPickerModal>
   );
 }

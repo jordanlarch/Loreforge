@@ -380,3 +380,331 @@ export async function copyCodexEntryToSmithy(input: {
   }
   return copySnapshot(input.ownerId, input.category, input.slug);
 }
+
+export function parseSmithyCopyKey(copyKey: string): {
+  category: CodexCategory;
+  slug: string;
+} {
+  const colon = copyKey.indexOf(":");
+  if (colon === -1) {
+    return { category: "Items", slug: copyKey };
+  }
+  return {
+    category: copyKey.slice(0, colon) as CodexCategory,
+    slug: copyKey.slice(colon + 1),
+  };
+}
+
+async function codexItemCopyPayload(
+  category: CodexCategory,
+  slug: string,
+): Promise<{
+  name: string;
+  type: ItemType;
+  description: string;
+  properties: string[];
+  requiresAttunement: boolean;
+}> {
+  if (category === "Items") {
+    const db = getDb();
+    const [codex] = await db
+      .select()
+      .from(codexItems)
+      .where(eq(codexItems.slug, slug))
+      .limit(1);
+    if (!codex) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Codex item not found." });
+    }
+    const raw = codex.raw ?? {};
+    return {
+      name: codex.name,
+      type: open5eItemCategoryToType(codex.category),
+      description:
+        codex.description?.trim() ||
+        buildCodexSnapshotDescription({
+          category: "Items",
+          name: codex.name,
+          raw,
+        }),
+      properties: weaponPropertyEntries(raw).map((p) => p.name),
+      requiresAttunement: Boolean(raw.requires_attunement),
+    };
+  }
+
+  const copyKey = codexSmithyCopyKey(category, slug);
+  const type = codexCategorySnapshotType(category);
+  const db = getDb();
+
+  if (category === "Species") {
+    const [row] = await db
+      .select()
+      .from(codexSpecies)
+      .where(eq(codexSpecies.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    return {
+      name: row.name,
+      type,
+      properties: [`Codex: ${category}`, ...row.traits.slice(0, 8)],
+      requiresAttunement: false,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        description: row.description,
+        raw: row.raw,
+        extras: [
+          `${row.size} · ${row.speed} ft speed`,
+          `Ability bonuses: ${JSON.stringify(row.abilityBonuses)}`,
+          row.traits.length ? `Traits: ${row.traits.join(", ")}` : "",
+        ],
+      }),
+    };
+  }
+
+  if (category === "Classes") {
+    const [row] = await db
+      .select()
+      .from(codexClasses)
+      .where(eq(codexClasses.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    return {
+      name: row.name,
+      type,
+      properties: [`Codex: ${category}`, `Hit die d${row.hitDie}`],
+      requiresAttunement: false,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        description: row.description,
+        raw: row.raw,
+        extras: [
+          `Saving throws: ${row.savingThrows.join(", ") || "—"}`,
+          `Skill choice: ${row.skillChoice.choose} from list`,
+        ],
+      }),
+    };
+  }
+
+  if (category === "Backgrounds") {
+    const [row] = await db
+      .select()
+      .from(codexBackgrounds)
+      .where(eq(codexBackgrounds.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    return {
+      name: row.name,
+      type,
+      properties: [`Codex: ${category}`],
+      requiresAttunement: false,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        description: row.description,
+        raw: row.raw,
+      }),
+    };
+  }
+
+  if (category === "Feats") {
+    const [row] = await db
+      .select()
+      .from(codexFeats)
+      .where(eq(codexFeats.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    return {
+      name: row.name,
+      type,
+      properties: [
+        `Codex: ${category}`,
+        row.featType ? `Type: ${row.featType}` : "",
+      ].filter(Boolean),
+      requiresAttunement: false,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        description: row.description,
+        raw: row.raw,
+        extras: row.prerequisite ? [`Prerequisite: ${row.prerequisite}`] : [],
+      }),
+    };
+  }
+
+  if (category === "Animals" || category === "Monsters") {
+    const [row] = await db
+      .select()
+      .from(codexMonsters)
+      .where(eq(codexMonsters.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    const raw = row.raw ?? {};
+    return {
+      name: row.name,
+      type,
+      properties: [
+        `Codex: ${category}`,
+        row.creatureType ?? "",
+        row.challengeRating != null
+          ? `CR ${formatChallengeRating(row.challengeRating)}`
+          : "",
+      ].filter(Boolean),
+      requiresAttunement: false,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        raw,
+        extras: [
+          `${formatSize(row.size)} ${formatCreatureType(row.creatureType)}`,
+          `AC ${row.armorClass ?? "—"} · HP ${row.hitPoints ?? "—"}`,
+          `Speed: ${formatSpeedLine(raw)}`,
+          row.alignment ? `Alignment: ${row.alignment}` : "",
+        ],
+      }),
+    };
+  }
+
+  if (category === "Advanced") {
+    const [row] = await db
+      .select()
+      .from(codexAdvancedRules)
+      .where(eq(codexAdvancedRules.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    return {
+      name: row.name,
+      type,
+      properties: [`Codex: ${category}`, formatAdvancedTopic(row.topic)],
+      requiresAttunement: false,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        description: row.description,
+        raw: row.raw,
+      }),
+    };
+  }
+
+  if (category === "Rules") {
+    const [row] = await db
+      .select()
+      .from(codexRuleSections)
+      .where(eq(codexRuleSections.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    return {
+      name: row.name,
+      type,
+      properties: [`Codex: ${category}`],
+      requiresAttunement: false,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        description: row.description,
+        raw: row.raw,
+      }),
+    };
+  }
+
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: `Reset is not supported for ${category}.`,
+  });
+}
+
+/** Re-apply the current Codex SRD source onto an owned homebrew spell (SMITH-6). */
+export async function resetHomebrewSpellFromCodex(input: {
+  ownerId: string;
+  spellId: string;
+}) {
+  const db = getDb();
+  const [spell] = await db
+    .select()
+    .from(homebrewSpells)
+    .where(
+      and(
+        eq(homebrewSpells.id, input.spellId),
+        eq(homebrewSpells.ownerId, input.ownerId),
+      ),
+    )
+    .limit(1);
+  if (!spell?.copiedFromSlug || spell.source !== "codex") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Only Codex-copied spells can be reset to SRD.",
+    });
+  }
+
+  const [codex] = await db
+    .select()
+    .from(codexSpells)
+    .where(eq(codexSpells.slug, spell.copiedFromSlug))
+    .limit(1);
+  if (!codex) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Original Codex spell not found." });
+  }
+
+  const definition = open5eRawToSpellDefinition(codex.raw, {
+    slug: codex.slug,
+    name: codex.name,
+  });
+  const errors = validateSpellDefinition(definition);
+  if (errors.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Could not rebuild spell from Codex: ${errors.join(" ")}`,
+    });
+  }
+
+  const [row] = await db
+    .update(homebrewSpells)
+    .set({
+      name: definition.name,
+      level: definition.level,
+      school: definition.school,
+      description: definition.description,
+      definition,
+      updatedAt: new Date(),
+    })
+    .where(eq(homebrewSpells.id, input.spellId))
+    .returning();
+  return row!;
+}
+
+/** Re-apply the current Codex SRD source onto an owned homebrew item (SMITH-6). */
+export async function resetHomebrewItemFromCodex(input: {
+  ownerId: string;
+  itemId: string;
+}) {
+  const db = getDb();
+  const [item] = await db
+    .select()
+    .from(homebrewItems)
+    .where(
+      and(
+        eq(homebrewItems.id, input.itemId),
+        eq(homebrewItems.ownerId, input.ownerId),
+      ),
+    )
+    .limit(1);
+  if (!item?.copiedFromSlug || item.source !== "codex") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Only Codex-copied entries can be reset to SRD.",
+    });
+  }
+
+  const { category, slug } = parseSmithyCopyKey(item.copiedFromSlug);
+  const payload = await codexItemCopyPayload(category, slug);
+
+  const [row] = await db
+    .update(homebrewItems)
+    .set({
+      ...payload,
+      updatedAt: new Date(),
+    })
+    .where(eq(homebrewItems.id, input.itemId))
+    .returning();
+  return row!;
+}

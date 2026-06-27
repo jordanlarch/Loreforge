@@ -39,8 +39,15 @@ import {
   FightingStylePicker,
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
+import {
+  CodexItemAddPicker,
+  CodexSpellAddPicker,
+  SmithyItemAddPicker,
+  SmithySpellAddPicker,
+} from "@/components/character-library-pickers";
 import { trpc } from "@/lib/trpc/client";
-import type { EquipmentItem } from "@/lib/character";
+import type { CharacterSpell, EquipmentItem, SpellLoadout } from "@/lib/character";
+import { equipmentKey, spellKey } from "@/lib/character-library";
 import { serializeCharacterNotes } from "@/lib/character-sheet-storage";
 import type { PersonalityFields } from "@/lib/personality";
 import {
@@ -159,6 +166,10 @@ export function CreationWizard() {
   const [base, setBase] = useState<AbilityScores>(POINT_BUY_BASE);
   const [skills, setSkills] = useState<string[]>([]);
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
+  const [spellLoadout, setSpellLoadout] = useState<SpellLoadout>({
+    spells: [],
+    slots: {},
+  });
   const [equipmentPack, setEquipmentPack] = useState<StartingPack | null>(null);
   const [personality, setPersonality] = useState<PersonalityFields>({
     traits: "",
@@ -507,6 +518,7 @@ export function CreationWizard() {
         saveProficiencies: primaryClass.savingThrows,
         skillProficiencies: allSkillProficiencies,
         equipment,
+        spells: spellLoadout,
         notes,
       });
       if (!row) return;
@@ -626,6 +638,22 @@ export function CreationWizard() {
               className={selectedClass?.name ?? "—"}
               pack={equipmentPack}
               equipment={equipment}
+              spells={spellLoadout.spells}
+              onAddEquipment={(item) =>
+                setEquipment((prev) => {
+                  const key = equipmentKey(item);
+                  if (prev.some((e) => equipmentKey(e) === key)) return prev;
+                  return [...prev, item];
+                })
+              }
+              onAddSpell={(spell) =>
+                setSpellLoadout((prev) => {
+                  if (prev.spells.some((s) => spellKey(s) === spellKey(spell))) {
+                    return prev;
+                  }
+                  return { ...prev, spells: [...prev.spells, spell] };
+                })
+              }
             />
           )}
           {step === 7 && selectedClass && (
@@ -1317,17 +1345,28 @@ function EquipmentStep({
   className,
   pack,
   equipment,
+  spells,
+  onAddEquipment,
+  onAddSpell,
 }: {
   className: string;
   pack: StartingPack | null;
   equipment: EquipmentItem[];
+  spells: CharacterSpell[];
+  onAddEquipment: (item: EquipmentItem) => void;
+  onAddSpell: (spell: CharacterSpell) => void;
 }) {
+  const [codexItemOpen, setCodexItemOpen] = useState(false);
+  const [smithyItemOpen, setSmithyItemOpen] = useState(false);
+  const [codexSpellOpen, setCodexSpellOpen] = useState(false);
+  const [smithySpellOpen, setSmithySpellOpen] = useState(false);
+
   return (
     <section>
       <h2 className="font-display text-2xl">Starting Equipment</h2>
       <p className="mt-1 text-sm text-lore-muted">
-        Default {className} loadout from the SRD. Full pack choices and gold-buy
-        come in a later slice.
+        Default {className} loadout from the SRD, plus optional Codex or Smithy
+        gear and spells.
       </p>
 
       {pack ? (
@@ -1339,7 +1378,7 @@ function EquipmentStep({
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">
             {equipment.map((item) => (
               <li
-                key={item.name}
+                key={equipmentKey(item)}
                 className="rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm"
               >
                 <span className="font-medium text-lore-text">{item.name}</span>
@@ -1360,6 +1399,85 @@ function EquipmentStep({
           Choose a class on the previous steps to see your starting gear.
         </p>
       )}
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setCodexItemOpen(true)}
+          className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          Add gear from Codex
+        </button>
+        <button
+          type="button"
+          onClick={() => setSmithyItemOpen(true)}
+          className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          Add gear from Smithy
+        </button>
+        <button
+          type="button"
+          onClick={() => setCodexSpellOpen(true)}
+          className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          Add spell from Codex
+        </button>
+        <button
+          type="button"
+          onClick={() => setSmithySpellOpen(true)}
+          className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+        >
+          Add spell from Smithy
+        </button>
+      </div>
+
+      {spells.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+            Optional starting spells
+          </h3>
+          <ul className="mt-2 space-y-1 text-sm text-lore-text">
+            {spells.map((spell) => (
+              <li key={spellKey(spell)}>
+                {spell.name}{" "}
+                <span className="text-lore-muted">
+                  (level {spell.level}
+                  {spell.prepared ? ", prepared" : ""})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {codexItemOpen ? (
+        <CodexItemAddPicker
+          existing={equipment}
+          onAdd={onAddEquipment}
+          onClose={() => setCodexItemOpen(false)}
+        />
+      ) : null}
+      {smithyItemOpen ? (
+        <SmithyItemAddPicker
+          existing={equipment}
+          onAdd={onAddEquipment}
+          onClose={() => setSmithyItemOpen(false)}
+        />
+      ) : null}
+      {codexSpellOpen ? (
+        <CodexSpellAddPicker
+          existing={spells}
+          onAdd={onAddSpell}
+          onClose={() => setCodexSpellOpen(false)}
+        />
+      ) : null}
+      {smithySpellOpen ? (
+        <SmithySpellAddPicker
+          existing={spells}
+          onAdd={onAddSpell}
+          onClose={() => setSmithySpellOpen(false)}
+        />
+      ) : null}
     </section>
   );
 }

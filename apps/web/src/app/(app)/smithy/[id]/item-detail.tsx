@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { SmithyItemForm } from "@/components/smithy-item-form";
+import { SmithyResetToSrdButton } from "@/components/smithy-reset-to-srd";
+import { smithyRarityBadgeClass } from "@/lib/smithy-rarity-styles";
 import { trpc } from "@/lib/trpc/client";
 import { useRecordSmithyView } from "@/lib/use-record-smithy-view";
 
@@ -72,8 +74,25 @@ export function ItemDetail({ id }: { id: string }) {
             {item.requiresAttunement && " · requires attunement"}
             {item.source === "codex" && " · copied from Codex"}
           </p>
+          {item.rarity !== "Common" ? (
+            <span
+              className={`mt-2 inline-block rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${smithyRarityBadgeClass(item.rarity)}`}
+            >
+              {item.rarity}
+            </span>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {item.source === "codex" && item.copiedFromSlug ? (
+            <SmithyResetToSrdButton
+              kind="item"
+              id={id}
+              onReset={() => {
+                setEditing(false);
+                void query.refetch();
+              }}
+            />
+          ) : null}
           <button
             onClick={() => setEditing(true)}
             className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"

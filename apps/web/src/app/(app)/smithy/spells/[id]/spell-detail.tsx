@@ -10,6 +10,7 @@ import {
   SpellDefinitionStats,
 } from "@/components/spell-definition-panel";
 import { SmithySpellForm } from "@/components/smithy-spell-form";
+import { SmithyResetToSrdButton } from "@/components/smithy-reset-to-srd";
 import { trpc } from "@/lib/trpc/client";
 import { useRecordSmithyView } from "@/lib/use-record-smithy-view";
 
@@ -81,6 +82,16 @@ export function SpellDetail({ id }: { id: string }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {spell.source === "codex" && spell.copiedFromSlug ? (
+            <SmithyResetToSrdButton
+              kind="spell"
+              id={id}
+              onReset={() => {
+                setEditing(false);
+                void query.refetch();
+              }}
+            />
+          ) : null}
           <button
             onClick={() => setEditing(true)}
             className="rounded border border-lore-border px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"

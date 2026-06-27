@@ -13,6 +13,8 @@ import { z } from "zod";
 import {
   codexCopyCategory,
   copyCodexEntryToSmithy,
+  resetHomebrewItemFromCodex,
+  resetHomebrewSpellFromCodex,
 } from "@/server/lib/copy-codex-to-smithy";
 
 import {
@@ -190,6 +192,7 @@ export const smithyRouter = createTRPCRouter({
         href: string;
         updatedAt: Date;
         descriptionSnippet: string | null;
+        rarity?: string | null;
       };
 
       const entries: Entry[] = [];
@@ -213,6 +216,7 @@ export const smithyRouter = createTRPCRouter({
           href: `/smithy/${item.id}`,
           updatedAt: item.updatedAt,
           descriptionSnippet: item.description.trim().slice(0, 120) || null,
+          rarity: item.rarity,
         });
       }
 
@@ -629,6 +633,27 @@ export const smithyRouter = createTRPCRouter({
         slug: input.slug,
       }),
     ),
+
+  /** Reset a Codex-copied homebrew row to the current SRD source (SMITH-6). */
+  resetFromCodex: protectedProcedure
+    .input(
+      z.object({
+        kind: z.enum(["spell", "item"]),
+        id: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.kind === "spell") {
+        return resetHomebrewSpellFromCodex({
+          ownerId: ctx.user.id,
+          spellId: input.id,
+        });
+      }
+      return resetHomebrewItemFromCodex({
+        ownerId: ctx.user.id,
+        itemId: input.id,
+      });
+    }),
 
   /** Duplicate an owned homebrew spell as "(Copy)". */
   duplicateSpell: protectedProcedure

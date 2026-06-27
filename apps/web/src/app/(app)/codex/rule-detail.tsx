@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { trpc } from "@/lib/trpc/client";
 import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
@@ -66,12 +67,24 @@ export function RuleDetail({
             <p className="text-sm text-lore-muted">Loading…</p>
           ) : !section.data ? (
             <p className="text-sm text-lore-muted">Rule section not found.</p>
-          ) : section.data.description ? (
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">
-              {section.data.description}
-            </div>
           ) : (
-            <p className="text-sm text-lore-muted">No body text for this section.</p>
+            <>
+              <CodexDetailActions
+                category="Rules"
+                slug={slug}
+                name={section.data.name}
+                raw={section.data.raw as Record<string, unknown>}
+                showCopyToSmithy
+                onCopyClose={onClose}
+              />
+              {section.data.description ? (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">
+                  {section.data.description}
+                </div>
+              ) : (
+                <p className="text-sm text-lore-muted">No body text for this section.</p>
+              )}
+            </>
           )}
         </div>
       </div>

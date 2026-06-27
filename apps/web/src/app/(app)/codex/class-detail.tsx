@@ -43,6 +43,8 @@ export function ClassDetail({
             slug={slug}
             name={cls.data.name}
             raw={cls.data.raw as Record<string, unknown>}
+            showCopyToSmithy
+            onCopyClose={onClose}
           />
           <p className="text-sm text-lore-muted">
             Hit Die d{cls.data.hitDie} · SRD core class

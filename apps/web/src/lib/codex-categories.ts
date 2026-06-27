@@ -9,6 +9,7 @@ export const CODEX_CATEGORIES = [
   "Monsters",
   "Items",
   "Feats",
+  "Advanced",
 ] as const;
 
 export type CodexCategory = (typeof CODEX_CATEGORIES)[number];
@@ -47,4 +48,6 @@ export const COMING_SOON_COPY: Partial<Record<CodexCategory, string>> = {
     "Adventuring gear, weapons, armor, and wondrous items from the Open5e SRD item ingest.",
   Feats:
     "SRD 2024 feats from Open5e — general, origin, fighting style, and epic boons.",
+  Advanced:
+    "Optional rules — curses, traps, poisons, fear, and environmental hazards. Ingest deferred.",
 };

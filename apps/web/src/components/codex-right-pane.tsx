@@ -157,15 +157,17 @@ function QuickCopySpellRow({ searchName }: { searchName: string }) {
     { staleTime: 300_000 },
   );
 
-  const copy = trpc.smithy.copySpellFromCodex.useMutation({
-    onSuccess: async (row) => {
-      if (!row) {
-        setNote("Could not copy spell.");
+  const copy = trpc.smithy.copyFromCodex.useMutation({
+    onSuccess: async (result) => {
+      if (result.kind === "spell") {
+        await utils.smithy.listSpells.invalidate();
+        setNote(`Copied ${searchName}`);
+        router.push(`/smithy/spells/${result.id}`);
         return;
       }
-      await utils.smithy.listSpells.invalidate();
-      setNote(`Copied ${row.name}`);
-      router.push(`/smithy/spells/${row.id}`);
+      await utils.smithy.list.invalidate();
+      setNote(`Copied ${searchName}`);
+      router.push(`/smithy/${result.id}`);
     },
     onError: (err) => setNote(err.message),
   });
@@ -189,7 +191,7 @@ function QuickCopySpellRow({ searchName }: { searchName: string }) {
         <button
           type="button"
           disabled={!slug || copy.isPending}
-          onClick={() => slug && copy.mutate({ slug })}
+          onClick={() => slug && copy.mutate({ category: "Spells", slug })}
           className="shrink-0 rounded border border-lore-accent/60 bg-lore-accent-dim px-2 py-0.5 text-[10px] uppercase tracking-wide text-lore-text transition-colors hover:border-lore-accent disabled:opacity-40"
         >
           {copy.isPending ? "…" : "Copy"}

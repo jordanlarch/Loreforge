@@ -95,6 +95,8 @@ export function MonsterDetail({
                 slug={slug}
                 name={monster.data.name}
                 raw={raw}
+                showCopyToSmithy
+                onCopyClose={onClose}
               />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
                 <Stat label="Challenge" value={formatChallengeRating(monster.data.challengeRating)} />

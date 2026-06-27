@@ -3,6 +3,11 @@ import { codexDeepLink } from "@/lib/codex-routes";
 
 export { codexDeepLink } from "@/lib/codex-routes";
 
+export type InCharacterAction = {
+  href: string;
+  label: string;
+};
+
 const OPEN5E_API_PATH: Partial<Record<CodexCategory, string>> = {
   Spells: "spells",
   Backgrounds: "backgrounds",
@@ -35,22 +40,61 @@ export function open5eSourceUrl(
   return `https://api.open5e.com/v2/${path}/${encodeURIComponent(key)}/`;
 }
 
-/** Creation Wizard entry when the category maps to a wizard step (CODEX-6). */
+/** Creation Wizard / character flows for a Codex entry (CODEX-6). */
+export function useInCharacterActions(
+  category: CodexCategory,
+  slug: string,
+): InCharacterAction[] {
+  if (category === "Species") {
+    return [
+      {
+        href: `/characters/new?species=${encodeURIComponent(slug)}`,
+        label: "Create character as this species",
+      },
+    ];
+  }
+  if (category === "Classes") {
+    return [
+      {
+        href: `/characters/new?class=${encodeURIComponent(slug)}`,
+        label: "Create character as this class",
+      },
+    ];
+  }
+  if (category === "Backgrounds") {
+    return [
+      {
+        href: `/characters/new?background=${encodeURIComponent(slug)}`,
+        label: "Create character with this background",
+      },
+    ];
+  }
+  if (category === "Feats") {
+    return [
+      {
+        href: "/characters",
+        label: "Add feat during level up",
+      },
+    ];
+  }
+  return [];
+}
+
+/** @deprecated Prefer {@link useInCharacterActions}. */
 export function useInCharacterHref(
   category: CodexCategory,
   slug: string,
 ): string | null {
-  if (category === "Species") {
-    return `/characters/new?species=${encodeURIComponent(slug)}`;
-  }
-  if (category === "Classes") {
-    return `/characters/new?class=${encodeURIComponent(slug)}`;
-  }
-  return null;
+  return useInCharacterActions(category, slug)[0]?.href ?? null;
 }
 
+/** @deprecated Prefer {@link useInCharacterActions}. */
 export function useInCharacterLabel(category: CodexCategory): string | null {
-  if (category === "Species") return "Create character as this species";
-  if (category === "Classes") return "Create character as this class";
-  return null;
+  const labels: Partial<Record<CodexCategory, string>> = {
+    Species: "Create character as this species",
+    Classes: "Create character as this class",
+    Backgrounds: "Create character with this background",
+    Feats: "Add feat during level up",
+  };
+  return labels[category] ?? null;
 }

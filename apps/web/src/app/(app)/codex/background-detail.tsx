@@ -74,6 +74,8 @@ export function BackgroundDetail({
                 slug={slug}
                 name={background.data.name}
                 raw={raw}
+                showCopyToSmithy
+                onCopyClose={onClose}
               />
               {background.data.description && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">

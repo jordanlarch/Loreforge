@@ -8,15 +8,21 @@ export function LibraryPickerModal({
   titleId,
   onClose,
   children,
+  overlayClassName,
 }: {
   title: string;
   titleId: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** Override stacking when nested inside another modal (e.g. Codex detail). */
+  overlayClassName?: string;
 }) {
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-start justify-center bg-black/60 p-4 pt-[12vh]"
+      className={
+        overlayClassName ??
+        "fixed inset-0 z-[70] flex items-start justify-center bg-black/60 p-4 pt-[12vh]"
+      }
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}

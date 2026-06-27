@@ -91,6 +91,15 @@ export function ItemDetail({
                 raw={raw}
                 showCopyToSmithy
                 onCopyClose={onClose}
+                itemEquip={{
+                  slug,
+                  name: item.data.name,
+                  category: item.data.category,
+                  weight: item.data.weight,
+                  cost: item.data.cost,
+                  description: item.data.description,
+                  requiresAttunement: Boolean(raw.requires_attunement),
+                }}
               />
               {item.data.description && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">

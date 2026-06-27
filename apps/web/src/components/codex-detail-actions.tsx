@@ -16,6 +16,11 @@ import {
 } from "@/lib/codex-detail-links";
 
 import { CodexCopyToSmithyButton } from "./codex-copy-to-smithy";
+import {
+  CodexEquipToCharacterButton,
+  CodexPrepareOnCharacterButton,
+} from "./codex-equip-to-character";
+import type { CodexItemRow } from "@/lib/character-library";
 
 /**
  * Standard Codex detail action row (CODEX-6): copy to Smithy, use in character,
@@ -29,6 +34,8 @@ export function CodexDetailActions({
   showCopyToSmithy = false,
   onCopyClose,
   copyAction,
+  spellEquip,
+  itemEquip,
 }: {
   category: CodexCategory;
   slug: string;
@@ -39,6 +46,17 @@ export function CodexDetailActions({
   onCopyClose?: () => void;
   /** Legacy override (spells used this before A4 unified button). */
   copyAction?: React.ReactNode;
+  /** CODEX-6: add spell as prepared on a library character. */
+  spellEquip?: {
+    slug: string;
+    name: string;
+    level: string | null;
+    school: string | null;
+    concentration?: boolean;
+    ritual?: boolean;
+  };
+  /** CODEX-6: add item as equipped on a library character. */
+  itemEquip?: CodexItemRow & { slug: string };
 }) {
   const [bookmarked, setBookmarked] = useState(() =>
     isCodexBookmarked(category, slug),
@@ -80,6 +98,12 @@ export function CodexDetailActions({
               onCopied={onCopyClose}
             />
           ) : null)}
+        {spellEquip ? (
+          <CodexPrepareOnCharacterButton spell={spellEquip} onApplied={onCopyClose} />
+        ) : null}
+        {itemEquip ? (
+          <CodexEquipToCharacterButton item={itemEquip} onApplied={onCopyClose} />
+        ) : null}
         <UseInCharacterControl actions={inCharacterActions} btn={btnPrimary} />
         <button type="button" className={btn} onClick={onShare}>
           {shareNote ?? "Share link"}

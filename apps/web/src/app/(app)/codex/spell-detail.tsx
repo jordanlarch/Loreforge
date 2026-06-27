@@ -35,6 +35,15 @@ function flavorParagraphs(raw: RawSpell): string[] {
   return [];
 }
 
+function boolFromRaw(raw: RawSpell, key: string): boolean {
+  const value = raw[key];
+  if (value === true) return true;
+  if (typeof value === "string") {
+    return ["yes", "true"].includes(value.toLowerCase());
+  }
+  return false;
+}
+
 export function SpellDetail({
   slug,
   onClose,
@@ -130,6 +139,18 @@ export function SpellDetail({
           raw={raw}
           showCopyToSmithy
           onCopyClose={onClose}
+          spellEquip={
+            spell.data
+              ? {
+                  slug,
+                  name: spell.data.name,
+                  level: spell.data.level,
+                  school: spell.data.school,
+                  concentration: boolFromRaw(raw, "concentration"),
+                  ritual: boolFromRaw(raw, "ritual"),
+                }
+              : undefined
+          }
         />
 
         {spell.isLoading && <p className="text-lore-muted">Loading…</p>}

@@ -220,6 +220,19 @@ export function LevelUpDialog({
   const reviewStepIndex = stepLabels.length - 1;
   const featuresStepIndex = 2;
 
+  const multiclassClassNames = useMemo(() => {
+    if (!addingClass || !addNewClass) {
+      return character.classes.map((c) => c.class);
+    }
+    return [...character.classes.map((c) => c.class), addNewClass];
+  }, [addingClass, addNewClass, character.classes]);
+
+  const spellLoadoutSpells = character.spells?.spells;
+  const spellbookSpells = useMemo(
+    () => [...(spellLoadoutSpells ?? []), ...addedSpells],
+    [spellLoadoutSpells, addedSpells],
+  );
+
   if (!addingClass && !target) return null;
 
   const atClassCap = !addingClass && target!.level >= MAX_LEVEL;
@@ -267,13 +280,6 @@ export function LevelUpDialog({
   const rangerChoicesInvalid =
     needsRangerChoices && !rangerFeatureChoicesComplete(featureChoices);
 
-  const multiclassClassNames = useMemo(() => {
-    if (!addingClass || !addNewClass) {
-      return character.classes.map((c) => c.class);
-    }
-    return [...character.classes.map((c) => c.class), addNewClass];
-  }, [addingClass, addNewClass, character.classes]);
-
   const multiclassValid = multiclassEligible(
     multiclassClassNames,
     character.abilityScores,
@@ -287,11 +293,6 @@ export function LevelUpDialog({
   const classStepInvalid =
     addingClass && (!addNewClass || !multiclassValid);
 
-  const existingSpells = character.spells?.spells ?? [];
-  const spellbookSpells = useMemo(
-    () => [...existingSpells, ...addedSpells],
-    [existingSpells, addedSpells],
-  );
   const showSpellPicker = isSpellcastingClasses(nextClasses);
 
   const canMulticlass =
@@ -718,7 +719,7 @@ export function LevelUpDialog({
                       onClick={() => setSpellPickerOpen(true)}
                       className="mt-3 rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm"
                     >
-                      {addedSpells.length > 0 || existingSpells.length > 0
+                      {addedSpells.length > 0 || (spellLoadoutSpells?.length ?? 0) > 0
                         ? "Add more spells…"
                         : "Choose spells…"}
                     </button>

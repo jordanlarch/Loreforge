@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState } from "react";
 
 import {
@@ -116,14 +115,6 @@ export function SheetHeader({
         </div>
 
         <div className="min-w-0 flex-1">
-          {!embedded && (
-            <Link
-              href="/characters"
-              className="text-xs text-lore-muted hover:text-lore-text"
-            >
-              ← Characters
-            </Link>
-          )}
           <InlineField
             value={character.name}
             onCommit={onNameChange}

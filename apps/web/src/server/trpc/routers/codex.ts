@@ -20,6 +20,7 @@ import {
   codexRuleSections,
   codexSpecies,
   codexSpells,
+  codexSubclasses,
   getDb,
 } from "@app/db";
 
@@ -250,6 +251,78 @@ export const codexRouter = createTRPCRouter({
         .select()
         .from(codexClasses)
         .where(eq(codexClasses.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** SRD subclasses, optionally filtered by parent class. */
+  listSubclasses: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().max(100).optional(),
+          classSlug: z.string().trim().max(80).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = [
+        input?.search
+          ? ilike(codexSubclasses.name, `%${input.search}%`)
+          : undefined,
+        input?.classSlug
+          ? eq(codexSubclasses.classSlug, input.classSlug)
+          : undefined,
+      ].filter(Boolean);
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      return db
+        .select({
+          slug: codexSubclasses.slug,
+          name: codexSubclasses.name,
+          classSlug: codexSubclasses.classSlug,
+          className: codexSubclasses.className,
+          pickLevel: codexSubclasses.pickLevel,
+          description: codexSubclasses.description,
+        })
+        .from(codexSubclasses)
+        .where(where)
+        .orderBy(asc(codexSubclasses.className), asc(codexSubclasses.name));
+    }),
+
+  /** Full SRD subclass record by slug. */
+  getSubclass: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexSubclasses)
+        .where(eq(codexSubclasses.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** Resolve subclass by display name (character sheet / wizard). */
+  getSubclassByName: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        className: z.string().trim().max(60).optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = [
+        ilike(codexSubclasses.name, input.name),
+        input.className
+          ? eq(codexSubclasses.className, input.className)
+          : undefined,
+      ].filter(Boolean);
+      const [row] = await db
+        .select()
+        .from(codexSubclasses)
+        .where(and(...conditions))
         .limit(1);
       return row ?? null;
     }),

@@ -2,13 +2,17 @@ import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 
 import {
+  buildBackgroundDefinition,
+  buildFeatDefinition,
   buildItemDefinition,
+  buildSubclassDefinition,
   itemDefinitionId,
   open5eRawToItemDefinition,
   open5eRawToSpellDefinition,
   validateItemDefinition,
   validateSpellDefinition,
   type ItemDefinition,
+  type ItemOptionContent,
   type ItemType,
 } from "@app/engine";
 import {
@@ -21,6 +25,7 @@ import {
   codexRuleSections,
   codexSpecies,
   codexSpells,
+  codexSubclasses,
   getDb,
   homebrewItems,
   homebrewSpells,
@@ -28,6 +33,12 @@ import {
 
 import { CODEX_CATEGORIES, type CodexCategory } from "@/lib/codex-categories";
 import { formatAdvancedTopic } from "@/lib/codex-advanced-display";
+import {
+  backgroundFeatureEntries,
+  backgroundOriginFeatName,
+  backgroundSkillProficiencies,
+  featBenefits,
+} from "@/lib/codex-background-feat-display";
 import { weaponPropertyEntries } from "@/lib/codex-item-display";
 import {
   formatChallengeRating,
@@ -185,6 +196,9 @@ async function copyItem(ownerId: string, slug: string): Promise<CopyFromCodexRes
     category: codex.category,
     description,
     itemType: open5eItemCategoryToType(codex.category),
+    cost: codex.cost,
+    weight: codex.weight,
+    weightUnit: codex.weightUnit,
   });
 
   return insertSnapshotItem({
@@ -271,18 +285,39 @@ async function copySnapshot(
       .where(eq(codexBackgrounds.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return insertSnapshotItem({
-      ownerId,
-      name: row.name,
-      type,
-      properties: [`Codex: ${category}`],
-      copyKey,
-      description: buildCodexSnapshotDescription({
+    const raw = row.raw ?? {};
+    const description =
+      row.description?.trim() ||
+      buildCodexSnapshotDescription({
         category,
         name: row.name,
-        description: row.description,
-        raw: row.raw,
-      }),
+        raw,
+      });
+    const payload = snapshotItemPayload({
+      name: row.name,
+      type,
+      slug: copyKey,
+      properties: [`Codex: ${category}`],
+      description,
+      optionContent: {
+        kind: "background",
+        background: buildBackgroundDefinition({
+          id: itemDefinitionId(`background-${row.slug}`),
+          name: row.name,
+          description,
+          skillProficiencies: backgroundSkillProficiencies(raw),
+          featureEntries: backgroundFeatureEntries(raw).map((entry) => ({
+            name: entry.name,
+            description: entry.description,
+          })),
+          originFeat: backgroundOriginFeatName(raw),
+        }),
+      },
+    });
+    return insertSnapshotItem({
+      ownerId,
+      copyKey,
+      ...payload,
     });
   }
 
@@ -293,22 +328,41 @@ async function copySnapshot(
       .where(eq(codexFeats.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return insertSnapshotItem({
-      ownerId,
+    const raw = row.raw ?? {};
+    const benefitText = featBenefits(raw).join("\n\n");
+    const description =
+      row.description?.trim() ||
+      benefitText ||
+      buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        raw,
+        extras: row.prerequisite ? [`Prerequisite: ${row.prerequisite}`] : [],
+      });
+    const payload = snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [
         `Codex: ${category}`,
         row.featType ? `Type: ${row.featType}` : "",
       ].filter(Boolean),
+      description,
+      optionContent: {
+        kind: "feat",
+        feat: buildFeatDefinition({
+          id: itemDefinitionId(`feat-${row.slug}`),
+          name: row.name,
+          description,
+          prerequisite: row.prerequisite,
+          featType: row.featType,
+        }),
+      },
+    });
+    return insertSnapshotItem({
+      ownerId,
       copyKey,
-      description: buildCodexSnapshotDescription({
-        category,
-        name: row.name,
-        description: row.description,
-        raw: row.raw,
-        extras: row.prerequisite ? [`Prerequisite: ${row.prerequisite}`] : [],
-      }),
+      ...payload,
     });
   }
 
@@ -410,16 +464,75 @@ export async function copyCodexEntryToSmithy(input: {
   return copySnapshot(input.ownerId, input.category, input.slug);
 }
 
+export function subclassSmithyCopyKey(slug: string): string {
+  return `Subclasses:${slug}`;
+}
+
+export async function copySubclassToSmithy(input: {
+  ownerId: string;
+  slug: string;
+}): Promise<CopyFromCodexResult> {
+  const copyKey = subclassSmithyCopyKey(input.slug);
+  const existing = await findOwnedSnapshotItem(input.ownerId, copyKey);
+  if (existing) return { kind: "item", id: existing.id };
+
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(codexSubclasses)
+    .where(eq(codexSubclasses.slug, input.slug))
+    .limit(1);
+  if (!row) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Codex subclass not found." });
+  }
+
+  const type = codexCategorySnapshotType("Classes");
+  const description = row.description.trim();
+  const payload = snapshotItemPayload({
+    name: row.name,
+    type,
+    slug: copyKey,
+    properties: [
+      "Codex: Subclass",
+      row.className,
+      `Pick at level ${row.pickLevel}`,
+    ],
+    description,
+    optionContent: {
+      kind: "subclass",
+      subclass: buildSubclassDefinition({
+        id: itemDefinitionId(row.slug),
+        name: row.name,
+        className: row.className,
+        classSlug: row.classSlug,
+        pickLevel: row.pickLevel,
+        description,
+        features: row.features,
+      }),
+    },
+  });
+
+  return insertSnapshotItem({
+    ownerId: input.ownerId,
+    copyKey,
+    ...payload,
+  });
+}
+
 export function parseSmithyCopyKey(copyKey: string): {
-  category: CodexCategory;
+  category: CodexCategory | "Subclasses";
   slug: string;
 } {
   const colon = copyKey.indexOf(":");
   if (colon === -1) {
     return { category: "Items", slug: copyKey };
   }
+  const category = copyKey.slice(0, colon);
+  if (category === "Subclasses") {
+    return { category: "Subclasses", slug: copyKey.slice(colon + 1) };
+  }
   return {
-    category: copyKey.slice(0, colon) as CodexCategory,
+    category: category as CodexCategory,
     slug: copyKey.slice(colon + 1),
   };
 }
@@ -431,6 +544,7 @@ function snapshotItemPayload(input: {
   properties: string[];
   requiresAttunement?: boolean;
   slug: string;
+  optionContent?: ItemOptionContent;
 }) {
   return {
     name: input.name,
@@ -443,12 +557,13 @@ function snapshotItemPayload(input: {
       name: input.name,
       itemType: input.type,
       description: input.description,
+      ...(input.optionContent ? { optionContent: input.optionContent } : {}),
     }),
   };
 }
 
 async function codexItemCopyPayload(
-  category: CodexCategory,
+  category: CodexCategory | "Subclasses",
   slug: string,
 ): Promise<{
   name: string;
@@ -483,6 +598,9 @@ async function codexItemCopyPayload(
       category: codex.category,
       description,
       itemType: type,
+      cost: codex.cost,
+      weight: codex.weight,
+      weightUnit: codex.weightUnit,
     });
     return {
       name: codex.name,
@@ -491,6 +609,44 @@ async function codexItemCopyPayload(
       properties: weaponPropertyEntries(raw).map((p) => p.name),
       requiresAttunement: Boolean(raw.requires_attunement),
       definition,
+    };
+  }
+
+  if (category === "Subclasses") {
+    const db = getDb();
+    const [row] = await db
+      .select()
+      .from(codexSubclasses)
+      .where(eq(codexSubclasses.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex subclass not found." });
+    const description = row.description.trim();
+    const payload = snapshotItemPayload({
+      name: row.name,
+      type: codexCategorySnapshotType("Classes"),
+      slug: subclassSmithyCopyKey(slug),
+      properties: [
+        "Codex: Subclass",
+        row.className,
+        `Pick at level ${row.pickLevel}`,
+      ],
+      description,
+      optionContent: {
+        kind: "subclass",
+        subclass: buildSubclassDefinition({
+          id: itemDefinitionId(row.slug),
+          name: row.name,
+          className: row.className,
+          classSlug: row.classSlug,
+          pickLevel: row.pickLevel,
+          description,
+          features: row.features,
+        }),
+      },
+    });
+    return {
+      ...payload,
+      requiresAttunement: false,
     };
   }
 
@@ -556,17 +712,34 @@ async function codexItemCopyPayload(
       .where(eq(codexBackgrounds.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    const raw = row.raw ?? {};
+    const description =
+      row.description?.trim() ||
+      buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        raw,
+      });
     return snapshotItemPayload({
       name: row.name,
       type,
       slug: copyKey,
       properties: [`Codex: ${category}`],
-      description: buildCodexSnapshotDescription({
-        category,
-        name: row.name,
-        description: row.description,
-        raw: row.raw,
-      }),
+      description,
+      optionContent: {
+        kind: "background",
+        background: buildBackgroundDefinition({
+          id: itemDefinitionId(`background-${row.slug}`),
+          name: row.name,
+          description,
+          skillProficiencies: backgroundSkillProficiencies(raw),
+          featureEntries: backgroundFeatureEntries(raw).map((entry) => ({
+            name: entry.name,
+            description: entry.description,
+          })),
+          originFeat: backgroundOriginFeatName(raw),
+        }),
+      },
     });
   }
 
@@ -577,6 +750,17 @@ async function codexItemCopyPayload(
       .where(eq(codexFeats.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    const raw = row.raw ?? {};
+    const benefitText = featBenefits(raw).join("\n\n");
+    const description =
+      row.description?.trim() ||
+      benefitText ||
+      buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        raw,
+        extras: row.prerequisite ? [`Prerequisite: ${row.prerequisite}`] : [],
+      });
     return snapshotItemPayload({
       name: row.name,
       type,
@@ -585,13 +769,17 @@ async function codexItemCopyPayload(
         `Codex: ${category}`,
         row.featType ? `Type: ${row.featType}` : "",
       ].filter(Boolean),
-      description: buildCodexSnapshotDescription({
-        category,
-        name: row.name,
-        description: row.description,
-        raw: row.raw,
-        extras: row.prerequisite ? [`Prerequisite: ${row.prerequisite}`] : [],
-      }),
+      description,
+      optionContent: {
+        kind: "feat",
+        feat: buildFeatDefinition({
+          id: itemDefinitionId(`feat-${row.slug}`),
+          name: row.name,
+          description,
+          prerequisite: row.prerequisite,
+          featType: row.featType,
+        }),
+      },
     });
   }
 

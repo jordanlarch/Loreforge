@@ -267,6 +267,13 @@
       "when": 1782740000000,
       "tag": "0037_homebrew_item_definition",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1782820000000,
+      "tag": "0038_codex_subclasses",
+      "breakpoints": true
     }
   ]
 }

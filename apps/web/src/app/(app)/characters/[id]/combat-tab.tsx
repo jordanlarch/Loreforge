@@ -10,7 +10,7 @@ import {
   SheetTableHeader,
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
-import { deriveSheetCombatAttacks } from "@/lib/sheet-loadout";
+import { deriveSheetCombatDisplayAttacks } from "@/lib/sheet-loadout";
 import { weaponMasteriesForEquipment } from "@/lib/weapon-mastery";
 import type { EquipmentItem } from "@/lib/character";
 import type { ActiveEffect, CharacterSheetMeta } from "@/lib/character-sheet-storage";
@@ -79,7 +79,7 @@ export function CombatTab({
     [character],
   );
   const combatToggles = meta.combatToggles ?? {};
-  const attacks = deriveSheetCombatAttacks(
+  const attacks = deriveSheetCombatDisplayAttacks(
     entity,
     character.equipment,
     character.classes,

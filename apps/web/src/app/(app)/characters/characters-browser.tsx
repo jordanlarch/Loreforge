@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import {
@@ -176,9 +177,9 @@ export function CharactersBrowser() {
         <div className="sticky top-6 rounded-lg border border-lore-border bg-lore-surface p-4 text-sm">
           <h2 className="font-display text-base">Quick tips</h2>
           <ul className="mt-3 space-y-2 text-xs text-lore-muted">
-            <li>Use the ⋯ menu on a card to duplicate, export, or share.</li>
+            <li>Click a card to open the character sheet.</li>
+            <li>Use the ⋯ menu to duplicate, export, or share.</li>
             <li>Play Now jumps straight into live play when a character is in a campaign.</li>
-            <li>XP bars show progress toward the next level (DMG thresholds).</li>
           </ul>
           <Link
             href="/characters/new"
@@ -228,14 +229,15 @@ function CharacterCard({
   campaigns: CampaignLink[];
   layout?: "grid" | "list";
 }) {
+  const router = useRouter();
   const utils = trpc.useUtils();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const remove = trpc.characters.delete.useMutation({
     onSuccess: async () => {
-      setConfirming(false);
+      setConfirmingDelete(false);
       await utils.characters.listDashboard.invalidate();
       await utils.characters.list.invalidate();
     },
@@ -261,6 +263,7 @@ function CharacterCard({
     day: "numeric",
     year: "numeric",
   });
+  const sheetHref = `/characters/${character.id}`;
 
   function exportJson() {
     const blob = new Blob([JSON.stringify(character, null, 2)], {
@@ -276,16 +279,37 @@ function CharacterCard({
   }
 
   async function shareLink() {
-    const url = `${window.location.origin}/characters/${character.id}`;
+    const url = `${window.location.origin}${sheetHref}`;
     await navigator.clipboard.writeText(url);
     setToast("Link copied to clipboard");
     setMenuOpen(false);
     window.setTimeout(() => setToast(null), 2500);
   }
 
+  function openSheet() {
+    router.push(sheetHref);
+  }
+
+  function onCardClick(e: React.MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (target.closest("a,button,input,select,label")) return;
+    openSheet();
+  }
+
+  function onCardKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openSheet();
+    }
+  }
+
   return (
     <li
-      className={`relative flex h-full flex-col rounded-lg border border-lore-border bg-lore-surface transition-colors hover:border-lore-accent ${
+      role="link"
+      tabIndex={0}
+      onClick={onCardClick}
+      onKeyDown={onCardKeyDown}
+      className={`relative flex h-full cursor-pointer flex-col rounded-lg border border-lore-border bg-lore-surface transition-colors hover:border-lore-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lore-accent ${
         layout === "list" ? "sm:flex-row sm:items-stretch" : ""
       }`}
     >
@@ -300,19 +324,56 @@ function CharacterCard({
       >
         <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
           <div className="min-w-0">
-            <Link
-              href={`/characters/${character.id}`}
-              className="font-display text-xl hover:text-lore-accent"
-            >
-              {sheet.name}
-            </Link>
+            <p className="font-display text-xl text-lore-text">{sheet.name}</p>
             <p className="mt-0.5 text-xs text-lore-muted">
               Updated {lastUpdated}
             </p>
           </div>
-          <span className="shrink-0 rounded bg-lore-bg px-2 py-0.5 text-xs text-lore-accent">
-            Lvl {sheet.level}
-          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            {confirmingDelete ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    remove.mutate({ id: character.id });
+                  }}
+                  disabled={remove.isPending}
+                  className="rounded border border-red-500/60 bg-red-500/10 px-2 py-1 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-40"
+                >
+                  {remove.isPending ? "…" : "Delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmingDelete(false);
+                  }}
+                  disabled={remove.isPending}
+                  className="rounded px-1.5 py-1 text-xs text-lore-muted hover:text-lore-text"
+                  aria-label="Cancel delete"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmingDelete(true);
+                  setMenuOpen(false);
+                }}
+                aria-label={`Delete ${sheet.name}`}
+                className="rounded p-1.5 text-lore-muted transition-colors hover:bg-red-500/10 hover:text-red-300"
+              >
+                <TrashIcon />
+              </button>
+            )}
+            <span className="rounded bg-lore-bg px-2 py-0.5 text-xs text-lore-accent">
+              Lvl {sheet.level}
+            </span>
+          </div>
         </div>
         <span className="text-sm text-lore-muted">
           {[sheet.species, sheet.classLine, character.background]
@@ -351,6 +412,7 @@ function CharacterCard({
               <Link
                 key={c.campaignId}
                 href={`/campaigns/${c.campaignId}/play`}
+                onClick={(e) => e.stopPropagation()}
                 className="rounded-full border border-lore-accent/50 bg-lore-accent-dim px-2.5 py-0.5 text-xs text-lore-text hover:border-lore-accent"
               >
                 Play · {c.name}
@@ -360,48 +422,22 @@ function CharacterCard({
         )}
       </div>
 
-      <div className="relative border-t border-lore-border px-5 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen((o) => !o);
-              setConfirming(false);
-            }}
-            aria-label="Character actions"
-            className="rounded px-2 py-1 text-sm text-lore-muted hover:bg-lore-bg hover:text-lore-text"
-          >
-            ⋯
-          </button>
-          {confirming ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-lore-muted">Delete permanently?</span>
-              <button
-                type="button"
-                onClick={() => remove.mutate({ id: character.id })}
-                disabled={remove.isPending}
-                className="rounded border border-red-500/60 bg-red-500/10 px-2 py-1 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-40"
-              >
-                {remove.isPending ? "Deleting…" : "Confirm"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirming(false)}
-                disabled={remove.isPending}
-                className="text-xs text-lore-muted transition-colors hover:text-lore-text"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <Link
-              href={`/characters/${character.id}`}
-              className="text-xs text-lore-accent hover:underline"
-            >
-              Open sheet
-            </Link>
-          )}
-        </div>
+      <div
+        className="relative border-t border-lore-border px-5 py-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setMenuOpen((o) => !o);
+            setConfirmingDelete(false);
+          }}
+          aria-label="Character actions"
+          aria-expanded={menuOpen}
+          className="rounded px-2 py-1 text-sm text-lore-muted hover:bg-lore-bg hover:text-lore-text"
+        >
+          ⋯
+        </button>
 
         {menuOpen && (
           <div className="absolute bottom-full left-5 z-20 mb-1 min-w-[160px] rounded-lg border border-lore-border bg-lore-bg py-1 shadow-xl">
@@ -412,14 +448,6 @@ function CharacterCard({
             />
             <MenuButton label="Export JSON" onClick={exportJson} />
             <MenuButton label="Copy share link" onClick={() => void shareLink()} />
-            <MenuButton
-              label="Delete…"
-              danger
-              onClick={() => {
-                setMenuOpen(false);
-                setConfirming(true);
-              }}
-            />
           </div>
         )}
       </div>
@@ -427,25 +455,39 @@ function CharacterCard({
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-4 w-4"
+      aria-hidden
+    >
+      <path
+        fillRule="evenodd"
+        d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 9.24A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-9.24.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 8.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 function MenuButton({
   label,
   onClick,
   disabled,
-  danger,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  danger?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-lore-surface disabled:opacity-40 ${
-        danger ? "text-red-300" : "text-lore-text"
-      }`}
+      className="block w-full px-3 py-2 text-left text-sm text-lore-text transition-colors hover:bg-lore-surface disabled:opacity-40"
     >
       {label}
     </button>

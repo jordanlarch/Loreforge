@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import type { Ability } from "@app/engine";
 
@@ -11,6 +11,8 @@ import { ABILITY_LABELS } from "@/lib/codex-display";
 import { trpc } from "@/lib/trpc/client";
 import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
+import { SubclassDetail } from "./subclass-detail";
+
 export function ClassDetail({
   slug,
   onClose,
@@ -18,7 +20,12 @@ export function ClassDetail({
   slug: string;
   onClose: () => void;
 }) {
+  const [subclassSlug, setSubclassSlug] = useState<string | null>(null);
   const cls = trpc.codex.getClass.useQuery({ slug });
+  const subclasses = trpc.codex.listSubclasses.useQuery(
+    { classSlug: slug },
+    { enabled: Boolean(slug) },
+  );
 
   useRecordCodexView("Classes", slug, cls.data?.name);
 
@@ -31,82 +38,112 @@ export function ClassDetail({
   }, [onClose]);
 
   return (
-    <DetailModal title={cls.data?.name ?? "Class"} onClose={onClose}>
-      {cls.isLoading ? (
-        <p className="text-sm text-lore-muted">Loading…</p>
-      ) : !cls.data ? (
-        <p className="text-sm text-red-400">Class not found.</p>
-      ) : (
-        <>
-          <CodexDetailActions
-            category="Classes"
-            slug={slug}
-            name={cls.data.name}
-            raw={cls.data.raw as Record<string, unknown>}
-            showCopyToSmithy
-            onCopyClose={onClose}
-          />
-          <p className="text-sm text-lore-muted">
-            Hit Die d{cls.data.hitDie} · SRD core class
-          </p>
-
-          {cls.data.description ? (
-            <p className="mt-4 text-sm leading-relaxed text-lore-text">
-              {cls.data.description}
-            </p>
-          ) : null}
-
-          <section className="mt-6">
-            <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
-              Saving Throw Proficiencies
-            </h3>
-            <p className="flex flex-wrap gap-x-1 text-sm">
-              {cls.data.savingThrows.map((s: Ability, i: number) => (
-                <span key={s}>
-                  {i > 0 && ", "}
-                  <SrdHint kind="ability" ability={s} label={ABILITY_LABELS[s]} />
-                </span>
-              ))}
-            </p>
-          </section>
-
-          <section className="mt-6">
-            <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
-              Skill Proficiencies
-            </h3>
+    <>
+      <DetailModal title={cls.data?.name ?? "Class"} onClose={onClose}>
+        {cls.isLoading ? (
+          <p className="text-sm text-lore-muted">Loading…</p>
+        ) : !cls.data ? (
+          <p className="text-sm text-red-400">Class not found.</p>
+        ) : (
+          <>
+            <CodexDetailActions
+              category="Classes"
+              slug={slug}
+              name={cls.data.name}
+              raw={cls.data.raw as Record<string, unknown>}
+              showCopyToSmithy
+              onCopyClose={onClose}
+            />
             <p className="text-sm text-lore-muted">
-              Choose {cls.data.skillChoice.choose} from:
+              Hit Die d{cls.data.hitDie} · SRD core class
             </p>
-            <ul className="mt-2 flex flex-wrap gap-1.5">
-              {cls.data.skillChoice.from.map((skill) => (
-                <li
-                  key={skill}
-                  className="rounded-full border border-lore-border px-2.5 py-0.5 text-xs text-lore-text"
-                >
-                  <SrdHint kind="skill" skill={skill} label={skill} />
-                </li>
-              ))}
-            </ul>
-          </section>
 
-          <footer className="mt-8 flex flex-wrap gap-2 border-t border-lore-border pt-4">
-            <Link
-              href="/characters/new"
-              className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent"
-            >
-              Create character
-            </Link>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded border border-lore-border px-4 py-2 text-sm text-lore-muted hover:text-lore-text"
-            >
-              Close
-            </button>
-          </footer>
-        </>
-      )}
-    </DetailModal>
+            {cls.data.description ? (
+              <p className="mt-4 text-sm leading-relaxed text-lore-text">
+                {cls.data.description}
+              </p>
+            ) : null}
+
+            <section className="mt-6">
+              <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
+                Saving Throw Proficiencies
+              </h3>
+              <p className="flex flex-wrap gap-x-1 text-sm">
+                {cls.data.savingThrows.map((s: Ability, i: number) => (
+                  <span key={s}>
+                    {i > 0 && ", "}
+                    <SrdHint kind="ability" ability={s} label={ABILITY_LABELS[s]} />
+                  </span>
+                ))}
+              </p>
+            </section>
+
+            <section className="mt-6">
+              <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
+                Skill Proficiencies
+              </h3>
+              <p className="text-sm text-lore-muted">
+                Choose {cls.data.skillChoice.choose} from:
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {cls.data.skillChoice.from.map((skill) => (
+                  <li
+                    key={skill}
+                    className="rounded-full border border-lore-border px-2.5 py-0.5 text-xs text-lore-text"
+                  >
+                    <SrdHint kind="skill" skill={skill} label={skill} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            {(subclasses.data?.length ?? 0) > 0 && (
+              <section className="mt-6">
+                <h3 className="mb-2 text-xs uppercase tracking-widest text-lore-muted">
+                  Subclasses
+                </h3>
+                <ul className="flex flex-wrap gap-2">
+                  {subclasses.data!.map((sub) => (
+                    <li key={sub.slug}>
+                      <button
+                        type="button"
+                        onClick={() => setSubclassSlug(sub.slug)}
+                        className="rounded-full border border-lore-border bg-lore-surface px-3 py-1 text-sm text-lore-text transition-colors hover:border-lore-accent"
+                      >
+                        {sub.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <footer className="mt-8 flex flex-wrap gap-2 border-t border-lore-border pt-4">
+              <Link
+                href="/characters/new"
+                className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent"
+              >
+                Create character
+              </Link>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded border border-lore-border px-4 py-2 text-sm text-lore-muted hover:text-lore-text"
+              >
+                Close
+              </button>
+            </footer>
+          </>
+        )}
+      </DetailModal>
+
+      {subclassSlug ? (
+        <SubclassDetail
+          slug={subclassSlug}
+          onClose={() => setSubclassSlug(null)}
+        />
+      ) : null}
+    </>
   );
 }
 

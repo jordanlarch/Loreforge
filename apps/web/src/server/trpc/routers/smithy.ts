@@ -13,6 +13,7 @@ import { z } from "zod";
 import {
   codexCopyCategory,
   copyCodexEntryToSmithy,
+  copySubclassToSmithy,
   resetHomebrewItemFromCodex,
   resetHomebrewSpellFromCodex,
 } from "@/server/lib/copy-codex-to-smithy";
@@ -698,6 +699,16 @@ export const smithyRouter = createTRPCRouter({
       copyCodexEntryToSmithy({
         ownerId: ctx.user.id,
         category: input.category,
+        slug: input.slug,
+      }),
+    ),
+
+  /** Copy a Codex subclass into the Smithy as a typed snapshot row. */
+  copySubclassFromCodex: protectedProcedure
+    .input(z.object({ slug: z.string().trim().min(1).max(160) }))
+    .mutation(async ({ ctx, input }) =>
+      copySubclassToSmithy({
+        ownerId: ctx.user.id,
         slug: input.slug,
       }),
     ),

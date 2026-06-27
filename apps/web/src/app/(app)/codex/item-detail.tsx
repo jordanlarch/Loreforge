@@ -13,6 +13,7 @@ import {
   weaponSummary,
 } from "@/lib/codex-item-display";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 export function ItemDetail({
   slug,
@@ -22,6 +23,8 @@ export function ItemDetail({
   onClose: () => void;
 }) {
   const item = trpc.codex.getItem.useQuery({ slug });
+
+  useRecordCodexView("Items", slug, item.data?.name);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

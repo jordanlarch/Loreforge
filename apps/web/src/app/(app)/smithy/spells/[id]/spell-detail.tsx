@@ -9,11 +9,14 @@ import {
   SpellDefinitionStats,
 } from "@/components/spell-definition-panel";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordSmithyView } from "@/lib/use-record-smithy-view";
 
 export function SpellDetail({ id }: { id: string }) {
   const router = useRouter();
   const utils = trpc.useUtils();
   const query = trpc.smithy.getSpell.useQuery({ id });
+
+  useRecordSmithyView("spell", id, query.data?.name);
 
   const remove = trpc.smithy.deleteSpell.useMutation({
     onSuccess: async () => {

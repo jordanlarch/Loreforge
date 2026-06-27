@@ -13,6 +13,7 @@ import {
 } from "@/lib/codex-monster-display";
 import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
@@ -28,6 +29,8 @@ export function MonsterDetail({
   onClose: () => void;
 }) {
   const monster = trpc.codex.getMonster.useQuery({ slug });
+
+  useRecordCodexView(category, slug, monster.data?.name);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

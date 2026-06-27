@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 export function RuleDetail({
   slug,
@@ -15,6 +16,8 @@ export function RuleDetail({
   const chapters = trpc.codex.listRuleChapters.useQuery(undefined, {
     enabled: !!section.data?.chapterSlug,
   });
+
+  useRecordCodexView("Rules", slug, section.data?.name);
 
   const chapterName =
     chapters.data?.find((ch) => ch.slug === section.data?.chapterSlug)?.name ??

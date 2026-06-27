@@ -9,6 +9,7 @@ import { SrdHint } from "@/components/srd-hint";
 import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { ABILITY_LABELS } from "@/lib/codex-display";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 export function ClassDetail({
   slug,
@@ -18,6 +19,8 @@ export function ClassDetail({
   onClose: () => void;
 }) {
   const cls = trpc.codex.getClass.useQuery({ slug });
+
+  useRecordCodexView("Classes", slug, cls.data?.name);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

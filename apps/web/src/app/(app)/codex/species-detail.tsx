@@ -9,6 +9,7 @@ import { SrdHint } from "@/components/srd-hint";
 import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { abilityBonusLine, ABILITY_LABELS, signed } from "@/lib/codex-display";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 export function SpeciesDetail({
   slug,
@@ -18,6 +19,8 @@ export function SpeciesDetail({
   onClose: () => void;
 }) {
   const species = trpc.codex.getSpecies.useQuery({ slug });
+
+  useRecordCodexView("Species", slug, species.data?.name);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

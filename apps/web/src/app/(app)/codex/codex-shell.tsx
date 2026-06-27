@@ -14,6 +14,8 @@ import {
   codexDetailPath,
   parseCodexCategorySegment,
 } from "@/lib/codex-routes";
+import { CodexFooter } from "@/components/codex-footer";
+import { CodexRightPane } from "@/components/codex-right-pane";
 
 import { BackgroundBrowser } from "./background-browser";
 import { ClassBrowser } from "./class-browser";
@@ -70,7 +72,7 @@ export function CodexShell() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-7xl px-4 py-10">
       <header className="mb-8">
         <p className="text-xs uppercase tracking-widest text-lore-accent">
           Official 5E SRD 5.2 Reference
@@ -115,6 +117,8 @@ export function CodexShell() {
         </nav>
       </header>
 
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div>
       {category === "Spells" && (
         <CodexBrowser
           selectedSlug={selectedSlug}
@@ -163,6 +167,11 @@ export function CodexShell() {
       {!isLiveCodexCategory(category) && (
         <CodexComingSoon category={category} />
       )}
+        </div>
+        <CodexRightPane category={category} />
+      </div>
+
+      <CodexFooter category={category} />
     </div>
   );
 }

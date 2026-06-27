@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { smithyRarityBadgeClass } from "@/lib/smithy-rarity-styles";
 import { trpc } from "@/lib/trpc/client";
 
 import {
@@ -22,6 +23,7 @@ export type SmithyLibraryCardProps = {
   updatedAt: Date | string;
   /** When true, show "Use in character" (forge items + spells). */
   useOnCharacter?: boolean;
+  rarity?: string | null;
 };
 
 const CARD_ACTION =
@@ -37,6 +39,7 @@ export function SmithyLibraryCard({
   descriptionSnippet,
   updatedAt,
   useOnCharacter = kind === "spell",
+  rarity,
 }: SmithyLibraryCardProps) {
   const utils = trpc.useUtils();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -119,6 +122,14 @@ export function SmithyLibraryCard({
       </div>
 
       <span className="text-xs capitalize text-lore-muted">{subtitle}</span>
+
+      {kind === "item" && rarity && rarity !== "Common" ? (
+        <span
+          className={`w-fit rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${smithyRarityBadgeClass(rarity)}`}
+        >
+          {rarity}
+        </span>
+      ) : null}
 
       {descriptionSnippet ? (
         <p className="line-clamp-2 flex-1 text-xs text-lore-muted">

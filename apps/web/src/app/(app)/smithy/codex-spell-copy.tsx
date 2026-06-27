@@ -4,34 +4,53 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { formatItemCategory } from "@/lib/codex-item-display";
 import { trpc } from "@/lib/trpc/client";
 
+import { SmithyToast } from "@/components/smithy-toast";
+
+type CopyTab = "spells" | "items";
+
 /**
- * Search Codex spells and copy one into the Smithy grimoire (SMITH-6).
+ * Search Codex spells or items and copy into the Smithy (SMITH-6).
  */
-export function CodexSpellCopyPicker({
-  onClose,
-}: {
-  onClose: () => void;
-}) {
+export function CodexCopyPicker({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const utils = trpc.useUtils();
+  const [tab, setTab] = useState<CopyTab>("spells");
   const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<"success" | "error">("success");
 
-  const list = trpc.codex.listSpells.useQuery(
+  const spells = trpc.codex.listSpells.useQuery(
     { search: search || undefined, limit: 24, offset: 0 },
-    { placeholderData: (prev) => prev },
+    { enabled: tab === "spells", placeholderData: (prev) => prev },
   );
 
-  const copy = trpc.smithy.copySpellFromCodex.useMutation({
-    onSuccess: async (row) => {
-      if (!row) return;
+  const items = trpc.codex.listItems.useQuery(
+    { search: search || undefined, limit: 24, offset: 0 },
+    { enabled: tab === "items", placeholderData: (prev) => prev },
+  );
+
+  const copy = trpc.smithy.copyFromCodex.useMutation({
+    onSuccess: async (result) => {
+      setToast(`Copied to The Smithy — ready to forge!`);
+      setToastTone("success");
       await Promise.all([
+        utils.smithy.listLibrary.invalidate(),
         utils.smithy.listSpells.invalidate(),
-        utils.smithy.getSpell.invalidate({ id: row.id }),
+        utils.smithy.list.invalidate(),
       ]);
       onClose();
-      router.push(`/smithy/spells/${row.id}`);
+      if (result.kind === "spell") {
+        router.push(`/smithy/spells/${result.id}`);
+      } else {
+        router.push(`/smithy/${result.id}`);
+      }
+    },
+    onError: (err) => {
+      setToast(err.message);
+      setToastTone("error");
     },
   });
 
@@ -60,40 +79,98 @@ export function CodexSpellCopyPicker({
           </button>
         </header>
 
+        <div className="border-b border-lore-border px-4 pt-3">
+          <div className="inline-flex rounded-lg border border-lore-border p-1">
+            {(["spells", "items"] as CopyTab[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  setTab(mode);
+                  setSearch("");
+                }}
+                className={`rounded px-3 py-1 text-xs capitalize transition-colors ${
+                  tab === mode
+                    ? "bg-lore-accent-dim text-lore-text"
+                    : "text-lore-muted hover:text-lore-text"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="p-4">
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search SRD spells…"
+            placeholder={
+              tab === "spells" ? "Search SRD spells…" : "Search SRD items…"
+            }
             autoFocus
             className="mb-4 w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent"
           />
 
-          {copy.error && (
-            <p className="mb-3 text-sm text-red-400">{copy.error.message}</p>
-          )}
+          {toast ? (
+            <div className="mb-3">
+              <SmithyToast
+                message={toast}
+                tone={toastTone}
+                onDismiss={() => setToast(null)}
+              />
+            </div>
+          ) : null}
 
-          {list.isLoading ? (
-            <p className="text-sm text-lore-muted">Loading spells…</p>
-          ) : (list.data?.spells.length ?? 0) === 0 ? (
-            <p className="text-sm text-lore-muted">No spells match.</p>
+          {tab === "spells" ? (
+            spells.isLoading ? (
+              <p className="text-sm text-lore-muted">Loading spells…</p>
+            ) : (spells.data?.spells.length ?? 0) === 0 ? (
+              <p className="text-sm text-lore-muted">No spells match.</p>
+            ) : (
+              <ul className="max-h-72 space-y-1 overflow-y-auto">
+                {spells.data!.spells.map((spell) => (
+                  <li key={spell.slug}>
+                    <button
+                      type="button"
+                      disabled={copy.isPending}
+                      onClick={() =>
+                        copy.mutate({ category: "Spells", slug: spell.slug })
+                      }
+                      className="flex w-full items-center justify-between rounded border border-transparent px-3 py-2 text-left text-sm transition-colors hover:border-lore-border hover:bg-lore-surface disabled:opacity-50"
+                    >
+                      <span>{spell.name}</span>
+                      <span className="text-xs capitalize text-lore-muted">
+                        {spell.level === "0"
+                          ? "Cantrip"
+                          : `Lvl ${spell.level}`}{" "}
+                        · {spell.school}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : items.isLoading ? (
+            <p className="text-sm text-lore-muted">Loading items…</p>
+          ) : (items.data?.items.length ?? 0) === 0 ? (
+            <p className="text-sm text-lore-muted">No items match.</p>
           ) : (
             <ul className="max-h-72 space-y-1 overflow-y-auto">
-              {list.data!.spells.map((spell) => (
-                <li key={spell.slug}>
+              {items.data!.items.map((item) => (
+                <li key={item.slug}>
                   <button
                     type="button"
                     disabled={copy.isPending}
-                    onClick={() => copy.mutate({ slug: spell.slug })}
+                    onClick={() =>
+                      copy.mutate({ category: "Items", slug: item.slug })
+                    }
                     className="flex w-full items-center justify-between rounded border border-transparent px-3 py-2 text-left text-sm transition-colors hover:border-lore-border hover:bg-lore-surface disabled:opacity-50"
                   >
-                    <span>{spell.name}</span>
+                    <span>{item.name}</span>
                     <span className="text-xs capitalize text-lore-muted">
-                      {spell.level === "0"
-                        ? "Cantrip"
-                        : `Lvl ${spell.level}`}{" "}
-                      · {spell.school}
+                      {formatItemCategory(item.category ?? "gear")}
                     </span>
                   </button>
                 </li>
@@ -102,8 +179,9 @@ export function CodexSpellCopyPicker({
           )}
 
           <p className="mt-4 text-xs text-lore-muted">
-            Spells are converted to engine-ready Smithy definitions. Complex SRD
-            spells may need manual touch-up after copy.{" "}
+            {tab === "spells"
+              ? "Spells convert to engine-ready Smithy definitions."
+              : "Items copy as editable Smithy gear rows."}{" "}
             <Link href="/codex" className="text-lore-accent hover:underline">
               Browse Codex
             </Link>
@@ -113,6 +191,9 @@ export function CodexSpellCopyPicker({
     </div>
   );
 }
+
+/** @deprecated use CodexCopyPicker — kept as alias for imports */
+export const CodexSpellCopyPicker = CodexCopyPicker;
 
 export function CopyFromCodexButton() {
   const [open, setOpen] = useState(false);
@@ -125,7 +206,7 @@ export function CopyFromCodexButton() {
       >
         Copy from Codex
       </button>
-      {open && <CodexSpellCopyPicker onClose={() => setOpen(false)} />}
+      {open && <CodexCopyPicker onClose={() => setOpen(false)} />}
     </>
   );
 }

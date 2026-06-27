@@ -75,6 +75,18 @@ export function backgroundOriginFeatName(
   return feat?.name?.trim() ?? null;
 }
 
+/** Parse tool_proficiency benefits into display labels. */
+export function backgroundToolProficiencies(
+  raw: Record<string, unknown>,
+): string[] {
+  const benefit = backgroundBenefits(raw).find(
+    (b) => b.type === "tool_proficiency",
+  );
+  const desc = benefit?.desc?.trim();
+  if (!desc) return [];
+  return splitSkillList(desc);
+}
+
 
 type FeatBenefit = { desc?: string | null };
 

@@ -344,6 +344,23 @@ export function isValidAsiChoice(
   );
 }
 
+const ABILITY_NAMES: Record<Ability, string> = {
+  str: "Strength",
+  dex: "Dexterity",
+  con: "Constitution",
+  int: "Intelligence",
+  wis: "Wisdom",
+  cha: "Charisma",
+};
+
+/** Human-readable label for an ASI choice on the character sheet. */
+export function formatAsiLabel(choice: AsiChoice): string {
+  if (choice.mode === "increase") {
+    return `+${choice.amount} ${ABILITY_NAMES[choice.ability]}`;
+  }
+  return `+1 ${ABILITY_NAMES[choice.first]}, +1 ${ABILITY_NAMES[choice.second]}`;
+}
+
 /** Apply an ASI to a spread; throws if the choice would exceed the cap. */
 export function applyAsi(
   scores: AbilityScores,

@@ -4,7 +4,7 @@
  * is reused by Smithy and Realms. Write paths (Copy to Smithy, etc.) arrive in
  * later phases.
  */
-import { and, asc, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { masteryFromOpen5eItemRaw } from "@app/engine";
@@ -30,6 +30,8 @@ import {
   backgroundFeatureEntries,
   backgroundOriginFeatName,
   backgroundSkillProficiencies,
+  backgroundToolProficiencies,
+  featBenefits,
 } from "@/lib/codex-background-feat-display";
 import { codexSpellFlags } from "@/lib/codex-spell-flags";
 import { spellClassesFromRaw } from "@/lib/codex-spell-classes";
@@ -284,6 +286,7 @@ export const codexRouter = createTRPCRouter({
           className: codexSubclasses.className,
           pickLevel: codexSubclasses.pickLevel,
           description: codexSubclasses.description,
+          features: codexSubclasses.features,
         })
         .from(codexSubclasses)
         .where(where)
@@ -612,12 +615,44 @@ export const codexRouter = createTRPCRouter({
         .limit(1);
       if (!row) return null;
       const raw = row.raw as Record<string, unknown>;
+      const originFeatName = backgroundOriginFeatName(raw);
+      let originFeat: {
+        name: string;
+        slug: string;
+        description: string;
+      } | null = null;
+      if (originFeatName) {
+        const [featRow] = await db
+          .select({
+            slug: codexFeats.slug,
+            name: codexFeats.name,
+            description: codexFeats.description,
+            raw: codexFeats.raw,
+          })
+          .from(codexFeats)
+          .where(ilike(codexFeats.name, originFeatName))
+          .limit(1);
+        if (featRow) {
+          const benefitText = featBenefits(featRow.raw as Record<string, unknown>);
+          originFeat = {
+            name: featRow.name,
+            slug: featRow.slug,
+            description:
+              featRow.description?.trim() ||
+              benefitText.join("\n\n") ||
+              "",
+          };
+        }
+      }
       return {
         slug: row.slug,
         name: row.name,
         description: row.description,
         featureEntries: backgroundFeatureEntries(raw),
-        originFeatName: backgroundOriginFeatName(raw),
+        originFeatName,
+        originFeat,
+        skillProficiencies: backgroundSkillProficiencies(raw),
+        toolProficiencies: backgroundToolProficiencies(raw),
       };
     }),
 
@@ -689,6 +724,61 @@ export const codexRouter = createTRPCRouter({
         .where(eq(codexFeats.slug, input.slug))
         .limit(1);
       return row ?? null;
+    }),
+
+  /** Batch lookup feats by display name (case-insensitive). */
+  getFeatsByNames: protectedProcedure
+    .input(
+      z.object({
+        names: z.array(z.string().trim().min(1).max(120)).max(24),
+      }),
+    )
+    .query(async ({ input }) => {
+      if (input.names.length === 0) return [];
+      const db = getDb();
+      const unique = [...new Set(input.names)];
+      const rows = await db
+        .select({
+          slug: codexFeats.slug,
+          name: codexFeats.name,
+          description: codexFeats.description,
+          raw: codexFeats.raw,
+          featType: codexFeats.featType,
+        })
+        .from(codexFeats)
+        .where(or(...unique.map((name) => ilike(codexFeats.name, name))));
+      return rows.map((row) => {
+        const benefitText = featBenefits(row.raw as Record<string, unknown>);
+        return {
+          slug: row.slug,
+          name: row.name,
+          description:
+            row.description?.trim() || benefitText.join("\n\n") || "",
+          featType: row.featType,
+        };
+      });
+    }),
+
+  /** Full SRD feat record by display name (case-insensitive). */
+  getFeatByName: protectedProcedure
+    .input(z.object({ name: z.string().trim().min(1).max(120) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexFeats)
+        .where(ilike(codexFeats.name, input.name))
+        .limit(1);
+      if (!row) return null;
+      const benefitText = featBenefits(row.raw as Record<string, unknown>);
+      return {
+        slug: row.slug,
+        name: row.name,
+        description:
+          row.description?.trim() || benefitText.join("\n\n") || "",
+        featType: row.featType,
+        prerequisite: row.prerequisite,
+      };
     }),
 
   /** SRD rules chapters (rulesets), in document order. */

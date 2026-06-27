@@ -149,6 +149,7 @@ export {
   type AsiChoice,
   baseArmorClass,
   featureStubsForLevel,
+  formatAsiLabel,
   grantsAsiAtLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
@@ -183,7 +184,9 @@ export {
   type ClassFeature,
 } from "./entities/class-features";
 export {
+  FIGHTING_STYLE_DESCRIPTIONS,
   FIGHTING_STYLES,
+  fightingStyleDescription,
   fightingStylePickLevel,
   needsFightingStylePick,
   needsSubclassPick,

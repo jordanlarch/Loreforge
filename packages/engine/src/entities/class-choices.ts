@@ -3,7 +3,7 @@
  * Full Open5e subclass ingest is deferred; these match SRD display names.
  */
 
-/** Level at which a class picks its subclass (PHB). */
+/** Level at which a class picks its subclass (SRD). */
 export function subclassPickLevel(className: string): number | null {
   const map: Record<string, number> = {
     Barbarian: 3,
@@ -39,6 +39,25 @@ export const FIGHTING_STYLES = [
 ] as const;
 
 export type FightingStyle = (typeof FIGHTING_STYLES)[number];
+
+/** SRD fighting style rules text for sheet tooltips. */
+export const FIGHTING_STYLE_DESCRIPTIONS: Record<FightingStyle, string> = {
+  Archery:
+    "You gain a +2 bonus to attack rolls you make with ranged weapons.",
+  Defense: "While you are wearing armor, you gain a +1 bonus to AC.",
+  Dueling:
+    "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon.",
+  "Great Weapon Fighting":
+    "When you roll a 1 or 2 on a damage die for an attack with a melee weapon you are wielding with two hands, you can reroll the die and must use the new roll, even if the new roll is a 1 or a 2.",
+  Protection:
+    "When a creature you can see attacks a target other than you that is within 5 feet of you, you can use your reaction to impose disadvantage on the attack roll. You must be wielding a shield.",
+  "Two-Weapon Fighting":
+    "When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack.",
+};
+
+export function fightingStyleDescription(style: string): string | undefined {
+  return FIGHTING_STYLE_DESCRIPTIONS[style as FightingStyle];
+}
 
 /** Subclass options keyed by class display name. */
 export const SUBCLASS_OPTIONS: Record<string, readonly string[]> = {

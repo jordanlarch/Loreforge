@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
 import { abilityBonusLine } from "@/lib/codex-display";
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 
 import { SpeciesDetail } from "./species-detail";
@@ -14,7 +13,7 @@ export function SpeciesBrowser({
   selectedSlug: string | null;
   onSelect: (slug: string | null) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
 
   const list = trpc.codex.listSpecies.useQuery(
     { search: search || undefined },

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
-
 import type { Ability } from "@app/engine";
 
 import { SrdHint } from "@/components/srd-hint";
 import { ABILITY_LABELS } from "@/lib/codex-display";
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 
 import { ClassDetail } from "./class-detail";
@@ -17,7 +16,7 @@ export function ClassBrowser({
   selectedSlug: string | null;
   onSelect: (slug: string | null) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
 
   const list = trpc.codex.listClasses.useQuery(
     { search: search || undefined },

@@ -1,17 +1,13 @@
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
-import { CodexShell } from "./codex-shell";
+import { legacyCodexSearchParamsToPath } from "@/lib/codex-routes";
 
-export default function CodexPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="mx-auto max-w-6xl px-4 py-10 text-lore-muted">
-          Loading Codex…
-        </div>
-      }
-    >
-      <CodexShell />
-    </Suspense>
-  );
+/** Legacy `/codex?category=&slug=` and default entry → path routes (CODEX-3). */
+export default async function CodexRootPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  redirect(legacyCodexSearchParamsToPath(params));
 }

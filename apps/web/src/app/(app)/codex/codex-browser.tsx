@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 import { SpellDetail } from "./spell-detail";
 
@@ -23,7 +24,7 @@ export function CodexBrowser({
   selectedSlug: string | null;
   onSelectSlug: (slug: string | null) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
   const [level, setLevel] = useState<string | undefined>();
   const [school, setSchool] = useState<string | undefined>();
   const [concentration, setConcentration] = useState<boolean | undefined>();

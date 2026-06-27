@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { formatFeatType } from "@/lib/codex-background-feat-display";
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 
 import { FeatDetail } from "./feat-detail";
@@ -14,7 +15,7 @@ export function FeatBrowser({
   selectedSlug: string | null;
   onSelect: (slug: string | null) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
   const [featType, setFeatType] = useState<string | undefined>();
 
   const facets = trpc.codex.featFacets.useQuery();

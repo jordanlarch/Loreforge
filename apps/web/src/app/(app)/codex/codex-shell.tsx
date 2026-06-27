@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 
 import {
   CODEX_CATEGORIES,
   isLiveCodexCategory,
-  parseCodexCategory,
   type CodexCategory,
 } from "@/lib/codex-categories";
+import {
+  codexCategoryPath,
+  codexDetailPath,
+  parseCodexCategorySegment,
+} from "@/lib/codex-routes";
 
 import { BackgroundBrowser } from "./background-browser";
 import { ClassBrowser } from "./class-browser";
@@ -23,37 +27,47 @@ import { SpeciesBrowser } from "./species-browser";
 
 export function CodexShell() {
   const router = useRouter();
+  const params = useParams<{ category?: string; slug?: string }>();
   const searchParams = useSearchParams();
 
-  const category = parseCodexCategory(searchParams.get("category"));
-  const selectedSlug = searchParams.get("slug");
+  const category =
+    parseCodexCategorySegment(params.category) ?? ("Spells" as CodexCategory);
+  const selectedSlug = params.slug
+    ? decodeURIComponent(params.slug)
+    : null;
+  const listSearch = searchParams.get("search");
 
-  const pushParams = useCallback(
-    (next: { category?: CodexCategory; slug?: string | null }) => {
-      const params = new URLSearchParams(searchParams.toString());
-      const cat = next.category ?? category;
-      params.set("category", cat);
-      if (next.slug === null || next.slug === undefined) {
-        params.delete("slug");
-      } else {
-        params.set("slug", next.slug);
-      }
-      router.push(`/codex?${params.toString()}`);
+  const pushList = useCallback(
+    (cat: CodexCategory, search?: string | null) => {
+      router.push(codexCategoryPath(cat, search ?? listSearch));
     },
-    [category, router, searchParams],
+    [listSearch, router],
   );
 
-  function selectCategory(cat: CodexCategory) {
-    pushParams({ category: cat, slug: null });
-  }
+  const selectCategory = useCallback(
+    (cat: CodexCategory) => {
+      pushList(cat, null);
+    },
+    [pushList],
+  );
 
-  function selectSlug(slug: string | null) {
-    pushParams({ slug });
-  }
+  const selectSlug = useCallback(
+    (slug: string | null) => {
+      if (slug) {
+        router.push(codexDetailPath(category, slug));
+      } else {
+        pushList(category);
+      }
+    },
+    [category, pushList, router],
+  );
 
-  function navigateToRef(cat: CodexCategory, slug: string) {
-    pushParams({ category: cat, slug });
-  }
+  const navigateToRef = useCallback(
+    (cat: CodexCategory, slug: string) => {
+      router.push(codexDetailPath(cat, slug));
+    },
+    [router],
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -80,10 +94,9 @@ export function CodexShell() {
             const live = isLiveCodexCategory(cat);
             const active = cat === category;
             return (
-              <button
+              <Link
                 key={cat}
-                type="button"
-                onClick={() => selectCategory(cat)}
+                href={codexCategoryPath(cat)}
                 className={`rounded-full px-3 py-1 text-xs transition-colors ${
                   active
                     ? "bg-lore-accent-dim text-lore-text"
@@ -96,7 +109,7 @@ export function CodexShell() {
                 {!live && (
                   <span className="ml-1 text-[10px] opacity-70">soon</span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>

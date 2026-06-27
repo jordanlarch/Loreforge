@@ -7,6 +7,7 @@ import {
   formatItemCost,
   formatItemWeight,
 } from "@/lib/codex-item-display";
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 
 import { ItemDetail } from "./item-detail";
@@ -20,7 +21,7 @@ export function ItemBrowser({
   selectedSlug: string | null;
   onSelect: (slug: string | null) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
   const [category, setCategory] = useState<string | undefined>();
   const [page, setPage] = useState(0);
 

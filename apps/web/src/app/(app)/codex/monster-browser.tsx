@@ -12,6 +12,7 @@ import {
   formatCreatureType,
   formatSize,
 } from "@/lib/codex-monster-display";
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 
 import { MonsterDetail } from "./monster-detail";
@@ -29,7 +30,7 @@ export function MonsterBrowser({
   selectedSlug: string | null;
   onSelect: (slug: string | null) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
   const [type, setType] = useState<string | undefined>();
   const [size, setSize] = useState<string | undefined>();
   const [crPresetId, setCrPresetId] = useState<string | undefined>();

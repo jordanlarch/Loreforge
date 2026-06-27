@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-
+import { useCodexSearch } from "@/lib/use-codex-search";
 import { trpc } from "@/lib/trpc/client";
 import type { CodexCategory } from "@/lib/codex-categories";
 
@@ -16,7 +15,7 @@ export function BackgroundBrowser({
   onSelect: (slug: string | null) => void;
   onNavigateRef?: (category: CodexCategory, slug: string) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useCodexSearch();
 
   const list = trpc.codex.listBackgrounds.useQuery(
     { search: search || undefined },

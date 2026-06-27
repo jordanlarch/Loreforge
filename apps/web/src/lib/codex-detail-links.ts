@@ -1,4 +1,7 @@
 import type { CodexCategory } from "@/lib/codex-categories";
+import { codexDeepLink } from "@/lib/codex-routes";
+
+export { codexDeepLink } from "@/lib/codex-routes";
 
 const OPEN5E_API_PATH: Partial<Record<CodexCategory, string>> = {
   Spells: "spells",
@@ -9,12 +12,6 @@ const OPEN5E_API_PATH: Partial<Record<CodexCategory, string>> = {
   Monsters: "creatures",
   Rules: "rules",
 };
-
-/** Bookmarkable Codex deep link (`?category=&slug=`). */
-export function codexDeepLink(category: CodexCategory, slug: string): string {
-  const params = new URLSearchParams({ category, slug });
-  return `/codex?${params.toString()}`;
-}
 
 /** Absolute share URL for clipboard copy. */
 export function codexShareUrl(

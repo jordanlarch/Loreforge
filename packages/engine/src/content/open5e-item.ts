@@ -1,23 +1,34 @@
 /**
  * Best-effort Open5e v2 raw item → {@link ItemDefinition} conversion for Codex
- * → Smithy copy (SMITH-7). Snapshot categories without weapon/armor blocks stay
- * metadata-only.
+ * → Smithy copy (SMITH-7 / ITEM-DEF-v2). Snapshot categories without
+ * weapon/armor blocks stay metadata-only.
  */
 import type { ItemType } from "./items";
 import {
   buildItemDefinition,
   itemDefinitionId,
   type ItemArmorStats,
+  type ItemCost,
   type ItemDefinition,
+  type ItemPropertyDefinition,
   type ItemWeaponStats,
+  type ItemWeight,
 } from "./item-definitions";
+import { masteryFromOpen5eItemRaw } from "./weapon-mastery-open5e";
 import { DAMAGE_TYPES, type DamageType } from "./spells";
 
 type Open5eWeaponRaw = {
   damage_dice?: string | null;
   damage_type?: { name?: string | null; key?: string | null } | null;
+  is_simple?: boolean | null;
+  is_martial?: boolean | null;
   properties?: {
-    property?: { name?: string | null; type?: string | null } | null;
+    property?: {
+      name?: string | null;
+      type?: string | null;
+      desc?: string | null;
+      key?: string | null;
+    } | null;
     detail?: string | null;
   }[] | null;
 };
@@ -46,6 +57,58 @@ function weaponPropertyNames(raw: Open5eWeaponRaw): string[] {
     .filter(Boolean);
 }
 
+function propertyKey(name: string, key?: string | null): string {
+  if (key?.trim()) return key.trim().toLowerCase();
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function propertyDetailsFromOpen5e(
+  weapon: Open5eWeaponRaw,
+): ItemPropertyDefinition[] {
+  const out: ItemPropertyDefinition[] = [];
+  for (const entry of weapon.properties ?? []) {
+    const prop = entry.property;
+    const name = prop?.name?.trim();
+    if (!name) continue;
+    const type = prop?.type?.trim() || null;
+    out.push({
+      key: propertyKey(name, prop?.key),
+      name,
+      ...(prop?.desc?.trim() ? { description: prop.desc.trim() } : {}),
+      detail: entry.detail?.trim() || null,
+      ...(type === "Mastery" ? { mastery: true } : {}),
+    });
+  }
+  return out;
+}
+
+function parseCost(
+  cost: string | null | undefined,
+): ItemCost | undefined {
+  if (!cost?.trim()) return undefined;
+  const value = parseFloat(cost);
+  if (Number.isNaN(value) || value <= 0) return undefined;
+  return { amount: value, unit: "gp" };
+}
+
+function parseWeight(
+  weight: string | null | undefined,
+  unit: string | null | undefined,
+): ItemWeight | undefined {
+  if (!weight?.trim()) return undefined;
+  const value = parseFloat(weight);
+  if (Number.isNaN(value) || value <= 0) return undefined;
+  const normalized = (unit ?? "lb").toLowerCase();
+  return {
+    amount: value,
+    unit: normalized === "kg" ? "kg" : "lb",
+  };
+}
+
 function weaponFromOpen5e(raw: Record<string, unknown>): ItemWeaponStats | undefined {
   const weapon = raw.weapon as Open5eWeaponRaw | null | undefined;
   if (!weapon?.damage_dice) return undefined;
@@ -56,16 +119,24 @@ function weaponFromOpen5e(raw: Record<string, unknown>): ItemWeaponStats | undef
   const reach = props.some((p) => p === "reach");
 
   let rangeFt: number | undefined;
+  let rangeLongFt: number | undefined;
   if (ranged) {
     const rangeProp = (weapon.properties ?? []).find((entry) =>
       entry.property?.name?.toLowerCase().includes("range"),
     );
     const detail = rangeProp?.detail ?? "";
     const match = detail.match(/(\d+)\s*\/\s*(\d+)/);
-    rangeFt = match ? parseInt(match[1]!, 10) : 80;
+    if (match) {
+      rangeFt = parseInt(match[1]!, 10);
+      rangeLongFt = parseInt(match[2]!, 10);
+    } else {
+      rangeFt = 80;
+    }
   } else if (reach) {
     rangeFt = 10;
   }
+
+  const mastery = masteryFromOpen5eItemRaw(raw);
 
   return {
     damage: {
@@ -75,6 +146,13 @@ function weaponFromOpen5e(raw: Record<string, unknown>): ItemWeaponStats | undef
     finesse: finesse || undefined,
     ranged: ranged || undefined,
     rangeFt,
+    rangeLongFt,
+    category: weapon.is_martial
+      ? "martial"
+      : weapon.is_simple
+        ? "simple"
+        : undefined,
+    mastery: mastery?.property,
   };
 }
 
@@ -117,6 +195,9 @@ export function open5eRawToItemDefinition(
     category?: string | null;
     description?: string | null;
     itemType?: ItemType;
+    cost?: string | null;
+    weight?: string | null;
+    weightUnit?: string | null;
   },
 ): ItemDefinition {
   const itemType = meta.itemType ?? open5eCategoryToItemType(meta.category);
@@ -126,6 +207,10 @@ export function open5eRawToItemDefinition(
     meta.description?.trim() ||
     (typeof raw.desc === "string" ? raw.desc.trim() : "") ||
     "";
+  const weaponRaw = raw.weapon as Open5eWeaponRaw | null | undefined;
+  const propertyDetails = weaponRaw
+    ? propertyDetailsFromOpen5e(weaponRaw)
+    : undefined;
 
   return buildItemDefinition({
     id: itemDefinitionId(meta.slug || meta.name),
@@ -134,5 +219,8 @@ export function open5eRawToItemDefinition(
     description,
     ...(weapon ? { weapon } : {}),
     ...(armor ? { armor } : {}),
+    cost: parseCost(meta.cost),
+    weight: parseWeight(meta.weight, meta.weightUnit),
+    ...(propertyDetails?.length ? { propertyDetails } : {}),
   });
 }

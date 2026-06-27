@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { formatItemMechanicsSummary } from "@/lib/item-mechanics-display";
+import { ItemPropertyRow } from "@/components/item-property-hint";
+import {
+  formatItemCostLine,
+  formatItemMechanicsSummary,
+  formatItemWeightLine,
+} from "@/lib/item-mechanics-display";
 import { SmithyItemForm } from "@/components/smithy-item-form";
 import { SmithyResetToSrdButton } from "@/components/smithy-reset-to-srd";
 import { smithyRarityBadgeClass } from "@/lib/smithy-rarity-styles";
@@ -75,6 +80,18 @@ export function ItemDetail({ id }: { id: string }) {
             {item.requiresAttunement && " · requires attunement"}
             {item.source === "codex" && " · copied from Codex"}
           </p>
+          {item.definition &&
+          (formatItemCostLine(item.definition) ||
+            formatItemWeightLine(item.definition)) ? (
+            <p className="mt-1 text-sm text-lore-muted">
+              {[
+                formatItemCostLine(item.definition),
+                formatItemWeightLine(item.definition),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          ) : null}
           {item.rarity !== "Common" ? (
             <span
               className={`mt-2 inline-block rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${smithyRarityBadgeClass(item.rarity)}`}
@@ -146,7 +163,26 @@ export function ItemDetail({ id }: { id: string }) {
               )
             : null}
 
-          {item.properties.length > 0 && (
+          {item.definition?.propertyDetails?.length ? (
+            <section className="mt-8">
+              <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
+                Properties
+              </h2>
+              <ul className="space-y-2">
+                {item.definition.propertyDetails.map((prop) => (
+                  <ItemPropertyRow
+                    key={prop.key}
+                    entry={{
+                      name: prop.name,
+                      desc: prop.description ?? null,
+                      detail: prop.detail ?? null,
+                      type: prop.mastery ? "Mastery" : null,
+                    }}
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : item.properties.length > 0 ? (
             <section className="mt-8">
               <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
                 Properties
@@ -162,7 +198,7 @@ export function ItemDetail({ id }: { id: string }) {
                 ))}
               </ul>
             </section>
-          )}
+          ) : null}
 
           <section className="mt-8">
             <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">

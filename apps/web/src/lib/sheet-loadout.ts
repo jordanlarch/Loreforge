@@ -223,6 +223,27 @@ function isHeavyMeleeWeapon(name: string, spec: WeaponSpec): boolean {
 }
 
 /**
+ * Sheet Combat tab attacks: fighting-style modifiers + Extra Attack annotation.
+ * Returns one row per weapon (Extra Attack count shown in the section header).
+ */
+export function deriveSheetCombatDisplayAttacks(
+  entity: EntityState,
+  equipment: readonly EquipmentItem[],
+  classes: ClassLevel[],
+  fightingStyles?: Record<string, string>,
+  opts?: {
+    feats?: string[];
+    combatToggles?: CombatFeatToggles;
+    smithyDefinitions?: Readonly<Record<string, ItemDefinition>>;
+  },
+): WeaponAttack[] {
+  return deriveSheetCombatAttacks(entity, equipment, classes, fightingStyles, {
+    ...opts,
+    displayOnly: true,
+  });
+}
+
+/**
  * Sheet Combat tab attacks: fighting-style modifiers + Extra Attack rows.
  */
 export function deriveSheetCombatAttacks(
@@ -234,6 +255,8 @@ export function deriveSheetCombatAttacks(
     feats?: string[];
     combatToggles?: CombatFeatToggles;
     smithyDefinitions?: Readonly<Record<string, ItemDefinition>>;
+    /** When true, one row per weapon; Extra Attack is noted in the UI header. */
+    displayOnly?: boolean;
   },
 ): WeaponAttack[] {
   const base = deriveWeaponAttacks(entity, equipment, opts?.smithyDefinitions);
@@ -281,6 +304,17 @@ export function deriveSheetCombatAttacks(
       },
     };
     const weaponName = modified.label.split(" · ")[0] ?? "Attack";
+    if (opts?.displayOnly) {
+      return [
+        {
+          ...modified,
+          label:
+            attackCount > 1
+              ? `${modified.label.replace(weaponName, weaponName)} ×${attackCount}`
+              : modified.label,
+        },
+      ];
+    }
     return Array.from({ length: attackCount }, (_, i) => ({
       ...modified,
       id: `${attack.id}-extra-${i}`,

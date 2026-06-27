@@ -231,11 +231,25 @@ export {
   validateItemDefinition,
   weaponSpecFromItemDefinition,
   type ItemArmorStats,
+  type ItemCost,
   type ItemDefinition,
   type ItemEquippedEffect,
+  type ItemPropertyDefinition,
   type ItemWeaponStats,
+  type ItemWeight,
   type ResolvedWeaponSpec,
 } from "./content/item-definitions";
+export {
+  buildBackgroundDefinition,
+  buildFeatDefinition,
+  buildSubclassDefinition,
+  optionDefinitionId,
+  type ItemOptionContent,
+  type OptionBackgroundDefinition,
+  type OptionFeatDefinition,
+  type OptionSubclassDefinition,
+  type SubclassFeatureDefinition,
+} from "./content/option-definitions";
 export { open5eRawToItemDefinition } from "./content/open5e-item";
 export {
   AREA_SHAPES,

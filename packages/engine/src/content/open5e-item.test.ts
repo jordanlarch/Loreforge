@@ -31,7 +31,11 @@ describe("open5eRawToItemDefinition", () => {
       finesse: undefined,
       ranged: undefined,
       rangeFt: undefined,
+      rangeLongFt: undefined,
+      category: undefined,
+      mastery: undefined,
     });
+    expect(def.propertyDetails?.length).toBe(1);
     expect(isValidItemDefinition(def)).toBe(true);
   });
 
@@ -58,6 +62,23 @@ describe("open5eRawToItemDefinition", () => {
     );
     expect(def.weapon?.ranged).toBe(true);
     expect(def.weapon?.rangeFt).toBe(80);
+    expect(def.weapon?.rangeLongFt).toBe(320);
+  });
+
+  it("maps cost and weight from meta", () => {
+    const def = open5eRawToItemDefinition(
+      {},
+      {
+        slug: "crossbow-heavy",
+        name: "Heavy Crossbow",
+        category: "weapon",
+        cost: "50",
+        weight: "18",
+        weightUnit: "lb",
+      },
+    );
+    expect(def.cost).toEqual({ amount: 50, unit: "gp" });
+    expect(def.weight).toEqual({ amount: 18, unit: "lb" });
   });
 
   it("maps armor rows", () => {

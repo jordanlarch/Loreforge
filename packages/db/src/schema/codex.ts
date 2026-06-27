@@ -275,3 +275,35 @@ export const codexClasses = pgTable(
   },
   (t) => [index("codex_classes_name_idx").on(t.name)],
 );
+
+export type SubclassFeature = {
+  level: number;
+  name: string;
+  description: string;
+};
+
+/** SRD subclasses seeded from curated dataset (CODEX-SUBCLASSES). */
+export const codexSubclasses = pgTable(
+  "codex_subclasses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    /** Parent class slug, e.g. fighter. */
+    classSlug: text("class_slug").notNull(),
+    /** Parent class display name, e.g. Fighter. */
+    className: text("class_name").notNull(),
+    pickLevel: integer("pick_level").notNull(),
+    description: text("description").notNull().default(""),
+    features: jsonb("features").notNull().$type<SubclassFeature[]>().default([]),
+    source: text("source").notNull().default("srd"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>().default({}),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_subclasses_name_idx").on(t.name),
+    index("codex_subclasses_class_idx").on(t.classSlug),
+  ],
+);

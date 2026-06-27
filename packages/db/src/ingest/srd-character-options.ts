@@ -21,6 +21,7 @@ import { sql } from "drizzle-orm";
 
 import type { Database } from "../client";
 import { codexClasses, codexSpecies, type SkillChoice } from "../schema/codex";
+import { seedSubclasses } from "./srd-subclasses";
 import type { Ability, AbilityScores } from "@app/engine";
 
 export interface SeedSpecies {
@@ -373,6 +374,7 @@ export const SRD_CLASSES: SeedClass[] = [
 export interface SeedCharacterOptionsResult {
   species: number;
   classes: number;
+  subclasses: number;
 }
 
 /**
@@ -438,5 +440,7 @@ export async function seedCharacterOptions(
       },
     });
 
-  return { species: SRD_SPECIES.length, classes: SRD_CLASSES.length };
+  const { subclasses } = await seedSubclasses(db);
+
+  return { species: SRD_SPECIES.length, classes: SRD_CLASSES.length, subclasses };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import {
@@ -209,6 +210,15 @@ export function CharacterSheetView({
         <p className="rounded border border-lore-accent/40 bg-lore-accent-dim px-3 py-2 text-sm text-lore-text">
           {featureToast}
         </p>
+      )}
+
+      {!embedded && (
+        <Link
+          href="/characters"
+          className="inline-block text-sm text-lore-muted hover:text-lore-text"
+        >
+          ← Characters
+        </Link>
       )}
 
       {update.error && (

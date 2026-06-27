@@ -63,6 +63,7 @@ export function FeaturesTab({
     { name: background },
     { enabled: background.trim().length > 0 },
   );
+  const subclassCatalog = trpc.codex.listSubclasses.useQuery(undefined);
 
   const classFeatures: FeatureRow[] = [];
   for (const cl of classes) {
@@ -90,13 +91,18 @@ export function FeaturesTab({
           f.name.includes("Origin") ||
           f.name.includes("Patron")
         ) {
+          const catalogMatch = subclassCatalog.data?.find(
+            (s) => s.className === cl.class && s.name === cl.subclass,
+          );
           classFeatures.push({
             id: featureResourceKey(cl.class, level, f.id),
             name: cl.subclass ?? f.name,
             source: `${cl.class} ${level}`,
-            description: cl.subclass
-              ? `${f.description} Selected: ${cl.subclass}.`
-              : f.description,
+            description: catalogMatch?.description
+              ? catalogMatch.description
+              : cl.subclass
+                ? `${f.description} Selected: ${cl.subclass}.`
+                : f.description,
           });
           continue;
         }
@@ -203,7 +209,14 @@ export function FeaturesTab({
 
       {classes.map((cl) => {
         const pick = subclassPickLevel(cl.class);
-        const options = subclassOptionsFor(cl.class);
+        const catalogOptions =
+          subclassCatalog.data
+            ?.filter((s) => s.className === cl.class)
+            .map((s) => s.name) ?? [];
+        const options =
+          catalogOptions.length > 0
+            ? catalogOptions
+            : subclassOptionsFor(cl.class);
         if (!pick || cl.level < pick || options.length === 0) return null;
         return (
           <div key={cl.class} className="mt-4">
@@ -356,7 +369,9 @@ function FeatureList({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <div className="font-medium">{row.name}</div>
+                <div className="font-medium">
+                  <FeatureHint title={row.name} body={row.description} />
+                </div>
                 <div className="text-xs text-lore-accent">{row.source}</div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -384,10 +399,35 @@ function FeatureList({
                 )}
               </div>
             </div>
-            <p className="mt-1 text-xs text-lore-muted">{row.description}</p>
+            <p className="mt-1 line-clamp-2 text-xs text-lore-muted">{row.description}</p>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+function FeatureHint({ title, body }: { title: string; body: string }) {
+  if (!body.trim()) return <span>{title}</span>;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{title}</span>
+      <span className="group relative inline-flex">
+        <button
+          type="button"
+          className="flex h-4 w-4 items-center justify-center rounded-full border border-lore-border text-[10px] leading-none text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+          aria-label={`About ${title}`}
+        >
+          ?
+        </button>
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 -translate-x-1/2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-lore-muted shadow-lg group-hover:block group-focus-within:block"
+        >
+          <span className="mb-0.5 block font-medium text-lore-text">{title}</span>
+          {body}
+        </span>
+      </span>
+    </span>
   );
 }

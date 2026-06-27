@@ -1,14 +1,40 @@
 import type { ItemDefinition } from "@app/engine";
 
+export function formatItemCostLine(
+  def: ItemDefinition,
+): string | null {
+  if (!def.cost) return null;
+  const { amount, unit } = def.cost;
+  const formatted =
+    amount % 1 === 0 ? amount.toFixed(0) : String(amount);
+  return `${formatted} ${unit}`;
+}
+
+export function formatItemWeightLine(
+  def: ItemDefinition,
+): string | null {
+  if (!def.weight) return null;
+  const { amount, unit } = def.weight;
+  const formatted =
+    amount % 1 === 0 ? amount.toFixed(0) : String(amount);
+  return `${formatted} ${unit}`;
+}
+
 export function formatItemMechanicsSummary(def: ItemDefinition): string[] {
   const lines: string[] = [];
   if (def.weapon) {
     const w = def.weapon;
     const parts = [`${w.damage.dice} ${w.damage.type}`];
+    if (w.category) parts.push(w.category);
     if (w.attackBonus) parts.push(`+${w.attackBonus} attack/damage`);
     if (w.finesse) parts.push("finesse");
     if (w.ranged) parts.push("ranged");
-    if (w.rangeFt) parts.push(`${w.rangeFt} ft`);
+    if (w.rangeFt && w.rangeLongFt) {
+      parts.push(`${w.rangeFt}/${w.rangeLongFt} ft`);
+    } else if (w.rangeFt) {
+      parts.push(`${w.rangeFt} ft`);
+    }
+    if (w.mastery) parts.push(`${w.mastery} mastery`);
     lines.push(`Weapon: ${parts.join(" · ")}`);
   }
   if (def.armor) {
@@ -20,6 +46,10 @@ export function formatItemMechanicsSummary(def: ItemDefinition): string[] {
     if (a.shield) parts.push("shield");
     lines.push(`Armor: ${parts.join(" · ")}`);
   }
+  const cost = formatItemCostLine(def);
+  const weight = formatItemWeightLine(def);
+  if (cost) lines.push(`Cost: ${cost}`);
+  if (weight) lines.push(`Weight: ${weight}`);
   def.equippedEffects?.forEach((effect) => {
     const mod = effect.modifier;
     if (mod.type === "ac_bonus") {

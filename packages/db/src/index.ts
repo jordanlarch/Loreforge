@@ -59,6 +59,12 @@ export {
   type SeedSpecies,
 } from "./ingest/srd-character-options";
 export {
+  seedSubclasses,
+  SRD_SUBCLASSES,
+  type SeedSubclass,
+  type SeedSubclassesResult,
+} from "./ingest/srd-subclasses";
+export {
   TRAIT_DESCRIPTIONS,
   traitDescription,
 } from "./ingest/srd-trait-descriptions";

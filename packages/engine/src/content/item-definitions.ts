@@ -14,6 +14,7 @@ import {
   ITEM_TYPES,
   type ItemType,
 } from "./items";
+import type { ItemOptionContent } from "./option-definitions";
 
 export type ItemWeaponStats = {
   damage: { dice: string; type: DamageType };
@@ -21,8 +22,30 @@ export type ItemWeaponStats = {
   attackBonus?: number;
   finesse?: boolean;
   ranged?: boolean;
-  /** Ranged range or melee reach override in feet. */
+  /** Normal / reach range in feet. */
   rangeFt?: number;
+  /** Long range for ranged weapons (second band). */
+  rangeLongFt?: number;
+  category?: "simple" | "martial";
+  mastery?: string;
+};
+
+export type ItemCost = {
+  amount: number;
+  unit: "gp" | "sp" | "cp" | "pp";
+};
+
+export type ItemWeight = {
+  amount: number;
+  unit: "lb" | "kg";
+};
+
+export type ItemPropertyDefinition = {
+  key: string;
+  name: string;
+  description?: string;
+  detail?: string | null;
+  mastery?: boolean;
 };
 
 export type ItemArmorStats = {
@@ -50,6 +73,11 @@ export type ItemDefinition = {
   weapon?: ItemWeaponStats;
   armor?: ItemArmorStats;
   equippedEffects?: ItemEquippedEffect[];
+  cost?: ItemCost;
+  weight?: ItemWeight;
+  propertyDetails?: ItemPropertyDefinition[];
+  /** Typed Codex snapshot payload for subclasses, backgrounds, feats (SMITHY-TYPED-COPY). */
+  optionContent?: ItemOptionContent;
   description: string;
 };
 
@@ -61,6 +89,7 @@ export type ResolvedWeaponSpec = {
   finesse?: boolean;
   ranged?: boolean;
   rangeFt?: number;
+  rangeLongFt?: number;
 };
 
 export function itemDefinitionId(name: string): string {
@@ -90,6 +119,10 @@ export function buildItemDefinition(input: {
   weapon?: ItemWeaponStats;
   armor?: ItemArmorStats;
   equippedEffects?: ItemEquippedEffect[];
+  cost?: ItemCost;
+  weight?: ItemWeight;
+  propertyDetails?: ItemPropertyDefinition[];
+  optionContent?: ItemOptionContent;
   id?: string;
 }): ItemDefinition {
   return {
@@ -102,6 +135,12 @@ export function buildItemDefinition(input: {
     ...(input.equippedEffects?.length
       ? { equippedEffects: input.equippedEffects }
       : {}),
+    ...(input.cost ? { cost: input.cost } : {}),
+    ...(input.weight ? { weight: input.weight } : {}),
+    ...(input.propertyDetails?.length
+      ? { propertyDetails: input.propertyDetails }
+      : {}),
+    ...(input.optionContent ? { optionContent: input.optionContent } : {}),
   };
 }
 
@@ -117,6 +156,7 @@ export function weaponSpecFromItemDefinition(
     finesse: w.finesse,
     ranged: w.ranged,
     rangeFt: w.rangeFt,
+    rangeLongFt: w.rangeLongFt,
   };
 }
 

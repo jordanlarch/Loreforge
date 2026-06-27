@@ -8,6 +8,7 @@ import {
 } from "./smithy-spell-form-state";
 
 const sampleDef: SpellDefinition = {
+  id: "test-fireball",
   name: "Fireball",
   level: 3,
   school: "evocation",

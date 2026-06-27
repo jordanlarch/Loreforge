@@ -4,7 +4,7 @@
  * is reused by Smithy and Realms. Write paths (Copy to Smithy, etc.) arrive in
  * later phases.
  */
-import { and, asc, count, eq, gte, ilike, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { masteryFromOpen5eItemRaw } from "@app/engine";
@@ -30,8 +30,34 @@ import {
   backgroundSkillProficiencies,
 } from "@/lib/codex-background-feat-display";
 import { codexSpellFlags } from "@/lib/codex-spell-flags";
+import { spellClassesFromRaw } from "@/lib/codex-spell-classes";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
+
+const spellSortSchema = z.enum(["level", "name", "school"]);
+const spellSortDirSchema = z.enum(["asc", "desc"]);
+
+function spellOrderBy(
+  sortBy: z.infer<typeof spellSortSchema>,
+  sortDir: z.infer<typeof spellSortDirSchema>,
+) {
+  const levelExpr = sql<number>`cast(${codexSpells.level} as int)`;
+  const primary =
+    sortBy === "name"
+      ? sortDir === "desc"
+        ? desc(codexSpells.name)
+        : asc(codexSpells.name)
+      : sortBy === "school"
+        ? sortDir === "desc"
+          ? desc(codexSpells.school)
+          : asc(codexSpells.school)
+        : sortDir === "desc"
+          ? desc(levelExpr)
+          : asc(levelExpr);
+
+  if (sortBy === "name") return [primary];
+  return [primary, asc(codexSpells.name)];
+}
 
 export const codexRouter = createTRPCRouter({
   /** Filterable, paginated list of SRD spells. */
@@ -43,6 +69,9 @@ export const codexRouter = createTRPCRouter({
         school: z.string().optional(),
         concentration: z.boolean().optional(),
         ritual: z.boolean().optional(),
+        spellClass: z.string().trim().max(80).optional(),
+        sortBy: spellSortSchema.default("level"),
+        sortDir: spellSortDirSchema.default("asc"),
         limit: z.number().int().min(1).max(100).default(48),
         offset: z.number().int().min(0).default(0),
       }),
@@ -63,6 +92,13 @@ export const codexRouter = createTRPCRouter({
           : input.ritual === false
             ? sql`coalesce(lower(${codexSpells.raw}->>'ritual'), '') not in ('yes', 'true')`
             : undefined,
+        input.spellClass
+          ? sql`exists (
+              select 1
+              from jsonb_array_elements(coalesce(${codexSpells.raw}->'classes', '[]'::jsonb)) as elem
+              where lower(elem->>'name') = lower(${input.spellClass})
+            )`
+          : undefined,
       ].filter(Boolean);
       const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -79,7 +115,7 @@ export const codexRouter = createTRPCRouter({
           })
           .from(codexSpells)
           .where(where)
-          .orderBy(asc(codexSpells.level), asc(codexSpells.name))
+          .orderBy(...spellOrderBy(input.sortBy, input.sortDir))
           .limit(input.limit)
           .offset(input.offset),
         db.select({ value: count() }).from(codexSpells).where(where),
@@ -89,6 +125,7 @@ export const codexRouter = createTRPCRouter({
         spells: rows.map(({ raw, ...row }) => ({
           ...row,
           ...codexSpellFlags(raw as Record<string, unknown>),
+          classes: spellClassesFromRaw(raw as Record<string, unknown>),
         })),
         total: total?.value ?? 0,
       };
@@ -97,7 +134,7 @@ export const codexRouter = createTRPCRouter({
   /** Distinct filter facets (levels + schools) for the sidebar. */
   spellFacets: protectedProcedure.query(async () => {
     const db = getDb();
-    const [levels, schools] = await Promise.all([
+    const [levels, schools, classSource] = await Promise.all([
       db
         .selectDistinct({ value: codexSpells.level })
         .from(codexSpells)
@@ -106,12 +143,20 @@ export const codexRouter = createTRPCRouter({
         .selectDistinct({ value: codexSpells.school })
         .from(codexSpells)
         .orderBy(asc(codexSpells.school)),
+      db.select({ raw: codexSpells.raw }).from(codexSpells),
     ]);
+    const classSet = new Set<string>();
+    for (const row of classSource) {
+      for (const name of spellClassesFromRaw(row.raw as Record<string, unknown>)) {
+        classSet.add(name);
+      }
+    }
     return {
       levels: levels.map((l) => l.value).filter((v): v is string => v != null),
       schools: schools
         .map((s) => s.value)
         .filter((v): v is string => v != null),
+      classes: [...classSet].sort((a, b) => a.localeCompare(b)),
     };
   }),
 

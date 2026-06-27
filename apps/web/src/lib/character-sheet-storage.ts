@@ -3,6 +3,8 @@
  * Backward-compatible with legacy personality markers.
  */
 
+import type { AsiChoice } from "@app/engine";
+
 export type PersonalityFields = {
   traits: string;
   ideals: string;
@@ -117,6 +119,8 @@ export type LevelHistoryEntry = {
   hpGain: number;
   subclass?: string;
   feat?: string;
+  /** ASI taken instead of a feat at this level. */
+  asi?: AsiChoice;
 };
 
 export type PactMagicPool = {

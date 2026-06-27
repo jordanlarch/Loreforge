@@ -575,6 +575,7 @@ export const charactersRouter = createTRPCRouter({
             hpGain,
             ...(input.subclass?.trim() ? { subclass: input.subclass.trim() } : {}),
             ...(input.feat?.trim() ? { feat: input.feat.trim() } : {}),
+            ...(input.asi ? { asi: input.asi } : {}),
           },
         ],
       };

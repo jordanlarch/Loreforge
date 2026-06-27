@@ -8,6 +8,7 @@ import {
   ASI_LEVELS,
   baseArmorClass,
   featureStubsForLevel,
+  formatAsiLabel,
   grantsAsiAtLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
@@ -207,6 +208,15 @@ describe("asi", () => {
         amount: 2,
       }),
     ).toBe(false);
+  });
+
+  it("formats ASI labels for the sheet", () => {
+    expect(
+      formatAsiLabel({ mode: "increase", ability: "str", amount: 2 }),
+    ).toBe("+2 Strength");
+    expect(
+      formatAsiLabel({ mode: "split", first: "dex", second: "wis" }),
+    ).toBe("+1 Dexterity, +1 Wisdom");
   });
 });
 

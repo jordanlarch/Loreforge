@@ -500,10 +500,31 @@ export function CreationWizard() {
         fightingStyle.trim().length > 0
           ? { [primaryClass.name]: fightingStyle.trim() }
           : undefined;
+      const levelHistory =
+        startingLevel > 1
+          ? advances
+              .filter(
+                (a) =>
+                  a.asi ||
+                  a.feat?.trim() ||
+                  a.subclass?.trim(),
+              )
+              .map((a) => ({
+                at: new Date().toISOString(),
+                totalLevel: a.level,
+                classGain: `${primaryClass.name} ${a.level}`,
+                hpGain: 0,
+                ...(a.subclass?.trim() ? { subclass: a.subclass.trim() } : {}),
+                ...(a.feat?.trim() ? { feat: a.feat.trim() } : {}),
+                ...(a.asi ? { asi: a.asi } : {}),
+              }))
+          : undefined;
       const notes = serializeCharacterNotes(notesBody, personality, {
         milestoneXp: useMilestoneXp,
         feats: metaFeats.length > 0 ? metaFeats : undefined,
         fightingStyles,
+        levelHistory:
+          levelHistory && levelHistory.length > 0 ? levelHistory : undefined,
       });
       const row = await create.mutateAsync({
         name: name.trim(),

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   classFeaturesForLevel,
   featureResourceKey,
   FIGHTING_STYLES,
+  fightingStyleDescription,
   fightingStylePickLevel,
+  formatAsiLabel,
   remainingFeatureUses,
-  subclassOptionsFor,
   subclassPickLevel,
   type ClassLevel,
 } from "@app/engine";
@@ -19,6 +20,7 @@ import {
   SheetSection,
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
+import { formatFeatType } from "@/lib/codex-background-feat-display";
 import type { CharacterSheetMeta } from "@/lib/character-sheet-storage";
 import { trpc } from "@/lib/trpc/client";
 
@@ -29,6 +31,19 @@ type FeatureRow = {
   description: string;
   uses?: number;
 };
+
+function isSubclassFeatureStub(f: { name: string }): boolean {
+  return (
+    f.name.includes("Archetype") ||
+    f.name.includes("College") ||
+    f.name.includes("Domain") ||
+    f.name.includes("Tradition") ||
+    f.name.includes("Path") ||
+    f.name.includes("Oath") ||
+    f.name.includes("Origin") ||
+    f.name.includes("Patron")
+  );
+}
 
 export function FeaturesTab({
   characterId,
@@ -65,8 +80,43 @@ export function FeaturesTab({
   );
   const subclassCatalog = trpc.codex.listSubclasses.useQuery(undefined);
 
+  const featNames = useMemo(
+    () => [...new Set((meta.feats ?? []).map((f) => f.trim()).filter(Boolean))],
+    [meta.feats],
+  );
+  const featsQuery = trpc.codex.getFeatsByNames.useQuery(
+    { names: featNames },
+    { enabled: featNames.length > 0 },
+  );
+
+  const subclassFeatureRows: FeatureRow[] = [];
+  for (const cl of classes) {
+    if (!cl.subclass?.trim()) continue;
+    const entry = subclassCatalog.data?.find(
+      (s) => s.className === cl.class && s.name === cl.subclass,
+    );
+    if (!entry?.features?.length) continue;
+    for (const [i, f] of entry.features.entries()) {
+      if (f.level > cl.level) continue;
+      subclassFeatureRows.push({
+        id: `subclass-${cl.class}-${f.level}-${i}-${f.name}`,
+        name: f.name,
+        source: `${cl.subclass} ${f.level}`,
+        description: f.description,
+      });
+    }
+  }
+
   const classFeatures: FeatureRow[] = [];
   for (const cl of classes) {
+    const catalogEntry = cl.subclass
+      ? subclassCatalog.data?.find(
+          (s) => s.className === cl.class && s.name === cl.subclass,
+        )
+      : undefined;
+    const hasExpandedSubclass =
+      Boolean(catalogEntry?.features?.length) && Boolean(cl.subclass);
+
     for (let level = 1; level <= cl.level; level++) {
       for (const f of classFeaturesForLevel(cl.class, level)) {
         if (f.name === "Fighting Style") {
@@ -76,21 +126,13 @@ export function FeaturesTab({
             name: style ? `Fighting Style: ${style}` : f.name,
             source: `${cl.class} ${level}`,
             description: style
-              ? `${f.description} Selected: ${style}.`
+              ? `${fightingStyleDescription(style) ?? f.description} Selected: ${style}.`
               : f.description,
           });
           continue;
         }
-        if (
-          f.name.includes("Archetype") ||
-          f.name.includes("College") ||
-          f.name.includes("Domain") ||
-          f.name.includes("Tradition") ||
-          f.name.includes("Path") ||
-          f.name.includes("Oath") ||
-          f.name.includes("Origin") ||
-          f.name.includes("Patron")
-        ) {
+        if (isSubclassFeatureStub(f)) {
+          if (hasExpandedSubclass) continue;
           const catalogMatch = subclassCatalog.data?.find(
             (s) => s.className === cl.class && s.name === cl.subclass,
           );
@@ -128,22 +170,82 @@ export function FeaturesTab({
       ]
     : [];
 
-  const backgroundFeatures: FeatureRow[] =
-    bgQuery.data?.featureEntries.map((entry, i) => ({
-      id: `background-${i}`,
-      name: entry.name,
-      source: background,
-      description: entry.description,
-    })) ?? [];
+  const backgroundFeatures: FeatureRow[] = [];
+  if (bgQuery.data) {
+    for (const skill of bgQuery.data.skillProficiencies) {
+      backgroundFeatures.push({
+        id: `background-skill-${skill}`,
+        name: `Skill proficiency: ${skill}`,
+        source: background,
+        description: `You are proficient in ${skill} from your background.`,
+      });
+    }
+    for (const tool of bgQuery.data.toolProficiencies) {
+      backgroundFeatures.push({
+        id: `background-tool-${tool}`,
+        name: `Tool proficiency: ${tool}`,
+        source: background,
+        description: `You are proficient with ${tool} from your background.`,
+      });
+    }
+    if (bgQuery.data.originFeat) {
+      backgroundFeatures.push({
+        id: "background-origin-feat",
+        name: bgQuery.data.originFeat.name,
+        source: `${background} · Origin feat`,
+        description:
+          bgQuery.data.originFeat.description ||
+          "Origin feat granted by your background.",
+      });
+    } else if (bgQuery.data.originFeatName) {
+      backgroundFeatures.push({
+        id: "background-origin-feat",
+        name: bgQuery.data.originFeatName,
+        source: `${background} · Origin feat`,
+        description: "Origin feat granted by your background.",
+      });
+    }
+    for (const [i, entry] of bgQuery.data.featureEntries.entries()) {
+      backgroundFeatures.push({
+        id: `background-feature-${i}`,
+        name: entry.name,
+        source: background,
+        description: entry.description,
+      });
+    }
+  }
 
-  const featRows: FeatureRow[] = (meta.feats ?? []).map((name, i) => ({
-    id: `feat-${i}`,
-    name,
-    source: "Feat",
-    description: "Recorded on your character sheet. Mechanical benefits apply where wired.",
-  }));
+  const asiRows: FeatureRow[] = (meta.levelHistory ?? [])
+    .filter((entry) => entry.asi)
+    .map((entry, i) => ({
+      id: `asi-${i}-${entry.at}`,
+      name: "Ability Score Improvement",
+      source: `Level ${entry.totalLevel} · ${entry.classGain}`,
+      description: formatAsiLabel(entry.asi!),
+    }));
 
-  const all = [...speciesTraits, ...classFeatures, ...backgroundFeatures];
+  const featRows: FeatureRow[] = featNames.map((name, i) => {
+    const codex = featsQuery.data?.find(
+      (f) => f.name.toLowerCase() === name.toLowerCase(),
+    );
+    return {
+      id: `feat-${i}-${name}`,
+      name,
+      source: codex?.featType ? formatFeatType(codex.featType) : "Feat",
+      description:
+        codex?.description ||
+        "Recorded on your character sheet. Mechanical benefits apply where wired.",
+    };
+  });
+
+  const featAndAsiRows = [...asiRows, ...featRows];
+
+  const all = [
+    ...speciesTraits,
+    ...classFeatures,
+    ...subclassFeatureRows,
+    ...backgroundFeatures,
+  ];
   const filtered = useSheetSearch(all, search, (f) => `${f.name} ${f.source}`);
 
   const resourceUses = meta.resourceUses ?? {};
@@ -190,18 +292,13 @@ export function FeaturesTab({
         <SheetSection title="Fighting Style">
           <div className="flex flex-wrap gap-2">
             {FIGHTING_STYLES.map((style) => (
-              <button
+              <ChoiceChip
                 key={style}
-                type="button"
+                label={style}
+                selected={meta.fightingStyles?.[primary.class] === style}
+                tooltip={fightingStyleDescription(style)}
                 onClick={() => setFightingStyle(primary.class, style)}
-                className={`rounded-full border px-3 py-1 text-xs ${
-                  meta.fightingStyles?.[primary.class] === style
-                    ? "border-lore-accent bg-lore-accent-dim"
-                    : "border-lore-border text-lore-muted"
-                }`}
-              >
-                {style}
-              </button>
+              />
             ))}
           </div>
         </SheetSection>
@@ -210,34 +307,31 @@ export function FeaturesTab({
       {classes.map((cl) => {
         const pick = subclassPickLevel(cl.class);
         const catalogOptions =
-          subclassCatalog.data
-            ?.filter((s) => s.className === cl.class)
-            .map((s) => s.name) ?? [];
-        const options =
-          catalogOptions.length > 0
-            ? catalogOptions
-            : subclassOptionsFor(cl.class);
-        if (!pick || cl.level < pick || options.length === 0) return null;
+          subclassCatalog.data?.filter((s) => s.className === cl.class) ?? [];
+        if (!pick || cl.level < pick) return null;
         return (
           <div key={cl.class} className="mt-4">
             <SheetSection title={`${cl.class} subclass`}>
-              <div className="flex flex-wrap gap-2">
-                {options.map((sub) => (
-                  <button
-                    key={sub}
-                    type="button"
-                    onClick={() => setSubclass(cl.class, sub)}
-                    disabled={!onUpdateClasses}
-                    className={`rounded border px-3 py-1.5 text-xs disabled:opacity-50 ${
-                      cl.subclass === sub
-                        ? "border-lore-accent bg-lore-accent-dim"
-                        : "border-lore-border text-lore-muted"
-                    }`}
-                  >
-                    {sub}
-                  </button>
-                ))}
-              </div>
+              {subclassCatalog.isLoading ? (
+                <p className="text-sm text-lore-muted">Loading subclasses…</p>
+              ) : catalogOptions.length === 0 ? (
+                <p className="text-sm text-lore-muted">
+                  No Codex subclasses found for {cl.class}.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {catalogOptions.map((sub) => (
+                    <ChoiceChip
+                      key={sub.slug}
+                      label={sub.name}
+                      selected={cl.subclass === sub.name}
+                      tooltip={sub.description}
+                      disabled={!onUpdateClasses}
+                      onClick={() => setSubclass(cl.class, sub.name)}
+                    />
+                  ))}
+                </div>
+              )}
             </SheetSection>
           </div>
         );
@@ -284,12 +378,12 @@ export function FeaturesTab({
       </div>
 
       <div className="mt-4">
-        <SheetSection title="Feats">
-          {featRows.length === 0 ? (
-            <p className="text-sm text-lore-muted">No feats recorded.</p>
+        <SheetSection title="Feats & ASI">
+          {featAndAsiRows.length === 0 ? (
+            <p className="text-sm text-lore-muted">No feats or ASI recorded.</p>
           ) : (
             <FeatureList
-              rows={featRows}
+              rows={featAndAsiRows}
               resourceUses={resourceUses}
               onToggleResource={toggleResource}
               onUseFeature={useFeature}
@@ -327,7 +421,11 @@ export function FeaturesTab({
                     <p className="mt-1 text-xs text-lore-muted">
                       +{entry.hpGain} HP
                       {entry.subclass ? ` · ${entry.subclass}` : ""}
-                      {entry.feat ? ` · Feat: ${entry.feat}` : ""}
+                      {entry.asi
+                        ? ` · ASI: ${formatAsiLabel(entry.asi)}`
+                        : entry.feat
+                          ? ` · Feat: ${entry.feat}`
+                          : ""}
                     </p>
                   </li>
                 ))}
@@ -336,6 +434,46 @@ export function FeaturesTab({
         </div>
       )}
     </div>
+  );
+}
+
+function ChoiceChip({
+  label,
+  selected,
+  tooltip,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  tooltip?: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`rounded-full border px-3 py-1 text-xs disabled:opacity-50 ${
+          selected
+            ? "border-lore-accent bg-lore-accent-dim"
+            : "border-lore-border text-lore-muted"
+        }`}
+      >
+        {label}
+      </button>
+      {tooltip?.trim() && (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 -translate-x-1/2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-lore-muted shadow-lg group-hover:block group-focus-within:block"
+        >
+          <span className="mb-0.5 block font-medium text-lore-text">{label}</span>
+          {tooltip}
+        </span>
+      )}
+    </span>
   );
 }
 

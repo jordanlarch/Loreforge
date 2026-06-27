@@ -18,7 +18,7 @@ export type FeatModifiers = {
   initiativeBonus: number;
 };
 
-/** PHB fighting style bonuses applied when style is stored on the character. */
+/** SRD fighting style bonuses applied when style is stored on the character. */
 export function fightingStyleModifiers(
   className: string,
   style: string | undefined,

@@ -107,6 +107,41 @@ export function codexItemToEquipment(
   };
 }
 
+/** Add or mark prepared when applying a Smithy spell from browse (SMITH-3). */
+export function mergePreparedSmithySpell(
+  loadout: SpellLoadout,
+  spell: SmithySpellRow,
+): SpellLoadout {
+  const incoming = { ...smithySpellToCharacterSpell(spell), prepared: true };
+  const key = spellKey(incoming);
+  const idx = loadout.spells.findIndex((s) => spellKey(s) === key);
+  if (idx >= 0) {
+    return {
+      ...loadout,
+      spells: loadout.spells.map((s, i) =>
+        i === idx ? { ...s, prepared: true } : s,
+      ),
+    };
+  }
+  return { ...loadout, spells: [...loadout.spells, incoming] };
+}
+
+/** Add or mark equipped when applying a Smithy item from browse (SMITH-3). */
+export function mergeEquippedSmithyItem(
+  equipment: EquipmentItem[],
+  item: SmithyItemRow,
+): EquipmentItem[] {
+  const incoming = { ...smithyItemToEquipment(item), equipped: true };
+  const key = equipmentKey(incoming);
+  const idx = equipment.findIndex((e) => equipmentKey(e) === key);
+  if (idx >= 0) {
+    return equipment.map((e, i) =>
+      i === idx ? { ...e, equipped: true } : e,
+    );
+  }
+  return [...equipment, incoming];
+}
+
 /** Add or mark prepared when applying a Codex spell from detail (CODEX-6). */
 export function mergePreparedCodexSpell(
   loadout: SpellLoadout,

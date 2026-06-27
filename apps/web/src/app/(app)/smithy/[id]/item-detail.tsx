@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { SmithyItemForm } from "@/components/smithy-item-form";
 import { trpc } from "@/lib/trpc/client";
@@ -10,9 +10,16 @@ import { useRecordSmithyView } from "@/lib/use-record-smithy-view";
 
 export function ItemDetail({ id }: { id: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const utils = trpc.useUtils();
   const [editing, setEditing] = useState(false);
   const query = trpc.smithy.get.useQuery({ id });
+
+  useEffect(() => {
+    if (searchParams.get("edit") === "1") {
+      setEditing(true);
+    }
+  }, [searchParams]);
 
   useRecordSmithyView("item", id, query.data?.name);
 

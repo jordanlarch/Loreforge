@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import { SPELL_LEVELS, SPELL_SCHOOLS, type SpellSchool } from "@app/engine";
 
 import { SmithySpellForm } from "@/components/smithy-spell-form";
+import { SmithyLibraryCard } from "@/components/smithy-library-card";
 import { trpc } from "@/lib/trpc/client";
 
 import { CopyFromCodexButton } from "./codex-spell-copy";
@@ -111,25 +111,19 @@ export function SpellBrowser() {
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(list.data ?? []).map((spell) => (
               <li key={spell.id}>
-                <Link
+                <SmithyLibraryCard
+                  id={spell.id}
+                  kind="spell"
+                  name={spell.name}
                   href={`/smithy/spells/${spell.id}`}
-                  className="flex h-full flex-col gap-2 rounded-lg border border-lore-border bg-lore-surface p-5 transition-colors hover:border-lore-accent"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-display text-lg leading-tight">
-                      {spell.name}
-                    </span>
-                    {spell.source === "codex" && (
-                      <span className="shrink-0 rounded bg-lore-bg px-2 py-0.5 text-xs text-lore-muted">
-                        Copied
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-lore-muted">
-                    {levelLabel(spell.level)} ·{" "}
-                    <span className="capitalize">{spell.school}</span>
-                  </span>
-                </Link>
+                  subtitle={`${levelLabel(spell.level)} · ${spell.school}`}
+                  source={spell.source}
+                  descriptionSnippet={
+                    spell.description.trim().slice(0, 120) || null
+                  }
+                  updatedAt={spell.updatedAt}
+                  useOnCharacter
+                />
               </li>
             ))}
           </ul>

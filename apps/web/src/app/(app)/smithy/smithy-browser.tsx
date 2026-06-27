@@ -5,8 +5,12 @@ import { useState } from "react";
 
 import { ITEM_TYPES, type ItemType } from "@app/engine";
 
+import {
+  SmithyBrowseToolbar,
+  SmithyLibraryViews,
+  useSmithyBrowseState,
+} from "@/components/smithy-library-browse";
 import { SmithyItemForm } from "@/components/smithy-item-form";
-import { SmithyLibraryCard } from "@/components/smithy-library-card";
 import {
   SMITHY_LIBRARY_CATEGORIES,
   smithyCategoryLabel,
@@ -51,21 +55,23 @@ export function SmithyBrowser() {
 }
 
 function LibraryGrid({ category }: { category: SmithyLibraryCategory }) {
-  const list = trpc.smithy.listLibrary.useQuery({ category });
+  const browse = useSmithyBrowseState();
+  const list = trpc.smithy.listLibrary.useQuery({
+    category,
+    ...browse.queryInput,
+  });
 
   const entries = list.data ?? [];
   const title = smithyCategoryLabel(category);
+  const countLabel = list.isLoading
+    ? "Loading…"
+    : `${entries.length} entr${entries.length === 1 ? "y" : "ies"}`;
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-xl">{title}</h2>
-          <p className="mt-1 text-sm text-lore-muted">
-            {list.isLoading
-              ? "Loading…"
-              : `${entries.length} entr${entries.length === 1 ? "y" : "ies"}`}
-          </p>
         </div>
         <Link
           href="/codex"
@@ -75,32 +81,36 @@ function LibraryGrid({ category }: { category: SmithyLibraryCategory }) {
         </Link>
       </div>
 
+      <SmithyBrowseToolbar
+        search={browse.search}
+        onSearchChange={browse.setSearch}
+        source={browse.source}
+        onSourceChange={browse.setSource}
+        sort={browse.sort}
+        onSortChange={browse.setSort}
+        view={browse.view}
+        onViewChange={browse.setView}
+        countLabel={countLabel}
+      />
+
       {!list.isLoading && entries.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
-          {category === "All"
-            ? "No homebrew yet — copy from the Codex or forge items and spells."
-            : `No custom ${title.toLowerCase()} yet. Copy from the Codex or forge from scratch.`}
-        </div>
+        <SmithyLibraryViews
+          entries={[]}
+          view={browse.view}
+          emptyMessage={
+            browse.search || browse.source
+              ? "No homebrew matches these filters."
+              : category === "All"
+                ? "No homebrew yet — copy from the Codex or forge items and spells."
+                : `No custom ${title.toLowerCase()} yet. Copy from the Codex or forge from scratch.`
+          }
+        />
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {entries.map((entry) => (
-            <li key={`${entry.kind}-${entry.id}`}>
-              <SmithyLibraryCard
-                id={entry.id}
-                kind={entry.kind}
-                name={entry.name}
-                href={entry.href}
-                subtitle={entry.subtitle}
-                source={entry.source}
-                descriptionSnippet={entry.descriptionSnippet}
-                updatedAt={entry.updatedAt}
-                useOnCharacter={
-                  entry.kind === "spell" || entry.category === "Items"
-                }
-              />
-            </li>
-          ))}
-        </ul>
+        <SmithyLibraryViews
+          entries={entries}
+          view={browse.view}
+          emptyMessage="No homebrew matches these filters."
+        />
       )}
     </>
   );
@@ -109,46 +119,55 @@ function LibraryGrid({ category }: { category: SmithyLibraryCategory }) {
 function ItemsBrowser() {
   const [typeFilter, setTypeFilter] = useState<ItemType | undefined>();
   const [forging, setForging] = useState(false);
+  const browse = useSmithyBrowseState();
 
   const list = trpc.smithy.listLibrary.useQuery({
     category: "Items",
     itemType: typeFilter,
+    ...browse.queryInput,
   });
 
-  return (
-    <>
-      <div className="mb-4 grid gap-6 md:grid-cols-[180px_1fr]">
-        <aside className="space-y-2">
-          <div className="text-xs uppercase tracking-wide text-lore-muted">
-            Item Type
-          </div>
-          <TypeChip
-            active={typeFilter === undefined}
-            onClick={() => setTypeFilter(undefined)}
-          >
-            All
-          </TypeChip>
-          {ITEM_TYPES.map((t) => (
-            <TypeChip
-              key={t}
-              active={typeFilter === t}
-              onClick={() => setTypeFilter(t)}
-            >
-              {t}
-            </TypeChip>
-          ))}
-        </aside>
+  const entries = list.data ?? [];
+  const countLabel = list.isLoading
+    ? "Loading…"
+    : `${entries.length} item${entries.length === 1 ? "" : "s"}`;
 
-        <section>
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm text-lore-muted">
-              {list.isLoading
-                ? "Loading…"
-                : `${list.data?.length ?? 0} item${
-                    list.data?.length === 1 ? "" : "s"
-                  }`}
-            </span>
-            <div className="flex gap-2">
+  return (
+    <div className="grid gap-6 md:grid-cols-[180px_1fr]">
+      <aside className="space-y-2">
+        <div className="text-xs uppercase tracking-wide text-lore-muted">
+          Item Type
+        </div>
+        <TypeChip
+          active={typeFilter === undefined}
+          onClick={() => setTypeFilter(undefined)}
+        >
+          All
+        </TypeChip>
+        {ITEM_TYPES.map((t) => (
+          <TypeChip
+            key={t}
+            active={typeFilter === t}
+            onClick={() => setTypeFilter(t)}
+          >
+            {t}
+          </TypeChip>
+        ))}
+      </aside>
+
+      <section>
+        <SmithyBrowseToolbar
+          search={browse.search}
+          onSearchChange={browse.setSearch}
+          source={browse.source}
+          onSourceChange={browse.setSource}
+          sort={browse.sort}
+          onSortChange={browse.setSort}
+          view={browse.view}
+          onViewChange={browse.setView}
+          countLabel={countLabel}
+          actions={
+            <>
               <CopyFromCodexButton />
               <button
                 onClick={() => setForging((f) => !f)}
@@ -156,44 +175,37 @@ function ItemsBrowser() {
               >
                 {forging ? "Cancel" : "+ Forge New"}
               </button>
-            </div>
-          </div>
+            </>
+          }
+        />
 
-          {forging ? (
-            <SmithyItemForm
-              mode="create"
-              className="mb-8"
-              onDone={() => setForging(false)}
-            />
-          ) : null}
+        {forging ? (
+          <SmithyItemForm
+            mode="create"
+            className="mb-8"
+            onDone={() => setForging(false)}
+          />
+        ) : null}
 
-          {!list.isLoading && (list.data?.length ?? 0) === 0 && !forging ? (
-            <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
-              Time to heat the anvil. No homebrew items yet — forge your first
-              one.
-            </div>
-          ) : (
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {(list.data ?? []).map((entry) => (
-                <li key={entry.id}>
-                  <SmithyLibraryCard
-                    id={entry.id}
-                    kind="item"
-                    name={entry.name}
-                    href={entry.href}
-                    subtitle={entry.subtitle}
-                    source={entry.source}
-                    descriptionSnippet={entry.descriptionSnippet}
-                    updatedAt={entry.updatedAt}
-                    useOnCharacter
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
-    </>
+        {!list.isLoading && entries.length === 0 && !forging ? (
+          <SmithyLibraryViews
+            entries={[]}
+            view={browse.view}
+            emptyMessage={
+              browse.search || browse.source
+                ? "No items match these filters."
+                : "Time to heat the anvil. No homebrew items yet — forge your first one."
+            }
+          />
+        ) : (
+          <SmithyLibraryViews
+            entries={entries}
+            view={browse.view}
+            emptyMessage="No items match these filters."
+          />
+        )}
+      </section>
+    </div>
   );
 }
 

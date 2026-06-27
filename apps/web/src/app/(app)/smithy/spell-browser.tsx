@@ -1,28 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { SPELL_LEVELS, SPELL_SCHOOLS, type SpellSchool } from "@app/engine";
 
+import {
+  SmithyBrowseToolbar,
+  SmithyLibraryViews,
+  spellRowToLibraryEntry,
+  useSmithyBrowseState,
+} from "@/components/smithy-library-browse";
 import { SmithySpellForm } from "@/components/smithy-spell-form";
-import { SmithyLibraryCard } from "@/components/smithy-library-card";
 import { trpc } from "@/lib/trpc/client";
 
 import { CopyFromCodexButton } from "./codex-spell-copy";
-
-function levelLabel(level: number): string {
-  return level === 0 ? "Cantrip" : `Level ${level}`;
-}
 
 export function SpellBrowser() {
   const [levelFilter, setLevelFilter] = useState<number | undefined>();
   const [schoolFilter, setSchoolFilter] = useState<SpellSchool | undefined>();
   const [inscribing, setInscribing] = useState(false);
+  const browse = useSmithyBrowseState();
 
   const list = trpc.smithy.listSpells.useQuery({
     level: levelFilter,
     school: schoolFilter,
+    ...browse.queryInput,
   });
+
+  const entries = useMemo(
+    () => (list.data ?? []).map(spellRowToLibraryEntry),
+    [list.data],
+  );
+
+  const countLabel = list.isLoading
+    ? "Loading…"
+    : `${entries.length} spell${entries.length === 1 ? "" : "s"}`;
 
   return (
     <div className="grid gap-6 md:grid-cols-[200px_1fr]">
@@ -76,24 +88,28 @@ export function SpellBrowser() {
       </aside>
 
       <section>
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-lore-muted">
-            {list.isLoading
-              ? "Loading…"
-              : `${list.data?.length ?? 0} spell${
-                  list.data?.length === 1 ? "" : "s"
-                }`}
-          </span>
-          <div className="flex flex-wrap gap-2">
-            <CopyFromCodexButton />
-            <button
-              onClick={() => setInscribing((f) => !f)}
-              className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
-            >
-              {inscribing ? "Cancel" : "+ Inscribe New"}
-            </button>
-          </div>
-        </div>
+        <SmithyBrowseToolbar
+          search={browse.search}
+          onSearchChange={browse.setSearch}
+          source={browse.source}
+          onSourceChange={browse.setSource}
+          sort={browse.sort}
+          onSortChange={browse.setSort}
+          view={browse.view}
+          onViewChange={browse.setView}
+          countLabel={countLabel}
+          actions={
+            <>
+              <CopyFromCodexButton />
+              <button
+                onClick={() => setInscribing((f) => !f)}
+                className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text transition-colors hover:border-lore-accent"
+              >
+                {inscribing ? "Cancel" : "+ Inscribe New"}
+              </button>
+            </>
+          }
+        />
 
         {inscribing ? (
           <SmithySpellForm
@@ -103,30 +119,22 @@ export function SpellBrowser() {
           />
         ) : null}
 
-        {!list.isLoading && (list.data?.length ?? 0) === 0 && !inscribing ? (
-          <div className="rounded-lg border border-dashed border-lore-border p-10 text-center text-lore-muted">
-            No homebrew spells yet — inscribe your first into the grimoire.
-          </div>
+        {!list.isLoading && entries.length === 0 && !inscribing ? (
+          <SmithyLibraryViews
+            entries={[]}
+            view={browse.view}
+            emptyMessage={
+              browse.search || browse.source || levelFilter != null || schoolFilter
+                ? "No spells match these filters."
+                : "No homebrew spells yet — inscribe your first into the grimoire."
+            }
+          />
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(list.data ?? []).map((spell) => (
-              <li key={spell.id}>
-                <SmithyLibraryCard
-                  id={spell.id}
-                  kind="spell"
-                  name={spell.name}
-                  href={`/smithy/spells/${spell.id}`}
-                  subtitle={`${levelLabel(spell.level)} · ${spell.school}`}
-                  source={spell.source}
-                  descriptionSnippet={
-                    spell.description.trim().slice(0, 120) || null
-                  }
-                  updatedAt={spell.updatedAt}
-                  useOnCharacter
-                />
-              </li>
-            ))}
-          </ul>
+          <SmithyLibraryViews
+            entries={entries}
+            view={browse.view}
+            emptyMessage="No spells match these filters."
+          />
         )}
       </section>
     </div>

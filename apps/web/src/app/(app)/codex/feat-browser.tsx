@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-
 import { formatFeatType } from "@/lib/codex-background-feat-display";
 import { useCodexSearch } from "@/lib/use-codex-search";
+import { useCodexUrlParam } from "@/lib/use-codex-url-params";
 import { trpc } from "@/lib/trpc/client";
 
 import { FeatDetail } from "./feat-detail";
@@ -16,7 +15,7 @@ export function FeatBrowser({
   onSelect: (slug: string | null) => void;
 }) {
   const [search, setSearch] = useCodexSearch();
-  const [featType, setFeatType] = useState<string | undefined>();
+  const [featType, setFeatType] = useCodexUrlParam("featType");
 
   const facets = trpc.codex.featFacets.useQuery();
   const list = trpc.codex.listFeats.useQuery(

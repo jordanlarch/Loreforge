@@ -52,6 +52,16 @@ export function codexDetailPath(category: CodexCategory, slug: string): string {
   return `/codex/${codexCategorySegment(category)}/${encodeURIComponent(slug)}`;
 }
 
+/** Append an existing query string (preserves list filters when opening detail). */
+export function codexPathWithQuery(
+  path: string,
+  queryString: string | null | undefined,
+): string {
+  const q = queryString?.trim();
+  if (!q) return path;
+  return `${path}?${q}`;
+}
+
 /** Bookmarkable deep link (path-based). */
 export function codexDeepLink(category: CodexCategory, slug: string): string {
   return codexDetailPath(category, slug);

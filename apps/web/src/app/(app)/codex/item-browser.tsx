@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-
 import {
   formatItemCategory,
   formatItemCost,
   formatItemWeight,
 } from "@/lib/codex-item-display";
 import { useCodexSearch } from "@/lib/use-codex-search";
+import {
+  useCodexUrlIntParam,
+  useCodexUrlParam,
+} from "@/lib/use-codex-url-params";
 import { trpc } from "@/lib/trpc/client";
 
 import { ItemDetail } from "./item-detail";
@@ -22,8 +24,8 @@ export function ItemBrowser({
   onSelect: (slug: string | null) => void;
 }) {
   const [search, setSearch] = useCodexSearch();
-  const [category, setCategory] = useState<string | undefined>();
-  const [page, setPage] = useState(0);
+  const [category, setCategory] = useCodexUrlParam("category");
+  const [page, setPage] = useCodexUrlIntParam("page", 0);
 
   const facets = trpc.codex.itemFacets.useQuery();
   const list = trpc.codex.listItems.useQuery(
@@ -85,7 +87,7 @@ export function ItemBrowser({
                 <button
                   type="button"
                   disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  onClick={() => setPage(Math.max(0, page - 1))}
                   className="rounded border border-lore-border px-2 py-1 disabled:opacity-40"
                 >
                   Prev
@@ -96,7 +98,7 @@ export function ItemBrowser({
                 <button
                   type="button"
                   disabled={page + 1 >= pageCount}
-                  onClick={() => setPage((p) => p + 1)}
+                  onClick={() => setPage(page + 1)}
                   className="rounded border border-lore-border px-2 py-1 disabled:opacity-40"
                 >
                   Next

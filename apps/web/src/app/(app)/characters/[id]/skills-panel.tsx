@@ -36,19 +36,20 @@ export function SkillsPanel({
         {sheet.skills.map((row) => (
           <li
             key={row.skill}
-            className="grid grid-cols-[minmax(0,1fr)_2.25rem_2.75rem_2rem] items-center gap-x-2 px-3 py-2.5 text-sm sm:px-4"
+            className="flex items-center gap-2 px-3 py-2.5 text-sm sm:px-4"
           >
-            <span className="min-w-0 truncate font-medium text-lore-text">
-              <SrdHint kind="skill" skill={row.skill} label={row.skill} />
+            <span className="min-w-0 flex-1 break-words font-medium leading-snug text-lore-text">
+              {row.skill}
             </span>
+            <SrdHint kind="skill" skill={row.skill} iconOnly />
             <span
-              className="justify-self-center rounded border border-lore-border bg-lore-bg px-1 py-0.5 text-center text-[10px] font-semibold uppercase tracking-wide text-lore-muted"
+              className="shrink-0 rounded border border-lore-border bg-lore-bg px-1 py-0.5 text-center text-[10px] font-semibold uppercase tracking-wide text-lore-muted"
               title={`${ABILITY_ABBR[row.ability] ?? row.ability} skill`}
             >
               {ABILITY_ABBR[row.ability] ?? row.ability}
             </span>
             <span
-              className={`justify-self-center rounded px-1.5 py-0.5 text-center font-display tabular-nums ${
+              className={`shrink-0 rounded px-1.5 py-0.5 text-center font-display tabular-nums ${
                 row.proficient
                   ? "border border-red-600/80 bg-red-950/60 text-lore-text"
                   : "text-lore-text"
@@ -64,7 +65,7 @@ export function SkillsPanel({
                   ? `Remove ${row.skill} proficiency`
                   : `Add ${row.skill} proficiency`
               }
-              className="flex h-8 w-8 shrink-0 items-center justify-center justify-self-end rounded transition-colors hover:bg-lore-bg"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded transition-colors hover:bg-lore-bg"
             >
               <ProficiencyDot proficient={row.proficient} />
             </button>

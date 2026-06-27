@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
-
 import { useCodexSearch } from "@/lib/use-codex-search";
+import {
+  useCodexUrlBoolParam,
+  useCodexUrlEnumParam,
+  useCodexUrlIntParam,
+  useCodexUrlParam,
+} from "@/lib/use-codex-url-params";
 import { trpc } from "@/lib/trpc/client";
 import { SpellDetail } from "./spell-detail";
 
@@ -29,15 +33,15 @@ export function CodexBrowser({
   onSelectSlug: (slug: string | null) => void;
 }) {
   const [search, setSearch] = useCodexSearch();
-  const [level, setLevel] = useState<string | undefined>();
-  const [school, setSchool] = useState<string | undefined>();
-  const [spellClass, setSpellClass] = useState<string | undefined>();
-  const [concentration, setConcentration] = useState<boolean | undefined>();
-  const [ritual, setRitual] = useState<boolean | undefined>();
-  const [sortBy, setSortBy] = useState<SpellSort>("level");
-  const [sortDir, setSortDir] = useState<SpellSortDir>("asc");
-  const [view, setView] = useState<SpellView>("grid");
-  const [page, setPage] = useState(0);
+  const [level, setLevel] = useCodexUrlParam("level");
+  const [school, setSchool] = useCodexUrlParam("school");
+  const [spellClass, setSpellClass] = useCodexUrlParam("spellClass");
+  const [concentration, setConcentration] = useCodexUrlBoolParam("concentration");
+  const [ritual, setRitual] = useCodexUrlBoolParam("ritual");
+  const [sortBy, setSortBy] = useCodexUrlEnumParam<SpellSort>("sortBy", "level");
+  const [sortDir, setSortDir] = useCodexUrlEnumParam<SpellSortDir>("sortDir", "asc");
+  const [view, setView] = useCodexUrlEnumParam<SpellView>("view", "grid");
+  const [page, setPage] = useCodexUrlIntParam("page", 0);
 
   const facets = trpc.codex.spellFacets.useQuery();
   const list = trpc.codex.listSpells.useQuery(
@@ -68,7 +72,7 @@ export function CodexBrowser({
   function toggleSort(column: SpellSort) {
     resetPageAnd(() => {
       if (sortBy === column) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        setSortDir(sortDir === "asc" ? "desc" : "asc");
       } else {
         setSortBy(column);
         setSortDir(column === "name" ? "asc" : "asc");
@@ -167,7 +171,7 @@ export function CodexBrowser({
               <div className="flex items-center gap-2">
                 <button
                   disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  onClick={() => setPage(Math.max(0, page - 1))}
                   className="rounded border border-lore-border px-2 py-1 disabled:opacity-40"
                 >
                   Prev
@@ -177,7 +181,7 @@ export function CodexBrowser({
                 </span>
                 <button
                   disabled={page + 1 >= pageCount}
-                  onClick={() => setPage((p) => p + 1)}
+                  onClick={() => setPage(page + 1)}
                   className="rounded border border-lore-border px-2 py-1 disabled:opacity-40"
                 >
                   Next

@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import {
   ANIMAL_CR_PRESETS,
   findCrPreset,
@@ -13,6 +11,10 @@ import {
   formatSize,
 } from "@/lib/codex-monster-display";
 import { useCodexSearch } from "@/lib/use-codex-search";
+import {
+  useCodexUrlIntParam,
+  useCodexUrlParam,
+} from "@/lib/use-codex-url-params";
 import { trpc } from "@/lib/trpc/client";
 
 import { MonsterDetail } from "./monster-detail";
@@ -31,10 +33,10 @@ export function MonsterBrowser({
   onSelect: (slug: string | null) => void;
 }) {
   const [search, setSearch] = useCodexSearch();
-  const [type, setType] = useState<string | undefined>();
-  const [size, setSize] = useState<string | undefined>();
-  const [crPresetId, setCrPresetId] = useState<string | undefined>();
-  const [page, setPage] = useState(0);
+  const [type, setType] = useCodexUrlParam("type");
+  const [size, setSize] = useCodexUrlParam("size");
+  const [crPresetId, setCrPresetId] = useCodexUrlParam("cr");
+  const [page, setPage] = useCodexUrlIntParam("page", 0);
 
   const beastsOnly = mode === "animals";
   const crPresets = beastsOnly ? ANIMAL_CR_PRESETS : MONSTER_CR_PRESETS;
@@ -134,7 +136,7 @@ export function MonsterBrowser({
                 <button
                   type="button"
                   disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  onClick={() => setPage(Math.max(0, page - 1))}
                   className="rounded border border-lore-border px-2 py-1 disabled:opacity-40"
                 >
                   Prev
@@ -145,7 +147,7 @@ export function MonsterBrowser({
                 <button
                   type="button"
                   disabled={page + 1 >= pageCount}
-                  onClick={() => setPage((p) => p + 1)}
+                  onClick={() => setPage(page + 1)}
                   className="rounded border border-lore-border px-2 py-1 disabled:opacity-40"
                 >
                   Next

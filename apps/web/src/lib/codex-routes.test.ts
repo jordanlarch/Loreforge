@@ -4,6 +4,7 @@ import {
   codexCategoryPath,
   codexDeepLink,
   codexDetailPath,
+  codexPathWithQuery,
   legacyCodexSearchParamsToPath,
   parseCodexCategorySegment,
 } from "./codex-routes";
@@ -32,6 +33,16 @@ describe("codex paths", () => {
     expect(codexDetailPath("Spells", "fire ball")).toBe(
       "/codex/spells/fire%20ball",
     );
+  });
+
+  it("preserves query string when opening detail from filtered list", () => {
+    expect(
+      codexPathWithQuery(
+        codexDetailPath("Spells", "fireball"),
+        "level=3&school=evocation",
+      ),
+    ).toBe("/codex/spells/fireball?level=3&school=evocation");
+    expect(codexPathWithQuery("/codex/spells", "")).toBe("/codex/spells");
   });
 });
 

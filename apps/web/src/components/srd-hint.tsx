@@ -7,9 +7,10 @@ import {
   skillTooltip,
 } from "@/lib/srd-tooltips";
 
-type SrdHintProps =
+type SrdHintProps = (
   | { kind: "ability"; ability: Ability; label?: string }
-  | { kind: "skill"; skill: string; label?: string };
+  | { kind: "skill"; skill: string; label?: string }
+) & { iconOnly?: boolean };
 
 /**
  * Accessible ?-chip tooltip for SRD abilities and skills (CHAR UX polish).
@@ -20,10 +21,11 @@ export function SrdHint(props: SrdHintProps) {
       ? abilityTooltip(props.ability)
       : skillTooltip(props.skill);
   const label = props.label ?? title;
+  const iconOnly = props.iconOnly ?? false;
 
   return (
-    <span className="inline-flex items-center gap-1">
-      <span>{label}</span>
+    <span className={iconOnly ? "inline-flex shrink-0" : "inline-flex items-center gap-1"}>
+      {!iconOnly && <span>{label}</span>}
       <span className="group relative inline-flex">
         <button
           type="button"

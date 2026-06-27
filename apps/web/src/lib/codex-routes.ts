@@ -14,6 +14,7 @@ export const CODEX_CATEGORY_SEGMENT: Record<CodexCategory, string> = {
   Monsters: "monsters",
   Items: "items",
   Feats: "feats",
+  Advanced: "advanced",
 };
 
 const SEGMENT_TO_CATEGORY = Object.fromEntries(

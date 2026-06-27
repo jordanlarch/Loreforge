@@ -45,6 +45,8 @@ export function SpeciesDetail({
             slug={slug}
             name={species.data.name}
             raw={species.data.raw as Record<string, unknown>}
+            showCopyToSmithy
+            onCopyClose={onClose}
           />
           <p className="text-sm text-lore-muted">
             {species.data.size} · {species.data.speed} ft speed · SRD

@@ -11,6 +11,11 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import {
+  codexCopyCategory,
+  copyCodexEntryToSmithy,
+} from "@/server/lib/copy-codex-to-smithy";
+
+import {
   AREA_SHAPES,
   CASTING_TIME_UNITS,
   DAMAGE_TYPES,
@@ -413,6 +418,25 @@ export const smithyRouter = createTRPCRouter({
         .returning();
       return row;
     }),
+
+  /**
+   * Copy any Codex entry into the Smithy (CODEX A4). Spells become grimoire rows;
+   * items map to typed homebrew items; other categories become editable text snapshots.
+   */
+  copyFromCodex: protectedProcedure
+    .input(
+      z.object({
+        category: z.enum(codexCopyCategory),
+        slug: z.string().trim().min(1).max(160),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      copyCodexEntryToSmithy({
+        ownerId: ctx.user.id,
+        category: input.category,
+        slug: input.slug,
+      }),
+    ),
 
   /** Delete an owned spell. Throws NOT_FOUND if it doesn't exist / isn't owned. */
   deleteSpell: protectedProcedure

@@ -180,18 +180,26 @@ export function CreationWizard() {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
-  // Codex deep links (CODEX-6): ?species=hill-dwarf&class=fighter
+  // Codex deep links (CODEX-6): ?species=hill-dwarf&class=fighter&background=folk-hero
   useEffect(() => {
     const speciesParam = searchParams.get("species");
     const classParam = searchParams.get("class");
+    const backgroundParam = searchParams.get("background");
     if (speciesParam) {
       setSpeciesSlug(speciesParam);
     }
     if (classParam) {
       setClassSlug(classParam);
+    }
+    if (backgroundParam) {
+      setBackgroundSlug(backgroundParam);
+    }
+    if (classParam) {
       setStep(2);
     } else if (speciesParam) {
       setStep(1);
+    } else if (backgroundParam) {
+      setStep(3);
     }
   }, [searchParams]);
 

@@ -136,21 +136,26 @@ Skip this section entirely when the PR has **no** new files in `packages/db/migr
 
 Do not scatter deferrals outside `deferrals.md`.
 
-## 8. Prod verify (UI/workspace slices — required)
+## 8. Prod verify (UI/workspace slices — required; agent runs it)
 
 After merge **and** deploy (Vercel for web; redeploy **ws-server** when Live Play behavior changed):
 
-**Agent rule:** when prod verify requires a ws-server deploy, the agent redeploys (Railway: `npx @railway/cli redeploy --from-source -y` from repo root with the linked `@app/ws-server` service) before browser verification — do not hand off redeploy to Jordan unless CLI auth is missing.
+**Agent owns prod verify.** Do not ask Jordan to verify UI/workspace slices — run the checklist yourself on deployed prod (browser MCP or equivalent) and report pass/fail in the handoff.
 
-1. Write a **1–3 step** prod checklist in the PR body or handoff (specific URL, campaign, tab, expected UI).
-2. Run it on prod (browser dogfood) or hand the checklist to Jordan with deploy confirmation.
-3. **Stop** — do not start the next slice until verify passes or Jordan defers.
+**Agent rules:**
+- When prod verify requires a ws-server deploy, the agent redeploys (Railway: `npx @railway/cli redeploy --from-source -y` from repo root with the linked `@app/ws-server` service) before browser verification — do not hand off redeploy to Jordan unless CLI auth is missing.
+- If browser auth blocks verification (login wall), attempt once; if still blocked, report the blocker and the exact steps you could not run — do not substitute "please verify on prod" for doing the work.
+
+**Steps:**
+1. Write a **1–3 step** prod checklist (specific URL, tab, expected UI) in the PR body or handoff.
+2. **Run every step on prod** after deploy lands; note pass/fail for each.
+3. **Stop** — do not start the next slice until all steps pass (or Jordan explicitly defers).
 
 **Engine-only slices:** skip this section unless the change affects Live Play or a workspace tab; CI green on the PR is sufficient.
 
-## 9. Tell the user what to verify
+## 9. Handoff after verify
 
-After merge, give concrete manual verification steps (URLs, flows, env vars if any). For UI/workspace slices, these steps **are** the prod verify gate (§8) — complete them before picking up the next slice. If step 6 was skipped because env was missing, **explicitly remind the user to run `npm run migrate` in `packages/db`** before testing features that depend on new columns.
+Report what was verified on prod (URLs + outcomes). For UI/workspace slices, §8 must be complete before picking up the next slice. If step 6 was skipped because env was missing, note that new DB columns require `npm run migrate` in `packages/db` before the feature works — that is an infra reminder, not a substitute for prod verify.
 
 ## Quick reference — Jordan's environment
 

@@ -36,14 +36,18 @@ describe("open5eSourceUrl", () => {
   });
 });
 
-describe("useInCharacterHref", () => {
-  it("links species and classes to the creation wizard", () => {
+describe("useInCharacterActions", () => {
+  it("links species, classes, and backgrounds to the creation wizard", () => {
     expect(useInCharacterHref("Species", "hill-dwarf")).toBe(
       "/characters/new?species=hill-dwarf",
     );
     expect(useInCharacterHref("Classes", "fighter")).toBe(
       "/characters/new?class=fighter",
     );
+    expect(useInCharacterHref("Backgrounds", "folk-hero")).toBe(
+      "/characters/new?background=folk-hero",
+    );
+    expect(useInCharacterHref("Feats", "alert")).toBe("/characters");
     expect(useInCharacterHref("Spells", "fireball")).toBeNull();
   });
 });

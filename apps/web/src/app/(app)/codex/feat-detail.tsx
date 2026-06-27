@@ -81,6 +81,8 @@ export function FeatDetail({
                 slug={slug}
                 name={feat.data.name}
                 raw={raw}
+                showCopyToSmithy
+                onCopyClose={onClose}
               />
               {feat.data.description && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">

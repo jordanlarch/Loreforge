@@ -89,6 +89,8 @@ export function ItemDetail({
                 slug={slug}
                 name={item.data.name}
                 raw={raw}
+                showCopyToSmithy
+                onCopyClose={onClose}
               />
               {item.data.description && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-lore-text">

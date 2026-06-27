@@ -11,26 +11,33 @@ import {
 import {
   codexShareUrl,
   open5eSourceUrl,
-  useInCharacterHref,
-  useInCharacterLabel,
+  useInCharacterActions,
+  type InCharacterAction,
 } from "@/lib/codex-detail-links";
 
+import { CodexCopyToSmithyButton } from "./codex-copy-to-smithy";
+
 /**
- * Standard Codex detail action row (CODEX-6): use in character, share,
- * bookmark, and view Open5e source. Copy-to-Smithy stays per-type when wired.
+ * Standard Codex detail action row (CODEX-6): copy to Smithy, use in character,
+ * share, bookmark, and view Open5e source.
  */
 export function CodexDetailActions({
   category,
   slug,
   name,
   raw,
+  showCopyToSmithy = false,
+  onCopyClose,
   copyAction,
 }: {
   category: CodexCategory;
   slug: string;
   name: string;
   raw?: Record<string, unknown> | null;
-  /** Optional primary action (e.g. Copy to The Smithy on spells). */
+  /** When true, renders the shared Copy to Smithy button (CODEX A4). */
+  showCopyToSmithy?: boolean;
+  onCopyClose?: () => void;
+  /** Legacy override (spells used this before A4 unified button). */
   copyAction?: React.ReactNode;
 }) {
   const [bookmarked, setBookmarked] = useState(() =>
@@ -38,8 +45,7 @@ export function CodexDetailActions({
   );
   const [shareNote, setShareNote] = useState<string | null>(null);
 
-  const useHref = useInCharacterHref(category, slug);
-  const useLabel = useInCharacterLabel(category);
+  const inCharacterActions = useInCharacterActions(category, slug);
   const sourceUrl = open5eSourceUrl(category, slug, raw);
 
   const onShare = useCallback(async () => {
@@ -66,12 +72,15 @@ export function CodexDetailActions({
   return (
     <div className="mb-4 space-y-2">
       <div className="flex flex-wrap gap-2">
-        {copyAction}
-        {useHref && useLabel ? (
-          <Link href={useHref} className={btnPrimary}>
-            {useLabel}
-          </Link>
-        ) : null}
+        {copyAction ??
+          (showCopyToSmithy ? (
+            <CodexCopyToSmithyButton
+              category={category}
+              slug={slug}
+              onCopied={onCopyClose}
+            />
+          ) : null)}
+        <UseInCharacterControl actions={inCharacterActions} btn={btnPrimary} />
         <button type="button" className={btn} onClick={onShare}>
           {shareNote ?? "Share link"}
         </button>
@@ -97,5 +106,41 @@ export function CodexDetailActions({
         <p className="text-xs text-lore-muted break-all">{shareNote}</p>
       ) : null}
     </div>
+  );
+}
+
+function UseInCharacterControl({
+  actions,
+  btn,
+}: {
+  actions: InCharacterAction[];
+  btn: string;
+}) {
+  if (actions.length === 0) return null;
+  if (actions.length === 1) {
+    const action = actions[0]!;
+    return (
+      <Link href={action.href} className={btn}>
+        {action.label}
+      </Link>
+    );
+  }
+  return (
+    <details className="relative">
+      <summary className={`${btn} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
+        Use in Character ▾
+      </summary>
+      <div className="absolute left-0 z-10 mt-1 min-w-[220px] rounded border border-lore-border bg-lore-bg py-1 shadow-lg">
+        {actions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className="block px-3 py-2 text-sm text-lore-text hover:bg-lore-surface"
+          >
+            {action.label}
+          </Link>
+        ))}
+      </div>
+    </details>
   );
 }

@@ -515,3 +515,78 @@ export function SmithyItemAddPicker({
     </LibraryPickerModal>
   );
 }
+
+/** Browse Codex feats eligible for ASI-level picks (excludes Origin / Fighting Style). */
+export function CodexFeatAddPicker({
+  selected,
+  onSelect,
+  onClose,
+}: {
+  selected?: string;
+  onSelect: (featName: string) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+
+  const list = trpc.codex.listFeats.useQuery(
+    {
+      search: search.trim() || undefined,
+      asiEligible: true,
+    },
+    { placeholderData: (prev) => prev },
+  );
+
+  return (
+    <LibraryPickerModal
+      title="Choose a feat"
+      titleId="codex-feat-add-title"
+      onClose={onClose}
+    >
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Filter feats…"
+        className={PICKER_SEARCH_INPUT}
+        autoFocus
+      />
+
+      {list.isLoading ? (
+        <p className="text-sm text-lore-muted">Loading feats…</p>
+      ) : (list.data ?? []).length === 0 ? (
+        <p className="text-sm text-lore-muted">
+          No eligible feats found. Try clearing the filter.
+        </p>
+      ) : (
+        <ul className={PICKER_LIST}>
+          {(list.data ?? []).map((feat) => (
+            <li key={feat.slug}>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(feat.name);
+                  onClose();
+                }}
+                className={`${PICKER_ROW} flex-col items-start gap-0.5 ${
+                  selected === feat.name ? "border-lore-accent bg-lore-accent-dim" : ""
+                }`}
+              >
+                <span className="font-medium">{feat.name}</span>
+                {feat.prerequisite && (
+                  <span className="text-xs text-lore-muted">
+                    {feat.prerequisite}
+                  </span>
+                )}
+                {feat.description && (
+                  <span className="line-clamp-2 text-xs text-lore-muted">
+                    {feat.description}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </LibraryPickerModal>
+  );
+}

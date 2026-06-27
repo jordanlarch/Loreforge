@@ -152,7 +152,9 @@ export function FeaturesTab({
           id: featureResourceKey(cl.class, level, f.id),
           name: f.name,
           source: `${cl.class} ${level}`,
-          description: f.description,
+          description: meta.featureChoices?.[f.name]
+            ? `${f.description} Selected: ${meta.featureChoices[f.name]}.`
+            : f.description,
           uses: f.uses,
         });
       }

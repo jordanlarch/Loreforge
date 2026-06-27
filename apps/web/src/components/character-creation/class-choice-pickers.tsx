@@ -2,11 +2,13 @@
 
 import {
   FIGHTING_STYLES,
+  fightingStyleDescription,
   fightingStylePickLevel,
   needsSubclassPick,
-  subclassOptionsFor,
   subclassPickLevel,
 } from "@app/engine";
+
+import { trpc } from "@/lib/trpc/client";
 
 export function FightingStylePicker({
   className,
@@ -29,18 +31,27 @@ export function FightingStylePicker({
       </h3>
       <div className="mt-2 flex flex-wrap gap-2">
         {FIGHTING_STYLES.map((style) => (
-          <button
-            key={style}
-            type="button"
-            onClick={() => onChange(style)}
-            className={`rounded-full border px-3 py-1 text-xs ${
-              value === style
-                ? "border-lore-accent bg-lore-accent-dim"
-                : "border-lore-border text-lore-muted hover:text-lore-text"
-            }`}
-          >
-            {style}
-          </button>
+          <span key={style} className="group relative inline-flex">
+            <button
+              type="button"
+              onClick={() => onChange(style)}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                value === style
+                  ? "border-lore-accent bg-lore-accent-dim"
+                  : "border-lore-border text-lore-muted hover:text-lore-text"
+              }`}
+            >
+              {style}
+            </button>
+            {fightingStyleDescription(style) && (
+              <span
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-56 -translate-x-1/2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-lore-muted shadow-lg group-hover:block group-focus-within:block"
+              >
+                {fightingStyleDescription(style)}
+              </span>
+            )}
+          </span>
         ))}
       </div>
     </div>
@@ -58,9 +69,12 @@ export function SubclassPicker({
   value: string;
   onChange: (subclass: string) => void;
 }) {
-  const options = subclassOptionsFor(className);
   const pickLevel = subclassPickLevel(className);
-  if (options.length === 0 || pickLevel == null || level < pickLevel) {
+  const catalog = trpc.codex.listSubclasses.useQuery(undefined);
+  const options =
+    catalog.data?.filter((s) => s.className === className) ?? [];
+
+  if (pickLevel == null || level < pickLevel) {
     return null;
   }
 
@@ -69,22 +83,39 @@ export function SubclassPicker({
       <h3 className="text-xs uppercase tracking-wide text-lore-muted">
         {pickLevel === 1 ? "Subclass" : `Subclass (level ${pickLevel}+)`}
       </h3>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {options.map((sub) => (
-          <button
-            key={sub}
-            type="button"
-            onClick={() => onChange(sub)}
-            className={`rounded border px-3 py-1.5 text-left text-xs ${
-              value === sub
-                ? "border-lore-accent bg-lore-accent-dim"
-                : "border-lore-border text-lore-muted hover:border-lore-accent"
-            }`}
-          >
-            {sub}
-          </button>
-        ))}
-      </div>
+      {catalog.isLoading ? (
+        <p className="mt-2 text-sm text-lore-muted">Loading subclasses…</p>
+      ) : options.length === 0 ? (
+        <p className="mt-2 text-sm text-lore-muted">
+          No Codex subclasses found for {className}.
+        </p>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {options.map((sub) => (
+            <span key={sub.slug} className="group relative inline-flex">
+              <button
+                type="button"
+                onClick={() => onChange(sub.name)}
+                className={`rounded border px-3 py-1.5 text-left text-xs ${
+                  value === sub.name
+                    ? "border-lore-accent bg-lore-accent-dim"
+                    : "border-lore-border text-lore-muted hover:border-lore-accent"
+                }`}
+              >
+                {sub.name}
+              </button>
+              {sub.description?.trim() && (
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 -translate-x-1/2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-lore-muted shadow-lg group-hover:block group-focus-within:block"
+                >
+                  {sub.description}
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

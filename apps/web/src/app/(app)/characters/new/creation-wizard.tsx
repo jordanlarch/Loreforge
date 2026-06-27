@@ -40,6 +40,10 @@ import {
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
 import {
+  RangerFeatureChoices,
+  rangerFeatureChoicesComplete,
+} from "@/components/character-creation/class-feature-choices";
+import {
   CodexItemAddPicker,
   CodexSpellAddPicker,
   SmithyItemAddPicker,
@@ -181,6 +185,9 @@ export function CreationWizard() {
   const [advances, setAdvances] = useState<LevelAdvanceChoice[]>([]);
   const [fightingStyle, setFightingStyle] = useState("");
   const [startingSubclass, setStartingSubclass] = useState("");
+  const [featureChoices, setFeatureChoices] = useState<Record<string, string>>(
+    {},
+  );
   const [classAllocations, setClassAllocations] = useState<
     { slug: string; levels: number }[]
   >([]);
@@ -415,7 +422,10 @@ export function CreationWizard() {
       startingLevel,
       fightingStyle,
       creationSubclass,
-    );
+    ) &&
+    (selectedClass.name !== "Ranger" ||
+      startingLevel < 1 ||
+      rangerFeatureChoicesComplete(featureChoices));
 
   const advancementOk =
     !hasAdvancement ||
@@ -525,6 +535,8 @@ export function CreationWizard() {
         fightingStyles,
         levelHistory:
           levelHistory && levelHistory.length > 0 ? levelHistory : undefined,
+        featureChoices:
+          Object.keys(featureChoices).length > 0 ? featureChoices : undefined,
       });
       const row = await create.mutateAsync({
         name: name.trim(),
@@ -689,6 +701,8 @@ export function CreationWizard() {
               onFightingStyle={setFightingStyle}
               startingSubclass={startingSubclass}
               onStartingSubclass={setStartingSubclass}
+              featureChoices={featureChoices}
+              onFeatureChoices={setFeatureChoices}
             />
           )}
           {step === 8 && hasAdvancement && selectedClass && (
@@ -699,6 +713,16 @@ export function CreationWizard() {
               abilityScores={finalScores}
               advances={advances}
               onChange={setAdvances}
+              spells={spellLoadout.spells}
+              onAddSpell={(spell) =>
+                setSpellLoadout((prev) => {
+                  if (prev.spells.some((s) => spellKey(s) === spellKey(spell))) {
+                    return prev;
+                  }
+                  return { ...prev, spells: [...prev.spells, spell] };
+                })
+              }
+              onFinished={() => setStep((s) => s + 1)}
             />
           )}
           {step === flavorStep && (
@@ -1909,6 +1933,8 @@ function FeaturesStep({
   onFightingStyle,
   startingSubclass,
   onStartingSubclass,
+  featureChoices,
+  onFeatureChoices,
 }: {
   className: string;
   startingLevel: number;
@@ -1916,6 +1942,8 @@ function FeaturesStep({
   onFightingStyle: (v: string) => void;
   startingSubclass: string;
   onStartingSubclass: (v: string) => void;
+  featureChoices: Record<string, string>;
+  onFeatureChoices: (next: Record<string, string>) => void;
 }) {
   const features = classFeaturesForLevel(className, 1);
   const stubs = featureStubsForLevel(className, 1);
@@ -1944,6 +1972,13 @@ function FeaturesStep({
           level={startingLevel}
           value={startingSubclass}
           onChange={onStartingSubclass}
+        />
+      )}
+
+      {className === "Ranger" && startingLevel >= 1 && (
+        <RangerFeatureChoices
+          choices={featureChoices}
+          onChange={onFeatureChoices}
         />
       )}
 

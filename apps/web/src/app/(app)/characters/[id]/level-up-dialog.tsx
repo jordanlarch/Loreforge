@@ -605,7 +605,7 @@ export function LevelUpDialog({
               <section className="mt-6 space-y-4">
                 <p className="text-sm text-lore-muted">
                   Spell lists are managed on the Spells tab. This step updates
-                  slot maxima from your class levels (PHB multiclass pooling
+                  slot maxima from your class levels (SRD multiclass pooling
                   {hasThirdCasterSlots(nextClasses)
                     ? " + third-caster archetype slots"
                     : ""}
@@ -743,7 +743,7 @@ export function LevelUpDialog({
                     />
                   )}
                   {showSpellsStep && applySpellSlots && (
-                    <PreviewRow label="Spell slots" value="Apply PHB maxima" />
+                    <PreviewRow label="Spell slots" value="Apply SRD maxima" />
                   )}
                 </dl>
               </section>

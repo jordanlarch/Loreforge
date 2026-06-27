@@ -2,7 +2,7 @@
  * Curated SRD subclass records for Codex browse + character creation (CODEX-SUBCLASSES).
  * Hand-normalized summaries; full Open5e subclass ingest deferred.
  */
-import { sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 
 import {
   SUBCLASS_OPTIONS,
@@ -93,8 +93,6 @@ const SUBCLASS_DESCRIPTIONS: Record<string, string> = {
     "Paladins who pursue relentless justice against the wicked.",
   Hunter:
     "Rangers specialized in slaying specific threats with tactical superiority.",
-  "Beast Master":
-    "Rangers bonded with a loyal animal companion who fights at their side.",
   Thief:
     "Rogues skilled in larceny, climbing, and using magic items quickly.",
   Assassin:
@@ -198,6 +196,18 @@ export async function seedSubclasses(db: Database): Promise<SeedSubclassesResult
         ingestedAt: sql`now()`,
       },
     });
+
+  const validSlugs = SRD_SUBCLASSES.map((s) => s.slug);
+  if (validSlugs.length > 0) {
+    await db
+      .delete(codexSubclasses)
+      .where(
+        and(
+          eq(codexSubclasses.source, "srd"),
+          notInArray(codexSubclasses.slug, validSlugs),
+        ),
+      );
+  }
 
   return { subclasses: SRD_SUBCLASSES.length };
 }

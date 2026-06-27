@@ -6,8 +6,10 @@ import {
   abilityModifier,
   classFeaturesForLevel,
   grantsAsiAtLevel,
+  isSpellcastingClasses,
   subclassPickLevel,
   type AbilityScores,
+  type ClassLevel,
   type HpMethod,
   type LevelAdvanceChoice,
 } from "@app/engine";
@@ -18,6 +20,11 @@ import {
   type AsiFeatSelection,
 } from "@/components/character-creation/asi-feat-choice";
 import { SubclassPicker } from "@/components/character-creation/class-choice-pickers";
+import {
+  CodexSpellAddPicker,
+} from "@/components/character-library-pickers";
+import type { CharacterSpell } from "@/lib/character";
+import { spellKey } from "@/lib/character-library";
 
 function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
@@ -30,6 +37,9 @@ export function AdvancementStep({
   abilityScores,
   advances,
   onChange,
+  spells,
+  onAddSpell,
+  onFinished,
 }: {
   className: string;
   hitDie: number;
@@ -37,17 +47,30 @@ export function AdvancementStep({
   abilityScores: AbilityScores;
   advances: LevelAdvanceChoice[];
   onChange: (advances: LevelAdvanceChoice[]) => void;
+  spells?: CharacterSpell[];
+  onAddSpell?: (spell: CharacterSpell) => void;
+  /** Called when the user completes the final level in this step. */
+  onFinished?: () => void;
 }) {
   const levels = Array.from({ length: startingLevel - 1 }, (_, i) => i + 2);
   const [index, setIndex] = useState(0);
+  const [spellPickerOpen, setSpellPickerOpen] = useState(false);
   const currentLevel = levels[index] ?? 2;
   const current = advances.find((a) => a.level === currentLevel);
   const hpMethod: HpMethod = current?.hpMethod ?? "average";
   const conMod = abilityModifier(abilityScores.con);
   const needsAsi = grantsAsiAtLevel(className, currentLevel);
-  const needsSubclass =
-    subclassPickLevel(className) === currentLevel;
+  const needsSubclass = subclassPickLevel(className) === currentLevel;
   const features = classFeaturesForLevel(className, currentLevel);
+
+  const characterClasses: ClassLevel[] = useMemo(
+    () => [{ class: className, level: currentLevel }],
+    [className, currentLevel],
+  );
+
+  const showSpellPicker = Boolean(
+    onAddSpell && isSpellcastingClasses(characterClasses),
+  );
 
   const asiFeatValue: AsiFeatSelection | null = useMemo(() => {
     if (current?.feat) return { kind: "feat", featName: current.feat };
@@ -70,11 +93,24 @@ export function AdvancementStep({
   const asiFeatInvalid = needsAsi && !asiFeatComplete(asiFeatValue);
   const subclassInvalid =
     needsSubclass && !(current?.subclass?.trim().length ?? 0);
+  const stepBlocked = asiFeatInvalid || subclassInvalid;
 
   const hpPreview =
     hpMethod === "average"
       ? Math.floor(hitDie / 2) + 1 + conMod
       : `1d${hitDie} ${signed(conMod)}`;
+
+  const isLastLevel = index >= levels.length - 1;
+
+  function goNext() {
+    if (stepBlocked) return;
+    patchAdvance({});
+    if (isLastLevel) {
+      onFinished?.();
+    } else {
+      setIndex((i) => i + 1);
+    }
+  }
 
   return (
     <section>
@@ -124,6 +160,38 @@ export function AdvancementStep({
         </ul>
       )}
 
+      {showSpellPicker && (
+        <div className="mt-6 rounded-lg border border-lore-border bg-lore-surface p-4">
+          <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+            Spells
+          </h3>
+          <p className="mt-1 text-xs text-lore-muted">
+            {features.some(
+              (f) => f.name === "Spellcasting" || f.name === "Pact Magic",
+            )
+              ? "You gain spellcasting at this level — add spells known now."
+              : "Add spells known for your class — you can add more on the Spells tab after creation."}
+          </p>
+          {(spells?.length ?? 0) > 0 && (
+            <ul className="mt-3 space-y-1 text-sm">
+              {spells!.map((s) => (
+                <li key={spellKey(s)} className="text-lore-text">
+                  {s.name}
+                  {s.level > 0 ? ` (level ${s.level})` : " (cantrip)"}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            onClick={() => setSpellPickerOpen(true)}
+            className="mt-3 rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm"
+          >
+            {(spells?.length ?? 0) > 0 ? "Add more spells…" : "Choose spells…"}
+          </button>
+        </div>
+      )}
+
       {needsSubclass && (
         <SubclassPicker
           className={className}
@@ -160,17 +228,24 @@ export function AdvancementStep({
         </button>
         <button
           type="button"
-          disabled={asiFeatInvalid || subclassInvalid}
-          onClick={() => {
-            if (index < levels.length - 1) setIndex((i) => i + 1);
-          }}
+          disabled={stepBlocked}
+          onClick={goNext}
           className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm disabled:opacity-40"
         >
-          {index < levels.length - 1
-            ? `Save & level ${levels[index + 1]}`
-            : "Finish advancement"}
+          {isLastLevel
+            ? "Finish advancement"
+            : `Save & level ${levels[index + 1]}`}
         </button>
       </div>
+
+      {spellPickerOpen && onAddSpell && (
+        <CodexSpellAddPicker
+          existing={spells ?? []}
+          characterClasses={characterClasses}
+          onAdd={onAddSpell}
+          onClose={() => setSpellPickerOpen(false)}
+        />
+      )}
     </section>
   );
 }

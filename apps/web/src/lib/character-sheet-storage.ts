@@ -109,6 +109,8 @@ export type CharacterSheetMeta = {
     sharpshooter?: boolean;
     greatWeaponMaster?: boolean;
   };
+  /** Class feature picks keyed by feature name (e.g. Natural Explorer → Forest). */
+  featureChoices?: Record<string, string>;
 };
 
 export type LevelHistoryEntry = {

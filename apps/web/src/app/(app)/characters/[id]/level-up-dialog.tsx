@@ -15,6 +15,9 @@ import {
   isSpellcastingClasses,
   levelUpSeed,
   multiclassCasterLevel,
+  multiclassEligible,
+  multiclassIneligibilityReason,
+  multiclassRequirementLabel,
   proficiencyBonusForLevel,
   sheetSlotPoolsFromClasses,
   subclassPickLevel,
@@ -35,6 +38,13 @@ import {
   FightingStylePicker,
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
+import {
+  RangerFeatureChoices,
+  rangerFeatureChoicesComplete,
+} from "@/components/character-creation/class-feature-choices";
+import { CodexSpellAddPicker } from "@/components/character-library-pickers";
+import type { CharacterSpell, SpellLoadout } from "@/lib/character";
+import { spellKey } from "@/lib/character-library";
 import { parseCharacterNotes } from "@/lib/character-sheet-storage";
 import { trpc } from "@/lib/trpc/client";
 
@@ -51,6 +61,7 @@ type Character = {
   abilityScores: AbilityScores;
   maxHp: number;
   notes: string;
+  spells: SpellLoadout;
 };
 
 function signed(n: number): string {
@@ -105,6 +116,11 @@ export function LevelUpDialog({
   const [fightingStyle, setFightingStyle] = useState("");
   const [asiFeat, setAsiFeat] = useState<AsiFeatSelection | null>(null);
   const [applySpellSlots, setApplySpellSlots] = useState(true);
+  const [spellPickerOpen, setSpellPickerOpen] = useState(false);
+  const [addedSpells, setAddedSpells] = useState<CharacterSpell[]>([]);
+  const [featureChoices, setFeatureChoices] = useState<Record<string, string>>(
+    () => existingMeta.featureChoices ?? {},
+  );
 
   const levelUp = trpc.characters.levelUp.useMutation({
     onSuccess: async () => {
@@ -235,16 +251,48 @@ export function LevelUpDialog({
     ? classFeaturesForLevel(className, 1)
     : classFeaturesForLevel(className, newClassLevel);
   const grantsAsi = !addingClass && grantsAsiAtLevel(className, newClassLevel);
-  const needsSubclass =
-    !addingClass && subclassPickLevel(className) === newClassLevel;
+  const needsSubclass = subclassPickLevel(className) === newClassLevel;
   const needsFightingStyle =
     fightingStylePickLevel(className) === newClassLevel;
+  const needsRangerChoices =
+    className === "Ranger" &&
+    newClassLevel >= 1 &&
+    !rangerFeatureChoicesComplete(existingMeta.featureChoices ?? {});
 
   const blocked = atClassCap || atTotalCap || hitDie == null;
   const asiInvalid = grantsAsi && !asiFeatComplete(asiFeat);
   const subclassInvalid = needsSubclass && !subclass.trim();
   const fightingStyleInvalid =
     needsFightingStyle && !fightingStyle.trim() && !existingMeta.fightingStyles?.[className];
+  const rangerChoicesInvalid =
+    needsRangerChoices && !rangerFeatureChoicesComplete(featureChoices);
+
+  const multiclassClassNames = useMemo(() => {
+    if (!addingClass || !addNewClass) {
+      return character.classes.map((c) => c.class);
+    }
+    return [...character.classes.map((c) => c.class), addNewClass];
+  }, [addingClass, addNewClass, character.classes]);
+
+  const multiclassValid = multiclassEligible(
+    multiclassClassNames,
+    character.abilityScores,
+  );
+  const multiclassWarning = addingClass
+    ? multiclassIneligibilityReason(
+        multiclassClassNames,
+        character.abilityScores,
+      )
+    : null;
+  const classStepInvalid =
+    addingClass && (!addNewClass || !multiclassValid);
+
+  const existingSpells = character.spells?.spells ?? [];
+  const spellbookSpells = useMemo(
+    () => [...existingSpells, ...addedSpells],
+    [existingSpells, addedSpells],
+  );
+  const showSpellPicker = isSpellcastingClasses(nextClasses);
 
   const canMulticlass =
     character.classes[0] != null &&
@@ -384,64 +432,95 @@ export function LevelUpDialog({
           <>
             {currentStepLabel === "Class" && (
               <>
-                {!addingClass && character.classes.length > 1 && (
-                  <section className="mt-6">
-                    <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
-                      Advance which class?
+                {addingClass ? (
+                  <section className="mt-6 rounded-lg border border-lore-accent/40 bg-lore-accent-dim/20 p-4">
+                    <h3 className="text-sm font-medium">
+                      Multiclass: {addNewClass} 1
                     </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {character.classes.map((c, i) => (
-                        <button
-                          key={`${c.class}-${i}`}
-                          type="button"
-                          onClick={() => {
-                            setClassIndex(i);
-                            setAddNewClass(null);
-                          }}
-                          className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                            i === classIndex && !addingClass
-                              ? "border-lore-accent bg-lore-accent-dim text-lore-text"
-                              : "border-lore-border text-lore-muted hover:text-lore-text"
-                          }`}
-                        >
-                          {c.class} {c.level}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {canMulticlass && !addingClass && (
-                  <section className="mt-4">
-                    <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
-                      Or multiclass into…
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {availableNewClasses.slice(0, 8).map((c) => (
-                        <button
-                          key={c.slug}
-                          type="button"
-                          onClick={() => setAddNewClass(c.name)}
-                          className={`rounded-full border px-3 py-1.5 text-xs ${
-                            addNewClass === c.name
-                              ? "border-lore-accent bg-lore-accent-dim"
-                              : "border-lore-border text-lore-muted"
-                          }`}
-                        >
-                          {c.name}
-                        </button>
-                      ))}
-                    </div>
-                    {addNewClass && (
-                      <button
-                        type="button"
-                        onClick={() => setAddNewClass(null)}
-                        className="mt-2 text-xs text-lore-muted hover:text-lore-text"
+                    <p className="mt-1 text-xs text-lore-muted">
+                      Requires {multiclassRequirementLabel(addNewClass!)} and
+                      prerequisites for your existing classes.
+                    </p>
+                    {multiclassWarning && (
+                      <p
+                        role="alert"
+                        className="mt-3 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-400"
                       >
-                        Cancel multiclass
-                      </button>
+                        {multiclassWarning}
+                      </p>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setAddNewClass(null)}
+                      className="mt-3 rounded border border-lore-border px-3 py-1.5 text-xs text-lore-muted hover:text-lore-text"
+                    >
+                      Cancel multiclass — advance existing class instead
+                    </button>
                   </section>
+                ) : (
+                  <>
+                    {character.classes.length > 1 && (
+                      <section className="mt-6">
+                        <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
+                          Advance which class?
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {character.classes.map((c, i) => (
+                            <button
+                              key={`${c.class}-${i}`}
+                              type="button"
+                              onClick={() => {
+                                setClassIndex(i);
+                                setAddNewClass(null);
+                              }}
+                              className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                                i === classIndex
+                                  ? "border-lore-accent bg-lore-accent-dim text-lore-text"
+                                  : "border-lore-border text-lore-muted hover:text-lore-text"
+                              }`}
+                            >
+                              {c.class} {c.level}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {canMulticlass && (
+                      <section className="mt-4">
+                        <h3 className="mb-2 text-xs uppercase tracking-wide text-lore-muted">
+                          Or multiclass into…
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {availableNewClasses.slice(0, 12).map((c) => {
+                            const previewNames = [
+                              ...character.classes.map((cl) => cl.class),
+                              c.name,
+                            ];
+                            const eligible = multiclassEligible(
+                              previewNames,
+                              character.abilityScores,
+                            );
+                            return (
+                              <button
+                                key={c.slug}
+                                type="button"
+                                onClick={() => setAddNewClass(c.name)}
+                                title={multiclassRequirementLabel(c.name)}
+                                className={`rounded-full border px-3 py-1.5 text-xs ${
+                                  eligible
+                                    ? "border-lore-border text-lore-muted hover:border-lore-accent"
+                                    : "border-lore-border/60 text-lore-muted/50"
+                                }`}
+                              >
+                                {c.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
+                  </>
                 )}
 
                 <section className="mt-6 rounded-lg border border-lore-border bg-lore-surface p-4">
@@ -589,11 +668,22 @@ export function LevelUpDialog({
                   />
                 )}
 
+                {needsRangerChoices && (
+                  <RangerFeatureChoices
+                    choices={featureChoices}
+                    onChange={setFeatureChoices}
+                  />
+                )}
+
                 {grantsAsi && (
                   <div className="mt-6">
                     <AsiFeatChoice
                       scores={character.abilityScores}
                       value={asiFeat}
+                      featEligibility={{
+                        characterLevel: newTotalLevel,
+                        abilityScores: character.abilityScores,
+                      }}
                       onChange={setAsiFeat}
                     />
                   </div>
@@ -603,13 +693,44 @@ export function LevelUpDialog({
 
             {currentStepLabel === "Spells & Magic" && (
               <section className="mt-6 space-y-4">
+                {showSpellPicker && (
+                  <div className="rounded-lg border border-lore-border bg-lore-surface p-4">
+                    <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+                      Spells
+                    </h3>
+                    <p className="mt-1 text-xs text-lore-muted">
+                      Add spells known or prepared for your updated caster
+                      levels. You can edit more on the Spells tab after
+                      level-up.
+                    </p>
+                    {spellbookSpells.length > 0 && (
+                      <ul className="mt-3 space-y-1 text-sm">
+                        {spellbookSpells.map((s) => (
+                          <li key={spellKey(s)}>
+                            {s.name}
+                            {s.level > 0 ? ` (level ${s.level})` : " (cantrip)"}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSpellPickerOpen(true)}
+                      className="mt-3 rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm"
+                    >
+                      {addedSpells.length > 0 || existingSpells.length > 0
+                        ? "Add more spells…"
+                        : "Choose spells…"}
+                    </button>
+                  </div>
+                )}
+
                 <p className="text-sm text-lore-muted">
-                  Spell lists are managed on the Spells tab. This step updates
-                  slot maxima from your class levels (SRD multiclass pooling
+                  Slot maxima follow SRD multiclass pooling
                   {hasThirdCasterSlots(nextClasses)
                     ? " + third-caster archetype slots"
                     : ""}
-                  ).
+                  .
                 </p>
 
                 {casterLevelAfter > 0 && (
@@ -730,10 +851,17 @@ export function LevelUpDialog({
                   {asiFeat?.kind === "asi" && (
                     <PreviewRow
                       label="ASI"
-                      value={Object.entries(asiFeat.asi)
-                        .filter(([, v]) => v > 0)
-                        .map(([k, v]) => `${k.toUpperCase()} +${v}`)
-                        .join(", ")}
+                      value={
+                        asiFeat.asi.mode === "increase"
+                          ? `${asiFeat.asi.ability.toUpperCase()} +2`
+                          : `${asiFeat.asi.first.toUpperCase()} +1, ${asiFeat.asi.second.toUpperCase()} +1`
+                      }
+                    />
+                  )}
+                  {addedSpells.length > 0 && (
+                    <PreviewRow
+                      label="New spells"
+                      value={addedSpells.map((s) => s.name).join(", ")}
                     />
                   )}
                   {extraAttacksAfter > 1 && (
@@ -776,9 +904,11 @@ export function LevelUpDialog({
               type="button"
               onClick={() => setWizardStep((s) => s + 1)}
               disabled={
+                (wizardStep === 0 && classStepInvalid) ||
                 (wizardStep === featuresStepIndex && asiInvalid) ||
                 (wizardStep === featuresStepIndex && subclassInvalid) ||
-                (wizardStep === featuresStepIndex && fightingStyleInvalid)
+                (wizardStep === featuresStepIndex && fightingStyleInvalid) ||
+                (wizardStep === featuresStepIndex && rangerChoicesInvalid)
               }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -800,6 +930,9 @@ export function LevelUpDialog({
                     fightingStyle.trim() ||
                     existingMeta.fightingStyles?.[className] ||
                     undefined,
+                  featureChoices: needsRangerChoices ? featureChoices : undefined,
+                  addedSpells:
+                    addedSpells.length > 0 ? addedSpells : undefined,
                   milestone: milestoneXp,
                   applySpellSlots: showSpellsStep && applySpellSlots,
                 })
@@ -808,9 +941,11 @@ export function LevelUpDialog({
                 blocked ||
                 levelUp.isPending ||
                 wizardStep < reviewStepIndex ||
+                classStepInvalid ||
                 asiInvalid ||
                 subclassInvalid ||
                 fightingStyleInvalid ||
+                rangerChoicesInvalid ||
                 (addingClass && !addNewClass)
               }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
@@ -821,6 +956,21 @@ export function LevelUpDialog({
             </button>
           )}
         </footer>
+        {spellPickerOpen && (
+          <CodexSpellAddPicker
+            existing={spellbookSpells}
+            characterClasses={nextClasses}
+            onAdd={(spell) => {
+              setAddedSpells((prev) => {
+                if (prev.some((s) => spellKey(s) === spellKey(spell))) {
+                  return prev;
+                }
+                return [...prev, spell];
+              });
+            }}
+            onClose={() => setSpellPickerOpen(false)}
+          />
+        )}
           </div>
         </div>
       </div>

@@ -22,6 +22,8 @@ import {
   pointBuyCost,
   pointBuyRemaining,
   STANDARD_ARRAY,
+  multiclassEligible,
+  multiclassIneligibilityReason,
   subclassPickLevel,
   xpForLevel,
   type Ability,
@@ -35,13 +37,12 @@ import {
 } from "./advancement-step";
 
 import {
-  classChoicesComplete,
+  featuresStepChoicesComplete,
   FightingStylePicker,
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
 import {
   RangerFeatureChoices,
-  rangerFeatureChoicesComplete,
 } from "@/components/character-creation/class-feature-choices";
 import {
   CodexItemAddPicker,
@@ -415,17 +416,33 @@ export function CreationWizard() {
     return startingSubclass;
   }, [selectedClass, startingLevel, advances, startingSubclass]);
 
+  const multiclassValid = useMemo(() => {
+    if (!classes.data || classAllocations.length <= 1) return true;
+    const names = classAllocations
+      .map((row) => classes.data!.find((c) => c.slug === row.slug)?.name)
+      .filter((n): n is string => Boolean(n));
+    return multiclassEligible(names, finalScores);
+  }, [classes.data, classAllocations, finalScores]);
+
+  const multiclassWarning = useMemo(() => {
+    if (multiclassValid || !classes.data || classAllocations.length <= 1) {
+      return null;
+    }
+    const names = classAllocations
+      .map((row) => classes.data!.find((c) => c.slug === row.slug)?.name)
+      .filter((n): n is string => Boolean(n));
+    return multiclassIneligibilityReason(names, finalScores);
+  }, [multiclassValid, classes.data, classAllocations, finalScores]);
+
   const featuresStepValid =
     selectedClass != null &&
-    classChoicesComplete(
+    featuresStepChoicesComplete(
       selectedClass.name,
       startingLevel,
       fightingStyle,
-      creationSubclass,
-    ) &&
-    (selectedClass.name !== "Ranger" ||
-      startingLevel < 1 ||
-      rangerFeatureChoicesComplete(featureChoices));
+      startingSubclass,
+      featureChoices,
+    );
 
   const advancementOk =
     !hasAdvancement ||
@@ -455,6 +472,7 @@ export function CreationWizard() {
     skillsValid &&
     equipment.length > 0 &&
     featuresStepValid &&
+    multiclassValid &&
     nameValid &&
     advancementOk;
 
@@ -794,6 +812,15 @@ export function CreationWizard() {
           maxHp={previewStats?.maxHp}
         />
       </div>
+
+      {multiclassWarning && (
+        <p
+          role="alert"
+          className="mt-6 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+        >
+          Multiclass requirements not met: {multiclassWarning}
+        </p>
+      )}
 
       <footer className="mt-10 flex items-center justify-between border-t border-lore-border pt-6">
         <button

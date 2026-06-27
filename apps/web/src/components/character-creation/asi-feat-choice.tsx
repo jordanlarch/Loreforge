@@ -7,6 +7,7 @@ import {
   type Ability,
   type AbilityScores,
   type AsiChoice,
+  type FeatEligibilityContext,
 } from "@app/engine";
 
 import { CodexFeatAddPicker } from "@/components/character-library-pickers";
@@ -28,10 +29,13 @@ export function AsiFeatChoice({
   scores,
   value,
   onChange,
+  featEligibility,
 }: {
   scores: AbilityScores;
   value: AsiFeatSelection | null;
   onChange: (next: AsiFeatSelection) => void;
+  /** When set, feat browse filters by SRD prerequisites. */
+  featEligibility?: FeatEligibilityContext;
 }) {
   const [mode, setMode] = useState<"asi" | "feat">(
     value?.kind === "feat" ? "feat" : "asi",
@@ -200,6 +204,7 @@ export function AsiFeatChoice({
       {featPickerOpen && (
         <CodexFeatAddPicker
           selected={selectedFeat}
+          featEligibility={featEligibility}
           onSelect={(featName) => onChange({ kind: "feat", featName })}
           onClose={() => setFeatPickerOpen(false)}
         />

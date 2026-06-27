@@ -327,6 +327,18 @@ export {
   type FeatDefinition,
 } from "./content/feats";
 export {
+  featIneligibilityReason,
+  featMeetsPrerequisite,
+  type FeatEligibilityContext,
+} from "./content/feat-prerequisites";
+export {
+  meetsMulticlassRequirement,
+  multiclassEligible,
+  multiclassIneligibilityReason,
+  multiclassRequirementLabel,
+  type MulticlassRequirement,
+} from "./content/multiclass-requirements";
+export {
   CLASS_FEATURE_ACTIONS,
   classFeatureAction,
   featureUseSeedStable,

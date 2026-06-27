@@ -206,6 +206,10 @@ export function AdvancementStep({
           <AsiFeatChoice
             scores={abilityScores}
             value={asiFeatValue}
+            featEligibility={{
+              characterLevel: currentLevel,
+              abilityScores,
+            }}
             onChange={(sel) => {
               if (sel.kind === "feat") {
                 patchAdvance({ feat: sel.featName, asi: undefined });

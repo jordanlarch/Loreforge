@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import {
   abilityModifier,
   classFeaturesForLevel,
+  fightingStylePickLevel,
   grantsAsiAtLevel,
   isSpellcastingClasses,
   subclassPickLevel,
@@ -19,7 +20,10 @@ import {
   asiFeatComplete,
   type AsiFeatSelection,
 } from "@/components/character-creation/asi-feat-choice";
-import { SubclassPicker } from "@/components/character-creation/class-choice-pickers";
+import {
+  FightingStylePicker,
+  SubclassPicker,
+} from "@/components/character-creation/class-choice-pickers";
 import {
   CodexSpellAddPicker,
 } from "@/components/character-library-pickers";
@@ -61,6 +65,8 @@ export function AdvancementStep({
   const conMod = abilityModifier(abilityScores.con);
   const needsAsi = grantsAsiAtLevel(className, currentLevel);
   const needsSubclass = subclassPickLevel(className) === currentLevel;
+  const needsFightingStyle =
+    fightingStylePickLevel(className) === currentLevel;
   const features = classFeaturesForLevel(className, currentLevel);
 
   const characterClasses: ClassLevel[] = useMemo(
@@ -93,7 +99,10 @@ export function AdvancementStep({
   const asiFeatInvalid = needsAsi && !asiFeatComplete(asiFeatValue);
   const subclassInvalid =
     needsSubclass && !(current?.subclass?.trim().length ?? 0);
-  const stepBlocked = asiFeatInvalid || subclassInvalid;
+  const fightingStyleInvalid =
+    needsFightingStyle && !(current?.fightingStyle?.trim().length ?? 0);
+  const stepBlocked =
+    asiFeatInvalid || subclassInvalid || fightingStyleInvalid;
 
   const hpPreview =
     hpMethod === "average"
@@ -201,6 +210,15 @@ export function AdvancementStep({
         />
       )}
 
+      {needsFightingStyle && (
+        <FightingStylePicker
+          className={className}
+          level={currentLevel}
+          value={current?.fightingStyle ?? ""}
+          onChange={(fightingStyle) => patchAdvance({ fightingStyle })}
+        />
+      )}
+
       {needsAsi && (
         <div className="mt-6">
           <AsiFeatChoice
@@ -269,6 +287,9 @@ export function advancementComplete(
       if (!hasAsi && !hasFeat) return false;
     }
     if (subclassPickLevel(className) === l && !row.subclass?.trim()) {
+      return false;
+    }
+    if (fightingStylePickLevel(className) === l && !row.fightingStyle?.trim()) {
       return false;
     }
   }

@@ -22,10 +22,10 @@ export function subclassPickLevel(className: string): number | null {
   return map[className] ?? null;
 }
 
-/** Classes that choose a fighting style at 1st level (or 2nd for Paladin). */
+/** Classes that choose a fighting style (SRD 5.2 / 2024). */
 export function fightingStylePickLevel(className: string): number | null {
-  if (className === "Paladin") return 2;
-  if (className === "Fighter" || className === "Ranger") return 1;
+  if (className === "Paladin" || className === "Ranger") return 2;
+  if (className === "Fighter") return 1;
   return null;
 }
 
@@ -59,37 +59,60 @@ export function fightingStyleDescription(style: string): string | undefined {
   return FIGHTING_STYLE_DESCRIPTIONS[style as FightingStyle];
 }
 
-/** Subclass options keyed by class display name. */
+/** SRD 5.2 (2024) — one official subclass per class in the System Reference Document. */
 export const SUBCLASS_OPTIONS: Record<string, readonly string[]> = {
-  Barbarian: ["Path of the Berserker", "Path of the Totem Warrior"],
-  Bard: ["College of Lore", "College of Valor"],
-  Cleric: [
-    "Life Domain",
-    "Light Domain",
-    "Nature Domain",
-    "Tempest Domain",
-    "Trickery Domain",
-    "War Domain",
-  ],
-  Druid: ["Circle of the Land", "Circle of the Moon"],
-  Fighter: ["Champion", "Battle Master", "Eldritch Knight"],
-  Monk: ["Way of the Open Hand", "Way of Shadow", "Way of the Four Elements"],
-  Paladin: ["Oath of Devotion", "Oath of the Ancients", "Oath of Vengeance"],
+  Barbarian: ["Path of the Berserker"],
+  Bard: ["College of Lore"],
+  Cleric: ["Life Domain"],
+  Druid: ["Circle of the Land"],
+  Fighter: ["Champion"],
+  Monk: ["Warrior of the Open Hand"],
+  Paladin: ["Oath of Devotion"],
   Ranger: ["Hunter"],
-  Rogue: ["Thief", "Assassin", "Arcane Trickster"],
-  Sorcerer: ["Draconic Bloodline", "Wild Magic"],
-  Warlock: ["The Archfey", "The Fiend", "The Great Old One"],
-  Wizard: [
-    "School of Abjuration",
-    "School of Conjuration",
-    "School of Divination",
-    "School of Enchantment",
-    "School of Evocation",
-    "School of Illusion",
-    "School of Necromancy",
-    "School of Transmutation",
-  ],
+  Rogue: ["Thief"],
+  Sorcerer: ["Draconic Sorcery"],
+  Warlock: ["Fiend Patron"],
+  Wizard: ["Evoker"],
 };
+
+/** Legacy PHB names → SRD 5.2 display names (for existing characters). */
+export const SUBCLASS_NAME_ALIASES: Record<string, string> = {
+  "Way of the Open Hand": "Warrior of the Open Hand",
+  "Draconic Bloodline": "Draconic Sorcery",
+  "The Fiend": "Fiend Patron",
+  "The Archfey": "Fiend Patron",
+  "The Great Old One": "Fiend Patron",
+  "School of Evocation": "Evoker",
+  "School of Abjuration": "Evoker",
+  "School of Conjuration": "Evoker",
+  "School of Divination": "Evoker",
+  "School of Enchantment": "Evoker",
+  "School of Illusion": "Evoker",
+  "School of Necromancy": "Evoker",
+  "School of Transmutation": "Evoker",
+  "Battle Master": "Champion",
+  "Eldritch Knight": "Champion",
+  "Beast Master": "Hunter",
+  Assassin: "Thief",
+  "Arcane Trickster": "Thief",
+  "College of Valor": "College of Lore",
+  "Path of the Totem Warrior": "Path of the Berserker",
+  "Circle of the Moon": "Circle of the Land",
+  "Way of Shadow": "Warrior of the Open Hand",
+  "Way of the Four Elements": "Warrior of the Open Hand",
+  "Oath of the Ancients": "Oath of Devotion",
+  "Oath of Vengeance": "Oath of Devotion",
+  "Wild Magic": "Draconic Sorcery",
+  "Light Domain": "Life Domain",
+  "Nature Domain": "Life Domain",
+  "Tempest Domain": "Life Domain",
+  "Trickery Domain": "Life Domain",
+  "War Domain": "Life Domain",
+};
+
+export function normalizeSubclassName(name: string): string {
+  return SUBCLASS_NAME_ALIASES[name] ?? name;
+}
 
 export function subclassOptionsFor(className: string): readonly string[] {
   return SUBCLASS_OPTIONS[className] ?? [];

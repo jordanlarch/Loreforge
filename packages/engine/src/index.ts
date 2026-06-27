@@ -190,8 +190,10 @@ export {
   fightingStylePickLevel,
   needsFightingStylePick,
   needsSubclassPick,
+  normalizeSubclassName,
   subclassOptionsFor,
   subclassPickLevel,
+  SUBCLASS_NAME_ALIASES,
   SUBCLASS_OPTIONS,
   type FightingStyle,
 } from "./entities/class-choices";

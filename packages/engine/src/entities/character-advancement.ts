@@ -22,6 +22,8 @@ export type LevelAdvanceChoice = {
   feat?: string;
   /** Subclass name when this level grants a subclass pick. */
   subclass?: string;
+  /** Fighting style when this level grants a style pick. */
+  fightingStyle?: string;
 };
 
 export function buildStartingCharacterStats(

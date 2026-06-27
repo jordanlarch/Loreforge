@@ -7,7 +7,7 @@
 import { and, asc, count, desc, eq, gte, ilike, lte, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { masteryFromOpen5eItemRaw } from "@app/engine";
+import { masteryFromOpen5eItemRaw, normalizeSubclassName } from "@app/engine";
 
 import {
   codexAdvancedRules,
@@ -222,6 +222,27 @@ export const codexRouter = createTRPCRouter({
       return row ?? null;
     }),
 
+  /** Resolve species by display name (character sheet). */
+  getSpeciesByName: protectedProcedure
+    .input(z.object({ name: z.string().trim().min(1).max(80) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select({
+          slug: codexSpecies.slug,
+          name: codexSpecies.name,
+          description: codexSpecies.description,
+          abilityBonuses: codexSpecies.abilityBonuses,
+          speed: codexSpecies.speed,
+          size: codexSpecies.size,
+          traits: codexSpecies.traits,
+        })
+        .from(codexSpecies)
+        .where(eq(codexSpecies.name, input.name))
+        .limit(1);
+      return row ?? null;
+    }),
+
   /** SRD classes for the Creation Wizard, alphabetical. */
   listClasses: protectedProcedure
     .input(z.object({ search: z.string().trim().max(100).optional() }).optional())
@@ -270,6 +291,7 @@ export const codexRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const db = getDb();
       const conditions = [
+        eq(codexSubclasses.source, "srd"),
         input?.search
           ? ilike(codexSubclasses.name, `%${input.search}%`)
           : undefined,
@@ -316,18 +338,27 @@ export const codexRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       const db = getDb();
-      const conditions = [
-        ilike(codexSubclasses.name, input.name),
-        input.className
-          ? eq(codexSubclasses.className, input.className)
-          : undefined,
-      ].filter(Boolean);
-      const [row] = await db
-        .select()
-        .from(codexSubclasses)
-        .where(and(...conditions))
-        .limit(1);
-      return row ?? null;
+      const resolvedName = normalizeSubclassName(input.name);
+      const namesToTry =
+        resolvedName === input.name
+          ? [input.name]
+          : [input.name, resolvedName];
+      for (const name of namesToTry) {
+        const conditions = [
+          eq(codexSubclasses.source, "srd"),
+          ilike(codexSubclasses.name, name),
+          input.className
+            ? eq(codexSubclasses.className, input.className)
+            : undefined,
+        ].filter(Boolean);
+        const [row] = await db
+          .select()
+          .from(codexSubclasses)
+          .where(and(...conditions))
+          .limit(1);
+        if (row) return row;
+      }
+      return null;
     }),
 
   /** Filterable, paginated list of SRD creatures (Monsters + Animals tabs). */

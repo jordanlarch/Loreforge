@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import {
+  featMeetsPrerequisite,
   isSpellEligibleForCharacter,
   maxCastableSpellLevel,
   spellcastingClasses,
   type ClassLevel,
+  type FeatEligibilityContext,
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
@@ -521,10 +523,12 @@ export function CodexFeatAddPicker({
   selected,
   onSelect,
   onClose,
+  featEligibility,
 }: {
   selected?: string;
   onSelect: (featName: string) => void;
   onClose: () => void;
+  featEligibility?: FeatEligibilityContext;
 }) {
   const [search, setSearch] = useState("");
 
@@ -535,6 +539,14 @@ export function CodexFeatAddPicker({
     },
     { placeholderData: (prev) => prev },
   );
+
+  const eligibleFeats = useMemo(() => {
+    const rows = list.data ?? [];
+    if (!featEligibility) return rows;
+    return rows.filter((feat) =>
+      featMeetsPrerequisite(feat.prerequisite, featEligibility),
+    );
+  }, [list.data, featEligibility]);
 
   return (
     <LibraryPickerModal
@@ -553,13 +565,14 @@ export function CodexFeatAddPicker({
 
       {list.isLoading ? (
         <p className="text-sm text-lore-muted">Loading feats…</p>
-      ) : (list.data ?? []).length === 0 ? (
+      ) : eligibleFeats.length === 0 ? (
         <p className="text-sm text-lore-muted">
-          No eligible feats found. Try clearing the filter.
+          No eligible feats found for your level and ability scores.
+          {search.trim() ? " Try clearing the filter." : ""}
         </p>
       ) : (
         <ul className={PICKER_LIST}>
-          {(list.data ?? []).map((feat) => (
+          {eligibleFeats.map((feat) => (
             <li key={feat.slug}>
               <button
                 type="button"

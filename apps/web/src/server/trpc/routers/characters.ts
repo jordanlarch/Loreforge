@@ -9,12 +9,14 @@
 import {
   abilityModifier,
   applyAsi,
+  featMeetsPrerequisite,
   fightingStylePickLevel,
   grantsAsiAtLevel,
   hpGainOnLevelUp,
   isValidAsiChoice,
   levelUpSeed,
   maxHpAtFirstLevel,
+  multiclassEligible,
   sheetSlotPoolsFromClasses,
   subclassPickLevel,
   totalLevel,
@@ -30,7 +32,7 @@ import {
   type HpMethod,
 } from "@app/engine";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -39,6 +41,7 @@ import {
   campaigns,
   characters,
   codexClasses,
+  codexFeats,
   getDb,
 } from "@app/db";
 
@@ -372,6 +375,10 @@ export const charactersRouter = createTRPCRouter({
         applySpellSlots: z.boolean().optional(),
         /** Fighting style when this level grants the pick. */
         fightingStyle: z.string().trim().max(40).optional(),
+        /** Ranger Favored Enemy / Natural Explorer when first gaining them. */
+        featureChoices: z.record(z.string(), z.string()).optional(),
+        /** Spells to append to the character spellbook during level-up. */
+        addedSpells: z.array(characterSpell).max(24).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -449,6 +456,17 @@ export const charactersRouter = createTRPCRouter({
             message: `Already has levels in ${input.addNewClass}.`,
           });
         }
+        const prospective = [
+          ...classes.map((c) => c.class),
+          input.addNewClass!,
+        ];
+        if (!multiclassEligible(prospective, character.abilityScores)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Ability scores do not meet SRD multiclass prerequisites for one or more classes.",
+          });
+        }
       }
 
       const classNameForDie = addingClass
@@ -470,6 +488,15 @@ export const charactersRouter = createTRPCRouter({
 
       const newClassLevel = addingClass ? 1 : target!.level + 1;
       const newTotalLevel = totalLevel(classes) + 1;
+
+      const needsSubclassPick =
+        subclassPickLevel(classNameForDie) === newClassLevel;
+      if (needsSubclassPick && !input.subclass?.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This level requires a subclass choice.",
+        });
+      }
 
       const grantsAsi =
         !addingClass && grantsAsiAtLevel(target!.class, newClassLevel);
@@ -511,6 +538,26 @@ export const charactersRouter = createTRPCRouter({
         nextScores = applyAsi(character.abilityScores, choice);
       }
 
+      if (input.feat?.trim()) {
+        const [featRow] = await db
+          .select({ prerequisite: codexFeats.prerequisite })
+          .from(codexFeats)
+          .where(ilike(codexFeats.name, input.feat.trim()))
+          .limit(1);
+        if (
+          featRow &&
+          !featMeetsPrerequisite(featRow.prerequisite, {
+            characterLevel: newTotalLevel,
+            abilityScores: nextScores,
+          })
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Feat prerequisites not met: ${featRow.prerequisite ?? input.feat.trim()}.`,
+          });
+        }
+      }
+
       const conMod = abilityModifier(nextScores.con);
       const method: HpMethod = input.hpMethod;
       const hpGain = addingClass
@@ -524,7 +571,17 @@ export const charactersRouter = createTRPCRouter({
           });
 
       const nextClasses = addingClass
-        ? [...classes, { class: input.addNewClass!, level: 1 }]
+        ? [
+            ...classes,
+            {
+              class: input.addNewClass!,
+              level: 1,
+              ...(input.subclass?.trim() &&
+              subclassPickLevel(input.addNewClass!) === 1
+                ? { subclass: input.subclass.trim() }
+                : {}),
+            },
+          ]
         : classes.map((c, i) => {
             if (i !== input.classIndex) return c;
             const patch: { class: string; level: number; subclass?: string } = {
@@ -559,6 +616,15 @@ export const charactersRouter = createTRPCRouter({
           },
         };
       }
+      if (input.featureChoices && Object.keys(input.featureChoices).length > 0) {
+        nextMeta = {
+          ...nextMeta,
+          featureChoices: {
+            ...(nextMeta.featureChoices ?? {}),
+            ...input.featureChoices,
+          },
+        };
+      }
 
       const classGain = addingClass
         ? `Multiclass: ${input.addNewClass!} 1`
@@ -581,11 +647,12 @@ export const charactersRouter = createTRPCRouter({
       };
 
       let nextSpells: SpellLoadout | undefined;
+      const loadout = (character.spells ?? {
+        spells: [],
+        slots: {},
+      }) as SpellLoadout;
+
       if (input.applySpellSlots) {
-        const loadout = (character.spells ?? {
-          spells: [],
-          slots: {},
-        }) as SpellLoadout;
         const suggested = sheetSlotPoolsFromClasses(nextClasses);
         const slots = { ...loadout.slots };
         for (const [level, pool] of Object.entries(suggested)) {
@@ -610,6 +677,22 @@ export const charactersRouter = createTRPCRouter({
         }
       }
 
+      if (input.addedSpells && input.addedSpells.length > 0) {
+        const mergedSpells = [...loadout.spells];
+        for (const spell of input.addedSpells) {
+          const exists = mergedSpells.some(
+            (s) =>
+              s.name.toLowerCase() === spell.name.toLowerCase() &&
+              s.level === spell.level,
+          );
+          if (!exists) mergedSpells.push(spell);
+        }
+        nextSpells = {
+          ...(nextSpells ?? loadout),
+          spells: mergedSpells,
+        };
+      }
+
       const nextNotes = serializeCharacterNotes(
         parsedNotes.sessionNotes,
         parsedNotes.personality,
@@ -628,7 +711,7 @@ export const charactersRouter = createTRPCRouter({
           maxHp: character.maxHp + hpGain,
           xp: nextXp,
           notes: nextNotes,
-          ...(input.applySpellSlots ? { spells: nextSpells } : {}),
+          ...(nextSpells ? { spells: nextSpells } : {}),
           updatedAt: new Date(),
         })
         .where(

@@ -60,6 +60,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 | **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
 | **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
+**Recently shipped (Jun 2026, post-#280):** CHAR-ADV-2 — creation Features step validation (level>1), feat prerequisite gating, subclass detail modal, level-up spell picker + multiclass validate/undo.
+
 **Recently shipped (Jun 2026, post-#246):** Roll20-style character sheet — 3-column layout, HP panel, Live Stats HUD, Inventory/About/Notes tabs, notes meta via `character-sheet-storage`.
 
 **Recently shipped (Jun 2026, post-#245):** Characters dashboard sweep (⋯ menu, XP bars, Play Now, 10-step creation wizard) · sheet Features + Personality tabs · **5-step level-up** (Spells step, level history, fighting-style combat math) · PLAY-3 party-rail HUD **statsOnly** dedup (turn controls stay on combat bar).

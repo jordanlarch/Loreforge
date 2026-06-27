@@ -189,6 +189,30 @@ export const codexRuleSections = pgTable(
   ],
 );
 
+/** Optional SRD advanced rules (traps, poisons, diseases, madness, environment). */
+export const codexAdvancedRules = pgTable(
+  "codex_advanced_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    /** traps | poisons | curses | fear | environment */
+    topic: text("topic").notNull(),
+    sortIndex: integer("sort_index").notNull().default(0),
+    source: text("source").notNull().default("open5e"),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_advanced_rules_name_idx").on(t.name),
+    index("codex_advanced_rules_topic_idx").on(t.topic),
+    index("codex_advanced_rules_sort_idx").on(t.sortIndex),
+  ],
+);
+
 /** How many skills a class lets you pick at level 1, and from which list. */
 export type SkillChoice = {
   choose: number;

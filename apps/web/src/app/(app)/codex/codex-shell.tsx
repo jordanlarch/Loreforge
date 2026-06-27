@@ -17,6 +17,7 @@ import {
 import { CodexFooter } from "@/components/codex-footer";
 import { CodexRightPane } from "@/components/codex-right-pane";
 
+import { AdvancedBrowser } from "./advanced-browser";
 import { BackgroundBrowser } from "./background-browser";
 import { ClassBrowser } from "./class-browser";
 import { CodexBrowser } from "./codex-browser";
@@ -163,6 +164,9 @@ export function CodexShell() {
       )}
       {category === "Items" && (
         <ItemBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
+      )}
+      {category === "Advanced" && (
+        <AdvancedBrowser selectedSlug={selectedSlug} onSelect={selectSlug} />
       )}
       {!isLiveCodexCategory(category) && (
         <CodexComingSoon category={category} />

@@ -35,6 +35,14 @@ import { codexSpells, getDb, homebrewItems, homebrewSpells } from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
+import {
+  SMITHY_LIBRARY_CATEGORIES,
+  smithyItemLibraryCategory,
+  type SmithyLibraryCategory,
+} from "@/lib/smithy-categories";
+
+const smithyLibraryCategory = z.enum(SMITHY_LIBRARY_CATEGORIES);
+
 const itemType = z.enum(ITEM_TYPES);
 const itemRarity = z.enum(ITEM_RARITIES);
 const itemSource = z.enum(ITEM_SOURCES);
@@ -125,6 +133,99 @@ function spellId(name: string): string {
 }
 
 export const smithyRouter = createTRPCRouter({
+  /**
+   * Unified homebrew library for the Smithy landing (SMITH-2).
+   * Merges typed items + spells; optional category filter mirrors Codex IA.
+   */
+  listLibrary: protectedProcedure
+    .input(
+      z
+        .object({
+          category: smithyLibraryCategory.optional(),
+          itemType: itemType.optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const category = input?.category ?? "All";
+
+      const [items, spells] = await Promise.all([
+        db
+          .select()
+          .from(homebrewItems)
+          .where(eq(homebrewItems.ownerId, ctx.user.id))
+          .orderBy(desc(homebrewItems.updatedAt)),
+        db
+          .select({
+            id: homebrewSpells.id,
+            name: homebrewSpells.name,
+            level: homebrewSpells.level,
+            school: homebrewSpells.school,
+            source: homebrewSpells.source,
+            updatedAt: homebrewSpells.updatedAt,
+            description: homebrewSpells.description,
+          })
+          .from(homebrewSpells)
+          .where(eq(homebrewSpells.ownerId, ctx.user.id))
+          .orderBy(desc(homebrewSpells.updatedAt)),
+      ]);
+
+      type Entry = {
+        kind: "item" | "spell";
+        id: string;
+        name: string;
+        source: (typeof items)[number]["source"];
+        category: SmithyLibraryCategory;
+        subtitle: string;
+        href: string;
+        updatedAt: Date;
+        descriptionSnippet: string | null;
+      };
+
+      const entries: Entry[] = [];
+
+      for (const item of items) {
+        const itemCategory = smithyItemLibraryCategory(item);
+        if (itemCategory == null) {
+          if (category !== "All") continue;
+        } else if (category !== "All" && category !== itemCategory) {
+          continue;
+        }
+        if (input?.itemType && item.type !== input.itemType) continue;
+
+        entries.push({
+          kind: "item",
+          id: item.id,
+          name: item.name,
+          source: item.source,
+          category: itemCategory ?? "Items",
+          subtitle: `${item.type} · ${item.rarity}`,
+          href: `/smithy/${item.id}`,
+          updatedAt: item.updatedAt,
+          descriptionSnippet: item.description.trim().slice(0, 120) || null,
+        });
+      }
+
+      for (const spell of spells) {
+        if (category !== "All" && category !== "Spells") continue;
+        entries.push({
+          kind: "spell",
+          id: spell.id,
+          name: spell.name,
+          source: spell.source,
+          category: "Spells",
+          subtitle: `${spell.level === 0 ? "Cantrip" : `Level ${spell.level}`} · ${spell.school}`,
+          href: `/smithy/spells/${spell.id}`,
+          updatedAt: spell.updatedAt,
+          descriptionSnippet: spell.description.trim().slice(0, 120) || null,
+        });
+      }
+
+      entries.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      return entries;
+    }),
+
   /** Homebrew items owned by the current user, newest first, optional type filter. */
   list: protectedProcedure
     .input(z.object({ type: itemType.optional() }).optional())

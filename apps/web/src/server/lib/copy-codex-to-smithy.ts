@@ -7,6 +7,7 @@ import {
   type ItemType,
 } from "@app/engine";
 import {
+  codexAdvancedRules,
   codexBackgrounds,
   codexClasses,
   codexFeats,
@@ -21,6 +22,7 @@ import {
 } from "@app/db";
 
 import { CODEX_CATEGORIES, type CodexCategory } from "@/lib/codex-categories";
+import { formatAdvancedTopic } from "@/lib/codex-advanced-display";
 import { weaponPropertyEntries } from "@/lib/codex-item-display";
 import {
   formatChallengeRating,
@@ -315,6 +317,28 @@ async function copySnapshot(
     });
   }
 
+  if (category === "Advanced") {
+    const [row] = await db
+      .select()
+      .from(codexAdvancedRules)
+      .where(eq(codexAdvancedRules.slug, slug))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
+    return insertSnapshotItem({
+      ownerId,
+      name: row.name,
+      type,
+      properties: [`Codex: ${category}`, formatAdvancedTopic(row.topic)],
+      copyKey,
+      description: buildCodexSnapshotDescription({
+        category,
+        name: row.name,
+        description: row.description,
+        raw: row.raw,
+      }),
+    });
+  }
+
   if (category === "Rules") {
     const [row] = await db
       .select()
@@ -353,12 +377,6 @@ export async function copyCodexEntryToSmithy(input: {
   }
   if (input.category === "Items") {
     return copyItem(input.ownerId, input.slug);
-  }
-  if (input.category === "Advanced") {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Advanced rules are not available to copy yet.",
-    });
   }
   return copySnapshot(input.ownerId, input.category, input.slug);
 }

@@ -10,6 +10,7 @@ import { z } from "zod";
 import { masteryFromOpen5eItemRaw } from "@app/engine";
 
 import {
+  codexAdvancedRules,
   codexBackgrounds,
   codexClasses,
   codexFeats,
@@ -676,6 +677,66 @@ export const codexRouter = createTRPCRouter({
         .select()
         .from(codexRuleSections)
         .where(eq(codexRuleSections.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** Filterable list of optional / advanced SRD rules. */
+  listAdvancedRules: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().max(100).optional(),
+          topic: z.string().trim().max(40).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = [
+        input?.search
+          ? ilike(codexAdvancedRules.name, `%${input.search}%`)
+          : undefined,
+        input?.topic ? eq(codexAdvancedRules.topic, input.topic) : undefined,
+      ].filter(Boolean);
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      return db
+        .select({
+          slug: codexAdvancedRules.slug,
+          name: codexAdvancedRules.name,
+          description: codexAdvancedRules.description,
+          topic: codexAdvancedRules.topic,
+        })
+        .from(codexAdvancedRules)
+        .where(where)
+        .orderBy(
+          asc(codexAdvancedRules.topic),
+          asc(codexAdvancedRules.sortIndex),
+          asc(codexAdvancedRules.name),
+        );
+    }),
+
+  /** Distinct advanced rule topics for filter chips. */
+  advancedFacets: protectedProcedure.query(async () => {
+    const db = getDb();
+    const topics = await db
+      .selectDistinct({ value: codexAdvancedRules.topic })
+      .from(codexAdvancedRules)
+      .orderBy(asc(codexAdvancedRules.topic));
+    return {
+      topics: topics.map((t) => t.value).filter((v): v is string => v != null),
+    };
+  }),
+
+  /** Full advanced rule record by slug. */
+  getAdvancedRule: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexAdvancedRules)
+        .where(eq(codexAdvancedRules.slug, input.slug))
         .limit(1);
       return row ?? null;
     }),

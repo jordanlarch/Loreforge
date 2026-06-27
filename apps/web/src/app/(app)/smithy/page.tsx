@@ -8,8 +8,8 @@ export default function SmithyPage() {
           The Smithy
         </h1>
         <p className="mt-2 text-lore-muted">
-          Forge your own 5E items and spells. Your homebrew library, scoped to
-          you.
+          Forge your own 5E content. Copy from the Codex, customize freely — your
+          homebrew library, scoped to you.
         </p>
       </header>
 

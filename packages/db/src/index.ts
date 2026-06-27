@@ -42,6 +42,15 @@ export {
   type IngestRulesResult,
 } from "./ingest/open5e-rules";
 export {
+  ADVANCED_RULE_TOPICS,
+  advancedRuleToRow,
+  classifyAdvancedRuleKey,
+  ingestOpen5eAdvancedRules,
+  type AdvancedRuleTopic,
+  type IngestAdvancedRulesOptions,
+  type IngestAdvancedRulesResult,
+} from "./ingest/open5e-advanced-rules";
+export {
   seedCharacterOptions,
   SRD_CLASSES,
   SRD_SPECIES,

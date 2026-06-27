@@ -253,6 +253,13 @@
       "when": 1782580000000,
       "tag": "0035_starting_scene",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782660000000,
+      "tag": "0036_codex_advanced_rules",
+      "breakpoints": true
     }
   ]
 }

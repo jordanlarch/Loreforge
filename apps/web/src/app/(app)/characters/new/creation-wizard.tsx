@@ -636,6 +636,10 @@ export function CreationWizard() {
           {step === 6 && (
             <EquipmentStep
               className={selectedClass?.name ?? "—"}
+              characterClasses={classAllocations.map((row) => {
+                const cls = classes.data?.find((c) => c.slug === row.slug);
+                return { class: cls?.name ?? row.slug, level: row.levels };
+              })}
               pack={equipmentPack}
               equipment={equipment}
               spells={spellLoadout.spells}
@@ -1343,6 +1347,7 @@ function SkillsStep({
 
 function EquipmentStep({
   className,
+  characterClasses,
   pack,
   equipment,
   spells,
@@ -1350,6 +1355,7 @@ function EquipmentStep({
   onAddSpell,
 }: {
   className: string;
+  characterClasses: { class: string; level: number }[];
   pack: StartingPack | null;
   equipment: EquipmentItem[];
   spells: CharacterSpell[];
@@ -1467,6 +1473,7 @@ function EquipmentStep({
       {codexSpellOpen ? (
         <CodexSpellAddPicker
           existing={spells}
+          characterClasses={characterClasses}
           onAdd={onAddSpell}
           onClose={() => setCodexSpellOpen(false)}
         />

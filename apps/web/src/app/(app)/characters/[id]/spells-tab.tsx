@@ -449,6 +449,7 @@ export function SpellsTab({
       {codexOpen && (
         <CodexSpellAddPicker
           existing={draft.spells}
+          characterClasses={classes}
           onAdd={addSpell}
           onClose={() => setCodexOpen(false)}
         />

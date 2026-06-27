@@ -304,6 +304,11 @@ export {
   spellSlotsForClasses,
 } from "./content/multiclass-spell-slots";
 export {
+  isSpellEligibleForCharacter,
+  maxCastableSpellLevel,
+  spellcastingClasses,
+} from "./content/spell-eligibility";
+export {
   hasThirdCasterSlots,
   isThirdCasterSubclass,
   thirdCasterSlotMaxima,

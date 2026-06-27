@@ -98,6 +98,10 @@ export function InventoryTab({
     });
   }
 
+  function removeItem(index: number) {
+    setDraft((items) => items.filter((_, i) => i !== index));
+  }
+
   function save() {
     onSaveEquipment(
       draft
@@ -232,6 +236,7 @@ export function InventoryTab({
             items={equipped}
             draft={draft}
             onPatch={patch}
+            onRemove={removeItem}
             showEquipToggle
             dragIndex={dragIndex}
             onDragStart={setDragIndex}
@@ -245,7 +250,7 @@ export function InventoryTab({
           {attuned.length === 0 ? (
             <p className="text-sm text-lore-muted">No attunable items.</p>
           ) : (
-            <ItemList items={attuned} draft={draft} onPatch={patch} />
+            <ItemList items={attuned} draft={draft} onPatch={patch} onRemove={removeItem} />
           )}
         </SheetSection>
       </div>
@@ -259,6 +264,7 @@ export function InventoryTab({
             items={other}
             draft={draft}
             onPatch={patch}
+            onRemove={removeItem}
             showEquipToggle
             dragIndex={dragIndex}
             onDragStart={setDragIndex}
@@ -285,6 +291,7 @@ function ItemList({
   items,
   draft,
   onPatch,
+  onRemove,
   showEquipToggle,
   dragIndex,
   onDragStart,
@@ -293,6 +300,7 @@ function ItemList({
   items: EquipmentItem[];
   draft: EquipmentItem[];
   onPatch: (index: number, fields: Partial<EquipmentItem>) => void;
+  onRemove: (index: number) => void;
   showEquipToggle?: boolean;
   dragIndex?: number | null;
   onDragStart?: (index: number | null) => void;
@@ -361,10 +369,12 @@ function ItemList({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() =>
-                    onPatch(index, { quantity: Math.max(0, item.quantity - 1) })
-                  }
+                  onClick={() => {
+                    if (item.quantity <= 1) onRemove(index);
+                    else onPatch(index, { quantity: item.quantity - 1 });
+                  }}
                   className="rounded border border-lore-border px-2"
+                  aria-label={`Decrease ${item.name} quantity`}
                 >
                   −
                 </button>
@@ -373,8 +383,18 @@ function ItemList({
                   type="button"
                   onClick={() => onPatch(index, { quantity: item.quantity + 1 })}
                   className="rounded border border-lore-border px-2"
+                  aria-label={`Increase ${item.name} quantity`}
                 >
                   +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(index)}
+                  className="rounded border border-red-900/60 px-2 text-red-400 transition-colors hover:border-red-600 hover:text-red-300"
+                  aria-label={`Remove ${item.name}`}
+                  title="Remove item"
+                >
+                  ✕
                 </button>
               </div>
             </div>

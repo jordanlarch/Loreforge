@@ -75,7 +75,7 @@ export const SUBCLASS_OPTIONS: Record<string, readonly string[]> = {
   Fighter: ["Champion", "Battle Master", "Eldritch Knight"],
   Monk: ["Way of the Open Hand", "Way of Shadow", "Way of the Four Elements"],
   Paladin: ["Oath of Devotion", "Oath of the Ancients", "Oath of Vengeance"],
-  Ranger: ["Hunter", "Beast Master"],
+  Ranger: ["Hunter"],
   Rogue: ["Thief", "Assassin", "Arcane Trickster"],
   Sorcerer: ["Draconic Bloodline", "Wild Magic"],
   Warlock: ["The Archfey", "The Fiend", "The Great Old One"],

@@ -4,7 +4,7 @@
  * is reused by Smithy and Realms. Write paths (Copy to Smithy, etc.) arrive in
  * later phases.
  */
-import { and, asc, count, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, lte, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { masteryFromOpen5eItemRaw } from "@app/engine";
@@ -676,19 +676,30 @@ export const codexRouter = createTRPCRouter({
         .object({
           search: z.string().trim().max(100).optional(),
           featType: z.string().trim().max(40).optional(),
+          /** Exclude Origin / Fighting Style feats for ASI-level picks. */
+          asiEligible: z.boolean().optional(),
         })
         .optional(),
     )
     .query(async ({ input }) => {
       const db = getDb();
+      const ASI_EXCLUDED_TYPES = ["Origin", "Fighting Style"];
       const conditions = [
         input?.search
           ? ilike(codexFeats.name, `%${input.search}%`)
           : undefined,
-        input?.featType ? eq(codexFeats.featType, input.featType) : undefined,
+        input?.featType
+          ? ilike(codexFeats.featType, input.featType)
+          : undefined,
+        input?.asiEligible
+          ? or(
+              sql`${codexFeats.featType} IS NULL`,
+              notInArray(codexFeats.featType, ASI_EXCLUDED_TYPES),
+            )
+          : undefined,
       ].filter(Boolean);
       const where = conditions.length > 0 ? and(...conditions) : undefined;
-      return db
+      const base = db
         .select({
           slug: codexFeats.slug,
           name: codexFeats.name,
@@ -699,6 +710,10 @@ export const codexRouter = createTRPCRouter({
         .from(codexFeats)
         .where(where)
         .orderBy(asc(codexFeats.name));
+      if (input?.asiEligible) {
+        return base.limit(200);
+      }
+      return base;
     }),
 
   /** Distinct feat types for filter chips. */

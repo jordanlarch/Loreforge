@@ -32,6 +32,7 @@ import {
   tutorialScene,
   tutorialSceneRequiresCompanion,
   type EntityState,
+  type ItemDefinition,
   type WorldState,
 } from "@app/engine";
 
@@ -216,6 +217,7 @@ function LiveBattle({
   context,
   backHref,
   loadouts,
+  smithyItems,
   campaignId,
   tutorialControls,
   hudExtra,
@@ -234,6 +236,8 @@ function LiveBattle({
   backHref?: string;
   /** Per-entity sheet loadouts (#98); absent for the sandbox fixture. */
   loadouts?: Record<string, SheetData>;
+  /** Smithy item definitions referenced by party equipment (SMITH-7). */
+  smithyItems?: Record<string, ItemDefinition>;
   /** Owning campaign id; scopes persisted pacing prefs (#104). */
   campaignId?: string;
   /** Tutorial-only controls rendered in exploration mode (TUT-1); absent elsewhere. */
@@ -371,7 +375,7 @@ function LiveBattle({
   const activeSheet = activeEntity ? loadouts?.[activeEntity.id] : undefined;
   const weapons: WeaponAttack[] = activeEntity
     ? activeSheet
-      ? deriveWeaponAttacks(activeEntity, activeSheet.equipment)
+      ? deriveWeaponAttacks(activeEntity, activeSheet.equipment, smithyItems)
       : [genericStrike(activeEntity)]
     : [];
   const castableSpells: CastableSpell[] = activeEntity
@@ -564,6 +568,7 @@ function LiveBattle({
       ? (deriveWeaponAttacks(
           reaction.reactor,
           reactorSheet.equipment,
+          smithyItems,
         )[0] ?? genericStrike(reaction.reactor))
       : genericStrike(reaction.reactor);
     session.opportunityAttack(
@@ -621,7 +626,7 @@ function LiveBattle({
         statsOnly
         weapons={
           pcSheet
-            ? deriveWeaponAttacks(pcEntity, pcSheet.equipment)
+            ? deriveWeaponAttacks(pcEntity, pcSheet.equipment, smithyItems)
             : [genericStrike(pcEntity)]
         }
         items={pcSheet ? quickUseItems(pcSheet.equipment) : undefined}
@@ -1162,7 +1167,7 @@ function CampaignPlaySession({
     accessQuery.data?.role === "player" ? "/campaigns" : `/campaigns/${campaignId}`;
   const loadouts = useMemo(() => {
     const map: Record<string, SheetData> = {};
-    for (const row of loadoutQuery.data ?? []) {
+    for (const row of loadoutQuery.data?.rows ?? []) {
       map[row.id] = { equipment: row.equipment, spells: row.spells };
     }
     return map;
@@ -1175,6 +1180,7 @@ function CampaignPlaySession({
       context="Live campaign"
       backHref={backHref}
       loadouts={loadouts}
+      smithyItems={loadoutQuery.data?.smithyItems}
       campaignId={campaignId}
       pcCharacterId={pcCharacterId}
       partyRoster={partyQuery.data}
@@ -1370,7 +1376,7 @@ export function TutorialPlaySurface({
   const pcCharacterId = partyQuery.data?.find((m) => m.role === "pc")?.id;
   const loadouts = useMemo(() => {
     const map: Record<string, SheetData> = {};
-    for (const row of loadoutQuery.data ?? []) {
+    for (const row of loadoutQuery.data?.rows ?? []) {
       map[row.id] = { equipment: row.equipment, spells: row.spells };
     }
     const pcRow = partyQuery.data?.find((m) => m.role === "pc");
@@ -2095,6 +2101,7 @@ export function TutorialPlaySurface({
         partyRoster={partyQuery.data}
         companionExpected={companionExpected}
         loadouts={loadouts}
+        smithyItems={loadoutQuery.data?.smithyItems}
         tutorialControls={tutorialControls}
         hudExtra={hudExtra}
         onEntityClick={setDrawerName}

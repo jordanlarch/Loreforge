@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { formatItemMechanicsSummary } from "@/lib/item-mechanics-display";
 import { SmithyItemForm } from "@/components/smithy-item-form";
 import { SmithyResetToSrdButton } from "@/components/smithy-reset-to-srd";
 import { smithyRarityBadgeClass } from "@/lib/smithy-rarity-styles";
@@ -122,6 +123,7 @@ export function ItemDetail({ id }: { id: string }) {
             requiresAttunement: item.requiresAttunement,
             source: item.source,
             copiedFromSlug: item.copiedFromSlug,
+            definition: item.definition,
           }}
           onDone={() => setEditing(false)}
           onCancel={() => setEditing(false)}
@@ -129,6 +131,21 @@ export function ItemDetail({ id }: { id: string }) {
         />
       ) : (
         <>
+          {item.definition
+            ? formatItemMechanicsSummary(item.definition).length > 0 && (
+                <section className="mt-8">
+                  <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">
+                    Mechanics
+                  </h2>
+                  <ul className="space-y-1 text-sm leading-relaxed">
+                    {formatItemMechanicsSummary(item.definition).map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              )
+            : null}
+
           {item.properties.length > 0 && (
             <section className="mt-8">
               <h2 className="mb-3 text-xs uppercase tracking-widest text-lore-muted">

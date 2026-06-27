@@ -6,7 +6,7 @@
  * campaign entity (create / list / get); the `engine` router owns the
  * per-campaign command/state surface.
  */
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -27,11 +27,13 @@ import {
   engineSeeds,
   engineSnapshots,
   getDb,
+  homebrewItems,
   plotHooks,
   realmEntities,
   realmRelationships,
   tutorialProgress,
   type CampaignOverworldMapLayer,
+  type EquipmentItem,
   type OverworldGridConfig,
 } from "@app/db";
 import {
@@ -39,6 +41,7 @@ import {
   isExplorableRealmType,
   MONSTER_TEMPLATES,
   sceneIdForRealmEntity,
+  type ItemDefinition,
 } from "@app/engine";
 
 import { edgesWithin } from "@/lib/campaign-world";
@@ -890,7 +893,7 @@ export const campaignsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       await assertCampaignAccess(ctx.user.id, input.campaignId);
       const db = getDb();
-      return db
+      const rows = await db
         .select({
           id: characters.id,
           equipment: characters.equipment,
@@ -902,6 +905,29 @@ export const campaignsRouter = createTRPCRouter({
           eq(characters.id, campaignCharacters.characterId),
         )
         .where(eq(campaignCharacters.campaignId, input.campaignId));
+
+      const smithyIds = new Set<string>();
+      for (const row of rows) {
+        for (const item of (row.equipment ?? []) as EquipmentItem[]) {
+          if (item.smithyItemId) smithyIds.add(item.smithyItemId);
+        }
+      }
+
+      let smithyItems: Record<string, ItemDefinition> = {};
+      if (smithyIds.size > 0) {
+        const defs = await db
+          .select({
+            id: homebrewItems.id,
+            definition: homebrewItems.definition,
+          })
+          .from(homebrewItems)
+          .where(inArray(homebrewItems.id, [...smithyIds]));
+        smithyItems = Object.fromEntries(
+          defs.map((row) => [row.id, row.definition]),
+        );
+      }
+
+      return { rows, smithyItems };
     }),
 
   /* ----------------------------------------------------------------------- *

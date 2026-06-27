@@ -297,7 +297,7 @@ export function CharacterSheetView({
         }}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[220px_1fr_240px]">
+      <div className="grid gap-6 xl:grid-cols-[280px_1fr_240px]">
         <div className="hidden xl:block">
           <SheetLeftRail
             sheet={sheet}

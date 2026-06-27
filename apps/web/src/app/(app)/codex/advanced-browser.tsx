@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-
 import { formatAdvancedTopic } from "@/lib/codex-advanced-display";
 import { useCodexSearch } from "@/lib/use-codex-search";
+import { useCodexUrlParam } from "@/lib/use-codex-url-params";
 import { trpc } from "@/lib/trpc/client";
 
 import { AdvancedDetail } from "./advanced-detail";
@@ -16,7 +15,7 @@ export function AdvancedBrowser({
   onSelect: (slug: string | null) => void;
 }) {
   const [search, setSearch] = useCodexSearch();
-  const [topic, setTopic] = useState<string | undefined>();
+  const [topic, setTopic] = useCodexUrlParam("topic");
 
   const facets = trpc.codex.advancedFacets.useQuery();
   const list = trpc.codex.listAdvancedRules.useQuery(

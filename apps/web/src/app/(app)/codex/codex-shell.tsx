@@ -12,6 +12,7 @@ import {
 import {
   codexCategoryPath,
   codexDetailPath,
+  codexPathWithQuery,
   parseCodexCategorySegment,
 } from "@/lib/codex-routes";
 import { CodexFooter } from "@/components/codex-footer";
@@ -38,38 +39,35 @@ export function CodexShell() {
   const selectedSlug = params.slug
     ? decodeURIComponent(params.slug)
     : null;
-  const listSearch = searchParams.get("search");
+  const queryString = searchParams.toString();
 
   const pushList = useCallback(
-    (cat: CodexCategory, search?: string | null) => {
-      router.push(codexCategoryPath(cat, search ?? listSearch));
-    },
-    [listSearch, router],
-  );
-
-  const selectCategory = useCallback(
     (cat: CodexCategory) => {
-      pushList(cat, null);
+      router.push(codexPathWithQuery(codexCategoryPath(cat), queryString));
     },
-    [pushList],
+    [queryString, router],
   );
 
   const selectSlug = useCallback(
     (slug: string | null) => {
       if (slug) {
-        router.push(codexDetailPath(category, slug));
+        router.push(
+          codexPathWithQuery(codexDetailPath(category, slug), queryString),
+        );
       } else {
         pushList(category);
       }
     },
-    [category, pushList, router],
+    [category, pushList, queryString, router],
   );
 
   const navigateToRef = useCallback(
     (cat: CodexCategory, slug: string) => {
-      router.push(codexDetailPath(cat, slug));
+      router.push(
+        codexPathWithQuery(codexDetailPath(cat, slug), queryString),
+      );
     },
-    [router],
+    [queryString, router],
   );
 
   return (

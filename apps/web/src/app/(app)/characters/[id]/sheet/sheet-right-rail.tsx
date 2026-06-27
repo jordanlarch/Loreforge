@@ -23,6 +23,11 @@ export function SheetRightRail({
   inspiration,
   onPatchMeta,
   liveConditions,
+  effectiveAc,
+  effectiveInitiative,
+  effectiveSpeed,
+  passivePerceptionBonus = 0,
+  passiveInvestigationBonus = 0,
 }: {
   sheet: CharacterSheet;
   meta: CharacterSheetMeta;
@@ -30,15 +35,27 @@ export function SheetRightRail({
   onPatchMeta: (patch: Partial<CharacterSheetMeta>) => void;
   /** When set (Live Play), show engine-tracked conditions instead of the stub. */
   liveConditions?: { condition: string; level?: number }[];
+  effectiveAc?: number;
+  effectiveInitiative?: number;
+  effectiveSpeed?: number;
+  passivePerceptionBonus?: number;
+  passiveInvestigationBonus?: number;
 }) {
   const perception = sheet.skills.find((s) => s.skill === "Perception");
   const investigation = sheet.skills.find((s) => s.skill === "Investigation");
   const insight = sheet.skills.find((s) => s.skill === "Insight");
 
-  const passivePerc = 10 + (perception?.modifier ?? sheet.abilityModifiers.wis);
+  const passivePerc =
+    10 + (perception?.modifier ?? sheet.abilityModifiers.wis) + passivePerceptionBonus;
   const passiveInv =
-    10 + (investigation?.modifier ?? sheet.abilityModifiers.int);
+    10 +
+    (investigation?.modifier ?? sheet.abilityModifiers.int) +
+    passiveInvestigationBonus;
   const passiveIns = 10 + (insight?.modifier ?? sheet.abilityModifiers.wis);
+
+  const ac = effectiveAc ?? sheet.ac;
+  const speed = effectiveSpeed ?? sheet.speed;
+  const initiative = effectiveInitiative ?? sheet.initiative;
 
   const defenses = meta.defenses ?? {};
   const senses = meta.senses ?? {};
@@ -47,9 +64,9 @@ export function SheetRightRail({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2">
-        <StatBox label="Armor Class" value={String(sheet.ac)} />
-        <StatBox label="Speed (ft)" value={String(sheet.speed)} />
-        <StatBox label="Initiative" value={signed(sheet.initiative)} highlight />
+        <StatBox label="Armor Class" value={String(ac)} />
+        <StatBox label="Speed (ft)" value={String(speed)} />
+        <StatBox label="Initiative" value={signed(initiative)} highlight />
       </div>
 
       <label className="flex items-center gap-2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2 text-sm">

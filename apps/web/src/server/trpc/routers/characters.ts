@@ -23,6 +23,9 @@ import {
   xpForLevel,
   xpProgress,
   createSeededRng,
+  effectiveMaxHpFromFeats,
+  featureUseSeedStable,
+  useClassFeature,
   type AsiChoice,
   type HpMethod,
 } from "@app/engine";
@@ -636,6 +639,114 @@ export const charactersRouter = createTRPCRouter({
         .returning();
 
       return { character: row, hpGain };
+    }),
+
+  /** Spend a class feature use with deterministic engine effects (Second Wind, etc.). */
+  useFeature: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        featureKey: z.string().trim().min(3).max(120),
+        useIndex: z.number().int().min(0).default(0),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [character] = await db
+        .select()
+        .from(characters)
+        .where(
+          and(
+            eq(characters.id, input.id),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!character) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Character not found.",
+        });
+      }
+
+      const parsedNotes = parseCharacterNotes(character.notes);
+      const currentHp =
+        parsedNotes.meta.currentHp ?? character.maxHp;
+      const effectiveMax = effectiveMaxHpFromFeats(
+        character.maxHp,
+        parsedNotes.meta.feats,
+        totalLevel(character.classes),
+      );
+
+      const rng = createSeededRng(
+        featureUseSeedStable(
+          character.id,
+          input.featureKey,
+          input.useIndex,
+        ),
+      );
+
+      const result = useClassFeature({
+        characterId: character.id,
+        classes: character.classes,
+        featureKey: input.featureKey,
+        resourceUses: parsedNotes.meta.resourceUses,
+        currentHp,
+        maxHp: effectiveMax,
+        rng,
+        useIndex: input.useIndex,
+      });
+
+      if (!result.ok) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.message,
+        });
+      }
+
+      let nextMeta = {
+        ...parsedNotes.meta,
+        resourceUses: result.resourceUses,
+      };
+
+      if (result.kind === "heal" && result.healAmount != null) {
+        nextMeta = {
+          ...nextMeta,
+          currentHp: currentHp + result.healAmount,
+        };
+      }
+
+      if (result.kind === "extra_action") {
+        nextMeta = {
+          ...nextMeta,
+          actionSurgeReady: true,
+        };
+      }
+
+      const nextNotes = serializeCharacterNotes(
+        parsedNotes.sessionNotes,
+        parsedNotes.personality,
+        nextMeta,
+      );
+
+      const [row] = await db
+        .update(characters)
+        .set({ notes: nextNotes, updatedAt: new Date() })
+        .where(
+          and(
+            eq(characters.id, input.id),
+            eq(characters.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+
+      return {
+        character: row,
+        message: result.message,
+        healAmount: result.healAmount,
+        currentHp: nextMeta.currentHp,
+      };
     }),
 
   /** Add XP to one owned character (GM adjust or encounter share). */

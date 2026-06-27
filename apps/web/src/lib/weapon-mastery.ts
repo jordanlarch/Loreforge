@@ -155,18 +155,28 @@ function catalogKey(name: string): string | undefined {
 /** Mastery entries for equipped martial/simple weapons we recognize. */
 export function weaponMasteriesForEquipment(
   equipment: { name: string; equipped?: boolean; quantity?: number }[],
+  codexMasteries?: Record<string, { property: string; description: string }>,
 ): WeaponMastery[] {
   const out: WeaponMastery[] = [];
   const seen = new Set<string>();
   for (const item of equipment) {
     if (!item.equipped || (item.quantity ?? 0) <= 0) continue;
+    const name = item.name.trim();
+    const codex = codexMasteries?.[name];
+    if (codex) {
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ weapon: name, property: codex.property, description: codex.description });
+      continue;
+    }
     const key = catalogKey(item.name);
     if (!key || seen.has(key)) continue;
     const entry = MASTERY_BY_WEAPON[key];
     if (!entry) continue;
     seen.add(key);
     out.push({
-      weapon: item.name.trim(),
+      weapon: name,
       property: entry.property,
       description: entry.description,
     });

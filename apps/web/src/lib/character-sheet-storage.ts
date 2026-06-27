@@ -100,6 +100,13 @@ export type CharacterSheetMeta = {
   pactMagic?: PactMagicPool;
   /** Level-up audit trail (CHAR-8). */
   levelHistory?: LevelHistoryEntry[];
+  /** Action Surge spent — ready for an extra action this turn (sheet/Live Play). */
+  actionSurgeReady?: boolean;
+  /** Active combat feat toggles (Sharpshooter, GWM). */
+  combatToggles?: {
+    sharpshooter?: boolean;
+    greatWeaponMaster?: boolean;
+  };
 };
 
 export type LevelHistoryEntry = {

@@ -9,6 +9,7 @@ import {
   grantsAsiAtLevel,
   featureStubsForLevel,
   classFeaturesForLevel,
+  hasThirdCasterSlots,
   hpGainOnLevelUp,
   hpRollFromSeed,
   isSpellcastingClasses,
@@ -38,6 +39,10 @@ import { parseCharacterNotes } from "@/lib/character-sheet-storage";
 import { trpc } from "@/lib/trpc/client";
 
 const MAX_LEVEL = 20;
+
+function draftKey(characterId: string) {
+  return `loreforge-level-up-draft:${characterId}`;
+}
 
 type Character = {
   id: string;
@@ -103,6 +108,7 @@ export function LevelUpDialog({
 
   const levelUp = trpc.characters.levelUp.useMutation({
     onSuccess: async () => {
+      localStorage.removeItem(draftKey(character.id));
       await Promise.all([
         utils.characters.get.invalidate({ id: character.id }),
         utils.characters.list.invalidate(),
@@ -114,6 +120,47 @@ export function LevelUpDialog({
       }, 1400);
     },
   });
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey(character.id));
+      if (!raw) return;
+      const d = JSON.parse(raw) as {
+        wizardStep?: number;
+        classIndex?: number;
+        addNewClass?: string | null;
+        hpMethod?: HpMethod;
+        applySpellSlots?: boolean;
+      };
+      if (typeof d.wizardStep === "number") setWizardStep(d.wizardStep);
+      if (typeof d.classIndex === "number") setClassIndex(d.classIndex);
+      if (d.addNewClass !== undefined) setAddNewClass(d.addNewClass);
+      if (d.hpMethod) setHpMethod(d.hpMethod);
+      if (typeof d.applySpellSlots === "boolean") setApplySpellSlots(d.applySpellSlots);
+    } catch {
+      /* ignore corrupt draft */
+    }
+  }, [character.id]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      draftKey(character.id),
+      JSON.stringify({
+        wizardStep,
+        classIndex,
+        addNewClass,
+        hpMethod,
+        applySpellSlots,
+      }),
+    );
+  }, [
+    character.id,
+    wizardStep,
+    classIndex,
+    addNewClass,
+    hpMethod,
+    applySpellSlots,
+  ]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -251,9 +298,44 @@ export function LevelUpDialog({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-lore-border bg-lore-bg p-6 shadow-2xl"
+        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-lore-border bg-lore-bg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="grid md:grid-cols-[220px_1fr]">
+          <aside className="hidden border-r border-lore-border bg-lore-surface p-5 md:block">
+            <div className="text-xs uppercase tracking-widest text-lore-muted">
+              Character
+            </div>
+            <h3 className="mt-1 font-display text-lg">{character.name}</h3>
+            <p className="mt-2 text-sm text-lore-muted">
+              {character.classes.map((c) => `${c.class} ${c.level}`).join(" / ")}
+            </p>
+            <dl className="mt-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-lore-muted">Total level</dt>
+                <dd>{totalLevel(character.classes)} → {newTotalLevel}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-lore-muted">Proficiency</dt>
+                <dd>
+                  {profBefore === profAfter
+                    ? signed(profAfter)
+                    : `${signed(profBefore)} → ${signed(profAfter)}`}
+                </dd>
+              </div>
+              {hpGain != null && (
+                <div className="flex justify-between">
+                  <dt className="text-lore-muted">HP gain</dt>
+                  <dd>+{hpGain}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="mt-6 text-[10px] text-lore-muted">
+              Draft auto-saves locally. Cancel to resume later.
+            </p>
+          </aside>
+
+          <div className="p-6">
         <header className="flex items-start justify-between gap-4 border-b border-lore-border pb-4">
           <div>
             <div className="text-xs uppercase tracking-widest text-lore-muted">
@@ -523,7 +605,11 @@ export function LevelUpDialog({
               <section className="mt-6 space-y-4">
                 <p className="text-sm text-lore-muted">
                   Spell lists are managed on the Spells tab. This step updates
-                  slot maxima from your class levels (PHB multiclass pooling).
+                  slot maxima from your class levels (PHB multiclass pooling
+                  {hasThirdCasterSlots(nextClasses)
+                    ? " + third-caster archetype slots"
+                    : ""}
+                  ).
                 </p>
 
                 {casterLevelAfter > 0 && (
@@ -735,6 +821,8 @@ export function LevelUpDialog({
             </button>
           )}
         </footer>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -14,9 +14,11 @@
  */
 import {
   abilityModifier,
+  activeCombatAdjustments,
   aggregateFightingStyleModifiers,
   extraAttackCount,
   type ClassLevel,
+  type CombatFeatToggles,
   type EntityState,
 } from "@app/engine";
 
@@ -189,6 +191,15 @@ function isOneHandedMeleeWeapon(name: string, spec: WeaponSpec): boolean {
   return true;
 }
 
+function isHeavyMeleeWeapon(name: string, spec: WeaponSpec): boolean {
+  if (spec.ranged) return false;
+  const norm = normalize(name);
+  for (const key of TWO_HANDED) {
+    if (norm.includes(key)) return true;
+  }
+  return false;
+}
+
 /**
  * Sheet Combat tab attacks: fighting-style modifiers + Extra Attack rows.
  */
@@ -197,6 +208,10 @@ export function deriveSheetCombatAttacks(
   equipment: readonly EquipmentItem[],
   classes: ClassLevel[],
   fightingStyles?: Record<string, string>,
+  opts?: {
+    feats?: string[];
+    combatToggles?: CombatFeatToggles;
+  },
 ): WeaponAttack[] {
   const base = deriveWeaponAttacks(entity, equipment);
   const wearingArmor =
@@ -218,14 +233,27 @@ export function deriveSheetCombatAttacks(
       fightingStyles,
       weaponContext,
     );
+    const weaponNameRaw = attack.label.split(" · ")[0] ?? "";
+    const featAdj = activeCombatAdjustments(
+      opts?.feats,
+      opts?.combatToggles,
+      {
+        ranged: weaponContext.ranged,
+        melee: !weaponContext.ranged,
+        heavyMelee: spec
+          ? isHeavyMeleeWeapon(weaponNameRaw, spec)
+          : false,
+      },
+    );
     const modified: WeaponAttack = {
       ...attack,
-      attackBonus: attack.attackBonus + style.rangedAttackBonus,
+      attackBonus:
+        attack.attackBonus + style.rangedAttackBonus + featAdj.attackBonus,
       damage: {
         ...attack.damage,
         notation: appendDamageMod(
-          attack.damage.notation,
-          style.meleeDamageBonus,
+          appendDamageMod(attack.damage.notation, style.meleeDamageBonus),
+          featAdj.damageBonus,
         ),
       },
     };

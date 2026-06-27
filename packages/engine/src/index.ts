@@ -204,6 +204,7 @@ export {
 export {
   featureRechargeMap,
   featureResourceKey,
+  parseFeatureResourceKey,
   refreshResourceUsesOnRest,
   remainingFeatureUses,
   spendFeatureUse,
@@ -275,6 +276,31 @@ export {
   sheetSlotPoolsFromClasses,
   spellSlotsForClasses,
 } from "./content/multiclass-spell-slots";
+export {
+  hasThirdCasterSlots,
+  isThirdCasterSubclass,
+  thirdCasterSlotMaxima,
+} from "./content/third-caster-slots";
+export {
+  activeCombatAdjustments,
+  aggregateFeatModifiers,
+  effectiveMaxHpFromFeats,
+  featDefinition,
+  FEAT_REGISTRY,
+  type AggregatedFeatModifiers,
+  type CombatFeatToggles,
+  type FeatDefinition,
+} from "./content/feats";
+export {
+  CLASS_FEATURE_ACTIONS,
+  classFeatureAction,
+  featureUseSeedStable,
+  resolveFeatureHeal,
+  useClassFeature,
+  type ClassFeatureActionKind,
+  type FeatureUseResult,
+} from "./content/class-feature-actions";
+export { masteryFromOpen5eItemRaw, type Open5eMastery } from "./content/weapon-mastery-open5e";
 export {
   warlockLevelFromClasses,
   warlockPactMagic,

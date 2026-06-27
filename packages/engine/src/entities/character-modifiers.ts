@@ -3,6 +3,7 @@
  * Deterministic — engine owns the math; sheet displays the result.
  */
 import type { ClassLevel } from "./types";
+import { aggregateFeatModifiers } from "../content/feats";
 import { fightingStylePickLevel } from "./class-choices";
 
 export type FightingStyleModifiers = {
@@ -62,13 +63,9 @@ export function styleModsForClass(
   );
 }
 
-/** Tracer feat modifiers from recorded feat names (expand as Codex ingest grows). */
+/** Tracer feat modifiers — prefer {@link aggregateFeatModifiers} from feats.ts. */
 export function featModifiers(feats: string[] | undefined): FeatModifiers {
-  let initiativeBonus = 0;
-  for (const name of feats ?? []) {
-    const norm = name.trim().toLowerCase();
-    if (norm === "alert" || norm.includes("alert")) initiativeBonus += 5;
-  }
+  const { initiativeBonus } = aggregateFeatModifiers(feats);
   return { initiativeBonus };
 }
 

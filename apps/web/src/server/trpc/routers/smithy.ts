@@ -40,12 +40,28 @@ import {
   smithyItemLibraryCategory,
   type SmithyLibraryCategory,
 } from "@/lib/smithy-categories";
+import { filterSortSmithyLibraryEntries } from "@/lib/smithy-library-filter";
 
 const smithyLibraryCategory = z.enum(SMITHY_LIBRARY_CATEGORIES);
+const smithyLibrarySortBy = z.enum(["updatedAt", "name"]);
+const smithyLibrarySortDir = z.enum(["asc", "desc"]);
 
 const itemType = z.enum(ITEM_TYPES);
 const itemRarity = z.enum(ITEM_RARITIES);
 const itemSource = z.enum(ITEM_SOURCES);
+
+const listLibraryInput = z
+  .object({
+    category: smithyLibraryCategory.optional(),
+    itemType: itemType.optional(),
+    search: z.string().trim().max(120).optional(),
+    source: itemSource.optional(),
+    sortBy: smithyLibrarySortBy.optional(),
+    sortDir: smithyLibrarySortDir.optional(),
+    level: z.number().int().min(0).max(9).optional(),
+    school: z.enum(SPELL_SCHOOLS).optional(),
+  })
+  .optional();
 
 const createInput = z.object({
   name: z.string().trim().min(1).max(120),
@@ -138,14 +154,7 @@ export const smithyRouter = createTRPCRouter({
    * Merges typed items + spells; optional category filter mirrors Codex IA.
    */
   listLibrary: protectedProcedure
-    .input(
-      z
-        .object({
-          category: smithyLibraryCategory.optional(),
-          itemType: itemType.optional(),
-        })
-        .optional(),
-    )
+    .input(listLibraryInput)
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const category = input?.category ?? "All";
@@ -209,6 +218,8 @@ export const smithyRouter = createTRPCRouter({
 
       for (const spell of spells) {
         if (category !== "All" && category !== "Spells") continue;
+        if (input?.level != null && spell.level !== input.level) continue;
+        if (input?.school && spell.school !== input.school) continue;
         entries.push({
           kind: "spell",
           id: spell.id,
@@ -222,8 +233,12 @@ export const smithyRouter = createTRPCRouter({
         });
       }
 
-      entries.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-      return entries;
+      return filterSortSmithyLibraryEntries(entries, {
+        search: input?.search,
+        source: input?.source,
+        sortBy: input?.sortBy,
+        sortDir: input?.sortDir,
+      });
     }),
 
   /** Homebrew items owned by the current user, newest first, optional type filter. */
@@ -357,6 +372,10 @@ export const smithyRouter = createTRPCRouter({
         .object({
           level: z.number().int().min(0).max(9).optional(),
           school: z.enum(SPELL_SCHOOLS).optional(),
+          search: z.string().trim().max(120).optional(),
+          source: itemSource.optional(),
+          sortBy: smithyLibrarySortBy.optional(),
+          sortDir: smithyLibrarySortDir.optional(),
         })
         .optional(),
     )
@@ -367,7 +386,7 @@ export const smithyRouter = createTRPCRouter({
         input?.level != null ? eq(homebrewSpells.level, input.level) : undefined,
         input?.school ? eq(homebrewSpells.school, input.school) : undefined,
       ].filter(Boolean);
-      return db
+      const rows = await db
         .select({
           id: homebrewSpells.id,
           name: homebrewSpells.name,
@@ -380,6 +399,18 @@ export const smithyRouter = createTRPCRouter({
         .from(homebrewSpells)
         .where(and(...conditions))
         .orderBy(asc(homebrewSpells.level), asc(homebrewSpells.name));
+
+      const mapped = rows.map((spell) => ({
+        ...spell,
+        descriptionSnippet: spell.description.trim().slice(0, 120) || null,
+      }));
+
+      return filterSortSmithyLibraryEntries(mapped, {
+        search: input?.search,
+        source: input?.source,
+        sortBy: input?.sortBy,
+        sortDir: input?.sortDir,
+      }).map(({ descriptionSnippet: _snippet, ...spell }) => spell);
     }),
 
   /** Single owned spell, or null if missing / not owned. */

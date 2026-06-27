@@ -7,6 +7,7 @@ import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { backgroundBenefits } from "@/lib/codex-background-feat-display";
 import type { CodexCategory } from "@/lib/codex-categories";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 export function BackgroundDetail({
   slug,
@@ -21,6 +22,8 @@ export function BackgroundDetail({
   const linkIndex = trpc.codex.linkIndex.useQuery(undefined, {
     staleTime: 60_000,
   });
+
+  useRecordCodexView("Backgrounds", slug, background.data?.name);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

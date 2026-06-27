@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { trpc } from "@/lib/trpc/client";
+import { useRecordSmithyView } from "@/lib/use-record-smithy-view";
 
 export function ItemDetail({ id }: { id: string }) {
   const router = useRouter();
   const utils = trpc.useUtils();
   const query = trpc.smithy.get.useQuery({ id });
+
+  useRecordSmithyView("item", id, query.data?.name);
 
   const remove = trpc.smithy.delete.useMutation({
     onSuccess: async () => {

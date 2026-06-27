@@ -14,6 +14,7 @@ import {
 } from "@/components/spell-definition-panel";
 import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 type RawSpell = Record<string, unknown>;
 
@@ -45,6 +46,8 @@ export function SpellDetail({
   const router = useRouter();
   const utils = trpc.useUtils();
   const spell = trpc.codex.getSpell.useQuery({ slug });
+
+  useRecordCodexView("Spells", slug, spell.data?.name);
 
   const copy = trpc.smithy.copySpellFromCodex.useMutation({
     onSuccess: async (row) => {

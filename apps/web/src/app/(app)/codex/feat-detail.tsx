@@ -8,6 +8,7 @@ import {
 } from "@/lib/codex-background-feat-display";
 import { CodexDetailActions } from "@/components/codex-detail-actions";
 import { trpc } from "@/lib/trpc/client";
+import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
 export function FeatDetail({
   slug,
@@ -17,6 +18,8 @@ export function FeatDetail({
   onClose: () => void;
 }) {
   const feat = trpc.codex.getFeat.useQuery({ slug });
+
+  useRecordCodexView("Feats", slug, feat.data?.name);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

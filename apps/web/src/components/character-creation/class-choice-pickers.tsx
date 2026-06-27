@@ -7,13 +7,10 @@ import {
   fightingStyleDescription,
   fightingStylePickLevel,
   subclassPickLevel,
+  type LevelAdvanceChoice,
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
-
-import {
-  rangerFeatureChoicesComplete,
-} from "./class-feature-choices";
 
 export function FightingStylePicker({
   className,
@@ -39,7 +36,7 @@ export function FightingStylePicker({
           <span key={style} className="group relative inline-flex">
             <button
               type="button"
-              onClick={() => onChange(style)}
+              onClick={() => onChange(value === style ? "" : style)}
               className={`rounded-full border px-3 py-1 text-xs ${
                 value === style
                   ? "border-lore-accent bg-lore-accent-dim"
@@ -162,7 +159,7 @@ export function SubclassPicker({
             <span key={sub.slug} className="inline-flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => onChange(sub.name)}
+                onClick={() => onChange(value === sub.name ? "" : sub.name)}
                 className={`rounded border px-3 py-1.5 text-left text-xs ${
                   value === sub.name
                     ? "border-lore-accent bg-lore-accent-dim"
@@ -207,18 +204,82 @@ export function SubclassPicker({
   );
 }
 
+/** Read-only subclass catalog with detail modals (for classes that pick later). */
+export function SubclassCatalogPreview({
+  className,
+  startingLevel,
+}: {
+  className: string;
+  startingLevel: number;
+}) {
+  const pickLevel = subclassPickLevel(className);
+  const catalog = trpc.codex.listSubclasses.useQuery(undefined);
+  const options =
+    catalog.data?.filter((s) => s.className === className) ?? [];
+  const [detailSlug, setDetailSlug] = useState<string | null>(null);
+  const detailSub = options.find((s) => s.slug === detailSlug);
+
+  if (
+    pickLevel == null ||
+    pickLevel <= 1 ||
+    startingLevel < pickLevel ||
+    options.length === 0
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-lore-border bg-lore-surface px-4 py-3">
+      <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+        Subclass (level {pickLevel})
+      </h3>
+      <p className="mt-1 text-xs text-lore-muted">
+        You&apos;ll choose your subclass on the Advancement step. Preview SRD
+        options below.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {options.map((sub) => (
+          <span key={sub.slug} className="inline-flex items-center gap-1">
+            <span className="rounded border border-lore-border px-3 py-1.5 text-xs text-lore-muted">
+              {sub.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setDetailSlug(sub.slug)}
+              aria-label={`View ${sub.name} details`}
+              className="rounded border border-lore-border px-1.5 py-1 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text"
+            >
+              ⓘ
+            </button>
+          </span>
+        ))}
+      </div>
+      {detailSub && (
+        <SubclassDetailModal
+          name={detailSub.name}
+          description={detailSub.description}
+          features={detailSub.features}
+          onClose={() => setDetailSlug(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 /** Validates choices made on the Features step only (not deferred to Advancement). */
 export function featuresStepChoicesComplete(
   className: string,
   startingLevel: number,
   fightingStyle: string,
   startingSubclass: string,
-  featureChoices: Record<string, string>,
+  _featureChoices: Record<string, string>,
+  _advances: LevelAdvanceChoice[] = [],
 ): boolean {
   const stylePick = fightingStylePickLevel(className);
   if (
     stylePick != null &&
     startingLevel >= stylePick &&
+    startingLevel <= 1 &&
     !fightingStyle.trim()
   ) {
     return false;
@@ -226,9 +287,6 @@ export function featuresStepChoicesComplete(
   const subPick = subclassPickLevel(className);
   if (subPick === 1 && startingLevel >= 1 && !startingSubclass.trim()) {
     return false;
-  }
-  if (className === "Ranger" && startingLevel >= 1) {
-    if (!rangerFeatureChoicesComplete(featureChoices)) return false;
   }
   return true;
 }

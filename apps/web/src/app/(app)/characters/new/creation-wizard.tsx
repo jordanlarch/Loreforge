@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
 
+import { traitDescription } from "@app/db/traits";
+
 import {
   ABILITIES,
   abilityModifier,
@@ -24,6 +26,7 @@ import {
   STANDARD_ARRAY,
   multiclassEligible,
   multiclassIneligibilityReason,
+  fightingStylePickLevel,
   subclassPickLevel,
   xpForLevel,
   type Ability,
@@ -39,6 +42,7 @@ import {
 import {
   featuresStepChoicesComplete,
   FightingStylePicker,
+  SubclassCatalogPreview,
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
 import {
@@ -241,6 +245,11 @@ export function CreationWizard() {
         skills?: string[];
         personality?: PersonalityFields;
         backstory?: string;
+        startingLevel?: number;
+        fightingStyle?: string;
+        startingSubclass?: string;
+        featureChoices?: Record<string, string>;
+        advances?: LevelAdvanceChoice[];
       };
       if (draft.name) setName(draft.name);
       if (draft.concept) setConcept(draft.concept);
@@ -252,6 +261,13 @@ export function CreationWizard() {
       if (draft.skills) setSkills(draft.skills);
       if (draft.personality) setPersonality(draft.personality);
       if (draft.backstory) setBackstory(draft.backstory);
+      if (typeof draft.startingLevel === "number") {
+        setStartingLevel(draft.startingLevel);
+      }
+      if (draft.fightingStyle) setFightingStyle(draft.fightingStyle);
+      if (draft.startingSubclass) setStartingSubclass(draft.startingSubclass);
+      if (draft.featureChoices) setFeatureChoices(draft.featureChoices);
+      if (draft.advances) setAdvances(draft.advances);
       if (typeof draft.step === "number") setStep(draft.step);
     } catch {
       /* ignore corrupt draft */
@@ -273,6 +289,11 @@ export function CreationWizard() {
       skills,
       personality,
       backstory,
+      startingLevel,
+      fightingStyle,
+      startingSubclass,
+      featureChoices,
+      advances,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   }, [
@@ -288,6 +309,11 @@ export function CreationWizard() {
     skills,
     personality,
     backstory,
+    startingLevel,
+    fightingStyle,
+    startingSubclass,
+    featureChoices,
+    advances,
   ]);
 
   useEffect(() => {
@@ -442,6 +468,7 @@ export function CreationWizard() {
       fightingStyle,
       startingSubclass,
       featureChoices,
+      advances,
     );
 
   const advancementOk =
@@ -524,9 +551,16 @@ export function CreationWizard() {
           ...advanceFeats,
         ]),
       ];
+      const stylePick = fightingStylePickLevel(primaryClass.name);
+      const styleFromAdvance =
+        stylePick != null
+          ? advances.find((a) => a.level === stylePick)?.fightingStyle?.trim()
+          : undefined;
+      const resolvedStyle =
+        fightingStyle.trim() || styleFromAdvance || "";
       const fightingStyles =
-        fightingStyle.trim().length > 0
-          ? { [primaryClass.name]: fightingStyle.trim() }
+        resolvedStyle.length > 0
+          ? { [primaryClass.name]: resolvedStyle }
           : undefined;
       const levelHistory =
         startingLevel > 1
@@ -719,8 +753,6 @@ export function CreationWizard() {
               onFightingStyle={setFightingStyle}
               startingSubclass={startingSubclass}
               onStartingSubclass={setStartingSubclass}
-              featureChoices={featureChoices}
-              onFeatureChoices={setFeatureChoices}
             />
           )}
           {step === 8 && hasAdvancement && selectedClass && (
@@ -922,6 +954,8 @@ function SpeciesStep({
   selected: string | null;
   onSelect: (slug: string) => void;
 }) {
+  const selectedSpecies = items.find((s) => s.slug === selected) ?? null;
+
   return (
     <section>
       <h2 className="font-display text-2xl">Choose Your Species</h2>
@@ -931,31 +965,51 @@ function SpeciesStep({
       {loading ? (
         <p className="mt-6 text-lore-muted">Loading species…</p>
       ) : (
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((s) => (
-            <button
-              key={s.slug}
-              type="button"
-              onClick={() => onSelect(s.slug)}
-              className={`rounded-lg border bg-lore-surface p-4 text-left transition-colors ${
-                selected === s.slug
-                  ? "border-lore-accent"
-                  : "border-lore-border hover:border-lore-accent"
-              }`}
-            >
-              <div className="font-display text-lg">{s.name}</div>
-              <div className="mt-1 text-sm text-lore-accent">
-                {bonusLine(s.abilityBonuses)}
-              </div>
-              <div className="mt-1 text-xs text-lore-muted">
-                {s.size} · {s.speed} ft
-              </div>
-              <div className="mt-2 text-xs text-lore-muted">
-                {s.traits.slice(0, 3).join(" · ")}
-              </div>
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {items.map((s) => (
+              <button
+                key={s.slug}
+                type="button"
+                onClick={() => onSelect(s.slug)}
+                className={`rounded-lg border bg-lore-surface p-4 text-left transition-colors ${
+                  selected === s.slug
+                    ? "border-lore-accent"
+                    : "border-lore-border hover:border-lore-accent"
+                }`}
+              >
+                <div className="font-display text-lg">{s.name}</div>
+                <div className="mt-1 text-sm text-lore-accent">
+                  {bonusLine(s.abilityBonuses)}
+                </div>
+                <div className="mt-1 text-xs text-lore-muted">
+                  {s.size} · {s.speed} ft
+                </div>
+                <div className="mt-2 text-xs text-lore-muted">
+                  {s.traits.slice(0, 3).join(" · ")}
+                </div>
+              </button>
+            ))}
+          </div>
+          {selectedSpecies && selectedSpecies.traits.length > 0 && (
+            <div className="mt-6 rounded-lg border border-lore-border bg-lore-surface p-4">
+              <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+                {selectedSpecies.name} traits
+              </h3>
+              <ul className="mt-3 space-y-3">
+                {selectedSpecies.traits.map((trait) => (
+                  <li key={trait} className="text-sm">
+                    <div className="font-medium">{trait}</div>
+                    <p className="mt-0.5 text-xs leading-relaxed text-lore-muted">
+                      {traitDescription(trait) ??
+                        "See the Codex for full rules text."}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -1960,8 +2014,6 @@ function FeaturesStep({
   onFightingStyle,
   startingSubclass,
   onStartingSubclass,
-  featureChoices,
-  onFeatureChoices,
 }: {
   className: string;
   startingLevel: number;
@@ -1969,8 +2021,6 @@ function FeaturesStep({
   onFightingStyle: (v: string) => void;
   startingSubclass: string;
   onStartingSubclass: (v: string) => void;
-  featureChoices: Record<string, string>;
-  onFeatureChoices: (next: Record<string, string>) => void;
 }) {
   const features = classFeaturesForLevel(className, 1);
   const stubs = featureStubsForLevel(className, 1);
@@ -2002,12 +2052,12 @@ function FeaturesStep({
         />
       )}
 
-      {className === "Ranger" && startingLevel >= 1 && (
-        <RangerFeatureChoices
-          choices={featureChoices}
-          onChange={onFeatureChoices}
-        />
-      )}
+      <SubclassCatalogPreview
+        className={className}
+        startingLevel={startingLevel}
+      />
+
+      {className === "Ranger" && startingLevel >= 1 && <RangerFeatureChoices />}
 
       <ul className="mt-6 space-y-2">
         {features.length > 0

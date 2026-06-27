@@ -1,102 +1,33 @@
 "use client";
 
-export const FAVORED_TERRAINS = [
-  "Arctic",
-  "Coast",
-  "Desert",
-  "Forest",
-  "Grassland",
-  "Mountain",
-  "Swamp",
-  "Underdark",
-] as const;
-
-export const FAVORED_ENEMY_TYPES = [
-  "Aberrations",
-  "Beasts",
-  "Celestials",
-  "Constructs",
-  "Dragons",
-  "Elementals",
-  "Fey",
-  "Fiends",
-  "Giants",
-  "Monstrosities",
-  "Oozes",
-  "Plants",
-  "Undead",
-  "Two Humanoid races",
-] as const;
-
-export function FeatureChoicePicker({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: readonly string[];
-  value: string;
-  onChange: (next: string) => void;
-}) {
+/** SRD 5.2 Ranger — Favored Enemy (Hunter's Mark) and Deft Explorer are automatic at L1/L2. */
+export function RangerFeatureChoices() {
   return (
-    <div className="mt-4">
+    <div className="mt-4 rounded-lg border border-lore-border bg-lore-surface px-4 py-3 text-sm">
       <h3 className="text-xs uppercase tracking-wide text-lore-muted">
-        {label}
+        Ranger features
       </h3>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(opt)}
-            className={`rounded-full border px-3 py-1 text-xs ${
-              value === opt
-                ? "border-lore-accent bg-lore-accent-dim"
-                : "border-lore-border text-lore-muted hover:text-lore-text"
-            }`}
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
+      <ul className="mt-2 space-y-2 text-xs text-lore-muted">
+        <li>
+          <span className="font-medium text-lore-text">Favored Enemy (L1)</span>
+          {" — "}
+          You always have Hunter&apos;s Mark prepared and can cast it without
+          expending a spell slot a number of times equal to your Wisdom modifier
+          per Long Rest.
+        </li>
+        <li>
+          <span className="font-medium text-lore-text">Deft Explorer (L2)</span>
+          {" — "}
+          You gain Expertise in one skill and learn two languages of your choice.
+        </li>
+      </ul>
     </div>
   );
 }
 
-export function RangerFeatureChoices({
-  choices,
-  onChange,
-}: {
-  choices: Record<string, string>;
-  onChange: (next: Record<string, string>) => void;
-}) {
-  return (
-    <>
-      <FeatureChoicePicker
-        label="Favored Enemy"
-        options={FAVORED_ENEMY_TYPES}
-        value={choices["Favored Enemy"] ?? ""}
-        onChange={(v) =>
-          onChange({ ...choices, "Favored Enemy": v })
-        }
-      />
-      <FeatureChoicePicker
-        label="Natural Explorer — favored terrain"
-        options={FAVORED_TERRAINS}
-        value={choices["Natural Explorer"] ?? ""}
-        onChange={(v) =>
-          onChange({ ...choices, "Natural Explorer": v })
-        }
-      />
-    </>
-  );
-}
-
+/** No mandatory Ranger picks in SRD 5.2 at creation. */
 export function rangerFeatureChoicesComplete(
-  choices: Record<string, string>,
+  _choices: Record<string, string>,
 ): boolean {
-  return Boolean(
-    choices["Favored Enemy"]?.trim() && choices["Natural Explorer"]?.trim(),
-  );
+  return true;
 }

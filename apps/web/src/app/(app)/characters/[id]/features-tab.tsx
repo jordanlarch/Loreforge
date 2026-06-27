@@ -9,10 +9,13 @@ import {
   fightingStyleDescription,
   fightingStylePickLevel,
   formatAsiLabel,
+  normalizeSubclassName,
   remainingFeatureUses,
   subclassPickLevel,
   type ClassLevel,
 } from "@app/engine";
+
+import { traitDescription } from "@app/db/traits";
 
 import {
   ResourceBoxes,
@@ -78,7 +81,21 @@ export function FeaturesTab({
     { name: background },
     { enabled: background.trim().length > 0 },
   );
+  const speciesQuery = trpc.codex.getSpeciesByName.useQuery(
+    { name: species },
+    { enabled: species.trim().length > 0 },
+  );
   const subclassCatalog = trpc.codex.listSubclasses.useQuery(undefined);
+
+  function findSubclass(className: string, subclassName: string | undefined) {
+    if (!subclassName?.trim() || !subclassCatalog.data) return undefined;
+    const normalized = normalizeSubclassName(subclassName);
+    return subclassCatalog.data.find(
+      (s) =>
+        s.className === className &&
+        (s.name === subclassName || s.name === normalized),
+    );
+  }
 
   const featNames = useMemo(
     () => [...new Set((meta.feats ?? []).map((f) => f.trim()).filter(Boolean))],
@@ -92,9 +109,7 @@ export function FeaturesTab({
   const subclassFeatureRows: FeatureRow[] = [];
   for (const cl of classes) {
     if (!cl.subclass?.trim()) continue;
-    const entry = subclassCatalog.data?.find(
-      (s) => s.className === cl.class && s.name === cl.subclass,
-    );
+    const entry = findSubclass(cl.class, cl.subclass);
     if (!entry?.features?.length) continue;
     for (const [i, f] of entry.features.entries()) {
       if (f.level > cl.level) continue;
@@ -110,9 +125,7 @@ export function FeaturesTab({
   const classFeatures: FeatureRow[] = [];
   for (const cl of classes) {
     const catalogEntry = cl.subclass
-      ? subclassCatalog.data?.find(
-          (s) => s.className === cl.class && s.name === cl.subclass,
-        )
+      ? findSubclass(cl.class, cl.subclass)
       : undefined;
     const hasExpandedSubclass =
       Boolean(catalogEntry?.features?.length) && Boolean(cl.subclass);
@@ -133,9 +146,7 @@ export function FeaturesTab({
         }
         if (isSubclassFeatureStub(f)) {
           if (hasExpandedSubclass) continue;
-          const catalogMatch = subclassCatalog.data?.find(
-            (s) => s.className === cl.class && s.name === cl.subclass,
-          );
+          const catalogMatch = findSubclass(cl.class, cl.subclass);
           classFeatures.push({
             id: featureResourceKey(cl.class, level, f.id),
             name: cl.subclass ?? f.name,
@@ -161,16 +172,25 @@ export function FeaturesTab({
     }
   }
 
-  const speciesTraits: FeatureRow[] = species
-    ? [
-        {
-          id: "species-traits",
-          name: "Species traits",
-          source: species,
-          description: `${species} racial traits from the Codex.`,
-        },
-      ]
-    : [];
+  const speciesTraits: FeatureRow[] = speciesQuery.data
+    ? speciesQuery.data.traits.map((trait, i) => ({
+        id: `species-trait-${i}-${trait}`,
+        name: trait,
+        source: species,
+        description:
+          traitDescription(trait) ??
+          `${trait} — see the Codex for full rules text.`,
+      }))
+    : species
+      ? [
+          {
+            id: "species-traits",
+            name: "Species traits",
+            source: species,
+            description: `${species} racial traits from the Codex.`,
+          },
+        ]
+      : [];
 
   const backgroundFeatures: FeatureRow[] = [];
   if (bgQuery.data) {
@@ -251,7 +271,6 @@ export function FeaturesTab({
   const filtered = useSheetSearch(all, search, (f) => `${f.name} ${f.source}`);
 
   const resourceUses = meta.resourceUses ?? {};
-  const primary = classes[0];
 
   function toggleResource(id: string, index: number, total: number) {
     const current = resourceUses[id] ?? Array.from({ length: total }, () => false);
@@ -290,21 +309,26 @@ export function FeaturesTab({
     <div>
       <SheetSearchBar value={search} onChange={setSearch} />
 
-      {primary && fightingStylePickLevel(primary.class) != null && (
-        <SheetSection title="Fighting Style">
-          <div className="flex flex-wrap gap-2">
-            {FIGHTING_STYLES.map((style) => (
-              <ChoiceChip
-                key={style}
-                label={style}
-                selected={meta.fightingStyles?.[primary.class] === style}
-                tooltip={fightingStyleDescription(style)}
-                onClick={() => setFightingStyle(primary.class, style)}
-              />
-            ))}
-          </div>
-        </SheetSection>
-      )}
+      {classes.map((cl) => {
+        if (fightingStylePickLevel(cl.class) == null || cl.level < fightingStylePickLevel(cl.class)!) {
+          return null;
+        }
+        return (
+          <SheetSection key={`style-${cl.class}`} title={`${cl.class} Fighting Style`}>
+            <div className="flex flex-wrap gap-2">
+              {FIGHTING_STYLES.map((style) => (
+                <ChoiceChip
+                  key={style}
+                  label={style}
+                  selected={meta.fightingStyles?.[cl.class] === style}
+                  tooltip={fightingStyleDescription(style)}
+                  onClick={() => setFightingStyle(cl.class, style)}
+                />
+              ))}
+            </div>
+          </SheetSection>
+        );
+      })}
 
       {classes.map((cl) => {
         const pick = subclassPickLevel(cl.class);
@@ -326,7 +350,10 @@ export function FeaturesTab({
                     <ChoiceChip
                       key={sub.slug}
                       label={sub.name}
-                      selected={cl.subclass === sub.name}
+                      selected={
+                        cl.subclass === sub.name ||
+                        normalizeSubclassName(cl.subclass ?? "") === sub.name
+                      }
                       tooltip={sub.description}
                       disabled={!onUpdateClasses}
                       onClick={() => setSubclass(cl.class, sub.name)}

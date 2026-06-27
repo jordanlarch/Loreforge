@@ -40,7 +40,6 @@ import {
 } from "@/components/character-creation/class-choice-pickers";
 import {
   RangerFeatureChoices,
-  rangerFeatureChoicesComplete,
 } from "@/components/character-creation/class-feature-choices";
 import { CodexSpellAddPicker } from "@/components/character-library-pickers";
 import type { CharacterSpell, SpellLoadout } from "@/lib/character";
@@ -118,9 +117,6 @@ export function LevelUpDialog({
   const [applySpellSlots, setApplySpellSlots] = useState(true);
   const [spellPickerOpen, setSpellPickerOpen] = useState(false);
   const [addedSpells, setAddedSpells] = useState<CharacterSpell[]>([]);
-  const [featureChoices, setFeatureChoices] = useState<Record<string, string>>(
-    () => existingMeta.featureChoices ?? {},
-  );
 
   const levelUp = trpc.characters.levelUp.useMutation({
     onSuccess: async () => {
@@ -267,18 +263,12 @@ export function LevelUpDialog({
   const needsSubclass = subclassPickLevel(className) === newClassLevel;
   const needsFightingStyle =
     fightingStylePickLevel(className) === newClassLevel;
-  const needsRangerChoices =
-    className === "Ranger" &&
-    newClassLevel >= 1 &&
-    !rangerFeatureChoicesComplete(existingMeta.featureChoices ?? {});
 
   const blocked = atClassCap || atTotalCap || hitDie == null;
   const asiInvalid = grantsAsi && !asiFeatComplete(asiFeat);
   const subclassInvalid = needsSubclass && !subclass.trim();
   const fightingStyleInvalid =
     needsFightingStyle && !fightingStyle.trim() && !existingMeta.fightingStyles?.[className];
-  const rangerChoicesInvalid =
-    needsRangerChoices && !rangerFeatureChoicesComplete(featureChoices);
 
   const multiclassValid = multiclassEligible(
     multiclassClassNames,
@@ -506,12 +496,18 @@ export function LevelUpDialog({
                               <button
                                 key={c.slug}
                                 type="button"
-                                onClick={() => setAddNewClass(c.name)}
+                                onClick={() =>
+                                  setAddNewClass((prev) =>
+                                    prev === c.name ? null : c.name,
+                                  )
+                                }
                                 title={multiclassRequirementLabel(c.name)}
                                 className={`rounded-full border px-3 py-1.5 text-xs ${
-                                  eligible
-                                    ? "border-lore-border text-lore-muted hover:border-lore-accent"
-                                    : "border-lore-border/60 text-lore-muted/50"
+                                  addNewClass === c.name
+                                    ? "border-lore-accent bg-lore-accent-dim text-lore-text"
+                                    : eligible
+                                      ? "border-lore-border text-lore-muted hover:border-lore-accent"
+                                      : "border-lore-border/60 text-lore-muted/50"
                                 }`}
                               >
                                 {c.name}
@@ -669,12 +665,7 @@ export function LevelUpDialog({
                   />
                 )}
 
-                {needsRangerChoices && (
-                  <RangerFeatureChoices
-                    choices={featureChoices}
-                    onChange={setFeatureChoices}
-                  />
-                )}
+                {className === "Ranger" && <RangerFeatureChoices />}
 
                 {grantsAsi && (
                   <div className="mt-6">
@@ -908,8 +899,7 @@ export function LevelUpDialog({
                 (wizardStep === 0 && classStepInvalid) ||
                 (wizardStep === featuresStepIndex && asiInvalid) ||
                 (wizardStep === featuresStepIndex && subclassInvalid) ||
-                (wizardStep === featuresStepIndex && fightingStyleInvalid) ||
-                (wizardStep === featuresStepIndex && rangerChoicesInvalid)
+                (wizardStep === featuresStepIndex && fightingStyleInvalid)
               }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -931,7 +921,6 @@ export function LevelUpDialog({
                     fightingStyle.trim() ||
                     existingMeta.fightingStyles?.[className] ||
                     undefined,
-                  featureChoices: needsRangerChoices ? featureChoices : undefined,
                   addedSpells:
                     addedSpells.length > 0 ? addedSpells : undefined,
                   milestone: milestoneXp,
@@ -946,7 +935,6 @@ export function LevelUpDialog({
                 asiInvalid ||
                 subclassInvalid ||
                 fightingStyleInvalid ||
-                rangerChoicesInvalid ||
                 (addingClass && !addNewClass)
               }
               className="rounded border border-lore-accent bg-lore-accent-dim px-5 py-2 text-sm text-lore-text transition-colors hover:border-lore-accent disabled:cursor-not-allowed disabled:opacity-40"

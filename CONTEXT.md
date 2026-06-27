@@ -60,6 +60,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 | **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
 | **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
+**Recently shipped (Jun 2026, post-#281):** CHAR-ADV-3 — SRD 5.2 one-subclass-per-class audit, rich subclass features in Codex/seed, fighting style pick + persist through creation/advancement, species trait descriptions, multiclass toggle-off, legacy subclass name aliases.
+
 **Recently shipped (Jun 2026, post-#280):** CHAR-ADV-2 — creation Features step validation (level>1), feat prerequisite gating, subclass detail modal, level-up spell picker + multiclass validate/undo.
 
 **Recently shipped (Jun 2026, post-#246):** Roll20-style character sheet — 3-column layout, HP panel, Live Stats HUD, Inventory/About/Notes tabs, notes meta via `character-sheet-storage`.

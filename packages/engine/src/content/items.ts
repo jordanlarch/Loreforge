@@ -1,7 +1,8 @@
 /**
  * 5E item content taxonomy — shared between the Smithy DB/zod schema and its UI
  * so the two never drift. These are content-model constants (like the SRD skill
- * list), not engine math; full item mechanics (`EffectTemplate`) arrive later.
+ * list), not engine math; declarative {@link ItemDefinition} lives in
+ * `item-definitions.ts` (SMITH-7). QuickJS sandbox handlers remain deferred.
  *
  * @see docs/ui-flows/smithy.md
  */

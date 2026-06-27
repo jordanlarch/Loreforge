@@ -16,6 +16,9 @@ import {
   resetHomebrewItemFromCodex,
   resetHomebrewSpellFromCodex,
 } from "@/server/lib/copy-codex-to-smithy";
+import {
+  assembleItemDefinition,
+} from "@/server/lib/smithy-item-definition";
 
 import {
   AREA_SHAPES,
@@ -30,7 +33,9 @@ import {
   SPELL_SCHOOLS,
   TARGETING_TYPES,
   open5eRawToSpellDefinition,
+  validateItemDefinition,
   validateSpellDefinition,
+  type ItemDefinition,
   type SpellDefinition,
 } from "@app/engine";
 import { codexSpells, getDb, homebrewItems, homebrewSpells } from "@app/db";
@@ -65,6 +70,49 @@ const listLibraryInput = z
   })
   .optional();
 
+const ABILITY = z.enum(["str", "dex", "con", "int", "wis", "cha"]);
+const dice = z.string().trim().min(1).max(20);
+
+const itemEquippedEffect = z.object({
+  name: z.string().trim().min(1).max(80),
+  modifier: z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("ac_bonus"),
+      amount: z.number().int().min(-5).max(10),
+    }),
+    z.object({
+      type: z.literal("attack_roll_bonus"),
+      amount: z.number().int().min(-5).max(10),
+    }),
+    z.object({
+      type: z.literal("on_hit_damage"),
+      dice,
+      damageType: z.enum(DAMAGE_TYPES),
+    }),
+  ]),
+});
+
+const itemMechanicsInput = z.object({
+  weapon: z
+    .object({
+      damage: z.object({ dice, type: z.enum(DAMAGE_TYPES) }),
+      attackBonus: z.number().int().min(-5).max(10).optional(),
+      finesse: z.boolean().optional(),
+      ranged: z.boolean().optional(),
+      rangeFt: z.number().int().min(5).max(600).optional(),
+    })
+    .optional(),
+  armor: z
+    .object({
+      baseAc: z.number().int().min(10).max(30),
+      dexBonusMax: z.number().int().min(0).max(5).nullable().optional(),
+      stealthDisadvantage: z.boolean().optional(),
+      shield: z.boolean().optional(),
+    })
+    .optional(),
+  equippedEffects: z.array(itemEquippedEffect).max(6).optional(),
+});
+
 const createInput = z.object({
   name: z.string().trim().min(1).max(120),
   type: itemType,
@@ -74,10 +122,8 @@ const createInput = z.object({
   requiresAttunement: z.boolean().default(false),
   source: itemSource.default("original"),
   copiedFromSlug: z.string().trim().max(160).optional(),
+  mechanics: itemMechanicsInput.optional(),
 });
-
-const ABILITY = z.enum(["str", "dex", "con", "int", "wis", "cha"]);
-const dice = z.string().trim().min(1).max(20);
 
 /**
  * Wire-level validation of a declarative spell. Enum/field shape is enforced
@@ -148,6 +194,25 @@ function spellId(name: string): string {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "spell"
   );
+}
+
+function itemDefinitionFromInput(
+  input: z.infer<typeof createInput>,
+): ItemDefinition {
+  const definition = assembleItemDefinition({
+    name: input.name,
+    type: input.type,
+    description: input.description,
+    mechanics: input.mechanics,
+  });
+  const errors = validateItemDefinition(definition);
+  if (errors.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: errors.join(" "),
+    });
+  }
+  return definition;
 }
 
 export const smithyRouter = createTRPCRouter({
@@ -284,9 +349,11 @@ export const smithyRouter = createTRPCRouter({
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      const { mechanics: _mechanics, ...rowInput } = input;
+      const definition = itemDefinitionFromInput(input);
       const [row] = await db
         .insert(homebrewItems)
-        .values({ ...input, ownerId: ctx.user.id })
+        .values({ ...rowInput, definition, ownerId: ctx.user.id })
         .returning();
       return row;
     }),
@@ -296,10 +363,11 @@ export const smithyRouter = createTRPCRouter({
     .input(createInput.extend({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const { id, ...patch } = input;
+      const { id, mechanics: _mechanics, ...patch } = input;
+      const definition = itemDefinitionFromInput(input);
       const [row] = await db
         .update(homebrewItems)
-        .set({ ...patch, updatedAt: new Date() })
+        .set({ ...patch, definition, updatedAt: new Date() })
         .where(
           and(
             eq(homebrewItems.id, id),

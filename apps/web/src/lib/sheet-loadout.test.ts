@@ -93,6 +93,39 @@ describe("deriveWeaponAttacks", () => {
     ]);
     expect(attacks).toHaveLength(1);
   });
+
+  it("prefers Smithy item definition over name catalog", () => {
+    const hero = entity({
+      id: "hero",
+      abilityScores: { str: 16, dex: 12, con: 10, int: 10, wis: 10, cha: 10 },
+      proficiencyBonus: 3,
+    });
+    const [atk] = deriveWeaponAttacks(
+      hero,
+      [
+        item({
+          name: "Custom Glaive",
+          smithyItemId: "smithy-1",
+        }),
+      ],
+      {
+        "smithy-1": {
+          id: "custom-glaive",
+          name: "Custom Glaive",
+          itemType: "Weapon",
+          description: "",
+          weapon: {
+            damage: { dice: "1d10", type: "slashing" },
+            attackBonus: 1,
+            rangeFt: 10,
+          },
+        },
+      },
+    );
+    expect(atk?.attackBonus).toBe(7);
+    expect(atk?.damage.notation).toBe("1d10+4");
+    expect(atk?.rangeFt).toBe(10);
+  });
 });
 
 describe("preparedSpellNames", () => {

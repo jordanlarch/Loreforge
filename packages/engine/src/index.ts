@@ -225,6 +225,19 @@ export {
   type ItemType,
 } from "./content/items";
 export {
+  buildItemDefinition,
+  isValidItemDefinition,
+  itemDefinitionId,
+  validateItemDefinition,
+  weaponSpecFromItemDefinition,
+  type ItemArmorStats,
+  type ItemDefinition,
+  type ItemEquippedEffect,
+  type ItemWeaponStats,
+  type ResolvedWeaponSpec,
+} from "./content/item-definitions";
+export { open5eRawToItemDefinition } from "./content/open5e-item";
+export {
   AREA_SHAPES,
   CASTING_TIME_UNITS,
   DAMAGE_TYPES,

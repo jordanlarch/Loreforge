@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type {
+  ItemDefinition,
   ItemRarity,
   ItemSource,
   ItemType,
@@ -24,7 +25,8 @@ import type {
  * species, monsters, spells, … — comes later). `source`/`copiedFromSlug` carry
  * provenance so a future "Copy from Codex" can deep-link back to the SRD
  * original; the copy plumbing itself is stubbed until Codex items are ingested.
- * Full item mechanics (engine `EffectTemplate`) are out of scope here.
+ * Full declarative mechanics live in `definition` (engine `ItemDefinition`);
+ * imperative sandbox handlers remain deferred.
  *
  * @see docs/ui-flows/smithy.md
  */
@@ -43,6 +45,8 @@ export const homebrewItems = pgTable(
     source: text("source").notNull().$type<ItemSource>().default("original"),
     /** Codex slug this was copied from, if any (for future copy plumbing). */
     copiedFromSlug: text("copied_from_slug"),
+    /** Declarative item definition validated against the engine shape (SMITH-7). */
+    definition: jsonb("definition").notNull().$type<ItemDefinition>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

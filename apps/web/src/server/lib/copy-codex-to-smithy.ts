@@ -2,8 +2,13 @@ import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 
 import {
+  buildItemDefinition,
+  itemDefinitionId,
+  open5eRawToItemDefinition,
   open5eRawToSpellDefinition,
+  validateItemDefinition,
   validateSpellDefinition,
+  type ItemDefinition,
   type ItemType,
 } from "@app/engine";
 import {
@@ -66,8 +71,23 @@ async function insertSnapshotItem(input: {
   properties: string[];
   copyKey: string;
   requiresAttunement?: boolean;
+  definition?: ItemDefinition;
 }): Promise<{ kind: "item"; id: string }> {
   const db = getDb();
+  const definition =
+    input.definition ??
+    buildItemDefinition({
+      name: input.name,
+      itemType: input.type,
+      description: input.description,
+    });
+  const errors = validateItemDefinition(definition);
+  if (errors.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: errors.join(" "),
+    });
+  }
   const [row] = await db
     .insert(homebrewItems)
     .values({
@@ -79,6 +99,7 @@ async function insertSnapshotItem(input: {
       requiresAttunement: input.requiresAttunement ?? false,
       source: "codex",
       copiedFromSlug: input.copyKey,
+      definition,
     })
     .returning({ id: homebrewItems.id });
   return { kind: "item", id: row!.id };
@@ -158,6 +179,13 @@ async function copyItem(ownerId: string, slug: string): Promise<CopyFromCodexRes
       name: codex.name,
       raw,
     });
+  const definition = open5eRawToItemDefinition(raw, {
+    slug: codex.slug,
+    name: codex.name,
+    category: codex.category,
+    description,
+    itemType: open5eItemCategoryToType(codex.category),
+  });
 
   return insertSnapshotItem({
     ownerId,
@@ -167,6 +195,7 @@ async function copyItem(ownerId: string, slug: string): Promise<CopyFromCodexRes
     properties,
     copyKey: slug,
     requiresAttunement: Boolean(raw.requires_attunement),
+    definition,
   });
 }
 
@@ -395,6 +424,29 @@ export function parseSmithyCopyKey(copyKey: string): {
   };
 }
 
+function snapshotItemPayload(input: {
+  name: string;
+  type: ItemType;
+  description: string;
+  properties: string[];
+  requiresAttunement?: boolean;
+  slug: string;
+}) {
+  return {
+    name: input.name,
+    type: input.type,
+    description: input.description,
+    properties: input.properties,
+    requiresAttunement: input.requiresAttunement ?? false,
+    definition: buildItemDefinition({
+      id: itemDefinitionId(input.slug),
+      name: input.name,
+      itemType: input.type,
+      description: input.description,
+    }),
+  };
+}
+
 async function codexItemCopyPayload(
   category: CodexCategory,
   slug: string,
@@ -404,6 +456,7 @@ async function codexItemCopyPayload(
   description: string;
   properties: string[];
   requiresAttunement: boolean;
+  definition: ItemDefinition;
 }> {
   if (category === "Items") {
     const db = getDb();
@@ -416,18 +469,28 @@ async function codexItemCopyPayload(
       throw new TRPCError({ code: "NOT_FOUND", message: "Codex item not found." });
     }
     const raw = codex.raw ?? {};
+    const description =
+      codex.description?.trim() ||
+      buildCodexSnapshotDescription({
+        category: "Items",
+        name: codex.name,
+        raw,
+      });
+    const type = open5eItemCategoryToType(codex.category);
+    const definition = open5eRawToItemDefinition(raw, {
+      slug: codex.slug,
+      name: codex.name,
+      category: codex.category,
+      description,
+      itemType: type,
+    });
     return {
       name: codex.name,
-      type: open5eItemCategoryToType(codex.category),
-      description:
-        codex.description?.trim() ||
-        buildCodexSnapshotDescription({
-          category: "Items",
-          name: codex.name,
-          raw,
-        }),
+      type,
+      description,
       properties: weaponPropertyEntries(raw).map((p) => p.name),
       requiresAttunement: Boolean(raw.requires_attunement),
+      definition,
     };
   }
 
@@ -442,11 +505,11 @@ async function codexItemCopyPayload(
       .where(eq(codexSpecies.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return {
+    return snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [`Codex: ${category}`, ...row.traits.slice(0, 8)],
-      requiresAttunement: false,
       description: buildCodexSnapshotDescription({
         category,
         name: row.name,
@@ -458,7 +521,7 @@ async function codexItemCopyPayload(
           row.traits.length ? `Traits: ${row.traits.join(", ")}` : "",
         ],
       }),
-    };
+    });
   }
 
   if (category === "Classes") {
@@ -468,11 +531,11 @@ async function codexItemCopyPayload(
       .where(eq(codexClasses.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return {
+    return snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [`Codex: ${category}`, `Hit die d${row.hitDie}`],
-      requiresAttunement: false,
       description: buildCodexSnapshotDescription({
         category,
         name: row.name,
@@ -483,7 +546,7 @@ async function codexItemCopyPayload(
           `Skill choice: ${row.skillChoice.choose} from list`,
         ],
       }),
-    };
+    });
   }
 
   if (category === "Backgrounds") {
@@ -493,18 +556,18 @@ async function codexItemCopyPayload(
       .where(eq(codexBackgrounds.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return {
+    return snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [`Codex: ${category}`],
-      requiresAttunement: false,
       description: buildCodexSnapshotDescription({
         category,
         name: row.name,
         description: row.description,
         raw: row.raw,
       }),
-    };
+    });
   }
 
   if (category === "Feats") {
@@ -514,14 +577,14 @@ async function codexItemCopyPayload(
       .where(eq(codexFeats.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return {
+    return snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [
         `Codex: ${category}`,
         row.featType ? `Type: ${row.featType}` : "",
       ].filter(Boolean),
-      requiresAttunement: false,
       description: buildCodexSnapshotDescription({
         category,
         name: row.name,
@@ -529,7 +592,7 @@ async function codexItemCopyPayload(
         raw: row.raw,
         extras: row.prerequisite ? [`Prerequisite: ${row.prerequisite}`] : [],
       }),
-    };
+    });
   }
 
   if (category === "Animals" || category === "Monsters") {
@@ -540,9 +603,10 @@ async function codexItemCopyPayload(
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
     const raw = row.raw ?? {};
-    return {
+    return snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [
         `Codex: ${category}`,
         row.creatureType ?? "",
@@ -550,7 +614,6 @@ async function codexItemCopyPayload(
           ? `CR ${formatChallengeRating(row.challengeRating)}`
           : "",
       ].filter(Boolean),
-      requiresAttunement: false,
       description: buildCodexSnapshotDescription({
         category,
         name: row.name,
@@ -562,7 +625,7 @@ async function codexItemCopyPayload(
           row.alignment ? `Alignment: ${row.alignment}` : "",
         ],
       }),
-    };
+    });
   }
 
   if (category === "Advanced") {
@@ -572,18 +635,18 @@ async function codexItemCopyPayload(
       .where(eq(codexAdvancedRules.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return {
+    return snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [`Codex: ${category}`, formatAdvancedTopic(row.topic)],
-      requiresAttunement: false,
       description: buildCodexSnapshotDescription({
         category,
         name: row.name,
         description: row.description,
         raw: row.raw,
       }),
-    };
+    });
   }
 
   if (category === "Rules") {
@@ -593,18 +656,18 @@ async function codexItemCopyPayload(
       .where(eq(codexRuleSections.slug, slug))
       .limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return {
+    return snapshotItemPayload({
       name: row.name,
       type,
+      slug: copyKey,
       properties: [`Codex: ${category}`],
-      requiresAttunement: false,
       description: buildCodexSnapshotDescription({
         category,
         name: row.name,
         description: row.description,
         raw: row.raw,
       }),
-    };
+    });
   }
 
   throw new TRPCError({

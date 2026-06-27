@@ -17,9 +17,11 @@ import {
   activeCombatAdjustments,
   aggregateFightingStyleModifiers,
   extraAttackCount,
+  weaponSpecFromItemDefinition,
   type ClassLevel,
   type CombatFeatToggles,
   type EntityState,
+  type ItemDefinition,
 } from "@app/engine";
 
 import type { EquipmentItem, SpellLoadout } from "./character";
@@ -46,6 +48,8 @@ export type WeaponAttack = {
 type WeaponSpec = {
   dice: string;
   damageType: string;
+  /** Flat magic bonus applied to attack and damage. */
+  attackBonus?: number;
   /** Use the better of STR/DEX for attack + damage. */
   finesse?: boolean;
   /** Ranged weapon: uses DEX and the listed range. */
@@ -142,8 +146,11 @@ function resolveWeapon(
   spec: WeaponSpec,
 ): WeaponAttack {
   const mod = weaponAbilityMod(entity, spec);
-  const attackBonus = entity.proficiencyBonus + mod;
-  const notation = mod !== 0 ? `${spec.dice}${fmtMod(mod)}` : spec.dice;
+  const magic = spec.attackBonus ?? 0;
+  const attackBonus = entity.proficiencyBonus + mod + magic;
+  const damageMod = mod + magic;
+  const notation =
+    damageMod !== 0 ? `${spec.dice}${fmtMod(damageMod)}` : spec.dice;
   const rangeFt = spec.rangeFt ?? (spec.ranged ? 80 : MELEE_REACH_FT);
   return {
     id: normalize(name) || "weapon",
@@ -151,6 +158,21 @@ function resolveWeapon(
     attackBonus,
     damage: { notation, type: spec.damageType },
     rangeFt,
+  };
+}
+
+function weaponSpecFromSmithyDefinition(
+  def: ItemDefinition,
+): WeaponSpec | undefined {
+  const resolved = weaponSpecFromItemDefinition(def);
+  if (!resolved) return undefined;
+  return {
+    dice: resolved.dice,
+    damageType: resolved.damageType,
+    attackBonus: resolved.attackBonus,
+    finesse: resolved.finesse,
+    ranged: resolved.ranged,
+    rangeFt: resolved.rangeFt,
   };
 }
 
@@ -211,9 +233,10 @@ export function deriveSheetCombatAttacks(
   opts?: {
     feats?: string[];
     combatToggles?: CombatFeatToggles;
+    smithyDefinitions?: Readonly<Record<string, ItemDefinition>>;
   },
 ): WeaponAttack[] {
-  const base = deriveWeaponAttacks(entity, equipment);
+  const base = deriveWeaponAttacks(entity, equipment, opts?.smithyDefinitions);
   const wearingArmor =
     equipmentHasArmor(equipment) ||
     entity.baseAc > 12 + abilityModifier(entity.abilityScores.dex);
@@ -293,12 +316,17 @@ export function genericStrike(entity: EntityState): WeaponAttack {
 export function deriveWeaponAttacks(
   entity: EntityState,
   equipment: readonly EquipmentItem[],
+  smithyDefinitions?: Readonly<Record<string, ItemDefinition>>,
 ): WeaponAttack[] {
   const attacks: WeaponAttack[] = [];
   const seen = new Set<string>();
   for (const item of equipment) {
     if (!item.equipped || (item.quantity ?? 0) <= 0) continue;
-    const spec = matchWeapon(item.name);
+    let spec =
+      item.smithyItemId && smithyDefinitions?.[item.smithyItemId]
+        ? weaponSpecFromSmithyDefinition(smithyDefinitions[item.smithyItemId]!)
+        : undefined;
+    if (!spec) spec = matchWeapon(item.name);
     if (!spec) continue;
     const attack = resolveWeapon(entity, item.name, spec);
     if (seen.has(attack.id)) continue;

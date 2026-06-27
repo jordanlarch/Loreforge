@@ -260,6 +260,13 @@
       "when": 1782660000000,
       "tag": "0036_codex_advanced_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1782740000000,
+      "tag": "0037_homebrew_item_definition",
+      "breakpoints": true
     }
   ]
 }

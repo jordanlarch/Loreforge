@@ -98,6 +98,18 @@ export type CharacterSheetMeta = {
   milestoneXp?: boolean;
   /** Warlock pact magic — separate from pooled spell slots. */
   pactMagic?: PactMagicPool;
+  /** Level-up audit trail (CHAR-8). */
+  levelHistory?: LevelHistoryEntry[];
+};
+
+export type LevelHistoryEntry = {
+  at: string;
+  totalLevel: number;
+  /** e.g. "Fighter 4→5" or "Multiclass: Wizard 1" */
+  classGain: string;
+  hpGain: number;
+  subclass?: string;
+  feat?: string;
 };
 
 export type PactMagicPool = {

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { createEntityState, totalLevel, type ClassLevel } from "@app/engine";
+import { createEntityState, extraAttackCount, type ClassLevel } from "@app/engine";
 
 import {
   SheetSearchBar,
@@ -11,7 +11,7 @@ import {
   ResourceBoxes,
   useSheetSearch,
 } from "@/components/character-sheet/sheet-ui";
-import { deriveWeaponAttacks } from "@/lib/sheet-loadout";
+import { deriveSheetCombatAttacks } from "@/lib/sheet-loadout";
 import { weaponMasteriesForEquipment } from "@/lib/weapon-mastery";
 import type { EquipmentItem } from "@/lib/character";
 import type { ActiveEffect, CharacterSheetMeta } from "@/lib/character-sheet-storage";
@@ -65,7 +65,13 @@ export function CombatTab({
       }),
     [character],
   );
-  const attacks = deriveWeaponAttacks(entity, character.equipment);
+  const attacks = deriveSheetCombatAttacks(
+    entity,
+    character.equipment,
+    character.classes,
+    meta.fightingStyles,
+  );
+  const attacksPerAction = extraAttackCount(character.classes);
   const masteries = weaponMasteriesForEquipment(character.equipment);
   const filteredAttacks = useSheetSearch(attacks, search, (a) => a.label);
 
@@ -103,6 +109,12 @@ export function CombatTab({
       <SheetSearchBar value={search} onChange={setSearch} />
 
       <SheetSection title="Attacks">
+        {attacksPerAction > 1 && (
+          <p className="mb-2 text-xs text-lore-muted">
+            Extra Attack — {attacksPerAction} attacks when you take the Attack
+            action.
+          </p>
+        )}
         <SheetTableHeader
           columns={[
             { label: "Name", className: "col-span-3" },

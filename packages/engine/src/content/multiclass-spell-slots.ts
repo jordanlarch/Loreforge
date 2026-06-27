@@ -39,6 +39,14 @@ export function spellSlotsForClasses(
 }
 
 /** Sheet-friendly slot pools keyed by spell level string. */
+/** True when the class list contributes pooled slots or Warlock pact magic. */
+export function isSpellcastingClasses(
+  classes: { class: string; level: number }[],
+): boolean {
+  if (classes.some((c) => c.class === "Warlock" && c.level > 0)) return true;
+  return multiclassCasterLevel(classes) > 0;
+}
+
 export function sheetSlotPoolsFromClasses(
   classes: { class: string; level: number }[],
 ): Record<string, { max: number; used: number }> {

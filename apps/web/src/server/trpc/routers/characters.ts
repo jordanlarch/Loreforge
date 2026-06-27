@@ -9,13 +9,17 @@
 import {
   abilityModifier,
   applyAsi,
+  fightingStylePickLevel,
   grantsAsiAtLevel,
   hpGainOnLevelUp,
   isValidAsiChoice,
   levelUpSeed,
   maxHpAtFirstLevel,
+  sheetSlotPoolsFromClasses,
   subclassPickLevel,
   totalLevel,
+  warlockLevelFromClasses,
+  warlockPactMagic,
   xpForLevel,
   xpProgress,
   createSeededRng,
@@ -49,6 +53,7 @@ import {
   parseCharacterNotes,
   serializeCharacterNotes,
 } from "@/lib/character-sheet-storage";
+import type { SpellLoadout } from "@/lib/character";
 
 /** Hard 5E ceiling for a single class and for total character level. */
 const MAX_LEVEL = 20;
@@ -360,6 +365,10 @@ export const charactersRouter = createTRPCRouter({
         /** Take first level in a new class (multiclass). Ignores classIndex increment. */
         addNewClass: z.string().trim().max(60).optional(),
         milestone: z.boolean().optional(),
+        /** Sync PHB slot maxima from class levels after level-up. */
+        applySpellSlots: z.boolean().optional(),
+        /** Fighting style when this level grants the pick. */
+        fightingStyle: z.string().trim().max(40).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -535,6 +544,67 @@ export const charactersRouter = createTRPCRouter({
           feats: [...(nextMeta.feats ?? []), input.feat.trim()],
         };
       }
+      if (
+        input.fightingStyle?.trim() &&
+        fightingStylePickLevel(classNameForDie) === newClassLevel
+      ) {
+        nextMeta = {
+          ...nextMeta,
+          fightingStyles: {
+            ...(nextMeta.fightingStyles ?? {}),
+            [classNameForDie]: input.fightingStyle.trim(),
+          },
+        };
+      }
+
+      const classGain = addingClass
+        ? `Multiclass: ${input.addNewClass!} 1`
+        : `${target!.class} ${target!.level}→${newClassLevel}`;
+
+      nextMeta = {
+        ...nextMeta,
+        levelHistory: [
+          ...(nextMeta.levelHistory ?? []),
+          {
+            at: new Date().toISOString(),
+            totalLevel: newTotalLevel,
+            classGain,
+            hpGain,
+            ...(input.subclass?.trim() ? { subclass: input.subclass.trim() } : {}),
+            ...(input.feat?.trim() ? { feat: input.feat.trim() } : {}),
+          },
+        ],
+      };
+
+      let nextSpells: SpellLoadout | undefined;
+      if (input.applySpellSlots) {
+        const loadout = (character.spells ?? {
+          spells: [],
+          slots: {},
+        }) as SpellLoadout;
+        const suggested = sheetSlotPoolsFromClasses(nextClasses);
+        const slots = { ...loadout.slots };
+        for (const [level, pool] of Object.entries(suggested)) {
+          const prev = slots[level] ?? { max: 0, used: 0 };
+          slots[level] = { max: pool.max, used: Math.min(prev.used, pool.max) };
+        }
+        nextSpells = { ...loadout, slots };
+
+        const warlockLevel = warlockLevelFromClasses(nextClasses);
+        if (warlockLevel > 0) {
+          const pact = warlockPactMagic(warlockLevel);
+          if (pact) {
+            nextMeta = {
+              ...nextMeta,
+              pactMagic: {
+                max: pact.max,
+                used: nextMeta.pactMagic?.used ?? 0,
+                slotLevel: pact.slotLevel,
+              },
+            };
+          }
+        }
+      }
 
       const nextNotes = serializeCharacterNotes(
         parsedNotes.sessionNotes,
@@ -554,6 +624,7 @@ export const charactersRouter = createTRPCRouter({
           maxHp: character.maxHp + hpGain,
           xp: nextXp,
           notes: nextNotes,
+          ...(input.applySpellSlots ? { spells: nextSpells } : {}),
           updatedAt: new Date(),
         })
         .where(

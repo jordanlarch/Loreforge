@@ -4,9 +4,12 @@ import { useState } from "react";
 
 import {
   DAMAGE_TYPES,
+  POISON_TYPES,
   TRAP_RESET_MODES,
   type GameplayToolboxEntryDefinition,
   type ItemSource,
+  type PoisonDefinition,
+  type PoisonType,
   type TrapDefinition,
   type ToolboxTopic,
 } from "@app/engine";
@@ -44,6 +47,39 @@ function trapFromDefinition(def: GameplayToolboxEntryDefinition): TrapDefinition
 }
 
 export function SmithyToolboxForm({
+  initial,
+  entryId,
+  onSaved,
+  onCancel,
+}: {
+  initial?: SmithyToolboxFormInitial;
+  entryId?: string;
+  onSaved: (id: string) => void;
+  onCancel?: () => void;
+}) {
+  const kind = initial?.definition.kind ?? "trap";
+  if (kind === "poison") {
+    return (
+      <SmithyPoisonToolboxForm
+        initial={initial}
+        entryId={entryId}
+        onSaved={onSaved}
+        onCancel={onCancel}
+      />
+    );
+  }
+
+  return (
+    <SmithyTrapToolboxForm
+      initial={initial}
+      entryId={entryId}
+      onSaved={onSaved}
+      onCancel={onCancel}
+    />
+  );
+}
+
+function SmithyTrapToolboxForm({
   initial,
   entryId,
   onSaved,
@@ -370,6 +406,258 @@ export function SmithyToolboxForm({
           className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text disabled:opacity-50"
         >
           {pending ? "Saving…" : entryId ? "Save changes" : "Forge trap"}
+        </button>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded border border-lore-border px-4 py-2 text-sm text-lore-muted hover:text-lore-text"
+          >
+            Cancel
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function SmithyPoisonToolboxForm({
+  initial,
+  entryId,
+  onSaved,
+  onCancel,
+}: {
+  initial?: SmithyToolboxFormInitial;
+  entryId?: string;
+  onSaved: (id: string) => void;
+  onCancel?: () => void;
+}) {
+  const poison: PoisonDefinition =
+    initial?.definition.kind === "poison"
+      ? initial.definition
+      : {
+          kind: "poison",
+          id: "new-poison",
+          name: "",
+          description: "",
+          poisonType: "injury",
+        };
+
+  const [name, setName] = useState(initial?.name ?? poison.name);
+  const [description, setDescription] = useState(
+    initial?.description ?? poison.description,
+  );
+  const [poisonType, setPoisonType] = useState<PoisonType>(poison.poisonType);
+  const [saveAbility, setSaveAbility] = useState(
+    poison.save?.ability ?? "con",
+  );
+  const [saveDc, setSaveDc] = useState(
+    poison.save ? String(poison.save.dc) : "",
+  );
+  const [saveOnSuccess, setSaveOnSuccess] = useState<
+    NonNullable<PoisonDefinition["save"]>["onSuccess"]
+  >(poison.save?.onSuccess ?? "negates");
+  const [damageDice, setDamageDice] = useState(
+    poison.damage?.[0]?.dice ?? "",
+  );
+  const [damageType, setDamageType] = useState(
+    poison.damage?.[0]?.type ?? "poison",
+  );
+  const [conditions, setConditions] = useState(
+    poison.conditions?.join(", ") ?? "",
+  );
+  const [repeat, setRepeat] = useState(poison.repeat ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  const create = trpc.smithy.createToolboxEntry.useMutation({
+    onSuccess: (row) => onSaved(row.id),
+    onError: (err) => setError(err.message),
+  });
+  const update = trpc.smithy.updateToolboxEntry.useMutation({
+    onSuccess: (row) => onSaved(row.id),
+    onError: (err) => setError(err.message),
+  });
+
+  function buildPayload() {
+    const dc = parseInt(saveDc, 10);
+    const conditionList = conditions
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    return {
+      name: name.trim(),
+      topic: "poison" as const,
+      description: description.trim(),
+      source: initial?.source ?? ("original" as const),
+      copiedFromSlug: initial?.copiedFromSlug ?? undefined,
+      poison: {
+        poisonType,
+        save:
+          !Number.isNaN(dc) && dc > 0
+            ? {
+                ability: saveAbility,
+                dc,
+                onSuccess: saveOnSuccess,
+              }
+            : undefined,
+        damage: damageDice.trim()
+          ? [{ dice: damageDice.trim(), type: damageType }]
+          : undefined,
+        conditions: conditionList.length > 0 ? conditionList : undefined,
+        repeat: repeat.trim() || undefined,
+      },
+    };
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const payload = buildPayload();
+    if (entryId) {
+      update.mutate({ id: entryId, ...payload });
+    } else {
+      create.mutate(payload);
+    }
+  }
+
+  const pending = create.isPending || update.isPending;
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4 rounded-lg border border-lore-border bg-lore-surface p-5"
+    >
+      <h3 className="font-display text-lg">
+        {entryId ? "Edit poison" : "Forge a poison"}
+      </h3>
+
+      <Field label="Name">
+        <input
+          className={inputClass}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+      </Field>
+
+      <Field label="Description">
+        <textarea
+          className={`${inputClass} min-h-[80px]`}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </Field>
+
+      <Field label="Delivery type">
+        <select
+          className={inputClass}
+          value={poisonType}
+          onChange={(e) => setPoisonType(e.target.value as PoisonType)}
+        >
+          {POISON_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Save ability">
+          <select
+            className={inputClass}
+            value={saveAbility}
+            onChange={(e) =>
+              setSaveAbility(e.target.value as (typeof ABILITIES)[number])
+            }
+          >
+            {ABILITIES.map((a) => (
+              <option key={a} value={a}>
+                {a.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Save DC">
+          <input
+            className={inputClass}
+            value={saveDc}
+            onChange={(e) => setSaveDc(e.target.value)}
+            placeholder="15"
+          />
+        </Field>
+        <Field label="On success">
+          <select
+            className={inputClass}
+            value={saveOnSuccess}
+            onChange={(e) =>
+              setSaveOnSuccess(
+                e.target.value as (typeof SAVE_OUTCOMES)[number],
+              )
+            }
+          >
+            {SAVE_OUTCOMES.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Damage dice">
+          <input
+            className={inputClass}
+            value={damageDice}
+            onChange={(e) => setDamageDice(e.target.value)}
+            placeholder="3d6"
+          />
+        </Field>
+        <Field label="Damage type">
+          <select
+            className={inputClass}
+            value={damageType}
+            onChange={(e) =>
+              setDamageType(e.target.value as (typeof DAMAGE_TYPES)[number])
+            }
+          >
+            {DAMAGE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <Field label="Conditions (comma-separated)">
+        <input
+          className={inputClass}
+          value={conditions}
+          onChange={(e) => setConditions(e.target.value)}
+          placeholder="poisoned"
+        />
+      </Field>
+
+      <Field label="Repeat / special rules">
+        <textarea
+          className={`${inputClass} min-h-[60px]`}
+          value={repeat}
+          onChange={(e) => setRepeat(e.target.value)}
+        />
+      </Field>
+
+      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded border border-lore-accent bg-lore-accent-dim px-4 py-2 text-sm text-lore-text disabled:opacity-50"
+        >
+          {pending ? "Saving…" : entryId ? "Save changes" : "Forge poison"}
         </button>
         {onCancel ? (
           <button

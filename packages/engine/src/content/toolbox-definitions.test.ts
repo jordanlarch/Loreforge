@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isValidPoisonDefinition,
   isValidTrapDefinition,
   toolboxEntryId,
+  validatePoisonDefinition,
   validateTrapDefinition,
+  type PoisonDefinition,
   type TrapDefinition,
 } from "./toolbox-definitions";
 
@@ -54,5 +57,35 @@ describe("toolbox-definitions traps", () => {
       reset: "once",
     };
     expect(isValidTrapDefinition(def)).toBe(true);
+  });
+});
+
+describe("toolbox-definitions poisons", () => {
+  it("validates assassin's blood style poison", () => {
+    const def: PoisonDefinition = {
+      id: toolboxEntryId("Assassin's Blood"),
+      name: "Assassin's Blood",
+      kind: "poison",
+      description: "Ingested poison.",
+      poisonType: "ingested",
+      save: { ability: "con", dc: 10, onSuccess: "half" },
+      damage: [{ dice: "1d12", type: "poison" }],
+      conditions: ["poisoned"],
+      repeat: "Poisoned for 24 hours on a failed save.",
+    };
+    expect(isValidPoisonDefinition(def)).toBe(true);
+  });
+
+  it("requires at least one mechanical field", () => {
+    const def: PoisonDefinition = {
+      id: "bad",
+      name: "Bad",
+      kind: "poison",
+      description: "x",
+      poisonType: "injury",
+    };
+    expect(validatePoisonDefinition(def)).toContain(
+      "Poison requires save, damage, conditions, or repeat rules.",
+    );
   });
 });

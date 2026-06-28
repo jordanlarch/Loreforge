@@ -5,7 +5,9 @@
 import type { TrapDefinition } from "@app/engine";
 import { toolboxEntryId } from "@app/engine";
 
-export const GAMEPLAY_TOOLBOX_CHAPTER_SLUG = "srd-2024_gameplay-toolbox";
+import { GAMEPLAY_TOOLBOX_CHAPTER_SLUG } from "./srd-toolbox-shared";
+
+export { GAMEPLAY_TOOLBOX_CHAPTER_SLUG };
 export const TRAPS_RULES_SECTION_SLUG = "srd-2024_traps-rules";
 
 export const TRAPS_RULES_PROSE = `Traps can be found almost anywhere. A trap can be either mechanical or magical. Mechanical traps include pits, arrow traps, falling blocks, water-filled rooms, whirling blades, and anything else that depends on a mechanism to operate. Magic traps are either magical device traps or spell traps. A trap usually triggers when a creature moves somewhere, touches something, or starts a chain reaction.

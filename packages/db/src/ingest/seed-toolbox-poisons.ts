@@ -1,9 +1,9 @@
 /**
- * Seed SRD 5.2 Gameplay Toolbox trap entries + rules section (DATA-1b v1).
+ * Seed SRD 5.2 Gameplay Toolbox poison entries + rules section (DATA-1b).
  */
 import { sql } from "drizzle-orm";
 
-import { validateTrapDefinition } from "@app/engine";
+import { validatePoisonDefinition } from "@app/engine";
 
 import type { Database } from "../client";
 import {
@@ -13,22 +13,24 @@ import {
 } from "../schema/codex";
 import { GAMEPLAY_TOOLBOX_CHAPTER_SLUG } from "./srd-toolbox-shared";
 import {
-  SRD_TOOLBOX_TRAP_SEEDS,
-  TRAPS_RULES_PROSE,
-  TRAPS_RULES_SECTION_SLUG,
-} from "./srd-toolbox-traps";
+  POISONS_RULES_PROSE,
+  POISONS_RULES_SECTION_SLUG,
+  SRD_TOOLBOX_POISON_SEEDS,
+} from "./srd-toolbox-poisons";
 
-export type SeedToolboxTrapsResult = {
+export type SeedToolboxPoisonsResult = {
   chapterUpserted: boolean;
   rulesSectionUpserted: boolean;
-  trapsUpserted: number;
+  poisonsUpserted: number;
 };
 
-export async function seedToolboxTraps(db: Database): Promise<SeedToolboxTrapsResult> {
-  for (const seed of SRD_TOOLBOX_TRAP_SEEDS) {
-    const errors = validateTrapDefinition(seed.definition);
+export async function seedToolboxPoisons(
+  db: Database,
+): Promise<SeedToolboxPoisonsResult> {
+  for (const seed of SRD_TOOLBOX_POISON_SEEDS) {
+    const errors = validatePoisonDefinition(seed.definition);
     if (errors.length > 0) {
-      throw new Error(`Invalid trap seed ${seed.slug}: ${errors.join(" ")}`);
+      throw new Error(`Invalid poison seed ${seed.slug}: ${errors.join(" ")}`);
     }
   }
 
@@ -57,13 +59,13 @@ export async function seedToolboxTraps(db: Database): Promise<SeedToolboxTrapsRe
   await db
     .insert(codexRuleSections)
     .values({
-      slug: TRAPS_RULES_SECTION_SLUG,
-      name: "Traps",
-      description: TRAPS_RULES_PROSE,
+      slug: POISONS_RULES_SECTION_SLUG,
+      name: "Poisons",
+      description: POISONS_RULES_PROSE,
       chapterSlug: GAMEPLAY_TOOLBOX_CHAPTER_SLUG,
-      sortIndex: 0,
+      sortIndex: 1,
       source: "srd",
-      raw: { seeded: true, topic: "trap" },
+      raw: { seeded: true, topic: "poison" },
     })
     .onConflictDoUpdate({
       target: codexRuleSections.slug,
@@ -78,15 +80,15 @@ export async function seedToolboxTraps(db: Database): Promise<SeedToolboxTrapsRe
       },
     });
 
-  let trapsUpserted = 0;
-  for (const seed of SRD_TOOLBOX_TRAP_SEEDS) {
+  let poisonsUpserted = 0;
+  for (const seed of SRD_TOOLBOX_POISON_SEEDS) {
     await db
       .insert(codexToolboxEntries)
       .values({
         slug: seed.slug,
         name: seed.name,
         description: seed.description,
-        topic: "trap",
+        topic: "poison",
         sortIndex: seed.sortIndex,
         source: "srd",
         definition: seed.definition,
@@ -105,12 +107,12 @@ export async function seedToolboxTraps(db: Database): Promise<SeedToolboxTrapsRe
           ingestedAt: sql`now()`,
         },
       });
-    trapsUpserted += 1;
+    poisonsUpserted += 1;
   }
 
   return {
     chapterUpserted: true,
     rulesSectionUpserted: true,
-    trapsUpserted,
+    poisonsUpserted,
   };
 }

@@ -18,7 +18,9 @@ import {
   resetHomebrewSpellFromCodex,
 } from "@/server/lib/copy-codex-to-smithy";
 import { assembleItemDefinition } from "@/server/lib/smithy-item-definition";
-import { assembleTrapDefinition } from "@/server/lib/smithy-toolbox-definition";
+import {
+  assembleToolboxDefinition,
+} from "@/server/lib/smithy-toolbox-definition";
 
 import {
   AREA_SHAPES,
@@ -34,11 +36,13 @@ import {
   TARGETING_TYPES,
   TOOLBOX_TOPICS,
   TRAP_RESET_MODES,
+  POISON_TYPES,
   open5eRawToSpellDefinition,
   validateItemDefinition,
   validateSpellDefinition,
   type ItemDefinition,
   type SpellDefinition,
+  type GameplayToolboxEntryDefinition,
   type TrapDefinition,
   type ToolboxCheck,
   type ToolboxTopic,
@@ -244,14 +248,63 @@ const toolboxTrapInput = z.object({
   resetInterval: z.string().trim().max(80).optional(),
 });
 
+const toolboxPoisonInput = z.object({
+  poisonType: z.enum(POISON_TYPES),
+  save: z
+    .object({
+      ability: ABILITY,
+      dc: z.number().int().min(1).max(30),
+      onSuccess: z.enum(TOOLBOX_SAVE_OUTCOMES),
+    })
+    .optional(),
+  damage: z
+    .array(z.object({ dice, type: z.enum(DAMAGE_TYPES) }))
+    .max(6)
+    .optional(),
+  conditions: z.array(z.string().trim().max(60)).max(10).optional(),
+  repeat: z.string().trim().max(500).optional(),
+});
+
 const createToolboxInput = z.object({
   name: z.string().trim().min(1).max(120),
   topic: z.enum(TOOLBOX_TOPICS).default("trap"),
   description: z.string().trim().max(4000).default(""),
   source: itemSource.default("original"),
   copiedFromSlug: z.string().trim().max(160).optional(),
-  trap: toolboxTrapInput,
+  trap: toolboxTrapInput.optional(),
+  poison: toolboxPoisonInput.optional(),
 });
+
+function toolboxDefinitionFromInput(
+  input: z.infer<typeof createToolboxInput>,
+): GameplayToolboxEntryDefinition {
+  return assembleToolboxDefinition({
+    topic: input.topic,
+    trap: input.trap
+      ? {
+          name: input.name,
+          description: input.description,
+          trigger: input.trap.trigger,
+          effect: input.trap.effect,
+          detect: input.trap.detect,
+          disable: input.trap.disable,
+          reset: input.trap.reset,
+          resetInterval: input.trap.resetInterval,
+        }
+      : undefined,
+    poison: input.poison
+      ? {
+          name: input.name,
+          description: input.description,
+          poisonType: input.poison.poisonType,
+          save: input.poison.save,
+          damage: input.poison.damage,
+          conditions: input.poison.conditions,
+          repeat: input.poison.repeat,
+        }
+      : undefined,
+  });
+}
 
 /** Deterministic slug for the spell id from its name (id is engine-facing). */
 function spellId(name: string): string {
@@ -948,19 +1001,7 @@ export const smithyRouter = createTRPCRouter({
   createToolboxEntry: protectedProcedure
     .input(createToolboxInput)
     .mutation(async ({ ctx, input }) => {
-      const definition = assembleTrapDefinition(
-        {
-          name: input.name,
-          description: input.description,
-          trigger: input.trap.trigger,
-          effect: input.trap.effect,
-          detect: input.trap.detect,
-          disable: input.trap.disable,
-          reset: input.trap.reset,
-          resetInterval: input.trap.resetInterval,
-        },
-        input.topic,
-      );
+      const definition = toolboxDefinitionFromInput(input);
       const db = getDb();
       const [row] = await db
         .insert(homebrewToolboxEntries)
@@ -980,19 +1021,7 @@ export const smithyRouter = createTRPCRouter({
   updateToolboxEntry: protectedProcedure
     .input(createToolboxInput.extend({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const definition = assembleTrapDefinition(
-        {
-          name: input.name,
-          description: input.description,
-          trigger: input.trap.trigger,
-          effect: input.trap.effect,
-          detect: input.trap.detect,
-          disable: input.trap.disable,
-          reset: input.trap.reset,
-          resetInterval: input.trap.resetInterval,
-        },
-        input.topic,
-      );
+      const definition = toolboxDefinitionFromInput(input);
       const db = getDb();
       const [row] = await db
         .update(homebrewToolboxEntries)

@@ -33,6 +33,7 @@ import {
   POISONS_RULES_PROSE,
   POISONS_RULES_SECTION_SLUG,
   CURSES_RULES_SECTION_SLUG,
+  ENVIRONMENTAL_EFFECTS_RULES_SECTION_SLUG,
 } from "@app/db";
 
 import { sortSizes } from "@/lib/codex-monster-filters";
@@ -1049,6 +1050,7 @@ export const codexRouter = createTRPCRouter({
         trap: TRAPS_RULES_SECTION_SLUG,
         poison: POISONS_RULES_SECTION_SLUG,
         curse: CURSES_RULES_SECTION_SLUG,
+        environmental_effect: ENVIRONMENTAL_EFFECTS_RULES_SECTION_SLUG,
       };
       const slug = slugByTopic[input.topic];
       if (!slug) return null;

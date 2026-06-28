@@ -274,6 +274,7 @@ export {
 } from "./content/hazard-definitions";
 export {
   isValidCurseDefinition,
+  isValidEnvironmentalEffectDefinition,
   isValidGameplayToolboxEntryDefinition,
   isValidPoisonDefinition,
   isValidTrapDefinition,
@@ -281,6 +282,7 @@ export {
   TOOLBOX_TOPICS,
   TRAP_RESET_MODES,
   validateCurseDefinition,
+  validateEnvironmentalEffectDefinition,
   validateGameplayToolboxEntryDefinition,
   validatePoisonDefinition,
   validateTrapDefinition,

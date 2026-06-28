@@ -4,6 +4,7 @@ import {
   toolboxEntryId,
   validateGameplayToolboxEntryDefinition,
   type CurseDefinition,
+  type EnvironmentalEffectDefinition,
   type GameplayToolboxEntryDefinition,
   type PoisonDefinition,
   type PoisonType,
@@ -43,6 +44,17 @@ export type SmithyCurseFormInput = {
   save?: ToolboxSave;
   effects?: string[];
   recovery?: string;
+};
+
+export type SmithyEnvironmentalEffectFormInput = {
+  name: string;
+  description: string;
+  area?: string;
+  duration?: string;
+  save?: ToolboxSave;
+  damage?: ToolboxDamage[];
+  conditions?: string[];
+  repeat?: string;
 };
 
 export function assembleTrapDefinition(
@@ -123,11 +135,39 @@ export function assembleCurseDefinition(
   return definition;
 }
 
+export function assembleEnvironmentalEffectDefinition(
+  input: SmithyEnvironmentalEffectFormInput,
+): EnvironmentalEffectDefinition {
+  const definition: EnvironmentalEffectDefinition = {
+    kind: "environmental_effect",
+    id: toolboxEntryId(input.name),
+    name: input.name.trim(),
+    description: input.description.trim(),
+    area: input.area?.trim() || undefined,
+    duration: input.duration?.trim() || undefined,
+    save: input.save,
+    damage: input.damage,
+    conditions: input.conditions,
+    repeat: input.repeat?.trim() || undefined,
+  };
+
+  const errors = validateGameplayToolboxEntryDefinition(definition);
+  if (errors.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: errors.join(" "),
+    });
+  }
+
+  return definition;
+}
+
 export function assembleToolboxDefinition(input: {
   topic: ToolboxTopic;
   trap?: SmithyTrapFormInput;
   poison?: SmithyPoisonFormInput;
   curse?: SmithyCurseFormInput;
+  environmentalEffect?: SmithyEnvironmentalEffectFormInput;
 }): GameplayToolboxEntryDefinition {
   if (input.topic === "trap") {
     if (!input.trap) {
@@ -155,6 +195,15 @@ export function assembleToolboxDefinition(input: {
       });
     }
     return assembleCurseDefinition(input.curse);
+  }
+  if (input.topic === "environmental_effect") {
+    if (!input.environmentalEffect) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Environmental effect mechanics are required.",
+      });
+    }
+    return assembleEnvironmentalEffectDefinition(input.environmentalEffect);
   }
   throw new TRPCError({
     code: "BAD_REQUEST",

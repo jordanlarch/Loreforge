@@ -278,6 +278,24 @@ const toolboxCurseInput = z.object({
   recovery: z.string().trim().max(1000).optional(),
 });
 
+const toolboxEnvironmentalEffectInput = z.object({
+  area: z.string().trim().max(500).optional(),
+  duration: z.string().trim().max(500).optional(),
+  save: z
+    .object({
+      ability: ABILITY,
+      dc: z.number().int().min(1).max(30),
+      onSuccess: z.enum(TOOLBOX_SAVE_OUTCOMES),
+    })
+    .optional(),
+  damage: z
+    .array(z.object({ dice, type: z.enum(DAMAGE_TYPES) }))
+    .max(6)
+    .optional(),
+  conditions: z.array(z.string().trim().max(60)).max(10).optional(),
+  repeat: z.string().trim().max(1000).optional(),
+});
+
 const createToolboxInput = z.object({
   name: z.string().trim().min(1).max(120),
   topic: z.enum(TOOLBOX_TOPICS).default("trap"),
@@ -287,6 +305,7 @@ const createToolboxInput = z.object({
   trap: toolboxTrapInput.optional(),
   poison: toolboxPoisonInput.optional(),
   curse: toolboxCurseInput.optional(),
+  environmentalEffect: toolboxEnvironmentalEffectInput.optional(),
 });
 
 function toolboxDefinitionFromInput(
@@ -325,6 +344,18 @@ function toolboxDefinitionFromInput(
           save: input.curse.save,
           effects: input.curse.effects,
           recovery: input.curse.recovery,
+        }
+      : undefined,
+    environmentalEffect: input.environmentalEffect
+      ? {
+          name: input.name,
+          description: input.description,
+          area: input.environmentalEffect.area,
+          duration: input.environmentalEffect.duration,
+          save: input.environmentalEffect.save,
+          damage: input.environmentalEffect.damage,
+          conditions: input.environmentalEffect.conditions,
+          repeat: input.environmentalEffect.repeat,
         }
       : undefined,
   });

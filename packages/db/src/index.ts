@@ -76,6 +76,10 @@ export {
   seedToolboxCurses,
   type SeedToolboxCursesResult,
 } from "./ingest/seed-toolbox-curses";
+export {
+  seedToolboxEnvironmentalEffects,
+  type SeedToolboxEnvironmentalEffectsResult,
+} from "./ingest/seed-toolbox-environmental-effects";
 export { GAMEPLAY_TOOLBOX_CHAPTER_SLUG } from "./ingest/srd-toolbox-shared";
 export {
   SRD_TOOLBOX_TRAP_SEEDS,
@@ -92,4 +96,9 @@ export {
   CURSES_RULES_PROSE,
   CURSES_RULES_SECTION_SLUG,
 } from "./ingest/srd-toolbox-curses";
+export {
+  SRD_TOOLBOX_ENVIRONMENTAL_EFFECT_SEEDS,
+  ENVIRONMENTAL_EFFECTS_RULES_PROSE,
+  ENVIRONMENTAL_EFFECTS_RULES_SECTION_SLUG,
+} from "./ingest/srd-toolbox-environmental-effects";
 export { traitDescription } from "./ingest/srd-trait-descriptions";

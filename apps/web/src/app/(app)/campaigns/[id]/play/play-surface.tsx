@@ -54,6 +54,7 @@ import {
   ingestedPoisonsForUse,
   injuryPoisonsForCoat,
 } from "@/lib/live-poisons";
+import { cursesForUse } from "@/lib/live-curses";
 import { resolvePcCharacterId } from "@/lib/campaign-access";
 import { resolveCurrentMapLevel } from "@/lib/map-zoom-level";
 import { joinedSincePrompt } from "@/lib/live-presence";
@@ -417,13 +418,15 @@ function LiveBattle({
   );
 
   const onQuickUseItem = useCallback(
-    (item: { name: string; poisonSlug?: string }) => {
+    (item: { name: string; poisonSlug?: string; curseSlug?: string }) => {
       if (item.poisonSlug && pcCharacterId) {
         session.applyPoison(pcCharacterId, item.poisonSlug);
+      } else if (item.curseSlug && pcCharacterId) {
+        session.applyCurse(pcCharacterId, item.curseSlug);
       }
       session.sendChat(`uses ${item.name}`, "use_item");
     },
-    [pcCharacterId, session.applyPoison, session.sendChat],
+    [pcCharacterId, session.applyPoison, session.applyCurse, session.sendChat],
   );
 
   const weapons: WeaponAttack[] = activeEntity
@@ -672,10 +675,18 @@ function LiveBattle({
         poisonSlug: p.slug,
       }),
     );
+    const curseItems = cursesForUse(activeSheet.equipment, smithyItems).map((c) => ({
+      name: c.label,
+      quantity: c.quantity,
+      curseSlug: c.slug,
+    }));
     const seen = new Set(consumables.map((c) => c.name.toLowerCase()));
     const merged = [...consumables];
     for (const vial of poisonVials) {
       if (!seen.has(vial.name.toLowerCase())) merged.push(vial);
+    }
+    for (const curse of curseItems) {
+      if (!seen.has(curse.name.toLowerCase())) merged.push(curse);
     }
     return merged;
   }, [controllableTurn, activeSheet, smithyItems]);

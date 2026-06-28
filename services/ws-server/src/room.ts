@@ -43,7 +43,7 @@ import {
   type WorldState,
 } from "@app/engine";
 
-import { grantPoisonDemoLoot } from "./db.js";
+import { grantPoisonDemoLoot, grantCurseDemoLoot } from "./db.js";
 
 /** Deterministic clock so a re-seeded room reproduces the same fixture state. */
 export const FIXED_CLOCK = () => 0;
@@ -237,6 +237,7 @@ export class CampaignRoom implements LiveRoom {
         : undefined;
       if (location?.type === "dungeon") {
         await grantPoisonDemoLoot(this.campaignId);
+        await grantCurseDemoLoot(this.campaignId);
       }
     }
     this.seeded = true;
@@ -379,6 +380,8 @@ export function isBattleAction(value: unknown): value is BattleAction {
     sceneId?: unknown;
     trapInstanceId?: unknown;
     poisonSlug?: unknown;
+    curseSlug?: unknown;
+    instanceId?: unknown;
   };
   if (action.type === "end_turn") return true;
   if (action.type === "ready_action") {
@@ -453,6 +456,16 @@ export function isBattleAction(value: unknown): value is BattleAction {
   if (action.type === "apply_poison") {
     return (
       typeof action.target === "string" && typeof action.poisonSlug === "string"
+    );
+  }
+  if (action.type === "apply_curse") {
+    return (
+      typeof action.target === "string" && typeof action.curseSlug === "string"
+    );
+  }
+  if (action.type === "remove_curse") {
+    return (
+      typeof action.target === "string" && typeof action.instanceId === "string"
     );
   }
   return false;

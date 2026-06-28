@@ -438,6 +438,11 @@ export function useLiveSession({
         t: "cmd",
         action: { type: "apply_poison", target, poisonSlug },
       }),
+    applyCurse: (target: string, curseSlug: string) =>
+      send({
+        t: "cmd",
+        action: { type: "apply_curse", target, curseSlug },
+      }),
     reset: () => send({ t: "reset" }),
     syncParty,
     /** Travel to a World-tab location (Rung 4 Slice 2 / CAMP-UX UX-1). */

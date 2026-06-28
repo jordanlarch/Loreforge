@@ -2,10 +2,12 @@
 
 import {
   abilityModifier,
+  type ActiveCurseInstance,
   type ActivePoisonInstance,
   type EntityState,
 } from "@app/engine";
 
+import { activeCurseHudLabel } from "@/lib/live-curses";
 import { activePoisonHudLabel } from "@/lib/live-poisons";
 
 const ABILITIES: { key: keyof EntityState["abilityScores"]; label: string }[] = [
@@ -85,6 +87,19 @@ export function PartyMemberDetail({ member }: { member: EntityState }) {
               className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-200"
             >
               {activePoisonHudLabel(p)}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {member.activeCurses && member.activeCurses.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {member.activeCurses.map((c: ActiveCurseInstance) => (
+            <span
+              key={c.instanceId}
+              className="rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-200"
+            >
+              {activeCurseHudLabel(c)}
             </span>
           ))}
         </div>
@@ -196,6 +211,10 @@ export function PartyMemberRow({
       {member.activePoisons?.[0] ? (
         <span className="text-[10px] text-emerald-200 line-clamp-1">
           {activePoisonHudLabel(member.activePoisons[0])}
+        </span>
+      ) : member.activeCurses?.[0] ? (
+        <span className="text-[10px] text-violet-200 line-clamp-1">
+          {activeCurseHudLabel(member.activeCurses[0])}
         </span>
       ) : null}
     </>

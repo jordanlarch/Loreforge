@@ -368,6 +368,8 @@ export function isBattleAction(value: unknown): value is BattleAction {
     origin?: unknown;
     trigger?: unknown;
     action?: unknown;
+    sceneId?: unknown;
+    trapInstanceId?: unknown;
   };
   if (action.type === "end_turn") return true;
   if (action.type === "ready_action") {
@@ -425,6 +427,13 @@ export function isBattleAction(value: unknown): value is BattleAction {
           action.targets.every((t) => typeof t === "string"))) &&
       // Area spells (#99) carry an aim/origin cell the engine resolves from.
       (action.origin === undefined || isGridPosition(action.origin))
+    );
+  }
+  if (action.type === "detect_trap" || action.type === "disable_trap") {
+    return (
+      typeof action.entity === "string" &&
+      typeof action.sceneId === "string" &&
+      typeof action.trapInstanceId === "string"
     );
   }
   return false;

@@ -418,6 +418,16 @@ export function useLiveSession({
           },
         },
       }),
+    detectTrap: (entity: string, sceneId: string, trapInstanceId: string) =>
+      send({
+        t: "cmd",
+        action: { type: "detect_trap", entity, sceneId, trapInstanceId },
+      }),
+    disableTrap: (entity: string, sceneId: string, trapInstanceId: string) =>
+      send({
+        t: "cmd",
+        action: { type: "disable_trap", entity, sceneId, trapInstanceId },
+      }),
     reset: () => send({ t: "reset" }),
     syncParty,
     /** Travel to a World-tab location (Rung 4 Slice 2 / CAMP-UX UX-1). */

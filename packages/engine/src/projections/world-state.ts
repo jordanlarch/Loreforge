@@ -571,6 +571,57 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "TrapDetected": {
+      const scene = next.scenes[event.payload.sceneId];
+      if (scene?.traps) {
+        next.scenes = {
+          ...next.scenes,
+          [event.payload.sceneId]: {
+            ...scene,
+            traps: scene.traps.map((t) =>
+              t.instanceId === event.payload.trapInstanceId && event.payload.success
+                ? { ...t, detected: true }
+                : t,
+            ),
+          },
+        };
+      }
+      break;
+    }
+    case "TrapDisabled": {
+      const scene = next.scenes[event.payload.sceneId];
+      if (scene?.traps && event.payload.success) {
+        next.scenes = {
+          ...next.scenes,
+          [event.payload.sceneId]: {
+            ...scene,
+            traps: scene.traps.map((t) =>
+              t.instanceId === event.payload.trapInstanceId
+                ? { ...t, disabled: true }
+                : t,
+            ),
+          },
+        };
+      }
+      break;
+    }
+    case "TrapTriggered": {
+      const scene = next.scenes[event.payload.sceneId];
+      if (scene?.traps) {
+        next.scenes = {
+          ...next.scenes,
+          [event.payload.sceneId]: {
+            ...scene,
+            traps: scene.traps.map((t) =>
+              t.instanceId === event.payload.trapInstanceId
+                ? { ...t, triggered: true }
+                : t,
+            ),
+          },
+        };
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":

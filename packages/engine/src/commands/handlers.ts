@@ -63,6 +63,12 @@ import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import {
+  handleDetectTrap,
+  handleDisableTrap,
+  handleTriggerTrap,
+  trapTriggerEventsAfterMove,
+} from "./trap-handlers";
+import {
   reject,
   type AbilityCheckCommand,
   type AddCombatantCommand,
@@ -80,6 +86,9 @@ import {
   type CreateSceneCommand,
   type DamageSource,
   type DeathSaveCommand,
+  type DetectTrapCommand,
+  type DisableTrapCommand,
+  type TriggerTrapCommand,
   type EndConcentrationCommand,
   type EndEncounterCommand,
   type EndTurnCommand,
@@ -462,6 +471,10 @@ function handleMoveEntity(
       });
     }
   }
+
+  events.push(
+    ...trapTriggerEventsAfterMove(ctx, cmd.entity, entity.sceneId, to),
+  );
 
   return { accepted: true, events, summary: { entity: cmd.entity, to } };
 }
@@ -2801,5 +2814,11 @@ export function handleCommand(
       return handleTriggerReadied(command, ctx);
     case "cast_spell":
       return handleCastSpell(command, ctx);
+    case "detect_trap":
+      return handleDetectTrap(command, ctx);
+    case "disable_trap":
+      return handleDisableTrap(command, ctx);
+    case "trigger_trap":
+      return handleTriggerTrap(command, ctx);
   }
 }

@@ -214,6 +214,31 @@ export type EffectRemovedPayload = {
 /** Decrement `remainingRounds` on all timed effects (combat round boundary). */
 export type EffectsDurationTickedPayload = Record<string, never>;
 
+export type TrapDetectedPayload = {
+  sceneId: SceneId;
+  trapInstanceId: string;
+  trapSlug: string;
+  detector: EntityRef;
+  success: boolean;
+};
+
+export type TrapDisabledPayload = {
+  sceneId: SceneId;
+  trapInstanceId: string;
+  trapSlug: string;
+  disabler: EntityRef;
+  success: boolean;
+};
+
+export type TrapTriggeredPayload = {
+  sceneId: SceneId;
+  trapInstanceId: string;
+  trapSlug: string;
+  victim: EntityRef;
+  /** True when structured save/damage/conditions were applied by the engine. */
+  resolved: boolean;
+};
+
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
   /** The creature whose movement opened the window. */
@@ -333,7 +358,10 @@ export type EngineEvent =
   | (EventMeta & {
       type: "EffectsDurationTicked";
       payload: EffectsDurationTickedPayload;
-    });
+    })
+  | (EventMeta & { type: "TrapDetected"; payload: TrapDetectedPayload })
+  | (EventMeta & { type: "TrapDisabled"; payload: TrapDisabledPayload })
+  | (EventMeta & { type: "TrapTriggered"; payload: TrapTriggeredPayload });
 
 export type EngineEventType = EngineEvent["type"];
 

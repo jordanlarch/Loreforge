@@ -206,11 +206,25 @@ export type SceneMap = {
   blockedCells: GridPosition[];
 };
 
+/** Scene-placed trap instance (GRILL-LIVE-TOOLBOX Q2). */
+export type SceneTrapInstance = {
+  instanceId: string;
+  /** Codex / registry slug, e.g. `srd-2024_poison-needle`. */
+  trapSlug: string;
+  position: GridPosition;
+  detected: boolean;
+  disabled: boolean;
+  /** Set after a `once` trap fires. */
+  triggered: boolean;
+};
+
 export type SceneState = {
   id: SceneId;
   name: string;
   description?: string;
   map?: SceneMap;
+  /** Traps placed on this scene's grid (Live Play toolbox resolution). */
+  traps?: SceneTrapInstance[];
 };
 
 /**

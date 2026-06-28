@@ -270,6 +270,27 @@ export type CastSpellCommand = {
   mode?: RollMode;
 };
 
+export type DetectTrapCommand = {
+  type: "detect_trap";
+  entity: EntityRef;
+  sceneId: SceneId;
+  trapInstanceId: string;
+};
+
+export type DisableTrapCommand = {
+  type: "disable_trap";
+  entity: EntityRef;
+  sceneId: SceneId;
+  trapInstanceId: string;
+};
+
+export type TriggerTrapCommand = {
+  type: "trigger_trap";
+  sceneId: SceneId;
+  trapInstanceId: string;
+  victim: EntityRef;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -298,7 +319,10 @@ export type Command =
   | OpportunityAttackCommand
   | ReadyActionCommand
   | TriggerReadiedCommand
-  | CastSpellCommand;
+  | CastSpellCommand
+  | DetectTrapCommand
+  | DisableTrapCommand
+  | TriggerTrapCommand;
 
 export type CommandType = Command["type"];
 
@@ -333,6 +357,12 @@ export type ValidationCode =
   | "NO_READIED_ACTION"
   | "SPELL_NOT_FOUND"
   | "SPELL_NOT_PREPARED"
+  | "TRAP_NOT_FOUND"
+  | "TRAP_ALREADY_DISABLED"
+  | "TRAP_NOT_DETECTED"
+  | "TRAP_NO_DETECT"
+  | "TRAP_NO_DISABLE"
+  | "TRAP_ALREADY_TRIGGERED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"

@@ -71,6 +71,7 @@ export {
   type SceneId,
   type SceneMap,
   type SceneState,
+  type SceneTrapInstance,
   type SpellcastingInit,
   type SpellcastingState,
   type SpellSlots,
@@ -300,6 +301,12 @@ export {
   type TrapResetMode,
 } from "./content/toolbox-definitions";
 export {
+  getTrapDefinition,
+  SRD_TRAP_SEEDS,
+  TRAP_REGISTRY,
+  type SrdTrapSeed,
+} from "./content/srd-trap-seeds";
+export {
   isValidMonsterDefinition,
   monsterDefinitionId,
   validateMonsterDefinition,
@@ -463,6 +470,9 @@ export {
   type EndEncounterCommand,
   type EndTurnCommand,
   type MoveEntityCommand,
+  type DetectTrapCommand,
+  type DisableTrapCommand,
+  type TriggerTrapCommand,
   type RemoveConditionCommand,
   type RollDiceCommand,
   type RollInitiativeCommand,

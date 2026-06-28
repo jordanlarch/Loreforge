@@ -153,7 +153,29 @@ After GRILL-TRAP (and sibling grill sessions), the project audit against SRD 5.2
 
 ---
 
-## GRILL-POISON — locked (inherits GRILL-TRAP Q1–Q2, Q4–Q9)
+## GRILL-LIVE-TOOLBOX — locked (2026-06-27)
+
+Deferred from GRILL-TRAP Q7. **Traps-only v1** for Live Play resolution.
+
+| Q | Decision |
+|---|---|
+| **Q1 Scope** | **Traps only** — detect / disable / trigger; other toolbox topics later |
+| **Q2 Attachment** | **Scene-placed** — trap instances on map tiles (`SceneState.traps`) |
+| **Q2b Map scope** | **Indoor / encounter scenes only** — traps may be placed on **encounter**, **dungeon**, **building**, **shop**, and **tavern** scene maps. **Never** on **settlement** or **region** (overland) maps. Engine gates via optional `SceneState.sceneKind`. |
+| **Q3 Commands** | **`detect_trap`**, **`disable_trap`**, **`trigger_trap`** — engine owns DC/save/damage |
+| **Q4 Trigger timing** | **Auto on enter** — `move_entity` onto trapped tile fires `trigger_trap` if not disabled/spent |
+
+### Implementation status
+
+| Layer | Status |
+|---|---|
+| Engine registry | ✅ `srd-trap-seeds.ts` + `TRAP_REGISTRY` (8 PDF samples) |
+| Engine commands | ✅ handlers + projection + `engine.traps.test.ts` |
+| WS / Live Play UI | ⏳ next slice — battle action wiring + detect/disable affordances |
+| Scene trap placement (GM prep) | ⏳ deferred — CAMP / map editor |
+| Poisons+ siblings | ⏳ after traps v1 prod verify |
+
+---
 
 Same architecture as traps unless noted. **Q3 topic-specific:**
 

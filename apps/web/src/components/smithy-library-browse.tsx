@@ -16,7 +16,7 @@ import type {
 import { SmithyLibraryCard } from "./smithy-library-card";
 
 export type SmithyLibraryEntry = {
-  kind: "item" | "spell";
+  kind: "item" | "spell" | "toolbox";
   id: string;
   name: string;
   source: "codex" | "original";

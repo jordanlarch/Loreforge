@@ -197,7 +197,7 @@ are metadata-only. Diverges sharply from the full "homebrew forge."
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
 | DATA-1a | Armor AC from equipped `ItemDefinition` on character sheet | SMITH-7 | engine + sheet | Partial | **PR #285:** `deriveEquippedArmorClass` + Smithy/Codex `resolveItemDefinitions`; `codexSlug`; Live Stats HUD; inventory Inspect; Codex data-definition panel. **Prod verify pending** on Vercel prod after deploy. |
-| DATA-1b | Hazard / trap / poison / disease / environmental schema | P3 engine | engine types | Partial | Discriminated **`HazardDefinition`** kinds in `@app/engine` (`TrapDefinition`, `PoisonDefinition`, `DiseaseDefinition`, `EnvironmentalHazardDefinition`) + validation. **Grill backlog:** per-category source + ingest — see `docs/data-model-hazards.md`. Codex advanced-rules normalization + engine/map/campaign hooks deferred. |
+| DATA-1b | Gameplay Toolbox entries (traps → poisons → …) | P3 engine + Codex + Smithy | engine + DB + UI | Partial | **Traps v1 shipped** (PR pending) — `codex_toolbox_entries`, `homebrew_toolbox_entries`, Gameplay Toolbox Codex two-tier Traps UI, Smithy copy/forge. Engine: `toolbox-definitions.ts`. **Deferred:** poisons/curses/env/fear entries (sibling grills locked), Live Play resolution, Open5e ingest rewrite (**SRD-AUDIT-10**). |
 | DATA-1c | `MonsterDefinition` + Codex bestiary → engine bridge | P3/P6 | engine types | Partial | **`monster-definitions.ts`** validation stub only — not credible for encounter builder until Open5e monster → `MonsterDefinition` ingest + grill on action/legendary blocks. CAMP-8 uses curated `MonsterTemplate` only. |
 | DATA-1d | Consumable / wondrous items without weapon shape (acid vial, etc.) | SMITH-7 | engine | Missing | `validateItemDefinition` weapon-centric; needs consumable/hazard item kind or relaxed validation for prose-only Codex copies. |
 
@@ -397,6 +397,7 @@ Full discovery matrix: **`docs/srd-version-audit.md`**. Re-run DB counts: `cd pa
 | SRD-AUDIT-7 | Slot/multiclass engine vs 2024 SRD; remove EK/AT third-caster | spell-slots.ts, third-caster-slots.ts | after AUDIT-4 | doc-only | **Done** | Removed third-caster module; PHB→SRD UI copy on spells tab / level-up; pooled slots unchanged (SRD table). |
 | SRD-AUDIT-8 | Delete all characters; drop `normalizeSubclassName` legacy aliases; fix fixtures | Jordan decision | with purge | doc-only | **Done** | `npm run purge:characters` removed **3** prod rows; dropped `SUBCLASS_NAME_ALIASES`; fixtures → Dwarf/Champion, Elf. |
 | SRD-AUDIT-9 | Docs: `data-sources.md`, AGENTS.md — drop 5e-bits; state PDF-first policy | srd-version-audit.md | after ingest flips | doc-only | **Done** | Open5e-only ingest documented; 5e-bits in **Considered And Rejected**; consolidated plan + product-spec assumptions updated. |
+| SRD-AUDIT-10 | Full SRD 5.2 PDF alignment — Codex IA, Gameplay Toolbox ingest, terminology | srd-version-audit.md | post–DATA-1b v1 | doc-only | Missing | **GRILL-TRAP exposed gaps:** Codex **Advanced** ≠ **Gameplay Toolbox**; `srd_traps_*` ≠ `srd-2024_*`; Exploration hazards ≠ toolbox entries. Full project/UI/codebase audit. See `docs/data-model-hazards.md`. |
 
 ---
 

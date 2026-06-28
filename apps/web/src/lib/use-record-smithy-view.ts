@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { recordSmithyView } from "@/lib/codex-recently-viewed";
 
 export function useRecordSmithyView(
-  kind: "spell" | "item",
+  kind: "spell" | "item" | "toolbox",
   id: string,
   name: string | undefined | null,
 ) {

@@ -9,6 +9,7 @@ import {
   itemDefinitionId,
   open5eRawToItemDefinition,
   open5eRawToSpellDefinition,
+  validateGameplayToolboxEntryDefinition,
   validateItemDefinition,
   validateSpellDefinition,
   type ItemDefinition,
@@ -16,7 +17,6 @@ import {
   type ItemType,
 } from "@app/engine";
 import {
-  codexAdvancedRules,
   codexBackgrounds,
   codexClasses,
   codexFeats,
@@ -26,13 +26,14 @@ import {
   codexSpecies,
   codexSpells,
   codexSubclasses,
+  codexToolboxEntries,
   getDb,
   homebrewItems,
   homebrewSpells,
+  homebrewToolboxEntries,
 } from "@app/db";
 
 import { CODEX_CATEGORIES, type CodexCategory } from "@/lib/codex-categories";
-import { formatAdvancedTopic } from "@/lib/codex-advanced-display";
 import {
   backgroundFeatureEntries,
   backgroundOriginFeatName,
@@ -57,7 +58,8 @@ export const codexCopyCategory = CODEX_CATEGORIES;
 
 export type CopyFromCodexResult =
   | { kind: "spell"; id: string }
-  | { kind: "item"; id: string };
+  | { kind: "item"; id: string }
+  | { kind: "toolbox"; id: string };
 
 async function findOwnedSnapshotItem(ownerId: string, copyKey: string) {
   const db = getDb();
@@ -114,6 +116,58 @@ async function insertSnapshotItem(input: {
     })
     .returning({ id: homebrewItems.id });
   return { kind: "item", id: row!.id };
+}
+
+async function copyToolboxEntry(
+  ownerId: string,
+  slug: string,
+): Promise<CopyFromCodexResult> {
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: homebrewToolboxEntries.id })
+    .from(homebrewToolboxEntries)
+    .where(
+      and(
+        eq(homebrewToolboxEntries.ownerId, ownerId),
+        eq(homebrewToolboxEntries.copiedFromSlug, slug),
+      ),
+    )
+    .limit(1);
+  if (existing) return { kind: "toolbox", id: existing.id };
+
+  const [codex] = await db
+    .select()
+    .from(codexToolboxEntries)
+    .where(eq(codexToolboxEntries.slug, slug))
+    .limit(1);
+  if (!codex) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Codex toolbox entry not found.",
+    });
+  }
+
+  const errors = validateGameplayToolboxEntryDefinition(codex.definition);
+  if (errors.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: errors.join(" "),
+    });
+  }
+
+  const [row] = await db
+    .insert(homebrewToolboxEntries)
+    .values({
+      ownerId,
+      name: codex.name,
+      topic: codex.topic,
+      description: codex.description ?? codex.definition.description ?? "",
+      definition: codex.definition,
+      source: "codex",
+      copiedFromSlug: slug,
+    })
+    .returning({ id: homebrewToolboxEntries.id });
+  return { kind: "toolbox", id: row!.id };
 }
 
 async function copySpell(ownerId: string, slug: string): Promise<CopyFromCodexResult> {
@@ -400,28 +454,6 @@ async function copySnapshot(
     });
   }
 
-  if (category === "Advanced") {
-    const [row] = await db
-      .select()
-      .from(codexAdvancedRules)
-      .where(eq(codexAdvancedRules.slug, slug))
-      .limit(1);
-    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return insertSnapshotItem({
-      ownerId,
-      name: row.name,
-      type,
-      properties: [`Codex: ${category}`, formatAdvancedTopic(row.topic)],
-      copyKey,
-      description: buildCodexSnapshotDescription({
-        category,
-        name: row.name,
-        description: row.description,
-        raw: row.raw,
-      }),
-    });
-  }
-
   if (category === "Rules") {
     const [row] = await db
       .select()
@@ -460,6 +492,9 @@ export async function copyCodexEntryToSmithy(input: {
   }
   if (input.category === "Items") {
     return copyItem(input.ownerId, input.slug);
+  }
+  if (input.category === "Gameplay Toolbox") {
+    return copyToolboxEntry(input.ownerId, input.slug);
   }
   return copySnapshot(input.ownerId, input.category, input.slug);
 }
@@ -812,27 +847,6 @@ async function codexItemCopyPayload(
           `Speed: ${formatSpeedLine(raw)}`,
           row.alignment ? `Alignment: ${row.alignment}` : "",
         ],
-      }),
-    });
-  }
-
-  if (category === "Advanced") {
-    const [row] = await db
-      .select()
-      .from(codexAdvancedRules)
-      .where(eq(codexAdvancedRules.slug, slug))
-      .limit(1);
-    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Codex entry not found." });
-    return snapshotItemPayload({
-      name: row.name,
-      type,
-      slug: copyKey,
-      properties: [`Codex: ${category}`, formatAdvancedTopic(row.topic)],
-      description: buildCodexSnapshotDescription({
-        category,
-        name: row.name,
-        description: row.description,
-        raw: row.raw,
       }),
     });
   }

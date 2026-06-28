@@ -17,9 +17,8 @@ import {
   resetHomebrewItemFromCodex,
   resetHomebrewSpellFromCodex,
 } from "@/server/lib/copy-codex-to-smithy";
-import {
-  assembleItemDefinition,
-} from "@/server/lib/smithy-item-definition";
+import { assembleItemDefinition } from "@/server/lib/smithy-item-definition";
+import { assembleTrapDefinition } from "@/server/lib/smithy-toolbox-definition";
 
 import {
   AREA_SHAPES,
@@ -33,13 +32,24 @@ import {
   SAVE_OUTCOMES,
   SPELL_SCHOOLS,
   TARGETING_TYPES,
+  TOOLBOX_TOPICS,
+  TRAP_RESET_MODES,
   open5eRawToSpellDefinition,
   validateItemDefinition,
   validateSpellDefinition,
   type ItemDefinition,
   type SpellDefinition,
+  type TrapDefinition,
+  type ToolboxCheck,
+  type ToolboxTopic,
 } from "@app/engine";
-import { codexSpells, getDb, homebrewItems, homebrewSpells } from "@app/db";
+import {
+  codexSpells,
+  getDb,
+  homebrewItems,
+  homebrewSpells,
+  homebrewToolboxEntries,
+} from "@app/db";
 
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -49,6 +59,7 @@ import {
   type SmithyLibraryCategory,
 } from "@/lib/smithy-categories";
 import { filterSortSmithyLibraryEntries } from "@/lib/smithy-library-filter";
+import { formatToolboxTopic } from "@/lib/codex-toolbox-display";
 
 const smithyLibraryCategory = z.enum(SMITHY_LIBRARY_CATEGORIES);
 const smithyLibrarySortBy = z.enum(["updatedAt", "name"]);
@@ -199,6 +210,49 @@ const createSpellInput = z.object({
   copiedFromSlug: z.string().trim().max(160).optional(),
 });
 
+const toolboxCheckInput = z.object({
+  dc: z.number().int().min(1).max(30),
+  ability: ABILITY,
+  skill: z.string().trim().max(60).optional(),
+  tool: z.string().trim().max(60).optional(),
+});
+
+const TOOLBOX_SAVE_OUTCOMES = ["none", "half", "negates"] as const;
+
+const trapEffectInput = z.object({
+  save: z
+    .object({
+      ability: ABILITY,
+      dc: z.number().int().min(1).max(30),
+      onSuccess: z.enum(TOOLBOX_SAVE_OUTCOMES),
+    })
+    .optional(),
+  damage: z
+    .array(z.object({ dice, type: z.enum(DAMAGE_TYPES) }))
+    .max(6)
+    .optional(),
+  conditions: z.array(z.string().trim().max(60)).max(10).optional(),
+  effectProse: z.string().trim().max(2000).optional(),
+});
+
+const toolboxTrapInput = z.object({
+  trigger: z.string().trim().min(1).max(500),
+  effect: trapEffectInput,
+  detect: toolboxCheckInput.optional(),
+  disable: toolboxCheckInput.optional(),
+  reset: z.enum(TRAP_RESET_MODES),
+  resetInterval: z.string().trim().max(80).optional(),
+});
+
+const createToolboxInput = z.object({
+  name: z.string().trim().min(1).max(120),
+  topic: z.enum(TOOLBOX_TOPICS).default("trap"),
+  description: z.string().trim().max(4000).default(""),
+  source: itemSource.default("original"),
+  copiedFromSlug: z.string().trim().max(160).optional(),
+  trap: toolboxTrapInput,
+});
+
 /** Deterministic slug for the spell id from its name (id is engine-facing). */
 function spellId(name: string): string {
   return (
@@ -242,7 +296,7 @@ export const smithyRouter = createTRPCRouter({
       const db = getDb();
       const category = input?.category ?? "All";
 
-      const [items, spells] = await Promise.all([
+      const [items, spells, toolboxEntries] = await Promise.all([
         db
           .select()
           .from(homebrewItems)
@@ -261,10 +315,22 @@ export const smithyRouter = createTRPCRouter({
           .from(homebrewSpells)
           .where(eq(homebrewSpells.ownerId, ctx.user.id))
           .orderBy(desc(homebrewSpells.updatedAt)),
+        db
+          .select({
+            id: homebrewToolboxEntries.id,
+            name: homebrewToolboxEntries.name,
+            topic: homebrewToolboxEntries.topic,
+            source: homebrewToolboxEntries.source,
+            updatedAt: homebrewToolboxEntries.updatedAt,
+            description: homebrewToolboxEntries.description,
+          })
+          .from(homebrewToolboxEntries)
+          .where(eq(homebrewToolboxEntries.ownerId, ctx.user.id))
+          .orderBy(desc(homebrewToolboxEntries.updatedAt)),
       ]);
 
       type Entry = {
-        kind: "item" | "spell";
+        kind: "item" | "spell" | "toolbox";
         id: string;
         name: string;
         source: (typeof items)[number]["source"];
@@ -315,6 +381,21 @@ export const smithyRouter = createTRPCRouter({
           href: `/smithy/spells/${spell.id}`,
           updatedAt: spell.updatedAt,
           descriptionSnippet: spell.description.trim().slice(0, 120) || null,
+        });
+      }
+
+      for (const row of toolboxEntries) {
+        if (category !== "All" && category !== "Toolbox") continue;
+        entries.push({
+          kind: "toolbox",
+          id: row.id,
+          name: row.name,
+          source: row.source,
+          category: "Toolbox",
+          subtitle: formatToolboxTopic(row.topic),
+          href: `/smithy/toolbox/${row.id}`,
+          updatedAt: row.updatedAt,
+          descriptionSnippet: row.description.trim().slice(0, 120) || null,
         });
       }
 
@@ -843,6 +924,119 @@ export const smithyRouter = createTRPCRouter({
         .returning({ id: homebrewSpells.id });
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Spell not found." });
+      }
+      return { id: row.id };
+    }),
+
+  getToolboxEntry: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(homebrewToolboxEntries)
+        .where(
+          and(
+            eq(homebrewToolboxEntries.id, input.id),
+            eq(homebrewToolboxEntries.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      return row ?? null;
+    }),
+
+  createToolboxEntry: protectedProcedure
+    .input(createToolboxInput)
+    .mutation(async ({ ctx, input }) => {
+      const definition = assembleTrapDefinition(
+        {
+          name: input.name,
+          description: input.description,
+          trigger: input.trap.trigger,
+          effect: input.trap.effect,
+          detect: input.trap.detect,
+          disable: input.trap.disable,
+          reset: input.trap.reset,
+          resetInterval: input.trap.resetInterval,
+        },
+        input.topic,
+      );
+      const db = getDb();
+      const [row] = await db
+        .insert(homebrewToolboxEntries)
+        .values({
+          ownerId: ctx.user.id,
+          name: input.name,
+          topic: input.topic,
+          description: input.description,
+          definition,
+          source: input.source,
+          copiedFromSlug: input.copiedFromSlug,
+        })
+        .returning();
+      return row!;
+    }),
+
+  updateToolboxEntry: protectedProcedure
+    .input(createToolboxInput.extend({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const definition = assembleTrapDefinition(
+        {
+          name: input.name,
+          description: input.description,
+          trigger: input.trap.trigger,
+          effect: input.trap.effect,
+          detect: input.trap.detect,
+          disable: input.trap.disable,
+          reset: input.trap.reset,
+          resetInterval: input.trap.resetInterval,
+        },
+        input.topic,
+      );
+      const db = getDb();
+      const [row] = await db
+        .update(homebrewToolboxEntries)
+        .set({
+          name: input.name,
+          topic: input.topic,
+          description: input.description,
+          definition,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(homebrewToolboxEntries.id, input.id),
+            eq(homebrewToolboxEntries.ownerId, ctx.user.id),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Toolbox entry not found.",
+        });
+      }
+      return row;
+    }),
+
+  deleteToolboxEntry: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [row] = await db
+        .delete(homebrewToolboxEntries)
+        .where(
+          and(
+            eq(homebrewToolboxEntries.id, input.id),
+            eq(homebrewToolboxEntries.ownerId, ctx.user.id),
+          ),
+        )
+        .returning({ id: homebrewToolboxEntries.id });
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Toolbox entry not found.",
+        });
       }
       return { id: row.id };
     }),

@@ -14,7 +14,7 @@ import {
 
 export type SmithyLibraryCardProps = {
   id: string;
-  kind: "item" | "spell";
+  kind: "item" | "spell" | "toolbox";
   name: string;
   href: string;
   subtitle: string;

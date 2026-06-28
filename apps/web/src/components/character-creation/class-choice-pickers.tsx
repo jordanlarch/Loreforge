@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   FIGHTING_STYLES,
   fightingStyleDescription,
+  fightingStyleOnFeaturesStep,
   fightingStylePickLevel,
   subclassPickLevel,
   type LevelAdvanceChoice,
@@ -275,11 +276,8 @@ export function featuresStepChoicesComplete(
   _featureChoices: Record<string, string>,
   _advances: LevelAdvanceChoice[] = [],
 ): boolean {
-  const stylePick = fightingStylePickLevel(className);
   if (
-    stylePick != null &&
-    startingLevel >= stylePick &&
-    startingLevel <= 1 &&
+    fightingStyleOnFeaturesStep(className, startingLevel) &&
     !fightingStyle.trim()
   ) {
     return false;

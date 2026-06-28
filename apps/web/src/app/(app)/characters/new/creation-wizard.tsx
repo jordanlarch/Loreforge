@@ -27,6 +27,7 @@ import {
   multiclassEligible,
   multiclassIneligibilityReason,
   fightingStylePickLevel,
+  fightingStyleOnFeaturesStep,
   subclassPickLevel,
   xpForLevel,
   type Ability,
@@ -2027,6 +2028,10 @@ function FeaturesStep({
   const pick = subclassPickLevel(className);
   const showSubclassOnFeatures =
     pick != null && startingLevel >= pick && pick === 1;
+  const showFightingStyleOnFeatures = fightingStyleOnFeaturesStep(
+    className,
+    startingLevel,
+  );
 
   return (
     <section>
@@ -2036,12 +2041,14 @@ function FeaturesStep({
         for casters continues on the Spells tab after creation.
       </p>
 
-      <FightingStylePicker
-        className={className}
-        level={startingLevel}
-        value={fightingStyle}
-        onChange={onFightingStyle}
-      />
+      {showFightingStyleOnFeatures && (
+        <FightingStylePicker
+          className={className}
+          level={startingLevel}
+          value={fightingStyle}
+          onChange={onFightingStyle}
+        />
+      )}
 
       {showSubclassOnFeatures && (
         <SubclassPicker

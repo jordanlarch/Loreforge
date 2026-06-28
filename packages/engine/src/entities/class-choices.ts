@@ -131,3 +131,14 @@ export function needsFightingStylePick(
   const pick = fightingStylePickLevel(className);
   return pick != null && level >= pick;
 }
+
+/** Fighting style on creation Features step (L1 Fighter); L2+ picks use Advancement. */
+export function fightingStyleOnFeaturesStep(
+  className: string,
+  startingLevel: number,
+): boolean {
+  const pick = fightingStylePickLevel(className);
+  if (pick == null || startingLevel < pick) return false;
+  if (pick === 1) return true;
+  return startingLevel <= 1;
+}

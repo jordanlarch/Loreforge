@@ -286,6 +286,10 @@ function eventText(action: BattleAction): string {
       return "A Perception check was made to detect a trap.";
     case "disable_trap":
       return "A check was made to disable a trap.";
+    case "coat_weapon":
+      return "A weapon was coated with poison.";
+    case "apply_poison":
+      return "A poison dose was resolved by the engine.";
     default:
       return "The engine resolved an action.";
   }
@@ -352,6 +356,16 @@ function resolutionText(
     const type = String(summary.damageType ?? "damage");
     const downed = summary.downed === true ? `, dropping ${target}` : "";
     return `${prefix}${attacker} hits ${target} (${vs})${crit} — ${dmg} ${type}${downed}.`;
+  }
+
+  if (action.type === "apply_poison") {
+    const target = nameOf(action.target);
+    return `${target} is subjected to ${action.poisonSlug.replace(/^srd-2024_/, "").replace(/-/g, " ")}.`;
+  }
+
+  if (action.type === "coat_weapon") {
+    const entity = nameOf(action.entity);
+    return `${entity} coats a weapon with poison.`;
   }
 
   if (action.type === "cast_spell") {

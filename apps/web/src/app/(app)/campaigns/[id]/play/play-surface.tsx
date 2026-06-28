@@ -50,6 +50,10 @@ import type { CoachmarkDef } from "@/lib/coachmark";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { buildExploreModel } from "@/lib/live-explore";
 import { trapsInRange } from "@/lib/live-traps";
+import {
+  ingestedPoisonsForUse,
+  injuryPoisonsForCoat,
+} from "@/lib/live-poisons";
 import { resolvePcCharacterId } from "@/lib/campaign-access";
 import { resolveCurrentMapLevel } from "@/lib/map-zoom-level";
 import { joinedSincePrompt } from "@/lib/live-presence";
@@ -398,6 +402,30 @@ function LiveBattle({
   // Sheet-driven loadout for the active combatant (#98): real weapons + spells
   // + consumables when the roster is bridged in; generic fallback otherwise.
   const activeSheet = activeEntity ? loadouts?.[activeEntity.id] : undefined;
+
+  const injuryPoisons = useMemo(() => {
+    if (!activeSheet) return [];
+    return injuryPoisonsForCoat(activeSheet.equipment, smithyItems);
+  }, [activeSheet, smithyItems]);
+
+  const onCoatWeapon = useCallback(
+    (poisonSlug: string) => {
+      if (!pcCharacterId) return;
+      session.coatWeapon(pcCharacterId, poisonSlug);
+    },
+    [pcCharacterId, session.coatWeapon],
+  );
+
+  const onQuickUseItem = useCallback(
+    (item: { name: string; poisonSlug?: string }) => {
+      if (item.poisonSlug && pcCharacterId) {
+        session.applyPoison(pcCharacterId, item.poisonSlug);
+      }
+      session.sendChat(`uses ${item.name}`, "use_item");
+    },
+    [pcCharacterId, session.applyPoison, session.sendChat],
+  );
+
   const weapons: WeaponAttack[] = activeEntity
     ? activeSheet
       ? deriveWeaponAttacks(activeEntity, activeSheet.equipment, smithyItems)
@@ -634,10 +662,23 @@ function LiveBattle({
     );
   }
 
-  const quickItems =
-    controllableTurn && activeSheet
-      ? quickUseItems(activeSheet.equipment)
-      : undefined;
+  const quickItems = useMemo(() => {
+    if (!controllableTurn || !activeSheet) return undefined;
+    const consumables = quickUseItems(activeSheet.equipment);
+    const poisonVials = ingestedPoisonsForUse(activeSheet.equipment, smithyItems).map(
+      (p) => ({
+        name: p.label,
+        quantity: p.quantity,
+        poisonSlug: p.slug,
+      }),
+    );
+    const seen = new Set(consumables.map((c) => c.name.toLowerCase()));
+    const merged = [...consumables];
+    for (const vial of poisonVials) {
+      if (!seen.has(vial.name.toLowerCase())) merged.push(vial);
+    }
+    return merged;
+  }, [controllableTurn, activeSheet, smithyItems]);
 
   const pcEntity =
     pcCharacterId && state ? state.entities[pcCharacterId] : undefined;
@@ -1006,9 +1047,7 @@ function LiveBattle({
             }
             onConfirmMultiCast={onConfirmMultiCast}
             items={quickItems}
-            onQuickUse={(name) =>
-              session.sendChat(`uses ${name}`, "use_item")
-            }
+            onQuickUse={onQuickUseItem}
             showReaction={showReaction}
             reaction={reaction}
             reactorReactionSpells={reactorReactionSpells}
@@ -1024,6 +1063,9 @@ function LiveBattle({
             nearbyTraps={nearbyTraps}
             onDetectTrap={onDetectTrap}
             onDisableTrap={onDisableTrap}
+            injuryPoisons={injuryPoisons}
+            coatedPoisonSlug={activeEntity?.coatedPoisonSlug}
+            onCoatWeapon={onCoatWeapon}
           />
         }
         chat={

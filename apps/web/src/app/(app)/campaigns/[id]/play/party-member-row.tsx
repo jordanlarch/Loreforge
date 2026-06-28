@@ -2,8 +2,11 @@
 
 import {
   abilityModifier,
+  type ActivePoisonInstance,
   type EntityState,
 } from "@app/engine";
+
+import { activePoisonHudLabel } from "@/lib/live-poisons";
 
 const ABILITIES: { key: keyof EntityState["abilityScores"]; label: string }[] = [
   { key: "str", label: "STR" },
@@ -73,6 +76,19 @@ export function PartyMemberDetail({ member }: { member: EntityState }) {
           ))}
         </div>
       )}
+
+      {member.activePoisons && member.activePoisons.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {member.activePoisons.map((p: ActivePoisonInstance) => (
+            <span
+              key={p.instanceId}
+              className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-200"
+            >
+              {activePoisonHudLabel(p)}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {member.concentration && (
         <div className="mt-2 text-[10px] text-lore-muted">
@@ -177,6 +193,11 @@ export function PartyMemberRow({
           </span>
         ) : null}
       </div>
+      {member.activePoisons?.[0] ? (
+        <span className="text-[10px] text-emerald-200 line-clamp-1">
+          {activePoisonHudLabel(member.activePoisons[0])}
+        </span>
+      ) : null}
     </>
   );
 

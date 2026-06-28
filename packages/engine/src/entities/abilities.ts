@@ -115,5 +115,6 @@ export function createEntityState(init: EntityInit): EntityState {
           },
         }
       : {}),
+    ...(init.coatedPoisonSlug ? { coatedPoisonSlug: init.coatedPoisonSlug } : {}),
   };
 }

@@ -863,6 +863,52 @@ export async function grantTutorialLoot(
   }
 }
 
+/** Demo poison vials for GRILL-LIVE-POISON Q8 prod verify (idempotent by name). */
+export const POISON_DEMO_VIALS = [
+  { name: "Assassin's Blood (vial)", quantity: 1 },
+  { name: "Pale Tincture (vial)", quantity: 1 },
+  { name: "Serpent Venom (vial)", quantity: 1 },
+] as const;
+
+export async function grantPoisonDemoLoot(campaignId: string): Promise<string[]> {
+  try {
+    const db = getDb();
+    const [row] = await db
+      .select({ id: characters.id, equipment: characters.equipment })
+      .from(campaignCharacters)
+      .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
+      .where(
+        and(
+          eq(campaignCharacters.campaignId, campaignId),
+          eq(campaignCharacters.role, "pc"),
+        ),
+      )
+      .limit(1);
+    if (!row) return [];
+
+    const current = (row.equipment ?? []) as EquipmentItem[];
+    const have = new Set(current.map((i) => i.name));
+    const additions = POISON_DEMO_VIALS.filter((i) => !have.has(i.name));
+    if (additions.length === 0) return [];
+
+    const next: EquipmentItem[] = [
+      ...current,
+      ...additions.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        equipped: false,
+      })),
+    ];
+    await db
+      .update(characters)
+      .set({ equipment: next, updatedAt: new Date() })
+      .where(eq(characters.id, row.id));
+    return additions.map((i) => i.name);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * The campaign hero's (`pc`) row + inventory, or null. Shared resolver for the
  * Scene 6 resolution writes (consume item, award XP), mirroring the join used by

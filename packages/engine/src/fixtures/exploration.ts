@@ -500,6 +500,7 @@ export function resolveDungeonFoes(
   return expanded.map((foe, i) => ({
     ...foe,
     id: `npc:dungeon:${dungeonEntityId.slice(0, 8)}:${i}`,
+    ...(i === 0 ? { coatedPoisonSlug: "srd-2024_serpent-venom" } : {}),
   }));
 }
 
@@ -533,6 +534,7 @@ function buildDungeonCombatCommands(
         ...(foe.attacksPerAction !== undefined
           ? { attacksPerAction: foe.attacksPerAction }
           : {}),
+        ...(foe.coatedPoisonSlug ? { coatedPoisonSlug: foe.coatedPoisonSlug } : {}),
       },
     });
   }

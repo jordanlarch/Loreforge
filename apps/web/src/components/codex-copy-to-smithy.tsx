@@ -39,6 +39,8 @@ export function CodexCopyToSmithyButton({
       window.setTimeout(() => {
         if (result.kind === "spell") {
           router.push(`/smithy/spells/${result.id}`);
+        } else if (result.kind === "toolbox") {
+          router.push(`/smithy/toolbox/${result.id}`);
         } else {
           router.push(`/smithy/${result.id}`);
         }

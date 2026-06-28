@@ -1,50 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  hazardDefinitionId,
-  isValidHazardDefinition,
-  validateHazardDefinition,
-  type HazardDefinition,
-} from "./hazard-definitions";
+import { isValidTrapDefinition } from "./hazard-definitions";
 
-describe("hazard-definitions", () => {
-  it("validates a trap with save and damage", () => {
-    const def: HazardDefinition = {
-      id: hazardDefinitionId("Poison Needle"),
-      name: "Poison Needle",
-      kind: "trap",
-      description: "A hidden needle in a lock.",
-      save: { ability: "con", dc: 12, onSuccess: "negates" },
-      damage: [{ dice: "1d4", type: "poison" }],
-      conditions: ["poisoned"],
-    };
-    expect(isValidHazardDefinition(def)).toBe(true);
-  });
-
-  it("rejects invalid save DC", () => {
-    const def: HazardDefinition = {
-      id: "bad",
-      name: "Bad",
-      kind: "poison",
-      poisonType: "injury",
-      description: "x",
-      save: { ability: "con", dc: 0, onSuccess: "none" },
-    };
-    expect(validateHazardDefinition(def)).toContain(
-      "Save DC must be between 1 and 30.",
-    );
-  });
-
-  it("validates an environmental hazard with area and repeat", () => {
-    const def: HazardDefinition = {
-      id: hazardDefinitionId("Lava"),
-      name: "Lava",
-      kind: "environmental",
-      description: "Molten rock.",
-      area: "5-ft cube",
-      damage: [{ dice: "10d10", type: "fire" }],
-      repeat: "each round",
-    };
-    expect(isValidHazardDefinition(def)).toBe(true);
+describe("hazard-definitions re-exports", () => {
+  it("re-exports trap validation from toolbox-definitions", () => {
+    expect(
+      isValidTrapDefinition({
+        id: "poison-needle",
+        name: "Poison Needle",
+        kind: "trap",
+        description: "Needle trap.",
+        trigger: "Touch.",
+        effect: { damage: [{ dice: "1d8", type: "poison" }] },
+        reset: "once",
+      }),
+    ).toBe(true);
   });
 });

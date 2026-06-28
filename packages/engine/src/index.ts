@@ -273,6 +273,25 @@ export {
   type TrapDefinition,
 } from "./content/hazard-definitions";
 export {
+  isValidGameplayToolboxEntryDefinition,
+  isValidTrapDefinition,
+  toolboxEntryId,
+  TOOLBOX_TOPICS,
+  TRAP_RESET_MODES,
+  validateGameplayToolboxEntryDefinition,
+  validateTrapDefinition,
+  type CurseDefinition,
+  type EnvironmentalEffectDefinition,
+  type FearStressDefinition,
+  type GameplayToolboxEntryDefinition,
+  type ToolboxCheck,
+  type ToolboxDamage,
+  type ToolboxSave,
+  type ToolboxTopic,
+  type TrapEffect,
+  type TrapResetMode,
+} from "./content/toolbox-definitions";
+export {
   isValidMonsterDefinition,
   monsterDefinitionId,
   validateMonsterDefinition,

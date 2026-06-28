@@ -50,7 +50,7 @@ The **SRD 5.1 → 5.2 migration slices (AUDIT-0–9) are complete.** Prod Codex 
 | **Feats** | `open5e-feats.ts` | `srd-2024` | 17 × `srd-2024` | Partial passives (Alert, Tough, …) | Codex, Creation ASI/feat picker | ✅ AUDIT-5 (fighting styles + origin feats) |
 | **Rules chapters** | `open5e-rules.ts` | `srd-2024` | 11 × `srd-2024` | — | Codex Rules | ✅ |
 | **Rule sections** | nested under rulesets | *(no doc key on row)* | 56 | — | Codex Rules | ✅ |
-| **Advanced rules** | `open5e-advanced-rules.ts` | `srd-2024` prefix filter | 30 | — | Codex Advanced | ✅ |
+| **Advanced rules** | `open5e-advanced-rules.ts` | **`srd_traps_*` legacy keys** | 30 | — | Codex **Advanced** (wrong IA) | ⚠️ **SRD-AUDIT-10** — rename Gameplay Toolbox; `srd-2024_*`; split from Exploration hazards |
 | **Species** | `srd-character-options.ts` seed | **Hand 5.2.1 PDF** (9 unified) | 9 × `source=srd` | — | Creation wizard, Codex | ✅ AUDIT-4 |
 | **Classes** | `srd-character-options.ts` seed | **Hand 5.2.1 PDF** prose | 12 × `source=srd` | Slot tables, prof bonus | Creation, Codex | ✅ AUDIT-4 |
 | **Subclasses** | `srd-subclasses.ts` + features | **Hand 5.2** | 12 × `source=srd` | `SUBCLASS_OPTIONS` | Creation, Codex, sheet | ✅ |

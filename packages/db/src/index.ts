@@ -65,6 +65,13 @@ export {
   type SeedSubclassesResult,
 } from "./ingest/srd-subclasses";
 export {
-  TRAIT_DESCRIPTIONS,
-  traitDescription,
-} from "./ingest/srd-trait-descriptions";
+  seedToolboxTraps,
+  type SeedToolboxTrapsResult,
+} from "./ingest/seed-toolbox-traps";
+export {
+  GAMEPLAY_TOOLBOX_CHAPTER_SLUG,
+  SRD_TOOLBOX_TRAP_SEEDS,
+  TRAPS_RULES_PROSE,
+  TRAPS_RULES_SECTION_SLUG,
+} from "./ingest/srd-toolbox-traps";
+export { traitDescription } from "./ingest/srd-trait-descriptions";

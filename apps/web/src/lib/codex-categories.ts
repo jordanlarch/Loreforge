@@ -9,7 +9,7 @@ export const CODEX_CATEGORIES = [
   "Monsters",
   "Items",
   "Feats",
-  "Advanced",
+  "Gameplay Toolbox",
 ] as const;
 
 export type CodexCategory = (typeof CODEX_CATEGORIES)[number];
@@ -24,7 +24,7 @@ const LIVE: CodexCategory[] = [
   "Monsters",
   "Items",
   "Feats",
-  "Advanced",
+  "Gameplay Toolbox",
 ];
 
 export function isLiveCodexCategory(cat: CodexCategory): boolean {

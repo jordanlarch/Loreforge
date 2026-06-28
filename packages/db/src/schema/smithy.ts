@@ -10,12 +10,14 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type {
+  GameplayToolboxEntryDefinition,
   ItemDefinition,
   ItemRarity,
   ItemSource,
   ItemType,
   SpellDefinition,
   SpellSchool,
+  ToolboxTopic,
 } from "@app/engine";
 
 /**
@@ -92,8 +94,34 @@ export const homebrewSpells = pgTable(
       .notNull()
       .defaultNow(),
   },
+  (t) => [index("homebrew_spells_owner_idx").on(t.ownerId), index("homebrew_spells_level_idx").on(t.level)],
+);
+
+/**
+ * Homebrew Gameplay Toolbox entries (traps, poisons, …) forged in the Smithy (DATA-1b).
+ */
+export const homebrewToolboxEntries = pgTable(
+  "homebrew_toolbox_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id").notNull(),
+    name: text("name").notNull(),
+    topic: text("topic").notNull().$type<ToolboxTopic>(),
+    description: text("description").notNull().default(""),
+    source: text("source").notNull().$type<ItemSource>().default("original"),
+    copiedFromSlug: text("copied_from_slug"),
+    definition: jsonb("definition")
+      .notNull()
+      .$type<GameplayToolboxEntryDefinition>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
   (t) => [
-    index("homebrew_spells_owner_idx").on(t.ownerId),
-    index("homebrew_spells_level_idx").on(t.level),
+    index("homebrew_toolbox_entries_owner_idx").on(t.ownerId),
+    index("homebrew_toolbox_entries_topic_idx").on(t.topic),
   ],
 );

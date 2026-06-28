@@ -9,7 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import type { Ability, AbilityScores } from "@app/engine";
+import type { Ability, AbilityScores, GameplayToolboxEntryDefinition, ToolboxTopic } from "@app/engine";
 
 /**
  * Normalized SRD reference rows (Open5e `srd-2024` ingest + curated `source=srd` seeds).
@@ -210,6 +210,34 @@ export const codexAdvancedRules = pgTable(
     index("codex_advanced_rules_name_idx").on(t.name),
     index("codex_advanced_rules_topic_idx").on(t.topic),
     index("codex_advanced_rules_sort_idx").on(t.sortIndex),
+  ],
+);
+
+/**
+ * SRD Gameplay Toolbox sample entries (traps, poisons, …) with mandatory definitions (DATA-1b).
+ */
+export const codexToolboxEntries = pgTable(
+  "codex_toolbox_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    topic: text("topic").notNull().$type<ToolboxTopic>(),
+    sortIndex: integer("sort_index").notNull().default(0),
+    source: text("source").notNull().default("srd"),
+    definition: jsonb("definition")
+      .notNull()
+      .$type<GameplayToolboxEntryDefinition>(),
+    raw: jsonb("raw").notNull().$type<Record<string, unknown>>().default({}),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("codex_toolbox_entries_name_idx").on(t.name),
+    index("codex_toolbox_entries_topic_idx").on(t.topic),
+    index("codex_toolbox_entries_sort_idx").on(t.sortIndex),
   ],
 );
 

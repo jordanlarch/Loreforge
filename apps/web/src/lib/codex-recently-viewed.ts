@@ -15,7 +15,7 @@ export type RecentCodexEntry = {
 
 export type RecentSmithyEntry = {
   source: "smithy";
-  kind: "spell" | "item";
+  kind: "spell" | "item" | "toolbox";
   id: string;
   name: string;
   ts: number;
@@ -70,7 +70,7 @@ export function recordCodexView(entry: {
 }
 
 export function recordSmithyView(entry: {
-  kind: "spell" | "item";
+  kind: "spell" | "item" | "toolbox";
   id: string;
   name: string;
 }): void {
@@ -97,5 +97,7 @@ export function recentEntryHref(entry: RecentEntry): string {
   }
   return entry.kind === "spell"
     ? `/smithy/spells/${entry.id}`
-    : `/smithy/${entry.id}`;
+    : entry.kind === "toolbox"
+      ? `/smithy/toolbox/${entry.id}`
+      : `/smithy/${entry.id}`;
 }

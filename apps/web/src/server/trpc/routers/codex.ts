@@ -7,7 +7,13 @@
 import { and, asc, count, desc, eq, gte, ilike, inArray, lte, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { masteryFromOpen5eItemRaw, open5eRawToItemDefinition, type ItemDefinition } from "@app/engine";
+import {
+  masteryFromOpen5eItemRaw,
+  open5eRawToItemDefinition,
+  TOOLBOX_TOPICS,
+  type ItemDefinition,
+  type ToolboxTopic,
+} from "@app/engine";
 
 import {
   codexAdvancedRules,
@@ -21,7 +27,9 @@ import {
   codexSpecies,
   codexSpells,
   codexSubclasses,
+  codexToolboxEntries,
   getDb,
+  TRAPS_RULES_SECTION_SLUG,
 } from "@app/db";
 
 import { sortSizes } from "@/lib/codex-monster-filters";
@@ -964,6 +972,86 @@ export const codexRouter = createTRPCRouter({
         .select()
         .from(codexAdvancedRules)
         .where(eq(codexAdvancedRules.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** Gameplay Toolbox sample entries (DATA-1b). */
+  listToolboxEntries: protectedProcedure
+    .input(
+      z
+        .object({
+          topic: z.enum(TOOLBOX_TOPICS).optional(),
+          search: z.string().trim().max(120).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const where = and(
+        input?.search
+          ? ilike(codexToolboxEntries.name, `%${input.search}%`)
+          : undefined,
+        input?.topic ? eq(codexToolboxEntries.topic, input.topic) : undefined,
+      );
+      return db
+        .select({
+          slug: codexToolboxEntries.slug,
+          name: codexToolboxEntries.name,
+          description: codexToolboxEntries.description,
+          topic: codexToolboxEntries.topic,
+        })
+        .from(codexToolboxEntries)
+        .where(where)
+        .orderBy(
+          asc(codexToolboxEntries.topic),
+          asc(codexToolboxEntries.sortIndex),
+          asc(codexToolboxEntries.name),
+        );
+    }),
+
+  toolboxFacets: protectedProcedure.query(async () => {
+    const db = getDb();
+    const topics = await db
+      .selectDistinct({ value: codexToolboxEntries.topic })
+      .from(codexToolboxEntries)
+      .orderBy(asc(codexToolboxEntries.topic));
+    return {
+      topics: topics
+        .map((t) => t.value)
+        .filter(
+          (v): v is ToolboxTopic =>
+            v != null && (TOOLBOX_TOPICS as readonly string[]).includes(v),
+        ),
+    };
+  }),
+
+  getToolboxEntry: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexToolboxEntries)
+        .where(eq(codexToolboxEntries.slug, input.slug))
+        .limit(1);
+      return row ?? null;
+    }),
+
+  /** Rules article for a toolbox topic (two-tier Codex UI). */
+  getToolboxTopicRules: protectedProcedure
+    .input(z.object({ topic: z.enum(TOOLBOX_TOPICS) }))
+    .query(async ({ input }) => {
+      const slugByTopic: Partial<Record<ToolboxTopic, string>> = {
+        trap: TRAPS_RULES_SECTION_SLUG,
+      };
+      const slug = slugByTopic[input.topic];
+      if (!slug) return null;
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(codexRuleSections)
+        .where(eq(codexRuleSections.slug, slug))
         .limit(1);
       return row ?? null;
     }),

@@ -14,7 +14,7 @@ export const CODEX_CATEGORY_SEGMENT: Record<CodexCategory, string> = {
   Monsters: "monsters",
   Items: "items",
   Feats: "feats",
-  Advanced: "advanced",
+  "Gameplay Toolbox": "toolbox",
 };
 
 const SEGMENT_TO_CATEGORY = Object.fromEntries(
@@ -30,6 +30,7 @@ export function parseCodexCategorySegment(
 ): CodexCategory | null {
   if (!segment) return null;
   const normalized = segment.toLowerCase();
+  if (normalized === "advanced") return "Gameplay Toolbox";
   return SEGMENT_TO_CATEGORY[normalized] ?? null;
 }
 

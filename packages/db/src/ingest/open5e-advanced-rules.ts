@@ -1,4 +1,10 @@
 /**
+ * @deprecated SRD-AUDIT-10 — superseded by hand-seeded `codex_toolbox_entries`
+ * (`srd-2024_*` slugs, mandatory Q3 definitions). Open5e keys use legacy
+ * `srd_traps_*` / `srd_diseases_*` prefixes and prose-only rows — wrong IA for
+ * Gameplay Toolbox. Nightly ingest removed; table retained for orphan rows only.
+ * Manual CLI kept for one-off comparison: `npm run ingest:open5e-advanced-rules`.
+ *
  * Open5e optional / advanced SRD rules (traps, poisons, diseases, madness,
  * environment) from the `/v2/rules/` corpus. Content spans legacy `srd` and
  * `srd-2024` documents — filtered by rule key prefix, not document key.

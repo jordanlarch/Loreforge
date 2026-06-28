@@ -268,8 +268,8 @@ Do **not** overload generic `conditions[]` for repeat-save poisons.
 
 | PR | Scope |
 |---|---|
-| **Engine (#TBD)** | `srd-poison-seeds.ts`, `POISON_REGISTRY`, `EntityState.activePoisons[]`, `coatedPoisonSlug`, `toolboxPoisonSlug` on `ItemDefinition`, handlers + projection + tests (incl. Pale Tincture repeat) |
-| **WS + Live Play (#TBD)** | `coat_weapon` battle action, Coat chip on action rail, Use Item → `apply_poison`, injury hook in attack resolution, HUD chip, demo fixtures (Q8) |
+| **Engine (#296)** | `srd-poison-seeds.ts`, `POISON_REGISTRY`, `EntityState.activePoisons[]`, `coatedPoisonSlug`, `toolboxPoisonSlug` on `ItemDefinition`, handlers + projection + tests (incl. Pale Tincture repeat) | ✅ merged |
+| **WS + Live Play (#297)** | `coat_weapon` battle action, Coat chip on action rail, Use Item → `apply_poison`, injury hook in attack resolution, HUD chip, demo fixtures (Q8) | ✅ merged |
 
 **Deferred:** contact / inhaled delivery → **GRILL-EXPLORATION**; partial doses (SRD DM discretion); max-HP reduction UI on sheet (engine events only in v1 if needed).
 

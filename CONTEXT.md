@@ -67,6 +67,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 **Recently shipped (Jun 2026, post-#246):** Roll20-style character sheet — 3-column layout, HP panel, Live Stats HUD, Inventory/About/Notes tabs, notes meta via `character-sheet-storage`.
 
+**Recently shipped (#296–#297, Jun 2026):** GRILL-LIVE-POISON — engine registry + `coat_weapon` / `apply_poison` / repeat ticks; Live Play Coat chip, Use Item → ingested poison, party rail HUD, dungeon demo vials.
+
 **Recently shipped (Jun 2026, post-#245):** Characters dashboard sweep (⋯ menu, XP bars, Play Now, 10-step creation wizard) · sheet Features + Personality tabs · **5-step level-up** (Spells step, level history, fighting-style combat math) · PLAY-3 party-rail HUD **statsOnly** dedup (turn controls stay on combat bar).
 
 **Recently shipped (#244, Jun 2026):** ENG-2 batch 11 — registry **103 → 120** (top-120 declarative curation complete) + golden snapshots.

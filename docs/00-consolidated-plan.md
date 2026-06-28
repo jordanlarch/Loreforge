@@ -119,7 +119,7 @@
 
 ## Data sources
 
-- **SRD 5.2**: hybrid ingest — start with Open5e / 5e-bits APIs as canonical source; migrate to custom-ingested SRD 5.2 over time
+- **SRD 5.2**: hybrid ingest — **Open5e `srd-2024`** for machine ingest; **official SRD 5.2.1 PDF** as canonical reference for names/mechanics; migrate to custom PDF parse post-GA. *(Amended Jun 2026: 5e-bits API removed from plan — 2014-only, never integrated.)*
 - **Token art**: Open Game Art + commissioned starter pack (~500 assets) + community contributions
 - **Map style**: Custom Dyson-style renderer (commercial-safe)
 - **Names**: SRD-aligned + Watabou Fantasy Name Generator port

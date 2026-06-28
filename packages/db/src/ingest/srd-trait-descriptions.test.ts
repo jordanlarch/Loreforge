@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("traitDescription", () => {
   it("returns SRD text for known traits", () => {
     expect(traitDescription("Darkvision")).toContain("60 feet");
-    expect(traitDescription("Lucky")).toContain("reroll");
+    expect(traitDescription("Luck")).toContain("reroll");
   });
 
   it("returns undefined for unknown traits", () => {

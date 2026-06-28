@@ -1,66 +1,64 @@
 /**
- * Concise SRD trait rules for Codex species detail (shared across lineages).
- * Paraphrased from the 5E SRD; full text lives in the official reference.
+ * Concise SRD 5.2 trait rules for Codex species detail (shared across lineages).
+ * Paraphrased from the official SRD 5.2.1 PDF; full text lives in the reference doc.
  */
 export const TRAIT_DESCRIPTIONS: Record<string, string> = {
   Darkvision:
-    "Accustomed to life underground or in twilight, you can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light. You can't discern color in darkness, only shades of gray.",
+    "You can see in dim light within your darkvision range as if it were bright light, and in darkness as if it were dim light. You can't discern color in darkness, only shades of gray. Range varies by species (often 60 feet; dwarves and orcs have 120 feet).",
   "Dwarven Resilience":
-    "You have advantage on saving throws against poison, and you have resistance against poison damage.",
+    "You have Resistance to Poison damage and Advantage on saving throws to avoid or end the Poisoned condition.",
   Stonecunning:
-    "Whenever you make an Intelligence (History) check related to the origin of stonework, you are considered proficient and add double your proficiency bonus instead of your normal bonus.",
+    "As a Bonus Action, you gain Tremorsense with a range of 60 feet for 10 minutes while on or touching stone (natural or worked). Uses equal to your Proficiency Bonus per Long Rest.",
   "Dwarven Toughness":
-    "Your hit point maximum increases by 1, and it increases by 1 every time you gain a level.",
-  "Dwarven Armor Training":
-    "You have proficiency with light and medium armor.",
+    "Your Hit Point maximum increases by 1, and increases by 1 again whenever you gain a level.",
   "Keen Senses":
-    "You have proficiency in the Perception skill.",
+    "You have proficiency in the Insight, Perception, or Survival skill (your choice).",
   "Fey Ancestry":
-    "You have advantage on saving throws against being charmed, and magic can't put you to sleep.",
+    "You have Advantage on saving throws to avoid or end the Charmed condition.",
   Trance:
-    "Elves don't need to sleep. Instead they meditate deeply, remaining semiconscious, for 4 hours a day. After resting this way, you gain the same benefit a human does from 8 hours of sleep.",
-  Cantrip:
-    "You know one cantrip of your choice from the wizard spell list. Intelligence is your spellcasting ability for it.",
-  "Mask of the Wild":
-    "You can attempt to hide even when you are only lightly obscured by foliage, heavy rain, falling snow, mist, and other natural phenomena.",
-  Lucky:
-    "When you roll a 1 on an attack roll, ability check, or saving throw, you can reroll the die and must use the new roll.",
-  Brave:
-    "You have advantage on saving throws against being frightened.",
-  "Halfling Nimbleness":
-    "You can move through the space of any creature that is of a size larger than yours.",
-  "Naturally Stealthy":
-    "You can attempt to hide even when you are obscured only by a creature that is at least one size larger than you.",
-  "Stout Resilience":
-    "You have advantage on saving throws against poison, and you have resistance against poison damage.",
+    "You don't need to sleep and magic can't put you to sleep. You can finish a Long Rest in 4 hours of trance-like meditation while remaining conscious.",
+  "Elven Lineage":
+    "Choose Drow, High Elf, or Wood Elf. You gain that lineage's level 1 benefit and learn additional spells at character levels 3 and 5 (always prepared; cast once per Long Rest without a slot, or with slots).",
+  "Gnomish Cunning":
+    "You have Advantage on Intelligence, Wisdom, and Charisma saving throws.",
+  "Gnomish Lineage":
+    "Choose Forest Gnome or Rock Gnome for cantrips, spells, and (for Rock Gnome) clockwork devices built with Prestidigitation.",
   Versatile:
-    "Humans gain +1 to every ability score, reflecting their adaptability and drive.",
+    "You gain an Origin feat of your choice (Skilled is recommended).",
+  Resourceful:
+    "You gain Heroic Inspiration whenever you finish a Long Rest.",
+  Skillful:
+    "You gain proficiency in one skill of your choice.",
   "Draconic Ancestry":
-    "Choose one type of dragon. Your breath weapon and damage resistance are determined by the dragon type.",
+    "Choose a dragon type from the SRD table. Your Breath Weapon damage type and Damage Resistance match that ancestry.",
   "Breath Weapon":
-    "You can use your action to exhale destructive energy. Each creature in the area must make a saving throw (DC 8 + Con mod + proficiency), taking 2d6 damage on a failed save or half on a success. Damage type matches your draconic ancestry.",
+    "When you take the Attack action, you can replace one attack with a 15-foot Cone or 30-foot Line (5 ft wide). Creatures in the area make a Dexterity save (DC 8 + Con mod + PB); damage is 1d10 of your ancestry type (scales at levels 5, 11, 17). Uses equal to PB per Long Rest.",
   "Damage Resistance":
-    "You have resistance to the damage type associated with your draconic ancestry.",
-  "Gnome Cunning":
-    "You have advantage on Intelligence, Wisdom, and Charisma saving throws against magic.",
-  "Artificer's Lore":
-    "Whenever you make an Intelligence (History) check related to magic items, alchemical objects, or technological devices, you add double your proficiency bonus instead of your normal bonus.",
-  Tinker:
-    "You have proficiency with artisan's tools (tinker's tools). Using those tools, you can spend 1 hour and 10 gp of materials to construct a Tiny clockwork device (AC 5, 1 hp). You can have up to three devices active at once.",
-  "Natural Illusionist":
-    "You know the minor illusion cantrip. Intelligence is your spellcasting ability for it.",
-  "Speak with Small Beasts":
-    "Through sounds and gestures, you can communicate simple ideas with Small or smaller beasts.",
-  Menacing:
-    "You have proficiency in the Intimidation skill.",
+    "You have Resistance to the damage type determined by your Draconic Ancestry.",
+  "Draconic Flight":
+    "At character level 5+, as a Bonus Action you sprout spectral wings for 10 minutes, gaining Fly Speed equal to your Speed. Once per Long Rest.",
+  "Giant Ancestry":
+    "Choose a giant boon (Cloud's Jaunt, Fire's Burn, Frost's Chill, Hill's Tumble, Stone's Endurance, or Storm's Thunder). Uses equal to PB per Long Rest.",
+  "Large Form":
+    "Starting at character level 5, as a Bonus Action you become Large for 10 minutes (if space allows), gaining Advantage on Strength checks and +10 ft Speed. Once per Long Rest.",
+  "Powerful Build":
+    "You have Advantage on ability checks to end the Grappled condition and count as one size larger for carrying capacity.",
+  Brave:
+    "You have Advantage on saving throws to avoid or end the Frightened condition.",
+  "Halfling Nimbleness":
+    "You can move through the space of any creature that is a size larger than you, but you can't stop in the same space.",
+  Luck:
+    "When you roll a 1 on the d20 of a D20 Test, you can reroll the die and must use the new roll.",
+  "Naturally Stealthy":
+    "You can take the Hide action even when obscured only by a creature at least one size larger than you.",
+  "Adrenaline Rush":
+    "You can take the Dash action as a Bonus Action and gain Temporary Hit Points equal to your Proficiency Bonus. Uses equal to PB per Short or Long Rest.",
   "Relentless Endurance":
-    "When you are reduced to 0 hit points but not killed outright, you can drop to 1 hit point instead. You can't use this feature again until you finish a long rest.",
-  "Savage Attacks":
-    "When you score a critical hit with a melee weapon attack, you can roll one of the weapon's damage dice one additional time and add it to the extra damage.",
-  "Hellish Resistance":
-    "You have resistance to fire damage.",
-  "Infernal Legacy":
-    "You know the thaumaturgy cantrip. At 3rd level you can cast hellish rebuke once per long rest; at 5th level you can cast darkness once per long rest. Charisma is your spellcasting ability for these spells.",
+    "When reduced to 0 Hit Points without being killed outright, you can drop to 1 Hit Point instead. Once per Long Rest.",
+  "Fiendish Legacy":
+    "Choose Abyssal, Chthonic, or Infernal legacy for damage resistance and lineage spells at levels 1, 3, and 5 (always prepared; cast once per Long Rest without a slot, or with slots).",
+  "Otherworldly Presence":
+    "You know the Thaumaturgy cantrip. When you cast it with this trait, the spell uses the same spellcasting ability you use for Fiendish Legacy.",
 };
 
 export function traitDescription(name: string): string | undefined {

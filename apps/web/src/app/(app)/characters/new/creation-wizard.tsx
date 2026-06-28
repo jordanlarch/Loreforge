@@ -43,6 +43,7 @@ import {
 import {
   featuresStepChoicesComplete,
   FightingStylePicker,
+  OriginFeatPicker,
   SubclassCatalogPreview,
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
@@ -190,6 +191,7 @@ export function CreationWizard() {
   const [startingLevel, setStartingLevel] = useState(1);
   const [advances, setAdvances] = useState<LevelAdvanceChoice[]>([]);
   const [fightingStyle, setFightingStyle] = useState("");
+  const [humanOriginFeat, setHumanOriginFeat] = useState("");
   const [startingSubclass, setStartingSubclass] = useState("");
   const [featureChoices, setFeatureChoices] = useState<Record<string, string>>(
     {},
@@ -204,7 +206,7 @@ export function CreationWizard() {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
-  // Codex deep links (CODEX-6): ?species=hill-dwarf&class=fighter&background=folk-hero
+  // Codex deep links (CODEX-6): ?species=dwarf&class=fighter&background=folk-hero
   useEffect(() => {
     const speciesParam = searchParams.get("species");
     const classParam = searchParams.get("class");
@@ -461,6 +463,11 @@ export function CreationWizard() {
     return multiclassIneligibilityReason(names, finalScores);
   }, [multiclassValid, classes.data, classAllocations, finalScores]);
 
+  const isHumanSpecies = selectedSpecies?.slug === "human";
+  const backgroundOriginValid =
+    selectedBackground != null &&
+    (!isHumanSpecies || humanOriginFeat.trim().length > 0);
+
   const featuresStepValid =
     selectedClass != null &&
     featuresStepChoicesComplete(
@@ -481,7 +488,7 @@ export function CreationWizard() {
     nameValid,
     selectedSpecies != null,
     selectedClass != null && classLevelsValid,
-    selectedBackground != null,
+    selectedBackground != null && backgroundOriginValid,
     abilitiesValid,
     skillsValid,
     equipment.length > 0,
@@ -495,7 +502,7 @@ export function CreationWizard() {
     selectedSpecies != null &&
     selectedClass != null &&
     classLevelsValid &&
-    selectedBackground != null &&
+    backgroundOriginValid &&
     abilitiesValid &&
     skillsValid &&
     equipment.length > 0 &&
@@ -546,9 +553,11 @@ export function CreationWizard() {
         .map((a) => a.feat?.trim())
         .filter((f): f is string => Boolean(f));
       const originFeat = selectedBackground.originFeatName?.trim();
+      const versatileFeat = humanOriginFeat.trim();
       const metaFeats = [
         ...new Set([
           ...(originFeat ? [originFeat] : []),
+          ...(versatileFeat ? [versatileFeat] : []),
           ...advanceFeats,
         ]),
       ];
@@ -670,7 +679,10 @@ export function CreationWizard() {
               loading={species.isLoading}
               items={species.data ?? []}
               selected={speciesSlug}
-              onSelect={setSpeciesSlug}
+              onSelect={(slug) => {
+                setSpeciesSlug(slug);
+                if (slug !== "human") setHumanOriginFeat("");
+              }}
             />
           )}
           {step === 2 && (
@@ -697,6 +709,9 @@ export function CreationWizard() {
               items={backgrounds.data ?? []}
               selected={backgroundSlug}
               onSelect={setBackgroundSlug}
+              isHuman={isHumanSpecies}
+              humanOriginFeat={humanOriginFeat}
+              onHumanOriginFeat={setHumanOriginFeat}
             />
           )}
           {step === 4 && (
@@ -961,7 +976,8 @@ function SpeciesStep({
     <section>
       <h2 className="font-display text-2xl">Choose Your Species</h2>
       <p className="mt-1 text-sm text-lore-muted">
-        Sourced from the Codex SRD data. Ability bonuses apply automatically.
+        SRD 5.2 species from the Codex. Ability scores come from your
+        background, not species.
       </p>
       {loading ? (
         <p className="mt-6 text-lore-muted">Loading species…</p>
@@ -1956,6 +1972,7 @@ type BackgroundItem = {
   description: string | null;
   skillSummary: string | null;
   skillProficiencies: string[];
+  originFeatName?: string | null;
 };
 
 function BackgroundStep({
@@ -1963,18 +1980,26 @@ function BackgroundStep({
   items,
   selected,
   onSelect,
+  isHuman,
+  humanOriginFeat,
+  onHumanOriginFeat,
 }: {
   loading: boolean;
   items: BackgroundItem[];
   selected: string | null;
   onSelect: (slug: string) => void;
+  isHuman: boolean;
+  humanOriginFeat: string;
+  onHumanOriginFeat: (feat: string) => void;
 }) {
+  const selectedBackground = items.find((b) => b.slug === selected) ?? null;
+
   return (
     <section>
       <h2 className="font-display text-2xl">Choose Your Background</h2>
       <p className="mt-1 text-sm text-lore-muted">
-        SRD backgrounds from the Codex. Skill proficiencies auto-apply when
-        structured in the source data.
+        SRD backgrounds grant skill proficiencies and an Origin feat from the
+        Codex.
       </p>
       {loading ? (
         <p className="mt-6 text-lore-muted">Loading backgrounds…</p>
@@ -1997,12 +2022,36 @@ function BackgroundStep({
                   {b.skillSummary}
                 </div>
               )}
+              {b.originFeatName && (
+                <div className="mt-1 text-xs text-lore-muted">
+                  Origin feat: {b.originFeatName}
+                </div>
+              )}
               <p className="mt-2 line-clamp-2 text-xs text-lore-muted">
                 {b.description}
               </p>
             </button>
           ))}
         </div>
+      )}
+      {selectedBackground?.originFeatName && (
+        <p className="mt-4 text-sm text-lore-muted">
+          <span className="text-lore-text">{selectedBackground.name}</span>{" "}
+          grants the{" "}
+          <span className="text-lore-accent">
+            {selectedBackground.originFeatName}
+          </span>{" "}
+          Origin feat.
+        </p>
+      )}
+      {isHuman && (
+        <OriginFeatPicker
+          label="Human — Versatile"
+          hint="Humans gain an additional Origin feat of your choice (Skilled is recommended in the SRD)."
+          value={humanOriginFeat}
+          onChange={onHumanOriginFeat}
+          recommended="Skilled"
+        />
       )}
     </section>
   );

@@ -2,7 +2,7 @@
  * Shared Open5e SRD creature ingest (monsters + beasts).
  *
  * Paginates `codex_monsters` from Open5e v2 `/creatures/`, scoped to the SRD
- * 5.1 document (`srd-2014`, ~325 creatures). Same pattern as spell ingest.
+ * 5.2 document (`srd-2024`, ~331 creatures). Same pattern as spell ingest.
  *
  * @see packages/db/src/ingest/open5e-spells.ts
  * @see docs/data-sources.md §1

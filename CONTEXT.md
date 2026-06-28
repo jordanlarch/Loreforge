@@ -9,13 +9,14 @@
 **Code progress (Jun 2026): P0–P5 substantially complete ahead of calendar.** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World, M5 First Campaign (tracer depth), M6 Tutorial E2E.** Memory tier (MEM-1–MEM-8) is Done. **`docs/deferrals.md` is the single source of truth for everything deferred.**
 
 Highlights of what's built:
-- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**120** top-120 spells + golden harness), **ENG-13 active effects** (Bless/Shield/Hunter's Mark/Blur/Faerie Fire). ~452 engine tests.
+- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**339** catalog + **124** combat-authored + golden harness on hand-authored set), **ENG-13 active effects** (Bless/Shield/Hunter's Mark/Blur/Faerie Fire). ~452 engine tests.
 - **Tier 4 sync:** `@app/ws-server` Hocuspocus Yjs server + PixiJS battle map; persisted per-campaign live play. Invite links shipped at tracer depth (#211, CAMP-14); **multiplayer depth parked** until solo prod polish.
 - **Product surfaces:** six-item nav; Codex (spells, species/classes, backgrounds/feats, monsters, items, rules); Characters; Smithy; Realms (7 rich generators + AI pipeline); **9-tab Campaign workspace** (all tabs at tracer+ depth, World Map included); Live Play (chat/HUD/combat/AoE/enemy AI/reactions/party rail/top bar).
 - **Tutorial:** *Lantern's Last Flicker* E2E (#169–#178) with launch gate.
 - **Memory tier (P5):** rolling summaries, recaps, pins, RAG, live-turn context — shipped.
 - **Quest system (Phases A–D):** structured `QuestTemplate` on Realms entities; tease/offer/briefing runtime; Realms + Campaign editors; prerequisite gates, step advance, XP on Resolve — see `docs/quests.md`.
-- **Background jobs:** nightly Open5e ingest + re-embed via Trigger.dev.
+- **Background jobs:** nightly Open5e ingest (`srd-2024`) + re-embed via Trigger.dev; spell registry catalog via `npm run generate:spell-registry`.
+- **SRD 5.2 audit (Jun 2026):** AUDIT-0–9 complete — PDF-first policy, Open5e-only ingest, 339-spell registry catalog, 9 species seed, legacy character purge. See `docs/srd-version-audit.md`.
 
 ## What This Is
 

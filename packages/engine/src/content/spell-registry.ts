@@ -1,53 +1,15 @@
 /**
  * Authoritative in-engine spell registry (#40, E3).
  *
- * Hand-authored {@link SpellDefinition}s are the source of truth for *spell
- * resolution* — the engine never resolves from Codex DB prose. The Codex DB
- * stays the browsable reference and Smithy homebrew store; entries here are
- * linked to it by `id` (slug). The proof set grows slice by slice:
+ * Hand-authored {@link SpellDefinition}s override Open5e-generated catalog entries
+ * for combat resolution. The full SRD spell list is merged from
+ * {@link OPEN5E_SPELL_REGISTRY} (regenerate via `npm run generate:spell-registry`).
  *
- *   - Slice #40: Magic Missile, Guiding Bolt
- *   - Slice #42: Fireball, Burning Hands, Sacred Flame
- *   - Slice #43: Cure Wounds, Healing Word, Fire Bolt
- *
- *   - Slice #40: Magic Missile, Guiding Bolt
- *   - Slice #42: Fireball, Burning Hands, Sacred Flame
- *   - Slice #43: Cure Wounds, Healing Word, Fire Bolt
- *   - Batch 2 (C1 / ENG-2): the cleanly-declarative SRD spells that resolve on
- *     today's pipeline (single-component damage via attack / save / auto-hit,
- *     plus healing) — Ray of Frost, Shocking Grasp, Chill Touch, Produce Flame,
- *     Thorn Whip, Poison Spray, Acid Splash, Vicious Mockery, Inflict Wounds,
- *     Shatter, Cone of Cold, Mass Healing Word, Prayer of Healing. Spells whose
- *     core effect is a *condition/rider* (Bless, Hold Person, Shield, …) wait on
- *     the Effect system; their non-damage riders are noted in `description`.
- *   - Batch 3 (ENG-2): Eldritch Blast, Chromatic Orb, Scorching Ray, Toll the
- *     Dead, Dissonant Whispers, Ray of Sickness, Melf's Acid Arrow, Moonbeam,
- *     Mind Sliver, Chaos Bolt.
- *   - Batch 4 (ENG-2): Thunderclap, Word of Radiance, Lightning Lure, Arms of
- *     Hadar, Witch Bolt, Hellish Rebuke, Catapult, Snilloc's Snowball Swarm,
- *     Mind Spike, Heat Metal, Maximilian's Earthen Grasp, Phantasmal Force,
- *     Vampiric Touch, Spirit Guardians, Hunger of Hadar.
- *   - Batch 5 (ENG-13): Bless, Shield, Hunter's Mark (appliedEffects proof set).
- *   - Batch 8 (ENG-2 / Rung 2): Lightning Bolt, Invisibility, Hold Person, Web,
- *     Entangle, Flame Strike, Phantasmal Killer, Stinking Cloud, Haste,
- *     Hypnotic Pattern — plus ENG-13 condition-on-failed-save + Blur disadvantage.
- *   - Batch 9 (ENG-2): Spiritual Weapon, Mirror Image, Charm Person,
- *     Blindness/Deafness, Call Lightning, Blight, Revivify, Tasha's Hideous
- *     Laughter, Command, Greater Invisibility, Mass Cure Wounds.
- *   - Batch 10 (ENG-2): Hold Monster, Dominate Person, Fear, Suggestion,
- *     Wall of Fire, Chain Lightning, Otto's Irresistible Dance, Power Word Stun,
- *     Sleep, Greater Restoration, Crown of Madness.
- *   - Batch 11 (ENG-2): Banishment, Slow, Darkness, Silence, Lesser Restoration,
- *     Compulsion, Heroism, Ice Storm, Sunburst, Meteor Swarm, Dominate Monster,
- *     Mass Suggestion, Cloudkill, Insect Plague, Finger of Death, Power Word Heal,
- *     Sunbeam — **top-120 curation complete** (103 → 120).
- *
- * Every definition is validated by `validateSpellDefinition` in a unit test, so
- * a malformed registry entry fails CI rather than at cast time, and every
- * authored spell is exercised by a deterministic golden cast snapshot
- * (`engine.spells.golden.test.ts`).
+ * Golden cast snapshots (`engine.spells.golden.test.ts`) cover hand-authored spells
+ * only ({@link HAND_AUTHORED_SPELL_IDS}).
  */
 import type { SpellDefinition } from "./spells";
+import { OPEN5E_SPELL_REGISTRY } from "./spell-registry-open5e.generated";
 
 /** Magic Missile — three auto-hit force darts (1d4+1 each), +1 dart per upcast. */
 const MAGIC_MISSILE: SpellDefinition = {
@@ -2601,8 +2563,8 @@ const POLYMORPH: SpellDefinition = {
     "Transform a willing creature or one that fails a Wisdom save into a new form (tracer: restrained until concentration ends).",
 };
 
-/** All authored spells, keyed by slug id. */
-export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
+/** Hand-authored combat spells — override Open5e catalog entries by id. */
+const HAND_AUTHORED_SPELLS: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
   [GUIDING_BOLT.id]: GUIDING_BOLT,
   [FIREBALL.id]: FIREBALL,
@@ -2727,6 +2689,14 @@ export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
   [DISPEL_MAGIC.id]: DISPEL_MAGIC,
   [COUNTERSPELL.id]: COUNTERSPELL,
   [POLYMORPH.id]: POLYMORPH,
+};
+
+export const HAND_AUTHORED_SPELL_IDS = new Set(Object.keys(HAND_AUTHORED_SPELLS));
+
+/** Full SRD spell catalog (Open5e + hand-authored overrides). */
+export const SPELL_REGISTRY: Record<string, SpellDefinition> = {
+  ...OPEN5E_SPELL_REGISTRY,
+  ...HAND_AUTHORED_SPELLS,
 };
 
 /** Look up an authored spell definition by slug id. */

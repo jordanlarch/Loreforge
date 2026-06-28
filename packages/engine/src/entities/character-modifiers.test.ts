@@ -27,7 +27,7 @@ describe("fightingStyleModifiers", () => {
     ).toBe(2);
   });
 
-  it("grants +2 melee damage for Dueling with one-handed weapon", () => {
+  it("still applies legacy Dueling modifier when stored on a character", () => {
     expect(
       fightingStyleModifiers("Fighter", "Dueling", {
         wearingArmor: false,

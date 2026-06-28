@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   FIGHTING_STYLES,
@@ -12,6 +12,55 @@ import {
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
+
+export type FeatChoiceOption = {
+  name: string;
+  description: string;
+  slug?: string;
+};
+
+/** Codex Fighting Style feats with engine fallback when ingest is empty. */
+export function useFightingStyleFeats(): {
+  options: FeatChoiceOption[];
+  loading: boolean;
+} {
+  const query = trpc.codex.listFeats.useQuery({ featType: "Fighting Style" });
+  const options = useMemo(() => {
+    if (query.data?.length) {
+      return query.data.map((f) => ({
+        slug: f.slug,
+        name: f.name,
+        description:
+          f.description?.trim() ||
+          fightingStyleDescription(f.name) ||
+          "",
+      }));
+    }
+    return FIGHTING_STYLES.map((name) => ({
+      name,
+      description: fightingStyleDescription(name) ?? "",
+    }));
+  }, [query.data]);
+  return { options, loading: query.isLoading };
+}
+
+/** Codex Origin feats (Human Versatile, background-adjacent picks). */
+export function useOriginFeats(): {
+  options: FeatChoiceOption[];
+  loading: boolean;
+} {
+  const query = trpc.codex.listFeats.useQuery({ featType: "Origin" });
+  const options = useMemo(
+    () =>
+      (query.data ?? []).map((f) => ({
+        slug: f.slug,
+        name: f.name,
+        description: f.description?.trim() ?? "",
+      })),
+    [query.data],
+  );
+  return { options, loading: query.isLoading };
+}
 
 export function FightingStylePicker({
   className,
@@ -25,6 +74,8 @@ export function FightingStylePicker({
   onChange: (style: string) => void;
 }) {
   const pickLevel = fightingStylePickLevel(className);
+  const { options, loading } = useFightingStyleFeats();
+
   if (pickLevel == null || level < pickLevel) return null;
 
   return (
@@ -32,31 +83,99 @@ export function FightingStylePicker({
       <h3 className="text-xs uppercase tracking-wide text-lore-muted">
         Fighting Style
       </h3>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {FIGHTING_STYLES.map((style) => (
-          <span key={style} className="group relative inline-flex">
-            <button
-              type="button"
-              onClick={() => onChange(value === style ? "" : style)}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                value === style
-                  ? "border-lore-accent bg-lore-accent-dim"
-                  : "border-lore-border text-lore-muted hover:text-lore-text"
-              }`}
-            >
-              {style}
-            </button>
-            {fightingStyleDescription(style) && (
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-56 -translate-x-1/2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-lore-muted shadow-lg group-hover:block group-focus-within:block"
+      <p className="mt-1 text-xs text-lore-muted">
+        SRD fighting style feats from the Codex.
+      </p>
+      {loading ? (
+        <p className="mt-2 text-sm text-lore-muted">Loading fighting styles…</p>
+      ) : options.length === 0 ? (
+        <p className="mt-2 text-sm text-lore-muted">
+          No Fighting Style feats found in the Codex.
+        </p>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {options.map((style) => (
+            <span key={style.name} className="group relative inline-flex">
+              <button
+                type="button"
+                onClick={() => onChange(value === style.name ? "" : style.name)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  value === style.name
+                    ? "border-lore-accent bg-lore-accent-dim"
+                    : "border-lore-border text-lore-muted hover:text-lore-text"
+                }`}
               >
-                {fightingStyleDescription(style)}
-              </span>
-            )}
-          </span>
-        ))}
-      </div>
+                {style.name}
+              </button>
+              {style.description && (
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-56 -translate-x-1/2 rounded-lg border border-lore-border bg-lore-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-lore-muted shadow-lg group-hover:block group-focus-within:block"
+                >
+                  {style.description}
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function OriginFeatPicker({
+  label,
+  hint,
+  value,
+  onChange,
+  recommended,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (featName: string) => void;
+  recommended?: string;
+}) {
+  const { options, loading } = useOriginFeats();
+
+  return (
+    <div className="mt-6 rounded-lg border border-lore-border bg-lore-surface p-4">
+      <h3 className="text-xs uppercase tracking-wide text-lore-muted">{label}</h3>
+      {hint && <p className="mt-1 text-xs text-lore-muted">{hint}</p>}
+      {loading ? (
+        <p className="mt-3 text-sm text-lore-muted">Loading origin feats…</p>
+      ) : options.length === 0 ? (
+        <p className="mt-3 text-sm text-lore-muted">
+          No Origin feats found in the Codex.
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {options.map((feat) => (
+            <span key={feat.name} className="group relative inline-flex">
+              <button
+                type="button"
+                onClick={() => onChange(value === feat.name ? "" : feat.name)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  value === feat.name
+                    ? "border-lore-accent bg-lore-accent-dim"
+                    : "border-lore-border text-lore-muted hover:text-lore-text"
+                }`}
+              >
+                {feat.name}
+                {recommended === feat.name ? " (recommended)" : ""}
+              </button>
+              {feat.description && (
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-56 -translate-x-1/2 rounded-lg border border-lore-border bg-lore-bg px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-lore-muted shadow-lg group-hover:block group-focus-within:block"
+                >
+                  {feat.description}
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

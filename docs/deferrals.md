@@ -371,7 +371,26 @@ Quick index of the v1.5+ deferrals referenced by rows above:
 
 ---
 
-## 9. Maintenance
+## 10. SRD 5.1 → 5.2 audit
+
+Full discovery matrix: **`docs/srd-version-audit.md`**. Re-run DB counts: `cd packages/db && npm run srd-audit:db`.
+
+| ID | Item | Source | Deferred-to | Tracking | Status | Notes |
+|---|---|---|---|---|---|---|
+| SRD-AUDIT-0 | Discovery matrix + grep + prod DB document-key audit | handoff 2026-06-28 | — | doc-only | Done | **Locked decisions:** PDF (`SRD_CC_v5.2.1`) canonical; Open5e `srd-2024` ingest where PDF-aligned; **delete all characters** (no alias migration); spell handlers must match PDF; **5e-bits unused** (2014-only API — recommend doc removal). Prod: spells/monsters **319/325 × srd-2014**; items/bg/feats **2024**; species seed **12 × 5.1 subraces**; `SPELL_REGISTRY` **124** handlers. |
+| SRD-AUDIT-1 | Rewrite `class-features.ts` (all 12 classes → 2024 SRD) | srd-version-audit.md | next slice | doc-only | Done | **All 12 classes** rewritten from `SRD_CC_v5.2.1.pdf`; **`subclassPickLevel`** fixed to L3 for Cleric/Druid/Sorcerer/Warlock/Wizard. Fighter Second Wind **2 uses**; Ranger **Favored Enemy / Deft Explorer** replaces 2014 stubs; no PHB subclass names in feature text. |
+| SRD-AUDIT-2 | Spells ingest → `srd-2024` + prune + PDF/Open5e diff report | open5e-spells.ts | after AUDIT-1 or parallel | doc-only | **Done** | Flipped `OPEN5E_SRD_DOCUMENT_KEY` to `srd-2024`. Local/prod ingest: **339** upserted, **319** `srd-2014` pruned. Diff report deferred (names largely overlap). |
+| SRD-AUDIT-3 | Creatures ingest → `srd-2024` + prune | open5e-creatures.ts | after AUDIT-2 | doc-only | **Done** | **331** upserted, **325** `srd-2014` pruned. Comments updated to SRD 5.2. |
+| SRD-AUDIT-4 | Re-seed `srd-character-options.ts` — 9 PDF species, 2024 class copy | srd-version-audit.md | after AUDIT-1 | doc-only | **Done** | 9 unified SRD 5.2.1 species (Dragonborn, Dwarf, Elf, Gnome, Goliath, Halfling, Human, Orc, Tiefling); empty species ASI; prune legacy subrace slugs on seed; trait blurbs updated. |
+| SRD-AUDIT-5 | Fighting style ↔ Codex Fighting Style feats; origin feat wiring | srd-version-audit.md | after AUDIT-4 | doc-only | **Done** | `FightingStylePicker` + sheet use Codex `featType=Fighting Style` (4 SRD styles); Human Versatile Origin picker on background step; background origin feat surfaced + persisted. |
+| SRD-AUDIT-6 | `SPELL_REGISTRY` ↔ PDF canonical spell list (full ~360 handlers) | ENG-2/ENG-3 + audit | v1 | doc-only | **Done** | **339** Open5e catalog entries via `npm run generate:spell-registry`; **124** hand-authored combat overrides; golden tests on hand-authored only. |
+| SRD-AUDIT-7 | Slot/multiclass engine vs 2024 SRD; remove EK/AT third-caster | spell-slots.ts, third-caster-slots.ts | after AUDIT-4 | doc-only | **Done** | Removed third-caster module; PHB→SRD UI copy on spells tab / level-up; pooled slots unchanged (SRD table). |
+| SRD-AUDIT-8 | Delete all characters; drop `normalizeSubclassName` legacy aliases; fix fixtures | Jordan decision | with purge | doc-only | **Done** | `npm run purge:characters` removed **3** prod rows; dropped `SUBCLASS_NAME_ALIASES`; fixtures → Dwarf/Champion, Elf. |
+| SRD-AUDIT-9 | Docs: `data-sources.md`, AGENTS.md — drop 5e-bits; state PDF-first policy | srd-version-audit.md | after ingest flips | doc-only | **Done** | Open5e-only ingest documented; 5e-bits in **Considered And Rejected**; consolidated plan + product-spec assumptions updated. |
+
+---
+
+## 11. Maintenance
 
 - When you ship an item, set its **Status** to `Done` (and add the merge commit/PR in
   Notes) rather than deleting the row.

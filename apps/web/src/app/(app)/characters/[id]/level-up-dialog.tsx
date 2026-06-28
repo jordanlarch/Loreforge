@@ -9,7 +9,6 @@ import {
   grantsAsiAtLevel,
   featureStubsForLevel,
   classFeaturesForLevel,
-  hasThirdCasterSlots,
   hpGainOnLevelUp,
   hpRollFromSeed,
   isSpellcastingClasses,
@@ -718,11 +717,8 @@ export function LevelUpDialog({
                 )}
 
                 <p className="text-sm text-lore-muted">
-                  Slot maxima follow SRD multiclass pooling
-                  {hasThirdCasterSlots(nextClasses)
-                    ? " + third-caster archetype slots"
-                    : ""}
-                  .
+                  Slot maxima follow SRD 5.2 multiclass pooling (Warlock pact
+                  magic stays separate).
                 </p>
 
                 {casterLevelAfter > 0 && (

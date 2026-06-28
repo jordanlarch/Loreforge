@@ -213,7 +213,7 @@ export function SpellsTab({
               onClick={applySuggestedSlots}
               className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text"
             >
-              Apply PHB slots (Lv {casterLevel})
+              Apply SRD slots (Lv {casterLevel})
             </button>
           )}
         </div>

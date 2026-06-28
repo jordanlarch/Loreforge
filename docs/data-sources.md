@@ -12,40 +12,56 @@
 
 ## 1. SRD Content Ingest
 
-**Status**: Hybrid — Locked.
+**Status**: Hybrid — Locked (amended Jun 2026 SRD audit).
 
-The product runs on the 5E SRD 5.2 (System Reference Document). We need every species, class, subclass, background, spell, item, monster, feat, condition, and rule available as structured data for the Codex, the Creation Wizard, the engine's spell registry, and the AI-GM's grounding context.
+The product runs on the **SRD 5.2.1** System Reference Document. We need every species, class, subclass, background, spell, item, monster, feat, condition, and rule available as structured data for the Codex, the Creation Wizard, the engine's spell registry, and the AI-GM's grounding context.
 
-### Phase 1 — Open5e + 5e-bits APIs (v0.1 through v1.0)
+### Canonical reference policy (locked Jun 2026)
 
-For the initial build, we ingest from two community-maintained, free, API-accessible SRD sources:
+| Layer | Source of truth |
+|---|---|
+| **Names, mechanics, spell list membership** | Official SRD 5.2.1 PDF (Jordan's local canonical copy) |
+| **Machine ingest (Codex rows)** | [Open5e](https://open5e.com/) v2 API, document key **`srd-2024`** |
+| **Curated creation options** | In-repo seeds where Open5e prose is fragile to parse (`srd-character-options.ts`, `srd-subclasses.ts`, `class-features.ts`) |
+| **Combat spell resolution** | Hand-authored `SPELL_REGISTRY` entries override Open5e-generated catalog stubs (`npm run generate:spell-registry`) |
 
-- **[Open5e](https://open5e.com/)** — REST + GraphQL API; comprehensive SRD 5.1 coverage with searchable, filterable endpoints for spells, monsters, classes, races, and rules. Self-describing JSON output.
-- **[5e-bits / D&D 5e API](https://www.dnd5eapi.co/)** — REST API with strict SRD scoping; simpler shape than Open5e, well-documented, MIT-licensed source.
+Open5e rows that disagree with the PDF are corrected via seed overrides or post-ingest curation — not by trusting the API blindly.
 
-The two are complementary: 5e-bits has cleaner mechanical data for spells and monsters; Open5e has richer descriptive text and better filter parameters. Our ingest pipeline runs nightly (later: on-demand only), normalizes both into our canonical `@app/srd` schema, and persists into Postgres. The normalized schema is what the engine, Codex, and Smithy all consume — we never call these APIs from a hot user request path.
+**Not used:** [5e-bits / D&D 5e API](https://www.dnd5eapi.co/) — never integrated in code; exposes **2014-only** endpoints (`/api/2024/` → 404). Ruled out at SRD-AUDIT-9 (Jun 2026). Do not add to ingest plans unless they ship a maintained SRD 5.2 corpus.
 
-### Phase 2 — Custom SRD 5.2 Parse (v1.x migration target)
+### Phase 1 — Open5e `srd-2024` (v0.1 through v1.0, **current**)
 
-The community APIs above are still on SRD 5.1. As SRD 5.2 settles and we want full fidelity (every paragraph, every edge case for spell handlers, every monster trait), we'll migrate to a custom ingest from the official SRD 5.2 source documents. This is a one-time engineering investment: a structured parse of the PDF/markdown release, normalization into the same `@app/srd` schema, and a regression check that no entity from Phase 1 disappears.
+Single community API for structured ingest:
 
-The migration is invisible to the rest of the system because the consuming layer only ever sees the normalized schema. We keep both pipelines until parity is verified, then retire the API ingest as a backup.
+- **[Open5e](https://open5e.com/)** — REST v2 API; SRD 5.2 content under document key `srd-2024` (spells, monsters, items, backgrounds, feats, rules). Self-describing JSON; filterable by `document__key`.
+- **Nightly Trigger.dev jobs** upsert into `codex_*` Postgres tables (`packages/db/src/ingest/open5e-*.ts`). Spells and creatures prune legacy `srd-2014` rows on each run.
+- **Curated seeds** (same DB path as Codex tRPC): 9 PDF species, 12 classes, 12 SRD subclasses, class feature stubs — via `npm run seed:character-options`.
+- **Spell registry catalog:** `npm run generate:spell-registry` (from `packages/db`) builds `spell-registry-open5e.generated.ts` (**339** spells as of Jun 2026); **124** hand-authored combat definitions override by slug id.
+
+The engine, Codex, and Smithy consume **Postgres only** — we never call Open5e from a hot user request path.
+
+### Phase 2 — Custom SRD 5.2 PDF parse (v1.x / GA target)
+
+When we want full fidelity beyond Open5e's normalization (every paragraph, every edge case for spell handlers, every monster trait), we migrate to a custom ingest from the official SRD 5.2.1 source. Same `codex_*` / `@app/engine` schema; regression check that no entity disappears. Tracked as **INFRA-6** in `docs/deferrals.md`.
+
+The migration is invisible to product surfaces because consumers only see normalized rows. Open5e ingest remains a useful backup/diff source after Phase 2 lands.
 
 ### Storage & Caching
 
-- Normalized SRD content lives in dedicated Postgres tables (`srd_spells`, `srd_monsters`, `srd_classes`, etc.) with stable IDs we own.
+- Normalized SRD content lives in **`codex_*`** Postgres tables with stable slugs we own.
 - Codex and Smithy queries hit Postgres directly; no runtime API calls.
-- Smithy "Copy from Codex" duplicates an SRD row into the user's `homebrew_*` tables, preserving the original SRD ID as `derived_from`.
+- Smithy "Copy from Codex" duplicates an SRD row into the user's homebrew tables, preserving the original slug as `derived_from`.
 
 ### Licensing & Attribution
 
-Both source APIs respect the SRD's Creative Commons / OGL licensing. Loreforge will display SRD attribution in the Codex footer and any exported content (PDF character sheets, JSON exports). When we migrate to direct SRD 5.2 ingest, we follow the upstream license terms as published by Wizards of the Coast / the SRD steward at the time.
+Open5e and the official SRD respect Creative Commons licensing. Loreforge displays SRD attribution in the Codex footer and exported content. Follow upstream license terms when ingesting from the official PDF in Phase 2.
 
 ### Alternatives Considered
 
 - **Hand-author every SRD entry** — infeasible (hundreds of spells, hundreds of monsters). Quality would be inconsistent.
+- **5e-bits / dnd5eapi.co** — 2014-only API; no SRD 2024 corpus; never integrated. **Rejected** (SRD-AUDIT-9, Jun 2026).
 - **Pay a commercial 5E data provider** — adds cost and licensing complexity for content that's openly available.
-- **Scrape D&D Beyond** — TOS violation, and the SRD subset is what we need anyway.
+- **Scrape D&D Beyond** — TOS violation; the SRD subset is what we need anyway.
 
 ---
 

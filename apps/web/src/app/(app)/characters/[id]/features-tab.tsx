@@ -5,15 +5,15 @@ import { useMemo, useState } from "react";
 import {
   classFeaturesForLevel,
   featureResourceKey,
-  FIGHTING_STYLES,
   fightingStyleDescription,
   fightingStylePickLevel,
   formatAsiLabel,
-  normalizeSubclassName,
   remainingFeatureUses,
   subclassPickLevel,
   type ClassLevel,
 } from "@app/engine";
+
+import { useFightingStyleFeats } from "@/components/character-creation/class-choice-pickers";
 
 import { traitDescription } from "@app/db/traits";
 
@@ -86,14 +86,13 @@ export function FeaturesTab({
     { enabled: species.trim().length > 0 },
   );
   const subclassCatalog = trpc.codex.listSubclasses.useQuery(undefined);
+  const { options: fightingStyleOptions, loading: fightingStylesLoading } =
+    useFightingStyleFeats();
 
   function findSubclass(className: string, subclassName: string | undefined) {
     if (!subclassName?.trim() || !subclassCatalog.data) return undefined;
-    const normalized = normalizeSubclassName(subclassName);
     return subclassCatalog.data.find(
-      (s) =>
-        s.className === className &&
-        (s.name === subclassName || s.name === normalized),
+      (s) => s.className === className && s.name === subclassName,
     );
   }
 
@@ -315,17 +314,24 @@ export function FeaturesTab({
         }
         return (
           <SheetSection key={`style-${cl.class}`} title={`${cl.class} Fighting Style`}>
-            <div className="flex flex-wrap gap-2">
-              {FIGHTING_STYLES.map((style) => (
-                <ChoiceChip
-                  key={style}
-                  label={style}
-                  selected={meta.fightingStyles?.[cl.class] === style}
-                  tooltip={fightingStyleDescription(style)}
-                  onClick={() => setFightingStyle(cl.class, style)}
-                />
-              ))}
-            </div>
+            {fightingStylesLoading ? (
+              <p className="text-sm text-lore-muted">Loading fighting styles…</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {fightingStyleOptions.map((style) => (
+                  <ChoiceChip
+                    key={style.name}
+                    label={style.name}
+                    selected={meta.fightingStyles?.[cl.class] === style.name}
+                    tooltip={
+                      style.description ||
+                      fightingStyleDescription(style.name)
+                    }
+                    onClick={() => setFightingStyle(cl.class, style.name)}
+                  />
+                ))}
+              </div>
+            )}
           </SheetSection>
         );
       })}
@@ -350,10 +356,7 @@ export function FeaturesTab({
                     <ChoiceChip
                       key={sub.slug}
                       label={sub.name}
-                      selected={
-                        cl.subclass === sub.name ||
-                        normalizeSubclassName(cl.subclass ?? "") === sub.name
-                      }
+                      selected={cl.subclass === sub.name}
                       tooltip={sub.description}
                       disabled={!onUpdateClasses}
                       onClick={() => setSubclass(cl.class, sub.name)}

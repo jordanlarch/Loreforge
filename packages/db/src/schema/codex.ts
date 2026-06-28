@@ -12,7 +12,7 @@ import {
 import type { Ability, AbilityScores } from "@app/engine";
 
 /**
- * Normalized SRD reference rows (Open5e / 5e-bits ingest).
+ * Normalized SRD reference rows (Open5e `srd-2024` ingest + curated `source=srd` seeds).
  * P0 spike: spells only; expand in P1 Codex MVP.
  */
 export const codexSpells = pgTable(

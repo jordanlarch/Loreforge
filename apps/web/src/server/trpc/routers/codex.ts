@@ -7,7 +7,7 @@
 import { and, asc, count, desc, eq, gte, ilike, lte, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { masteryFromOpen5eItemRaw, normalizeSubclassName } from "@app/engine";
+import { masteryFromOpen5eItemRaw } from "@app/engine";
 
 import {
   codexAdvancedRules,
@@ -338,27 +338,19 @@ export const codexRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       const db = getDb();
-      const resolvedName = normalizeSubclassName(input.name);
-      const namesToTry =
-        resolvedName === input.name
-          ? [input.name]
-          : [input.name, resolvedName];
-      for (const name of namesToTry) {
-        const conditions = [
-          eq(codexSubclasses.source, "srd"),
-          ilike(codexSubclasses.name, name),
-          input.className
-            ? eq(codexSubclasses.className, input.className)
-            : undefined,
-        ].filter(Boolean);
-        const [row] = await db
-          .select()
-          .from(codexSubclasses)
-          .where(and(...conditions))
-          .limit(1);
-        if (row) return row;
-      }
-      return null;
+      const conditions = [
+        eq(codexSubclasses.source, "srd"),
+        ilike(codexSubclasses.name, input.name),
+        input.className
+          ? eq(codexSubclasses.className, input.className)
+          : undefined,
+      ].filter(Boolean);
+      const [row] = await db
+        .select()
+        .from(codexSubclasses)
+        .where(and(...conditions))
+        .limit(1);
+      return row ?? null;
     }),
 
   /** Filterable, paginated list of SRD creatures (Monsters + Animals tabs). */

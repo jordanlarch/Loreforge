@@ -7,9 +7,9 @@
  * drift. Connection lifecycle is owned by the caller — pass in a `Database`.
  *
  * Source filtering: Open5e v2 mixes many publishers (A5e, Kobold Press, …) into
- * its 1,900+ spell corpus. We scope to the SRD 5.1 document (`srd-2014`, ~319
- * spells) because the locked decision is "Open5e/5e-bits first, custom SRD 5.2
- * migrate post-GA" (`docs/data-sources.md` §1). Override `documentKey` to widen.
+ * its 1,900+ spell corpus. We scope to the SRD 5.2 document (`srd-2024`, ~339
+ * spells). Canonical text is `SRD_CC_v5.2.1.pdf`; repo seed overrides where Open5e
+ * drifts (`docs/srd-version-audit.md`).
  *
  * @see docs/data-sources.md §1
  */
@@ -18,8 +18,8 @@ import { sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { codexSpells } from "../schema/codex";
 
-/** Open5e v2 document key for the WotC 5.1 System Reference Document. */
-export const OPEN5E_SRD_DOCUMENT_KEY = "srd-2014";
+/** Open5e v2 document key for the WotC SRD 5.2 (2024) System Reference Document. */
+export const OPEN5E_SRD_DOCUMENT_KEY = "srd-2024";
 
 const DEFAULT_BASE_URL = "https://api.open5e.com/v2/spells/";
 const DEFAULT_PAGE_SIZE = 100;
@@ -43,7 +43,7 @@ interface Open5eListResponse {
 export interface IngestSpellsOptions {
   /** Drizzle client; caller owns open/close. */
   db: Database;
-  /** Open5e document to scope to. Defaults to SRD 5.1 (`srd-2014`). */
+  /** Open5e document to scope to. Defaults to SRD 5.2 (`srd-2024`). */
   documentKey?: string;
   /** Rows per page request. */
   pageSize?: number;

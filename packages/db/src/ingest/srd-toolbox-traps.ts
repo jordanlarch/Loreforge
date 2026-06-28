@@ -1,6 +1,6 @@
 /**
  * SRD 5.2 Gameplay Toolbox → Traps rules prose + sample trap seeds (DATA-1b v1).
- * Single authoring source for DB seed and engine reference until SRD-AUDIT-10 ingest.
+ * Single authoring source for DB seed and engine reference. Full PDF coverage at GA (INFRA-6).
  */
 import type { TrapDefinition } from "@app/engine";
 import { toolboxEntryId } from "@app/engine";

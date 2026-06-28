@@ -66,7 +66,7 @@ export function totalLevel(classes: ClassLevel[]): number {
 }
 
 /**
- * Proficiency bonus by total level (PHB progression).
+ * Proficiency bonus by total level (SRD 5.2 progression).
  * Levels 1-4 → +2, 5-8 → +3, 9-12 → +4, 13-16 → +5, 17-20 → +6.
  */
 export function proficiencyBonusForLevel(level: number): number {

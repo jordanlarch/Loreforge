@@ -1,7 +1,6 @@
 import {
   closeDb,
   getDb,
-  ingestOpen5eAdvancedRules,
   ingestOpen5eBackgrounds,
   ingestOpen5eCreatures,
   ingestOpen5eFeats,
@@ -16,12 +15,9 @@ import { logger, schedules } from "@trigger.dev/sdk/v3";
  * Nightly Codex refresh.
  *
  * Runs on Trigger.dev infrastructure (not Vercel), so it is free of serverless
- * timeouts. Re-ingests the full SRD 5.2 spell list into `codex_spells` via the
- * shared `ingestOpen5eSpells()` lib, then re-seeds the curated SRD species +
- * classes into `codex_species` / `codex_classes` via `seedCharacterOptions()`
- * (the Creation Wizard's data source, #6). Both share the same code paths as the
- * `npm run ingest:open5e` / `npm run seed:character-options` CLIs, so they never
- * drift.
+ * timeouts. Re-ingests Open5e SRD 5.2 corpora (spells, creatures, items,
+ * backgrounds, feats, rules) and re-seeds curated species/classes. Does **not**
+ * ingest legacy Open5e advanced rules (SRD-AUDIT-10 — use hand-seeded toolbox).
  *
  * Schedule: 08:00 UTC daily (~overnight in the Americas). Idempotent: upserts by
  * slug, so a missed/extra run is harmless.
@@ -82,12 +78,6 @@ export const ingestSpellsNightly = schedules.task({
       });
       logger.info("Nightly Open5e rules ingest complete", { ...rules });
 
-      const advanced = await ingestOpen5eAdvancedRules({
-        db,
-        logger: (message) => logger.info(message),
-      });
-      logger.info("Nightly Open5e advanced rules ingest complete", { ...advanced });
-
       const options = await seedCharacterOptions(db);
       logger.info("Nightly SRD character-options seed complete", { ...options });
 
@@ -98,7 +88,6 @@ export const ingestSpellsNightly = schedules.task({
         ...backgrounds,
         ...feats,
         ...rules,
-        ...advanced,
         ...options,
       };
     } finally {

@@ -651,7 +651,7 @@ export function CreationWizard() {
           {campaignId ? "← Campaign" : "← Characters"}
         </Link>
         <span className="text-xs uppercase tracking-widest text-lore-muted">
-          Character Creator · 5E SRD
+          Character Creator · SRD 5.2
         </span>
       </div>
 

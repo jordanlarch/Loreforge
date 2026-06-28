@@ -3,7 +3,7 @@
  *
  * No state, no randomness: the d20 and damage dice are drawn upstream via the
  * seeded `ctx.roll`; these helpers only interpret already-rolled values. SRD
- * to-hit rules (PHB "Making an Attack"): a natural 20 always hits and crits, a
+ * to-hit rules (SRD 5.2 "Making an Attack"): a natural 20 always hits and crits, a
  * natural 1 always misses, otherwise the total meets-or-beats AC. Critical hits
  * double the damage **dice** (not the flat modifier).
  */

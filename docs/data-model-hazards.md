@@ -125,17 +125,18 @@ All nine decisions locked. **DATA-1b v1** implementation slice is unblocked.
 
 ---
 
-## Post–GRILL-TRAP deliverable: SRD-AUDIT-10
+## Post–GRILL-TRAP deliverable: SRD-AUDIT-10 ✅
 
-After GRILL-TRAP (and sibling grill sessions), run a **complete project audit** against SRD 5.2 PDF:
+**Complete (Jun 2026).** Full audit recorded in `docs/srd-version-audit.md` § SRD-AUDIT-10.
 
-- Codex nav labels vs PDF chapter names
-- Every ingest corpus (`srd-2024` vs legacy `srd_*` prefixes)
-- Engine/UI terminology ("Advanced", "hazard", "disease" vs "Curses and Magical Contagions", …)
-- Row counts and missing Gameplay Toolbox entries
-- Glossary + Exploration hazards coverage
+After GRILL-TRAP (and sibling grill sessions), the project audit against SRD 5.2 PDF confirmed:
 
-Track in `docs/srd-version-audit.md` + `docs/deferrals.md`.
+- Codex nav **Gameplay Toolbox** (replaces **Advanced**)
+- Hand-seeded `codex_toolbox_entries` with `srd-2024_*` slugs (44 sample rows across 5 topics)
+- Legacy `codex_advanced_rules` retired from nightly ingest and Codex tRPC
+- Exploration hazards remain **out of scope** for toolbox → **GRILL-EXPLORATION**
+
+**Follow-ups:** SRD-AUDIT-10-R1 (prod spell doc_key), INFRA-6 full PDF ingest, GA migration to drop orphan `codex_advanced_rules`.
 
 ---
 
@@ -242,4 +243,4 @@ File: `packages/engine/src/content/toolbox-definitions.ts` (canonical).
 
 - **DATA-1c** — monsters
 - **DATA-1d** — consumables without weapon shape
-- **SRD-AUDIT-10** — full PDF alignment audit (post-grill)
+- **SRD-AUDIT-10** — ✅ audit complete (Jun 2026); see `docs/srd-version-audit.md`

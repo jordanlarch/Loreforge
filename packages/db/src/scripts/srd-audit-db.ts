@@ -15,6 +15,7 @@ const TABLES = [
   "codex_rule_chapters",
   "codex_rule_sections",
   "codex_advanced_rules",
+  "codex_toolbox_entries",
   "codex_species",
   "codex_classes",
   "codex_subclasses",
@@ -25,6 +26,13 @@ async function main() {
   const out: Record<string, unknown> = {};
 
   for (const table of TABLES) {
+    if (table === "codex_toolbox_entries") {
+      const rows = await db.execute<{ topic: string; n: number }>(
+        sql.raw(`SELECT topic, count(*)::int as n FROM ${table} GROUP BY 1 ORDER BY 1`),
+      );
+      out[table] = rows;
+      continue;
+    }
     if (table === "codex_species" || table === "codex_classes" || table === "codex_subclasses") {
       const rows = await db.execute<{ source: string; n: number }>(
         sql.raw(`SELECT source, count(*)::int as n FROM ${table} GROUP BY 1 ORDER BY 1`),

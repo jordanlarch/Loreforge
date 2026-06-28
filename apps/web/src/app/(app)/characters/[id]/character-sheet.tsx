@@ -107,6 +107,22 @@ export function CharacterSheetView({
   });
 
   const character = query.data;
+  const smithyItemIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          (character?.equipment ?? [])
+            .map((item) => item.smithyItemId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ],
+    [character?.equipment],
+  );
+  const smithyDefsQuery = trpc.smithy.resolveItemDefinitions.useQuery(
+    { ids: smithyItemIds },
+    { enabled: smithyItemIds.length > 0 },
+  );
+
   const parsed = useMemo(
     () => parseCharacterNotes(character?.notes ?? ""),
     [character?.notes],
@@ -141,6 +157,7 @@ export function CharacterSheetView({
   const vitals = effectiveSheetVitals(
     { ...character, equipment: character.equipment },
     metaWithHitDice,
+    { smithyDefinitions: smithyDefsQuery.data },
   );
   const milestoneXp = parsed.meta.milestoneXp ?? false;
   const progress = xpProgress(character.xp, sheet.level);
@@ -333,7 +350,7 @@ export function CharacterSheetView({
           <div className="mt-6">
             {tab === "Combat" && (
               <CombatTab
-                character={character}
+                character={{ ...character, baseAc: vitals.ac }}
                 meta={metaWithHitDice}
                 onPatchMeta={patchMeta}
               />

@@ -244,6 +244,35 @@ export {
   type ResolvedWeaponSpec,
 } from "./content/item-definitions";
 export {
+  buildPropertyDetailsFromSelection,
+  catalogEntryByKey,
+  selectionFromPropertyDetails,
+  SRD_WEAPON_MASTERIES,
+  SRD_WEAPON_PROPERTIES,
+  type CatalogPropertyEntry,
+} from "./content/item-property-catalog";
+export {
+  deriveEquippedArmorClass,
+  type DerivedArmorClass,
+  type EquipmentArmorEntry,
+} from "./content/armor-ac";
+export {
+  hazardDefinitionId,
+  HAZARD_KINDS,
+  isValidHazardDefinition,
+  validateHazardDefinition,
+  type HazardDefinition,
+  type HazardDamage,
+  type HazardKind,
+  type HazardSave,
+} from "./content/hazard-definitions";
+export {
+  isValidMonsterDefinition,
+  monsterDefinitionId,
+  validateMonsterDefinition,
+  type MonsterDefinition,
+} from "./content/monster-definitions";
+export {
   buildBackgroundDefinition,
   buildFeatDefinition,
   buildSubclassDefinition,

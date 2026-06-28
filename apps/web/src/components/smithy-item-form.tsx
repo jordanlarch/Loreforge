@@ -6,6 +6,8 @@ import {
   DAMAGE_TYPES,
   ITEM_RARITIES,
   ITEM_TYPES,
+  buildPropertyDetailsFromSelection,
+  selectionFromPropertyDetails,
   type ItemDefinition,
   type ItemRarity,
   type ItemSource,
@@ -13,6 +15,7 @@ import {
 } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
+import { SmithyPropertyPicker } from "@/components/smithy-property-picker";
 
 const inputClass =
   "w-full rounded border border-lore-border bg-lore-surface px-3 py-2 text-sm outline-none focus:border-lore-accent";
@@ -85,6 +88,7 @@ function buildMechanicsPayload(
     finesse?: boolean;
     ranged?: boolean;
     rangeFt?: number;
+    mastery?: string;
   };
   armor?: {
     baseAc: number;
@@ -186,6 +190,15 @@ export function SmithyItemForm({
   const [propertiesText, setPropertiesText] = useState(
     initial?.properties.join(", ") ?? "",
   );
+  const initialPropertySelection = selectionFromPropertyDetails(
+    initial?.definition?.propertyDetails,
+  );
+  const [propertyKeys, setPropertyKeys] = useState<string[]>(
+    initialPropertySelection.propertyKeys,
+  );
+  const [masteryKey, setMasteryKey] = useState<string | null>(
+    initialPropertySelection.masteryKey,
+  );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [requiresAttunement, setRequiresAttunement] = useState(
     initial?.requiresAttunement ?? false,
@@ -203,17 +216,63 @@ export function SmithyItemForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    const propertyDetails = buildPropertyDetailsFromSelection({
+      propertyKeys,
+      masteryKey,
+    });
+    const properties =
+      propertyDetails.length > 0
+        ? propertyDetails.map((p) => p.name)
+        : propertiesText
+            .split(",")
+            .map((p) => p.trim())
+            .filter(Boolean);
+
+    const mechanicsPayload = buildMechanicsPayload(type, mechanics);
+    if (propertyKeys.includes("finesse")) {
+      mechanicsPayload.weapon = {
+        ...mechanicsPayload.weapon,
+        damage: mechanicsPayload.weapon?.damage ?? {
+          dice: mechanics.damageDice.trim(),
+          type: mechanics.damageType,
+        },
+        finesse: true,
+      };
+    }
+    if (
+      propertyKeys.some((k) => k === "range" || k === "ammunition" || k === "thrown")
+    ) {
+      mechanicsPayload.weapon = {
+        ...mechanicsPayload.weapon,
+        damage: mechanicsPayload.weapon?.damage ?? {
+          dice: mechanics.damageDice.trim(),
+          type: mechanics.damageType,
+        },
+        ranged: true,
+      };
+    }
+    if (masteryKey) {
+      mechanicsPayload.weapon = {
+        ...mechanicsPayload.weapon,
+        damage: mechanicsPayload.weapon?.damage ?? {
+          dice: mechanics.damageDice.trim(),
+          type: mechanics.damageType,
+        },
+        mastery: masteryKey,
+      };
+    }
+
     const payload = {
       name: name.trim(),
       type,
       rarity,
-      properties: propertiesText
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean),
+      properties,
       description: description.trim(),
       requiresAttunement,
-      mechanics: buildMechanicsPayload(type, mechanics),
+      mechanics: {
+        ...mechanicsPayload,
+        propertyDetails,
+      },
     };
     if (mode === "edit" && itemId) {
       update.mutate({
@@ -440,14 +499,25 @@ export function SmithyItemForm({
         </section>
       ) : null}
 
-      <Field label="Properties (comma-separated)">
-        <input
-          value={propertiesText}
-          onChange={(e) => setPropertiesText(e.target.value)}
-          placeholder="Heavy, Two-Handed, Special"
-          className={inputClass}
+      {showWeaponFields ? (
+        <SmithyPropertyPicker
+          propertyKeys={propertyKeys}
+          masteryKey={masteryKey}
+          onPropertyKeysChange={setPropertyKeys}
+          onMasteryKeyChange={setMasteryKey}
         />
-      </Field>
+      ) : null}
+
+      {!showWeaponFields ? (
+        <Field label="Properties (comma-separated)">
+          <input
+            value={propertiesText}
+            onChange={(e) => setPropertiesText(e.target.value)}
+            placeholder="Wondrous, Consumable"
+            className={inputClass}
+          />
+        </Field>
+      ) : null}
 
       <Field label="Description">
         <textarea

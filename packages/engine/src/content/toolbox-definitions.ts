@@ -176,6 +176,14 @@ function hasTrapEffect(effect: TrapEffect): boolean {
   return false;
 }
 
+function hasPoisonEffect(def: PoisonDefinition): boolean {
+  if (def.save) return true;
+  if (def.damage?.length) return true;
+  if (def.conditions?.length) return true;
+  if (def.repeat?.trim()) return true;
+  return false;
+}
+
 export function validateTrapDefinition(def: TrapDefinition): string[] {
   const errors: string[] = [];
   if (!def.name?.trim()) errors.push("Name is required.");
@@ -194,23 +202,32 @@ export function validateTrapDefinition(def: TrapDefinition): string[] {
   return errors;
 }
 
+export function validatePoisonDefinition(def: PoisonDefinition): string[] {
+  const errors: string[] = [];
+  if (!def.name?.trim()) errors.push("Name is required.");
+  if (!def.id?.trim()) errors.push("Entry id is required.");
+  if (!(POISON_TYPES as readonly string[]).includes(def.poisonType)) {
+    errors.push("Unknown poison delivery type.");
+  }
+  if (!hasPoisonEffect(def)) {
+    errors.push("Poison requires save, damage, conditions, or repeat rules.");
+  }
+  validateSave(def.save, errors);
+  validateDamageRows(def.damage, errors);
+  return errors;
+}
+
 export function validateGameplayToolboxEntryDefinition(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
   if (def.kind === "trap") return validateTrapDefinition(def);
+  if (def.kind === "poison") return validatePoisonDefinition(def);
 
   const errors: string[] = [];
   if (!def.name?.trim()) errors.push("Name is required.");
   if (!def.id?.trim()) errors.push("Entry id is required.");
 
   switch (def.kind) {
-    case "poison":
-      if (!(POISON_TYPES as readonly string[]).includes(def.poisonType)) {
-        errors.push("Unknown poison delivery type.");
-      }
-      validateSave(def.save, errors);
-      validateDamageRows(def.damage, errors);
-      break;
     case "curse":
       validateSave(def.save, errors);
       break;
@@ -232,6 +249,10 @@ export function validateHazardDefinition(def: HazardDefinition): string[] {
 
 export function isValidTrapDefinition(def: TrapDefinition): boolean {
   return validateTrapDefinition(def).length === 0;
+}
+
+export function isValidPoisonDefinition(def: PoisonDefinition): boolean {
+  return validatePoisonDefinition(def).length === 0;
 }
 
 export function isValidGameplayToolboxEntryDefinition(

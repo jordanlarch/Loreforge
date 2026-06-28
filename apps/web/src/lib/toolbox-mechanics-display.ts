@@ -1,4 +1,4 @@
-import type { GameplayToolboxEntryDefinition, TrapDefinition, ToolboxCheck } from "@app/engine";
+import type { GameplayToolboxEntryDefinition, PoisonDefinition, TrapDefinition, ToolboxCheck } from "@app/engine";
 
 function formatCheck(label: string, check: ToolboxCheck): string {
   const parts = [`${label}: DC ${check.dc}`, check.ability.toUpperCase()];
@@ -30,9 +30,30 @@ export function formatTrapMechanicsSummary(def: TrapDefinition): string[] {
   return lines;
 }
 
+export function formatPoisonMechanicsSummary(def: PoisonDefinition): string[] {
+  const lines: string[] = [];
+  lines.push(`Type: ${def.poisonType}`);
+  if (def.save) {
+    lines.push(
+      `Save: DC ${def.save.dc} ${def.save.ability.toUpperCase()} (${def.save.onSuccess} on success)`,
+    );
+  }
+  def.damage?.forEach((row) => {
+    lines.push(`Damage: ${row.dice} ${row.type}`);
+  });
+  if (def.conditions?.length) {
+    lines.push(`Conditions: ${def.conditions.join(", ")}`);
+  }
+  if (def.repeat) {
+    lines.push(`Repeat: ${def.repeat}`);
+  }
+  return lines;
+}
+
 export function formatToolboxDefinitionSummary(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
   if (def.kind === "trap") return formatTrapMechanicsSummary(def);
+  if (def.kind === "poison") return formatPoisonMechanicsSummary(def);
   return [];
 }

@@ -274,11 +274,13 @@ export {
 } from "./content/hazard-definitions";
 export {
   isValidGameplayToolboxEntryDefinition,
+  isValidPoisonDefinition,
   isValidTrapDefinition,
   toolboxEntryId,
   TOOLBOX_TOPICS,
   TRAP_RESET_MODES,
   validateGameplayToolboxEntryDefinition,
+  validatePoisonDefinition,
   validateTrapDefinition,
   type CurseDefinition,
   type EnvironmentalEffectDefinition,

@@ -192,6 +192,16 @@ function hasCurseEffect(def: CurseDefinition): boolean {
   return false;
 }
 
+function hasEnvironmentalEffect(def: EnvironmentalEffectDefinition): boolean {
+  if (def.area?.trim()) return true;
+  if (def.duration?.trim()) return true;
+  if (def.save) return true;
+  if (def.damage?.length) return true;
+  if (def.conditions?.length) return true;
+  if (def.repeat?.trim()) return true;
+  return false;
+}
+
 export function validateTrapDefinition(def: TrapDefinition): string[] {
   const errors: string[] = [];
   if (!def.name?.trim()) errors.push("Name is required.");
@@ -236,22 +246,37 @@ export function validateCurseDefinition(def: CurseDefinition): string[] {
   return errors;
 }
 
+export function validateEnvironmentalEffectDefinition(
+  def: EnvironmentalEffectDefinition,
+): string[] {
+  const errors: string[] = [];
+  if (!def.name?.trim()) errors.push("Name is required.");
+  if (!def.id?.trim()) errors.push("Entry id is required.");
+  if (!hasEnvironmentalEffect(def)) {
+    errors.push(
+      "Environmental effect requires area, duration, save, damage, conditions, or repeat rules.",
+    );
+  }
+  validateSave(def.save, errors);
+  validateDamageRows(def.damage, errors);
+  return errors;
+}
+
 export function validateGameplayToolboxEntryDefinition(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
   if (def.kind === "trap") return validateTrapDefinition(def);
   if (def.kind === "poison") return validatePoisonDefinition(def);
   if (def.kind === "curse") return validateCurseDefinition(def);
+  if (def.kind === "environmental_effect") {
+    return validateEnvironmentalEffectDefinition(def);
+  }
 
   const errors: string[] = [];
   if (!def.name?.trim()) errors.push("Name is required.");
   if (!def.id?.trim()) errors.push("Entry id is required.");
 
   switch (def.kind) {
-    case "environmental_effect":
-      validateSave(def.save, errors);
-      validateDamageRows(def.damage, errors);
-      break;
     case "fear_stress":
       validateSave(def.save, errors);
       break;
@@ -274,6 +299,12 @@ export function isValidPoisonDefinition(def: PoisonDefinition): boolean {
 
 export function isValidCurseDefinition(def: CurseDefinition): boolean {
   return validateCurseDefinition(def).length === 0;
+}
+
+export function isValidEnvironmentalEffectDefinition(
+  def: EnvironmentalEffectDefinition,
+): boolean {
+  return validateEnvironmentalEffectDefinition(def).length === 0;
 }
 
 export function isValidGameplayToolboxEntryDefinition(

@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   isValidCurseDefinition,
+  isValidEnvironmentalEffectDefinition,
   isValidPoisonDefinition,
   isValidTrapDefinition,
   toolboxEntryId,
   validateCurseDefinition,
+  validateEnvironmentalEffectDefinition,
   validatePoisonDefinition,
   validateTrapDefinition,
   type CurseDefinition,
+  type EnvironmentalEffectDefinition,
   type PoisonDefinition,
   type TrapDefinition,
 } from "./toolbox-definitions";
@@ -116,6 +119,31 @@ describe("toolbox-definitions curses", () => {
     };
     expect(validateCurseDefinition(def)).toContain(
       "Curse requires save, effects, contagion, or recovery rules.",
+    );
+  });
+});
+
+describe("toolbox-definitions environmental effects", () => {
+  it("validates extreme cold style environmental effect", () => {
+    const def: EnvironmentalEffectDefinition = {
+      id: toolboxEntryId("Extreme Cold"),
+      name: "Extreme Cold",
+      kind: "environmental_effect",
+      description: "Exposure at 0 °F or lower.",
+      repeat: "End of each hour: DC 10 Constitution save or +1 Exhaustion.",
+    };
+    expect(isValidEnvironmentalEffectDefinition(def)).toBe(true);
+  });
+
+  it("requires at least one mechanical field", () => {
+    const def: EnvironmentalEffectDefinition = {
+      id: "bad",
+      name: "Bad",
+      kind: "environmental_effect",
+      description: "x",
+    };
+    expect(validateEnvironmentalEffectDefinition(def)).toContain(
+      "Environmental effect requires area, duration, save, damage, conditions, or repeat rules.",
     );
   });
 });

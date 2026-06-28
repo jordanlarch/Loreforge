@@ -1,4 +1,11 @@
-import type { CurseDefinition, GameplayToolboxEntryDefinition, PoisonDefinition, TrapDefinition, ToolboxCheck } from "@app/engine";
+import type {
+  CurseDefinition,
+  EnvironmentalEffectDefinition,
+  GameplayToolboxEntryDefinition,
+  PoisonDefinition,
+  TrapDefinition,
+  ToolboxCheck,
+} from "@app/engine";
 
 function formatCheck(label: string, check: ToolboxCheck): string {
   const parts = [`${label}: DC ${check.dc}`, check.ability.toUpperCase()];
@@ -69,11 +76,37 @@ export function formatCurseMechanicsSummary(def: CurseDefinition): string[] {
   return lines;
 }
 
+export function formatEnvironmentalEffectMechanicsSummary(
+  def: EnvironmentalEffectDefinition,
+): string[] {
+  const lines: string[] = [];
+  if (def.area) lines.push(`Area: ${def.area}`);
+  if (def.duration) lines.push(`Duration: ${def.duration}`);
+  if (def.save) {
+    lines.push(
+      `Save: DC ${def.save.dc} ${def.save.ability.toUpperCase()} (${def.save.onSuccess} on success)`,
+    );
+  }
+  def.damage?.forEach((row) => {
+    lines.push(`Damage: ${row.dice} ${row.type}`);
+  });
+  if (def.conditions?.length) {
+    lines.push(`Conditions: ${def.conditions.join(", ")}`);
+  }
+  if (def.repeat) {
+    lines.push(`Repeat: ${def.repeat}`);
+  }
+  return lines;
+}
+
 export function formatToolboxDefinitionSummary(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
   if (def.kind === "trap") return formatTrapMechanicsSummary(def);
   if (def.kind === "poison") return formatPoisonMechanicsSummary(def);
   if (def.kind === "curse") return formatCurseMechanicsSummary(def);
+  if (def.kind === "environmental_effect") {
+    return formatEnvironmentalEffectMechanicsSummary(def);
+  }
   return [];
 }

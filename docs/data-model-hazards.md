@@ -171,9 +171,21 @@ Deferred from GRILL-TRAP Q7. **Traps-only v1** for Live Play resolution.
 |---|---|
 | Engine registry | ✅ `srd-trap-seeds.ts` + `TRAP_REGISTRY` (8 PDF samples) |
 | Engine commands | ✅ handlers + projection + `engine.traps.test.ts` |
-| WS / Live Play UI | ⏳ next slice — battle action wiring + detect/disable affordances |
+| WS / Live Play UI | ✅ #293 — detect/disable affordances + `sceneKind` gate |
 | Scene trap placement (GM prep) | ⏳ deferred — CAMP / map editor |
-| Poisons+ siblings | ⏳ after traps v1 prod verify |
+| Poisons+ siblings | ⏳ after traps v1 prod verify — **GRILL-LIVE-POISON** session |
+
+---
+
+## GRILL-LIVE-POISON — pending (schedule next)
+
+Traps v1 locks **scene-placed** resolution. Poisons need a separate grill — delivery types (contact / ingested / inhaled / injury) attach to **items, attacks, or scene hazards**, not map tiles. Proposed grill order after traps prod verify:
+
+1. **GRILL-LIVE-POISON** — engine commands + Live Play affordances for poison saves/damage/repeat
+2. **GRILL-LIVE-CURSE / ENV / FEAR** — sibling toolbox topics (inherit trap command patterns where applicable)
+3. **GRILL-SMITHY-EDIT** — richer structured Smithy editing (all toolbox topics)
+4. **GRILL-EXPLORATION** — Playing the Game hazards (≠ Gameplay Toolbox); separate program
+5. **GM trap placement UI** — campaign prep / map editor (CAMP deferral)
 
 ---
 

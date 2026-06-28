@@ -11,7 +11,7 @@
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   areHostile,
@@ -82,7 +82,7 @@ import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
 import { ChatZone } from "./chat-zone";
 import { type ArmedAction } from "./combat-action-bar";
 import { CombatTurnBar } from "./combat-turn-bar";
-import { TrapActionBar } from "./trap-action-bar";
+import { TrapTurnControls } from "./trap-action-bar";
 import { CharacterHud } from "./character-hud";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { GraduationModal } from "./graduation-modal";
@@ -363,19 +363,21 @@ function LiveBattle({
     return trapsInRange(scene?.traps, pc?.position);
   }, [state, pcCharacterId]);
 
-  const trapActionBar =
-    nearbyTraps.length > 0 && state?.currentSceneId && pcCharacterId ? (
-      <TrapActionBar
-        traps={nearbyTraps}
-        disabled={session.isBusy || paused}
-        onDetect={(trapInstanceId) =>
-          session.detectTrap(pcCharacterId, state.currentSceneId!, trapInstanceId)
-        }
-        onDisable={(trapInstanceId) =>
-          session.disableTrap(pcCharacterId, state.currentSceneId!, trapInstanceId)
-        }
-      />
-    ) : null;
+  const trapControlsDisabled = session.isBusy || paused;
+  const onDetectTrap = useCallback(
+    (trapInstanceId: string) => {
+      if (!state?.currentSceneId || !pcCharacterId) return;
+      session.detectTrap(pcCharacterId, state.currentSceneId, trapInstanceId);
+    },
+    [state?.currentSceneId, pcCharacterId, session.detectTrap],
+  );
+  const onDisableTrap = useCallback(
+    (trapInstanceId: string) => {
+      if (!state?.currentSceneId || !pcCharacterId) return;
+      session.disableTrap(pcCharacterId, state.currentSceneId, trapInstanceId);
+    },
+    [state?.currentSceneId, pcCharacterId, session.disableTrap],
+  );
 
   // Whether the armed action is an AoE spell that uses the aim picker (#99).
   const isAreaCast = armed?.kind === "cast" && armed.spell.area !== undefined;
@@ -787,22 +789,27 @@ function LiveBattle({
               </section>
             }
             mapFooter={
-              trapActionBar ? (
-                <div className="space-y-2">
-                  {trapActionBar}
-                  {explore.sceneDescription ? (
-                    <p className="max-w-[33rem] text-xs text-lore-muted">
-                      {explore.sceneDescription}
-                    </p>
-                  ) : null}
-                </div>
-              ) : explore.sceneDescription ? (
+              explore.sceneDescription ? (
                 <p className="max-w-[33rem] text-xs text-lore-muted">
                   {explore.sceneDescription}
                 </p>
               ) : undefined
             }
-            actionBar={trapActionBar ?? undefined}
+            actionBar={
+              nearbyTraps.length > 0 ? (
+                <div className="rounded-lg border border-lore-border bg-lore-surface px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <TrapTurnControls
+                      traps={nearbyTraps}
+                      disabled={trapControlsDisabled}
+                      onDetect={onDetectTrap}
+                      onDisable={onDisableTrap}
+                      leading
+                    />
+                  </div>
+                </div>
+              ) : undefined
+            }
             chat={
               <div
                 className="flex min-h-0 flex-1 flex-col"
@@ -970,9 +977,7 @@ function LiveBattle({
           </p>
         }
         actionBar={
-          <>
-            {trapActionBar}
-            <CombatTurnBar
+          <CombatTurnBar
             activeEntity={activeEntity}
             activeName={vm.activeName}
             controllableTurn={controllableTurn}
@@ -1016,8 +1021,10 @@ function LiveBattle({
             onCastShieldSelf={
               activeReactionSpells[0] ? onCastShieldSelf : undefined
             }
+            nearbyTraps={nearbyTraps}
+            onDetectTrap={onDetectTrap}
+            onDisableTrap={onDisableTrap}
           />
-          </>
         }
         chat={
           <ChatZone

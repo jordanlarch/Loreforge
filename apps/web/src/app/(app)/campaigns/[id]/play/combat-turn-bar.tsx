@@ -9,9 +9,11 @@ import type { EntityState } from "@app/engine";
 
 import type { CastableSpell } from "@/lib/live-combat";
 import type { WeaponAttack } from "@/lib/sheet-loadout";
+import type { SceneTrapInstance } from "@app/engine";
 
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
 import { ReactionPrompt } from "./reaction-prompt";
+import { TrapTurnControls } from "./trap-action-bar";
 
 function EconChip({ label, used }: { label: string; used: boolean }) {
   return (
@@ -79,6 +81,9 @@ export function CombatTurnBar({
   onCastShield,
   activeReactionSpells,
   onCastShieldSelf,
+  nearbyTraps,
+  onDetectTrap,
+  onDisableTrap,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -112,6 +117,9 @@ export function CombatTurnBar({
   onCastShield?: () => void;
   activeReactionSpells: CastableSpell[];
   onCastShieldSelf?: () => void;
+  nearbyTraps?: readonly SceneTrapInstance[];
+  onDetectTrap?: (trapInstanceId: string) => void;
+  onDisableTrap?: (trapInstanceId: string) => void;
 }) {
   const armedMode = armed !== null;
 
@@ -185,6 +193,19 @@ export function CombatTurnBar({
               </span>
             ) : null}
 
+            {!controllableTurn &&
+            !paused &&
+            nearbyTraps?.length &&
+            onDetectTrap &&
+            onDisableTrap ? (
+              <TrapTurnControls
+                traps={nearbyTraps}
+                disabled={isBusy}
+                onDetect={onDetectTrap}
+                onDisable={onDisableTrap}
+              />
+            ) : null}
+
             {controllableTurn && activeEntity && !paused ? (
               <>
                 <ActionEconomyRow entity={activeEntity} />
@@ -222,6 +243,14 @@ export function CombatTurnBar({
                       </button>
                     ))}
                   </div>
+                ) : null}
+                {nearbyTraps?.length && onDetectTrap && onDisableTrap ? (
+                  <TrapTurnControls
+                    traps={nearbyTraps}
+                    disabled={isBusy}
+                    onDetect={onDetectTrap}
+                    onDisable={onDisableTrap}
+                  />
                 ) : null}
                 <button
                   type="button"

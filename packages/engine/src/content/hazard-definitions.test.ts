@@ -26,11 +26,25 @@ describe("hazard-definitions", () => {
       id: "bad",
       name: "Bad",
       kind: "poison",
+      poisonType: "injury",
       description: "x",
       save: { ability: "con", dc: 0, onSuccess: "none" },
     };
     expect(validateHazardDefinition(def)).toContain(
       "Save DC must be between 1 and 30.",
     );
+  });
+
+  it("validates an environmental hazard with area and repeat", () => {
+    const def: HazardDefinition = {
+      id: hazardDefinitionId("Lava"),
+      name: "Lava",
+      kind: "environmental",
+      description: "Molten rock.",
+      area: "5-ft cube",
+      damage: [{ dice: "10d10", type: "fire" }],
+      repeat: "each round",
+    };
+    expect(isValidHazardDefinition(def)).toBe(true);
   });
 });

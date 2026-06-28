@@ -14,6 +14,8 @@ export function SheetLiveHud({
   portraitUrl,
   maxHp,
   initiative,
+  effectiveAc,
+  effectiveSpeed,
 }: {
   sheet: CharacterSheet;
   currentHp: number;
@@ -21,10 +23,14 @@ export function SheetLiveHud({
   portraitUrl: string;
   maxHp?: number;
   initiative?: number;
+  effectiveAc?: number;
+  effectiveSpeed?: number;
 }) {
   const hpMax = maxHp ?? sheet.hp.max;
   const hpPct = Math.round((currentHp / Math.max(1, hpMax)) * 100);
   const init = initiative ?? sheet.initiative;
+  const ac = effectiveAc ?? sheet.ac;
+  const speed = effectiveSpeed ?? sheet.speed;
 
   return (
     <aside className="sticky top-4 rounded-lg border border-lore-border bg-lore-surface p-4">
@@ -83,11 +89,11 @@ export function SheetLiveHud({
       <dl className="mt-3 grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
         <div>
           <dt className="text-lore-muted">AC</dt>
-          <dd className="font-display text-lg">{sheet.ac}</dd>
+          <dd className="font-display text-lg">{ac}</dd>
         </div>
         <div>
           <dt className="text-lore-muted">Speed</dt>
-          <dd className="font-display text-lg">{sheet.speed} ft</dd>
+          <dd className="font-display text-lg">{speed} ft</dd>
         </div>
         <div>
           <dt className="text-lore-muted">Init</dt>

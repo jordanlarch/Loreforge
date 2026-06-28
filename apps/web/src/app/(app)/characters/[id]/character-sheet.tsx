@@ -118,9 +118,25 @@ export function CharacterSheetView({
       ],
     [character?.equipment],
   );
+  const codexSlugs = useMemo(
+    () =>
+      [
+        ...new Set(
+          (character?.equipment ?? [])
+            .filter((item) => !item.smithyItemId)
+            .map((item) => item.codexSlug)
+            .filter((slug): slug is string => Boolean(slug)),
+        ),
+      ],
+    [character?.equipment],
+  );
   const smithyDefsQuery = trpc.smithy.resolveItemDefinitions.useQuery(
     { ids: smithyItemIds },
     { enabled: smithyItemIds.length > 0 },
+  );
+  const codexDefsQuery = trpc.codex.resolveItemDefinitions.useQuery(
+    { slugs: codexSlugs },
+    { enabled: codexSlugs.length > 0 },
   );
 
   const parsed = useMemo(
@@ -157,7 +173,10 @@ export function CharacterSheetView({
   const vitals = effectiveSheetVitals(
     { ...character, equipment: character.equipment },
     metaWithHitDice,
-    { smithyDefinitions: smithyDefsQuery.data },
+    {
+      smithyDefinitions: smithyDefsQuery.data,
+      codexDefinitions: codexDefsQuery.data,
+    },
   );
   const milestoneXp = parsed.meta.milestoneXp ?? false;
   const progress = xpProgress(character.xp, sheet.level);
@@ -436,6 +455,8 @@ export function CharacterSheetView({
             portraitUrl={character.portraitUrl}
             maxHp={effectiveMaxHp}
             initiative={vitals.initiative}
+            effectiveAc={vitals.ac}
+            effectiveSpeed={vitals.speed}
           />
         </div>
       </div>

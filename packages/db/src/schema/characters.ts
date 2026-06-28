@@ -33,7 +33,7 @@ export type CharacterLibraryVisibility =
  * A single inventory/equipment entry (#56, rich shape). `name`/`quantity`/
  * `equipped` are always present; the rest are optional so generators and the
  * future Equipment tab (CHAR-7) can enrich items incrementally. `smithyItemId`
- * links to a homebrew Smithy item for the "Use in Character" flow (SMITH-5).
+ * links to a homebrew Smithy item; `codexSlug` links to a Codex SRD item (DATA-1a).
  */
 export type EquipmentItem = {
   name: string;
@@ -41,6 +41,7 @@ export type EquipmentItem = {
   equipped: boolean;
   slot?: string;
   smithyItemId?: string;
+  codexSlug?: string;
   weight?: number;
   rarity?: string;
   attunement?: boolean;

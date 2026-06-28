@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { EquipmentItemInspectDialog } from "@/components/equipment-item-inspect";
 import { SmithyItemAddPicker } from "@/components/character-library-pickers";
 import {
   SheetSearchBar,
@@ -59,6 +60,7 @@ export function InventoryTab({
   const [search, setSearch] = useState("");
   const [shopSearch, setShopSearch] = useState("");
   const [smithyOpen, setSmithyOpen] = useState(false);
+  const [inspectItem, setInspectItem] = useState<EquipmentItem | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(equipment);
 
@@ -115,9 +117,11 @@ export function InventoryTab({
   }
 
   function buyFromCodex(item: {
+    slug: string;
     name: string;
     cost: string | null;
     weight: string | null;
+    category?: string | null;
   }) {
     const gp = parseGpCost(item.cost);
     if (gp > 0 && currency.gp < gp) return;
@@ -129,6 +133,8 @@ export function InventoryTab({
       {
         ...blankEquipmentItem(),
         name: item.name,
+        codexSlug: item.slug,
+        slot: item.category ?? undefined,
         weight: parseWeightLb(item.weight),
         quantity: 1,
       },
@@ -237,6 +243,7 @@ export function InventoryTab({
             draft={draft}
             onPatch={patch}
             onRemove={removeItem}
+            onInspect={setInspectItem}
             showEquipToggle
             dragIndex={dragIndex}
             onDragStart={setDragIndex}
@@ -250,7 +257,7 @@ export function InventoryTab({
           {attuned.length === 0 ? (
             <p className="text-sm text-lore-muted">No attunable items.</p>
           ) : (
-            <ItemList items={attuned} draft={draft} onPatch={patch} onRemove={removeItem} />
+            <ItemList items={attuned} draft={draft} onPatch={patch} onRemove={removeItem} onInspect={setInspectItem} />
           )}
         </SheetSection>
       </div>
@@ -265,6 +272,7 @@ export function InventoryTab({
             draft={draft}
             onPatch={patch}
             onRemove={removeItem}
+            onInspect={setInspectItem}
             showEquipToggle
             dragIndex={dragIndex}
             onDragStart={setDragIndex}
@@ -283,6 +291,13 @@ export function InventoryTab({
           onClose={() => setSmithyOpen(false)}
         />
       )}
+
+      {inspectItem ? (
+        <EquipmentItemInspectDialog
+          item={inspectItem}
+          onClose={() => setInspectItem(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -292,6 +307,7 @@ function ItemList({
   draft,
   onPatch,
   onRemove,
+  onInspect,
   showEquipToggle,
   dragIndex,
   onDragStart,
@@ -301,6 +317,7 @@ function ItemList({
   draft: EquipmentItem[];
   onPatch: (index: number, fields: Partial<EquipmentItem>) => void;
   onRemove: (index: number) => void;
+  onInspect?: (item: EquipmentItem) => void;
   showEquipToggle?: boolean;
   dragIndex?: number | null;
   onDragStart?: (index: number | null) => void;
@@ -352,11 +369,22 @@ function ItemList({
                 />
               )}
               <div className="min-w-0 flex-1">
-                <input
-                  value={item.name}
-                  onChange={(e) => onPatch(index, { name: e.target.value })}
-                  className="w-full bg-transparent font-medium outline-none"
-                />
+                <div className="flex items-start gap-2">
+                  <input
+                    value={item.name}
+                    onChange={(e) => onPatch(index, { name: e.target.value })}
+                    className="min-w-0 flex-1 bg-transparent font-medium outline-none"
+                  />
+                  {onInspect ? (
+                    <button
+                      type="button"
+                      onClick={() => onInspect(item)}
+                      className="shrink-0 rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:text-lore-text"
+                    >
+                      Inspect
+                    </button>
+                  ) : null}
+                </div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {tags.map((t) => (
                     <SheetTag key={t} label={t} />

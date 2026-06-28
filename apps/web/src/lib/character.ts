@@ -13,6 +13,7 @@ export type EquipmentItem = {
   equipped: boolean;
   slot?: string;
   smithyItemId?: string;
+  codexSlug?: string;
   weight?: number;
   rarity?: string;
   attunement?: boolean;

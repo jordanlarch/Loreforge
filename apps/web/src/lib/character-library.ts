@@ -104,6 +104,7 @@ export function codexItemToEquipment(
     weight: parseWeightLb(item.weight),
     attunement: item.requiresAttunement,
     description: item.description?.trim() || undefined,
+    codexSlug: item.slug,
   };
 }
 
@@ -136,7 +137,13 @@ export function mergeEquippedSmithyItem(
   const idx = equipment.findIndex((e) => equipmentKey(e) === key);
   if (idx >= 0) {
     return equipment.map((e, i) =>
-      i === idx ? { ...e, equipped: true } : e,
+      i === idx
+        ? {
+            ...e,
+            equipped: true,
+            smithyItemId: incoming.smithyItemId ?? e.smithyItemId,
+          }
+        : e,
     );
   }
   return [...equipment, incoming];
@@ -171,7 +178,13 @@ export function mergeEquippedCodexItem(
   const idx = equipment.findIndex((e) => equipmentKey(e) === key);
   if (idx >= 0) {
     return equipment.map((e, i) =>
-      i === idx ? { ...e, equipped: true } : e,
+      i === idx
+        ? {
+            ...e,
+            equipped: true,
+            codexSlug: incoming.codexSlug ?? e.codexSlug,
+          }
+        : e,
     );
   }
   return [...equipment, incoming];
@@ -181,7 +194,10 @@ export function spellKey(spell: Pick<CharacterSpell, "name" | "level">): string 
   return `${spell.level}:${spell.name.trim().toLowerCase()}`;
 }
 
-export function equipmentKey(item: Pick<EquipmentItem, "name" | "smithyItemId">): string {
+export function equipmentKey(
+  item: Pick<EquipmentItem, "name" | "smithyItemId" | "codexSlug">,
+): string {
   if (item.smithyItemId) return `smithy:${item.smithyItemId}`;
+  if (item.codexSlug) return `codex:${item.codexSlug}`;
   return `name:${item.name.trim().toLowerCase()}`;
 }

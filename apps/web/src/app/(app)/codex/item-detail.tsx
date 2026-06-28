@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+
+import { open5eRawToItemDefinition } from "@app/engine";
 
 import { ItemPropertyRow } from "@/components/item-property-hint";
 import { CodexDetailActions } from "@/components/codex-detail-actions";
@@ -12,6 +14,7 @@ import {
   weaponPropertyEntries,
   weaponSummary,
 } from "@/lib/codex-item-display";
+import { formatItemMechanicsSummary } from "@/lib/item-mechanics-display";
 import { trpc } from "@/lib/trpc/client";
 import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
@@ -35,6 +38,21 @@ export function ItemDetail({
   }, [onClose]);
 
   const raw = (item.data?.raw ?? {}) as Record<string, unknown>;
+  const itemDefinition = useMemo(() => {
+    if (!item.data) return undefined;
+    return open5eRawToItemDefinition(raw, {
+      slug: item.data.slug,
+      name: item.data.name,
+      category: item.data.category,
+      description: item.data.description,
+      cost: item.data.cost,
+      weight: item.data.weight,
+      weightUnit: item.data.weightUnit,
+    });
+  }, [item.data, raw]);
+  const mechanicsLines = itemDefinition
+    ? formatItemMechanicsSummary(itemDefinition)
+    : [];
   const weaponLine = weaponSummary(raw);
   const armorLine = armorSummary(raw);
   const properties = weaponPropertyEntries(raw);
@@ -106,6 +124,16 @@ export function ItemDetail({
                   {item.data.description}
                 </p>
               )}
+
+              {mechanicsLines.length > 0 ? (
+                <DetailBlock title="Data definition">
+                  <ul className="space-y-1">
+                    {mechanicsLines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </DetailBlock>
+              ) : null}
 
               {weaponLine && (
                 <DetailBlock title="Weapon">{weaponLine}</DetailBlock>

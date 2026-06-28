@@ -260,11 +260,17 @@ export {
   hazardDefinitionId,
   HAZARD_KINDS,
   isValidHazardDefinition,
+  POISON_TYPES,
   validateHazardDefinition,
+  type DiseaseDefinition,
+  type EnvironmentalHazardDefinition,
   type HazardDefinition,
   type HazardDamage,
   type HazardKind,
   type HazardSave,
+  type PoisonDefinition,
+  type PoisonType,
+  type TrapDefinition,
 } from "./content/hazard-definitions";
 export {
   isValidMonsterDefinition,

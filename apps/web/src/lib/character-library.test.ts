@@ -78,6 +78,7 @@ describe("character-library mappers", () => {
       codexItemToEquipment(
         {
           name: "Longsword",
+          slug: "longsword",
           category: "weapon",
           weight: "3",
           description: "A versatile blade.",
@@ -93,6 +94,7 @@ describe("character-library mappers", () => {
       weight: 3,
       attunement: false,
       description: "A versatile blade.",
+      codexSlug: "longsword",
     });
   });
 

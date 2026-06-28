@@ -696,6 +696,31 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "CurseApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const activeCurses = [...(target.activeCurses ?? [])];
+        activeCurses.push({
+          instanceId: event.payload.instanceId,
+          curseSlug: event.payload.curseSlug,
+          pendingRecovery: event.payload.pendingRecovery,
+        });
+        next.entities[target.id] = { ...target, activeCurses };
+      }
+      break;
+    }
+    case "CurseRemoved": {
+      const target = next.entities[event.payload.target];
+      if (target?.activeCurses?.length) {
+        next.entities[target.id] = {
+          ...target,
+          activeCurses: target.activeCurses.filter(
+            (c) => c.instanceId !== event.payload.instanceId,
+          ),
+        };
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":

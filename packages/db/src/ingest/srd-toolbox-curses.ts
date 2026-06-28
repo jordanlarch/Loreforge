@@ -108,6 +108,7 @@ export const SRD_TOOLBOX_CURSE_SEEDS: CurseSeed[] = [
       name: "Sight Rot",
       description: "Magical contagion from water tainted by Sight Rot.",
       save: { ability: "con", dc: 15, onSuccess: "negates" },
+      conditions: ["blinded"],
       effects: ["Blinded until the contagion ends."],
       contagion:
         "Humanoids with skin contact must save or become infected (immune from that carrier for 24 hours on success).",

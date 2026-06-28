@@ -286,6 +286,27 @@ export type MaxHpReducedPayload = {
   hpMaxAfter: number;
 };
 
+export type CurseAppliedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  curseSlug: string;
+  pendingRecovery: boolean;
+};
+
+export type CurseRemovedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  curseSlug: string;
+  reason: "saved" | "removed" | "cured";
+};
+
+export type CurseTickResolvedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  curseSlug: string;
+  success: boolean;
+};
+
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
   /** The creature whose movement opened the window. */
@@ -418,7 +439,10 @@ export type EngineEvent =
       payload: PoisonRepeatProgressedPayload;
     })
   | (EventMeta & { type: "PoisonTickResolved"; payload: PoisonTickResolvedPayload })
-  | (EventMeta & { type: "MaxHpReduced"; payload: MaxHpReducedPayload });
+  | (EventMeta & { type: "MaxHpReduced"; payload: MaxHpReducedPayload })
+  | (EventMeta & { type: "CurseApplied"; payload: CurseAppliedPayload })
+  | (EventMeta & { type: "CurseRemoved"; payload: CurseRemovedPayload })
+  | (EventMeta & { type: "CurseTickResolved"; payload: CurseTickResolvedPayload });
 
 export type EngineEventType = EngineEvent["type"];
 

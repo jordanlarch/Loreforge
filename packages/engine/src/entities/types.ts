@@ -158,6 +158,8 @@ export type EntityState = {
   activePoisons?: ActivePoisonInstance[];
   /** Pending injury poison on weapon — cleared after one qualifying hit (Q4). */
   coatedPoisonSlug?: string;
+  /** Active curse instances after delivery (GRILL-LIVE-CURSE Q2). */
+  activeCurses?: ActiveCurseInstance[];
 };
 
 /** Ongoing poison tracked on an entity (injury or ingested after delivery). */
@@ -168,6 +170,15 @@ export type ActivePoisonInstance = {
   pendingRepeat: boolean;
   /** Successful repeat saves toward ending (Burnt Othur: 3). */
   repeatSuccesses?: number;
+};
+
+/** Ongoing curse tracked on an entity after a failed initial save. */
+export type ActiveCurseInstance = {
+  instanceId: string;
+  curseSlug: string;
+  /** Turn-start recovery save (Demonic Possession v1). */
+  pendingRecovery: boolean;
+  recoverySuccesses?: number;
 };
 
 export type DeathSaveTally = { successes: number; failures: number };

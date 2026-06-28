@@ -290,6 +290,10 @@ function eventText(action: BattleAction): string {
       return "A weapon was coated with poison.";
     case "apply_poison":
       return "A poison dose was resolved by the engine.";
+    case "apply_curse":
+      return "A curse was resolved by the engine.";
+    case "remove_curse":
+      return "A curse was removed from the target.";
     default:
       return "The engine resolved an action.";
   }
@@ -361,6 +365,16 @@ function resolutionText(
   if (action.type === "apply_poison") {
     const target = nameOf(action.target);
     return `${target} is subjected to ${action.poisonSlug.replace(/^srd-2024_/, "").replace(/-/g, " ")}.`;
+  }
+
+  if (action.type === "apply_curse") {
+    const target = nameOf(action.target);
+    return `${target} is subjected to ${action.curseSlug.replace(/^srd-2024_/, "").replace(/-/g, " ")}.`;
+  }
+
+  if (action.type === "remove_curse") {
+    const target = nameOf(action.target);
+    return `${target} is freed from a curse.`;
   }
 
   if (action.type === "coat_weapon") {

@@ -57,6 +57,7 @@ export {
   type AbilityScores,
   type ActionEconomyState,
   type ActivePoisonInstance,
+  type ActiveCurseInstance,
   type ClassLevel,
   type ConcentrationState,
   type DeathSaveTally,

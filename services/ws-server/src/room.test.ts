@@ -172,4 +172,22 @@ describe("isBattleAction", () => {
     ).toBe(true);
     expect(isBattleAction({ type: "coat_weapon", entity: "pc:1" })).toBe(false);
   });
+
+  it("accepts apply_curse and remove_curse (GRILL-LIVE-CURSE)", () => {
+    expect(
+      isBattleAction({
+        type: "apply_curse",
+        target: "pc:1",
+        curseSlug: "srd-2024_sight-rot",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "remove_curse",
+        target: "pc:1",
+        instanceId: "curse:pc:1:sight:0",
+      }),
+    ).toBe(true);
+    expect(isBattleAction({ type: "apply_curse", target: "pc:1" })).toBe(false);
+  });
 });

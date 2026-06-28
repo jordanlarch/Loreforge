@@ -909,6 +909,51 @@ export async function grantPoisonDemoLoot(campaignId: string): Promise<string[]>
   }
 }
 
+/** Demo curse items for GRILL-LIVE-CURSE Q8 prod verify (idempotent by name). */
+export const CURSE_DEMO_ITEMS = [
+  { name: "Sight Rot (vial)", quantity: 1 },
+  { name: "Demonic Possession (scroll)", quantity: 1 },
+] as const;
+
+export async function grantCurseDemoLoot(campaignId: string): Promise<string[]> {
+  try {
+    const db = getDb();
+    const [row] = await db
+      .select({ id: characters.id, equipment: characters.equipment })
+      .from(campaignCharacters)
+      .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
+      .where(
+        and(
+          eq(campaignCharacters.campaignId, campaignId),
+          eq(campaignCharacters.role, "pc"),
+        ),
+      )
+      .limit(1);
+    if (!row) return [];
+
+    const current = (row.equipment ?? []) as EquipmentItem[];
+    const have = new Set(current.map((i) => i.name));
+    const additions = CURSE_DEMO_ITEMS.filter((i) => !have.has(i.name));
+    if (additions.length === 0) return [];
+
+    const next: EquipmentItem[] = [
+      ...current,
+      ...additions.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        equipped: false,
+      })),
+    ];
+    await db
+      .update(characters)
+      .set({ equipment: next, updatedAt: new Date() })
+      .where(eq(characters.id, row.id));
+    return additions.map((i) => i.name);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * The campaign hero's (`pc`) row + inventory, or null. Shared resolver for the
  * Scene 6 resolution writes (consume item, award XP), mirroring the join used by

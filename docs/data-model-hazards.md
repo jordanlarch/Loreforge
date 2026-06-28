@@ -350,8 +350,8 @@ Do **not** overload generic `conditions[]` on the entity for recovery-tracked cu
 
 | PR | Scope |
 |---|---|
-| **Engine (#TBD)** | `srd-curse-seeds.ts`, `CURSE_REGISTRY`, `EntityState.activeCurses[]`, `toolboxCurseSlug`, handlers + projection + tests |
-| **WS + Live Play (#TBD)** | `apply_curse` / `remove_curse` battle actions, Use Item hook, HUD chip, demo fixtures (Q8) |
+| **Engine (#298)** | `srd-curse-seeds.ts`, `CURSE_REGISTRY`, `EntityState.activeCurses[]`, `toolboxCurseSlug`, handlers + projection + tests | ✅ merged |
+| **WS + Live Play (#TBD)** | `apply_curse` battle action, Use Item hook, HUD chip, demo fixtures (Q8) | Prod verify |
 
 **Deferred:** contagion spread → **GRILL-EXPLORATION**; long-rest recovery ticks (Cackle Fever, Sewer Plague); nat-1 possession hijack.
 

@@ -187,6 +187,7 @@ export {
   FIGHTING_STYLE_DESCRIPTIONS,
   FIGHTING_STYLES,
   fightingStyleDescription,
+  fightingStyleOnFeaturesStep,
   fightingStylePickLevel,
   needsFightingStylePick,
   needsSubclassPick,

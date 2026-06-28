@@ -23,7 +23,7 @@ describe("live-poisons", () => {
           "item-1": {
             id: "item-1",
             name: "Custom vial",
-            itemType: "consumable",
+            itemType: "Potion",
             description: "",
             toolboxPoisonSlug: "srd-2024_pale-tincture",
           },

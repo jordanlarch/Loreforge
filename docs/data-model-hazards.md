@@ -177,15 +177,101 @@ Deferred from GRILL-TRAP Q7. **Traps-only v1** for Live Play resolution.
 
 ---
 
-## GRILL-LIVE-POISON — pending (schedule next)
+## GRILL-LIVE-POISON — COMPLETE ✅
 
-Traps v1 locks **scene-placed** resolution. Poisons need a separate grill — delivery types (contact / ingested / inhaled / injury) attach to **items, attacks, or scene hazards**, not map tiles. Proposed grill order after traps prod verify:
+Traps v1 locks **scene-placed** resolution. Poisons attach via **entity state + item metadata** — not map tiles. **Contact + inhaled** delivery deferred to **GRILL-EXPLORATION** (Q1).
 
-1. **GRILL-LIVE-POISON** — engine commands + Live Play affordances for poison saves/damage/repeat
-2. **GRILL-LIVE-CURSE / ENV / FEAR** — sibling toolbox topics (inherit trap command patterns where applicable)
-3. **GRILL-SMITHY-EDIT** — richer structured Smithy editing (all toolbox topics)
-4. **GRILL-EXPLORATION** — Playing the Game hazards (≠ Gameplay Toolbox); separate program
-5. **GM trap placement UI** — campaign prep / map editor (CAMP deferral)
+### Q1 — v1 delivery scope ✅ (2026-06-28)
+
+**Option A — Injury + ingested only.**
+
+| In v1 Live Play | Deferred |
+|---|---|
+| **Injury** — poison on weapon hit (coat → deliver via attack/damage) | **Contact** — smeared objects (→ **GRILL-EXPLORATION**) |
+| **Ingested** — swallow dose via Use Item / item use command | **Inhaled** — powder/gas clouds (→ **GRILL-EXPLORATION**) |
+
+### Q2 — Attachment model ✅ (2026-06-28)
+
+**Option A — Entity instances + weapon coat flag.**
+
+| State | Purpose |
+|---|---|
+| `EntityState.activePoisons[]` | Ongoing poison instances (slug, instance id, repeat counter, applied turn) — injury **and** ingested after delivery |
+| `coatedPoisonSlug` (optional on entity / weapon slot) | Pending **injury** delivery — cleared when next qualifying hit lands |
+
+Do **not** overload generic `conditions[]` for repeat-save poisons.
+
+### Q3 — Engine commands ✅ (2026-06-28)
+
+**Option A — Minimal trio** (mirrors trap command pattern).
+
+| Command | Purpose | Invoked by |
+|---|---|---|
+| `coat_weapon` | Set `coatedPoisonSlug` on attacker (pending injury delivery) | Player / WS |
+| `apply_poison` | Resolve save, damage, conditions; push to `activePoisons[]` if `repeat` | Engine on injury hit; ingested via Use Item; GM tool later |
+| `resolve_poison_tick` | Repeat save + damage per `PoisonDefinition.repeat`; remove when done | Engine at turn boundary (see Q4) |
+
+### Q4 — Trigger timing & action economy ✅ (2026-06-28)
+
+**All Option A.**
+
+| Topic | Decision |
+|---|---|
+| **Injury delivery** | Auto `apply_poison` inside attack resolution on next qualifying pierce/slash hit; clear `coatedPoisonSlug` after one delivery |
+| **Ingested delivery** | Auto `apply_poison` when Use Item resolves an item tagged with `poisonSlug` |
+| **Repeat saves** | Auto `resolve_poison_tick` at **start of poisoned entity's turn** |
+| **Coat weapon** | Costs **Action** in combat; free out of combat |
+
+### Q5 — Live Play UI ✅ (2026-06-28)
+
+**All Option A.**
+
+| Surface | Decision |
+|---|---|
+| **Coat weapon** | **Coat** chip on action rail when PC has injury poison in inventory + weapon equipped; picker of available injury poisons |
+| **Ingested** | Existing **Use Item** rail + chat only — items carry `poisonSlug` metadata |
+| **Active poison feedback** | Party rail / HUD chip (e.g. "Poisoned — Assassin's Blood") |
+| **Repeat saves** | Silent engine tick at turn start; events in narrative log |
+
+### Q6 — Registry & item bridge ✅ (2026-06-28)
+
+**Option A — Engine seeds + item field** (mirrors trap registry pattern).
+
+| Layer | Decision |
+|---|---|
+| **Poison registry** | `srd-poison-seeds.ts` in `@app/engine`; DB ingest imports same module |
+| **Item link** | Optional `toolboxPoisonSlug?: string` on `ItemDefinition` |
+| **Demo** | Full verify matrix — see Q8 |
+
+### Q7 — v1 delivery phasing ✅ (2026-06-28)
+
+**Option A — Two PRs** (mirror traps #292 → #293).
+
+| Slice | Scope | Verify |
+|---|---|---|
+| **PR 1 — Engine** | Registry, state fields, `coat_weapon` / `apply_poison` / `resolve_poison_tick`, projection, tests | CI green |
+| **PR 2 — WS + Live Play** | Coat chip, Use Item hook, HUD chip, injury auto-on-hit | Prod verify |
+
+### Q8 — Demo fixtures ✅ (2026-06-28)
+
+**Option C — Full verify matrix.**
+
+| Fixture | Poison slug | Delivery | Purpose |
+|---|---|---|---|
+| Coated weapon on dungeon bootstrap | `srd-2024_serpent-venom` | Injury | Pre-coated foe weapon or PC coat + hit path |
+| Inventory vial 1 | `srd-2024_assassins-blood` | Ingested | Con save, 1d12 poison, poisoned 24h |
+| Inventory vial 2 | `srd-2024_pale-tincture` | Ingested | High DC, 3d6 + repeat max-HP reduction (repeat-save edge) |
+
+**Prod verify checklist:** coat → hit delivers Serpent Venom; Use Item ×2 (Assassin's Blood, Pale Tincture); HUD chip; turn-start `resolve_poison_tick` on repeat poisons.
+
+### Implementation checklist (v1 — two PRs)
+
+| PR | Scope |
+|---|---|
+| **Engine (#TBD)** | `srd-poison-seeds.ts`, `POISON_REGISTRY`, `EntityState.activePoisons[]`, `coatedPoisonSlug`, `toolboxPoisonSlug` on `ItemDefinition`, handlers + projection + tests (incl. Pale Tincture repeat) |
+| **WS + Live Play (#TBD)** | `coat_weapon` battle action, Coat chip on action rail, Use Item → `apply_poison`, injury hook in attack resolution, HUD chip, demo fixtures (Q8) |
+
+**Deferred:** contact / inhaled delivery → **GRILL-EXPLORATION**; partial doses (SRD DM discretion); max-HP reduction UI on sheet (engine events only in v1 if needed).
 
 ---
 

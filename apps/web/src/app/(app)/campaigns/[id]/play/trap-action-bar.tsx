@@ -4,65 +4,62 @@ import type { SceneTrapInstance } from "@app/engine";
 
 import { trapLabel } from "@/lib/live-traps";
 
-export function TrapActionBar({
+/** Inline Detect / Disable controls for the combat explore action rail. */
+export function TrapTurnControls({
   traps,
   disabled,
   onDetect,
   onDisable,
+  leading = false,
 }: {
   traps: readonly SceneTrapInstance[];
   disabled?: boolean;
   onDetect: (trapInstanceId: string) => void;
   onDisable: (trapInstanceId: string) => void;
+  /** When true, omit the left divider (first section on the action rail). */
+  leading?: boolean;
 }) {
-  if (traps.length === 0) return null;
+  const actionable = traps.filter((t) => !t.disabled && !t.triggered);
+  if (actionable.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-widest text-amber-200/80">
-        Traps nearby
-      </p>
-      <ul className="mt-2 space-y-2">
-        {traps.map((trap) => (
-          <li
+    <div
+      className={`flex flex-wrap items-center gap-1.5 ${
+        leading ? "" : "border-l border-lore-border pl-3"
+      }`}
+    >
+      <span className="text-[10px] uppercase tracking-widest text-lore-muted">
+        Traps
+      </span>
+      {actionable.map((trap) => {
+        const label = trapLabel(trap, trap.detected);
+        if (!trap.detected) {
+          return (
+            <button
+              key={trap.instanceId}
+              type="button"
+              disabled={disabled}
+              onClick={() => onDetect(trap.instanceId)}
+              className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-amber-500/50 hover:text-lore-text disabled:opacity-40"
+              title={label}
+            >
+              Detect
+            </button>
+          );
+        }
+        return (
+          <button
             key={trap.instanceId}
-            className="flex flex-wrap items-center gap-2 text-sm"
+            type="button"
+            disabled={disabled}
+            onClick={() => onDisable(trap.instanceId)}
+            className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-amber-500/50 hover:text-lore-text disabled:opacity-40"
+            title={`Disable ${label}`}
           >
-            <span className="min-w-0 flex-1 truncate text-lore-text">
-              {trapLabel(trap, trap.detected)}
-              {trap.triggered ? (
-                <span className="ml-2 text-xs text-lore-muted">(spent)</span>
-              ) : null}
-            </span>
-            {!trap.disabled && !trap.triggered ? (
-              <>
-                {!trap.detected ? (
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onDetect(trap.instanceId)}
-                    className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
-                  >
-                    Detect
-                  </button>
-                ) : null}
-                {trap.detected ? (
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onDisable(trap.instanceId)}
-                    className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
-                  >
-                    Disable
-                  </button>
-                ) : null}
-              </>
-            ) : trap.disabled ? (
-              <span className="text-xs text-lore-muted">Disabled</span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+            Disable{actionable.length > 1 ? `: ${label}` : ""}
+          </button>
+        );
+      })}
     </div>
   );
 }

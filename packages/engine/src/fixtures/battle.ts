@@ -18,6 +18,7 @@ import type {
   CastSpellCommand,
   Command,
   ApplyPoisonCommand,
+  ApplyCurseCommand,
   CoatWeaponCommand,
   DetectTrapCommand,
   DisableTrapCommand,
@@ -25,6 +26,8 @@ import type {
   MoveEntityCommand,
   OpportunityAttackCommand,
   ReadyActionCommand,
+  RemoveCurseCommand,
+  ResolveCurseTickCommand,
   TriggerReadiedCommand,
 } from "../commands/types";
 import type {
@@ -368,7 +371,10 @@ export type BattleAction =
   | DetectTrapCommand
   | DisableTrapCommand
   | CoatWeaponCommand
-  | ApplyPoisonCommand;
+  | ApplyPoisonCommand
+  | ApplyCurseCommand
+  | ResolveCurseTickCommand
+  | RemoveCurseCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {

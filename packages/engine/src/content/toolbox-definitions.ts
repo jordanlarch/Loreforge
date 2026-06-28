@@ -90,6 +90,8 @@ export type CurseDefinition = ToolboxEntryBase & {
   contagion?: string;
   save?: ToolboxSave;
   effects?: string[];
+  /** Structured conditions applied on failed initial save (GRILL-LIVE-CURSE). */
+  conditions?: string[];
   recovery?: string;
 };
 
@@ -187,6 +189,7 @@ function hasPoisonEffect(def: PoisonDefinition): boolean {
 function hasCurseEffect(def: CurseDefinition): boolean {
   if (def.save) return true;
   if (def.effects?.length) return true;
+  if (def.conditions?.length) return true;
   if (def.contagion?.trim()) return true;
   if (def.recovery?.trim()) return true;
   return false;

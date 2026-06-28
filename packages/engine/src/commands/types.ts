@@ -311,6 +311,24 @@ export type ResolvePoisonTickCommand = {
   instanceId: string;
 };
 
+export type ApplyCurseCommand = {
+  type: "apply_curse";
+  target: EntityRef;
+  curseSlug: string;
+};
+
+export type ResolveCurseTickCommand = {
+  type: "resolve_curse_tick";
+  entity: EntityRef;
+  instanceId: string;
+};
+
+export type RemoveCurseCommand = {
+  type: "remove_curse";
+  target: EntityRef;
+  instanceId: string;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -345,7 +363,10 @@ export type Command =
   | TriggerTrapCommand
   | CoatWeaponCommand
   | ApplyPoisonCommand
-  | ResolvePoisonTickCommand;
+  | ResolvePoisonTickCommand
+  | ApplyCurseCommand
+  | ResolveCurseTickCommand
+  | RemoveCurseCommand;
 
 export type CommandType = Command["type"];
 
@@ -390,6 +411,9 @@ export type ValidationCode =
   | "POISON_WRONG_TYPE"
   | "POISON_NOT_ACTIVE"
   | "POISON_DELIVERY_NOT_SUPPORTED"
+  | "CURSE_NOT_FOUND"
+  | "CURSE_NOT_ACTIVE"
+  | "CURSE_DELIVERY_NOT_SUPPORTED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"

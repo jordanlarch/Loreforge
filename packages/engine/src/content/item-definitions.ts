@@ -80,6 +80,8 @@ export type ItemDefinition = {
   optionContent?: ItemOptionContent;
   /** Links a vial/item to a toolbox poison slug for ingested delivery (GRILL-LIVE-POISON Q6). */
   toolboxPoisonSlug?: string;
+  /** Links a consumable to a Gameplay Toolbox curse (GRILL-LIVE-CURSE). */
+  toolboxCurseSlug?: string;
   description: string;
 };
 

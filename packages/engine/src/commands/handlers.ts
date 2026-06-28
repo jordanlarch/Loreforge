@@ -77,6 +77,12 @@ import {
   poisonTickEventsAfterTurnStart,
 } from "./poison-handlers";
 import {
+  curseTickEventsAfterTurnStart,
+  handleApplyCurse,
+  handleRemoveCurse,
+  handleResolveCurseTick,
+} from "./curse-handlers";
+import {
   reject,
   type AbilityCheckCommand,
   type AddCombatantCommand,
@@ -626,6 +632,7 @@ function handleRollInitiative(
     payload: { entity: first.entity, index: 0 },
   });
   events.push(...poisonTickEventsAfterTurnStart(ctx, first.entity));
+  events.push(...curseTickEventsAfterTurnStart(ctx, first.entity));
 
   return {
     accepted: true,
@@ -798,6 +805,7 @@ function handleEndTurn(
     payload: { entity: nextEntity, index: nextIndex },
   });
   events.push(...poisonTickEventsAfterTurnStart(ctx, nextEntity));
+  events.push(...curseTickEventsAfterTurnStart(ctx, nextEntity));
 
   return {
     accepted: true,
@@ -2840,5 +2848,11 @@ export function handleCommand(
       return handleApplyPoison(command, ctx);
     case "resolve_poison_tick":
       return handleResolvePoisonTick(command, ctx);
+    case "apply_curse":
+      return handleApplyCurse(command, ctx);
+    case "resolve_curse_tick":
+      return handleResolveCurseTick(command, ctx);
+    case "remove_curse":
+      return handleRemoveCurse(command, ctx);
   }
 }

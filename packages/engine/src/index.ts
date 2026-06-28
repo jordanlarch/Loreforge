@@ -315,6 +315,12 @@ export {
   type SrdPoisonSeed,
 } from "./content/srd-poison-seeds";
 export {
+  getCurseDefinition,
+  CURSE_REGISTRY,
+  SRD_CURSE_SEEDS,
+  type SrdCurseSeed,
+} from "./content/srd-curse-seeds";
+export {
   isTrapEligibleSceneKind,
   normalizeSceneTraps,
   TRAP_ELIGIBLE_SCENE_KINDS,

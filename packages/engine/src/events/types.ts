@@ -239,6 +239,53 @@ export type TrapTriggeredPayload = {
   resolved: boolean;
 };
 
+export type WeaponCoatedPayload = {
+  entity: EntityRef;
+  poisonSlug: string;
+};
+
+export type PoisonCoatingClearedPayload = {
+  entity: EntityRef;
+};
+
+export type PoisonAppliedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  poisonSlug: string;
+  pendingRepeat: boolean;
+  source?: EntityRef;
+};
+
+export type PoisonRemovedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  poisonSlug: string;
+  reason: "saved" | "cured" | "expired";
+};
+
+export type PoisonRepeatProgressedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  poisonSlug: string;
+  repeatSuccesses: number;
+};
+
+export type PoisonTickResolvedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  poisonSlug: string;
+  success: boolean;
+  damage?: number;
+  maxHpReduced?: number;
+};
+
+export type MaxHpReducedPayload = {
+  target: EntityRef;
+  amount: number;
+  hpMaxBefore: number;
+  hpMaxAfter: number;
+};
+
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
   /** The creature whose movement opened the window. */
@@ -361,7 +408,17 @@ export type EngineEvent =
     })
   | (EventMeta & { type: "TrapDetected"; payload: TrapDetectedPayload })
   | (EventMeta & { type: "TrapDisabled"; payload: TrapDisabledPayload })
-  | (EventMeta & { type: "TrapTriggered"; payload: TrapTriggeredPayload });
+  | (EventMeta & { type: "TrapTriggered"; payload: TrapTriggeredPayload })
+  | (EventMeta & { type: "WeaponCoated"; payload: WeaponCoatedPayload })
+  | (EventMeta & { type: "PoisonCoatingCleared"; payload: PoisonCoatingClearedPayload })
+  | (EventMeta & { type: "PoisonApplied"; payload: PoisonAppliedPayload })
+  | (EventMeta & { type: "PoisonRemoved"; payload: PoisonRemovedPayload })
+  | (EventMeta & {
+      type: "PoisonRepeatProgressed";
+      payload: PoisonRepeatProgressedPayload;
+    })
+  | (EventMeta & { type: "PoisonTickResolved"; payload: PoisonTickResolvedPayload })
+  | (EventMeta & { type: "MaxHpReduced"; payload: MaxHpReducedPayload });
 
 export type EngineEventType = EngineEvent["type"];
 

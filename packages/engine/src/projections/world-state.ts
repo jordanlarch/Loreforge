@@ -622,6 +622,80 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "WeaponCoated": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        next.entities[entity.id] = {
+          ...entity,
+          coatedPoisonSlug: event.payload.poisonSlug,
+        };
+      }
+      break;
+    }
+    case "PoisonCoatingCleared": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        next.entities[entity.id] = { ...entity, coatedPoisonSlug: undefined };
+      }
+      break;
+    }
+    case "PoisonApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const activePoisons = [...(target.activePoisons ?? [])];
+        activePoisons.push({
+          instanceId: event.payload.instanceId,
+          poisonSlug: event.payload.poisonSlug,
+          pendingRepeat: event.payload.pendingRepeat,
+        });
+        next.entities[target.id] = { ...target, activePoisons };
+      }
+      if (event.payload.source) {
+        const source = next.entities[event.payload.source];
+        if (source?.coatedPoisonSlug === event.payload.poisonSlug) {
+          next.entities[source.id] = { ...source, coatedPoisonSlug: undefined };
+        }
+      }
+      break;
+    }
+    case "PoisonRemoved": {
+      const target = next.entities[event.payload.target];
+      if (target?.activePoisons?.length) {
+        next.entities[target.id] = {
+          ...target,
+          activePoisons: target.activePoisons.filter(
+            (p) => p.instanceId !== event.payload.instanceId,
+          ),
+        };
+      }
+      break;
+    }
+    case "PoisonRepeatProgressed": {
+      const target = next.entities[event.payload.target];
+      if (target?.activePoisons?.length) {
+        next.entities[target.id] = {
+          ...target,
+          activePoisons: target.activePoisons.map((p) =>
+            p.instanceId === event.payload.instanceId
+              ? { ...p, repeatSuccesses: event.payload.repeatSuccesses }
+              : p,
+          ),
+        };
+      }
+      break;
+    }
+    case "MaxHpReduced": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const hp = {
+          ...target.hp,
+          max: event.payload.hpMaxAfter,
+          current: clampHp(target.hp.current, event.payload.hpMaxAfter),
+        };
+        next.entities[target.id] = { ...target, hp };
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":

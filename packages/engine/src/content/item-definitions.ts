@@ -78,6 +78,8 @@ export type ItemDefinition = {
   propertyDetails?: ItemPropertyDefinition[];
   /** Typed Codex snapshot payload for subclasses, backgrounds, feats (SMITHY-TYPED-COPY). */
   optionContent?: ItemOptionContent;
+  /** Links a vial/item to a toolbox poison slug for ingested delivery (GRILL-LIVE-POISON Q6). */
+  toolboxPoisonSlug?: string;
   description: string;
 };
 

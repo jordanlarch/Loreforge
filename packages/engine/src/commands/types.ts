@@ -291,6 +291,26 @@ export type TriggerTrapCommand = {
   victim: EntityRef;
 };
 
+export type CoatWeaponCommand = {
+  type: "coat_weapon";
+  entity: EntityRef;
+  poisonSlug: string;
+};
+
+export type ApplyPoisonCommand = {
+  type: "apply_poison";
+  target: EntityRef;
+  poisonSlug: string;
+  /** Injury delivery — clear coat on attacker after one hit. */
+  source?: EntityRef;
+};
+
+export type ResolvePoisonTickCommand = {
+  type: "resolve_poison_tick";
+  entity: EntityRef;
+  instanceId: string;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -322,7 +342,10 @@ export type Command =
   | CastSpellCommand
   | DetectTrapCommand
   | DisableTrapCommand
-  | TriggerTrapCommand;
+  | TriggerTrapCommand
+  | CoatWeaponCommand
+  | ApplyPoisonCommand
+  | ResolvePoisonTickCommand;
 
 export type CommandType = Command["type"];
 
@@ -363,6 +386,10 @@ export type ValidationCode =
   | "TRAP_NO_DETECT"
   | "TRAP_NO_DISABLE"
   | "TRAP_ALREADY_TRIGGERED"
+  | "POISON_NOT_FOUND"
+  | "POISON_WRONG_TYPE"
+  | "POISON_NOT_ACTIVE"
+  | "POISON_DELIVERY_NOT_SUPPORTED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"

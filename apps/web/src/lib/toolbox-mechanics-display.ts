@@ -1,6 +1,7 @@
 import type {
   CurseDefinition,
   EnvironmentalEffectDefinition,
+  FearStressDefinition,
   GameplayToolboxEntryDefinition,
   PoisonDefinition,
   TrapDefinition,
@@ -99,6 +100,24 @@ export function formatEnvironmentalEffectMechanicsSummary(
   return lines;
 }
 
+export function formatFearStressMechanicsSummary(
+  def: FearStressDefinition,
+): string[] {
+  const lines: string[] = [];
+  if (def.save) {
+    lines.push(
+      `Save: DC ${def.save.dc} ${def.save.ability.toUpperCase()} (${def.save.onSuccess} on success)`,
+    );
+  }
+  def.effects?.forEach((effect) => {
+    lines.push(`Effect: ${effect}`);
+  });
+  if (def.duration) {
+    lines.push(`Duration: ${def.duration}`);
+  }
+  return lines;
+}
+
 export function formatToolboxDefinitionSummary(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
@@ -108,5 +127,6 @@ export function formatToolboxDefinitionSummary(
   if (def.kind === "environmental_effect") {
     return formatEnvironmentalEffectMechanicsSummary(def);
   }
+  if (def.kind === "fear_stress") return formatFearStressMechanicsSummary(def);
   return [];
 }

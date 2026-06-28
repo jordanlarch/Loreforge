@@ -202,6 +202,13 @@ function hasEnvironmentalEffect(def: EnvironmentalEffectDefinition): boolean {
   return false;
 }
 
+function hasFearStressEffect(def: FearStressDefinition): boolean {
+  if (def.save) return true;
+  if (def.effects?.length) return true;
+  if (def.duration?.trim()) return true;
+  return false;
+}
+
 export function validateTrapDefinition(def: TrapDefinition): string[] {
   const errors: string[] = [];
   if (!def.name?.trim()) errors.push("Name is required.");
@@ -262,6 +269,19 @@ export function validateEnvironmentalEffectDefinition(
   return errors;
 }
 
+export function validateFearStressDefinition(
+  def: FearStressDefinition,
+): string[] {
+  const errors: string[] = [];
+  if (!def.name?.trim()) errors.push("Name is required.");
+  if (!def.id?.trim()) errors.push("Entry id is required.");
+  if (!hasFearStressEffect(def)) {
+    errors.push("Fear/stress requires save, effects, or duration rules.");
+  }
+  validateSave(def.save, errors);
+  return errors;
+}
+
 export function validateGameplayToolboxEntryDefinition(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
@@ -271,17 +291,10 @@ export function validateGameplayToolboxEntryDefinition(
   if (def.kind === "environmental_effect") {
     return validateEnvironmentalEffectDefinition(def);
   }
+  if (def.kind === "fear_stress") return validateFearStressDefinition(def);
 
-  const errors: string[] = [];
-  if (!def.name?.trim()) errors.push("Name is required.");
-  if (!def.id?.trim()) errors.push("Entry id is required.");
-
-  switch (def.kind) {
-    case "fear_stress":
-      validateSave(def.save, errors);
-      break;
-  }
-  return errors;
+  const _exhaustive: never = def;
+  return _exhaustive;
 }
 
 /** @deprecated Use {@link validateGameplayToolboxEntryDefinition}. */
@@ -305,6 +318,12 @@ export function isValidEnvironmentalEffectDefinition(
   def: EnvironmentalEffectDefinition,
 ): boolean {
   return validateEnvironmentalEffectDefinition(def).length === 0;
+}
+
+export function isValidFearStressDefinition(
+  def: FearStressDefinition,
+): boolean {
+  return validateFearStressDefinition(def).length === 0;
 }
 
 export function isValidGameplayToolboxEntryDefinition(

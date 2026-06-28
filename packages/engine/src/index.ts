@@ -275,6 +275,7 @@ export {
 export {
   isValidCurseDefinition,
   isValidEnvironmentalEffectDefinition,
+  isValidFearStressDefinition,
   isValidGameplayToolboxEntryDefinition,
   isValidPoisonDefinition,
   isValidTrapDefinition,
@@ -283,6 +284,7 @@ export {
   TRAP_RESET_MODES,
   validateCurseDefinition,
   validateEnvironmentalEffectDefinition,
+  validateFearStressDefinition,
   validateGameplayToolboxEntryDefinition,
   validatePoisonDefinition,
   validateTrapDefinition,

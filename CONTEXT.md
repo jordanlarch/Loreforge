@@ -67,7 +67,7 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 **Recently shipped (Jun 2026, post-#246):** Roll20-style character sheet — 3-column layout, HP panel, Live Stats HUD, Inventory/About/Notes tabs, notes meta via `character-sheet-storage`.
 
-**Recently shipped (#298, Jun 2026):** GRILL-LIVE-CURSE engine slice — curse registry + `apply_curse` / `resolve_curse_tick` / `remove_curse`.
+**Recently shipped (#298–#299, Jun 2026):** GRILL-LIVE-CURSE — engine registry + apply/remove/tick handlers; Live Play Use Item → curse, party rail HUD, dungeon demo vials.
 
 **Recently shipped (#296–#297, Jun 2026):** GRILL-LIVE-POISON — engine registry + `coat_weapon` / `apply_poison` / repeat ticks; Live Play Coat chip, Use Item → ingested poison, party rail HUD, dungeon demo vials.
 

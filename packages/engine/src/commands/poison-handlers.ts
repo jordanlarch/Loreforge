@@ -4,10 +4,8 @@
  */
 import type { Condition } from "../combat/conditions";
 import { abilityModifier } from "../entities/abilities";
-import {
-  getPoisonDefinition,
-  type PoisonDefinition,
-} from "../content/srd-poison-seeds";
+import type { PoisonDefinition } from "../content/toolbox-definitions";
+import { getPoisonDefinition } from "../content/srd-poison-seeds";
 import type { ActivePoisonInstance, EntityRef } from "../entities/types";
 import type { DraftEvent } from "../events/types";
 import type { ExecutionContext } from "./context";

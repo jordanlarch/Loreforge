@@ -180,7 +180,7 @@ describe("level-up feature stubs", () => {
   });
 
   it("surfaces curated features at non-ASI levels", () => {
-    expect(featureStubsForLevel("Wizard", 3)).toEqual([]);
+    expect(featureStubsForLevel("Wizard", 3)).toContain("Wizard Subclass");
     expect(featureStubsForLevel("Fighter", 1)).toContain("Second Wind");
   });
 });

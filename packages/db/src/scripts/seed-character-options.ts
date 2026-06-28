@@ -14,7 +14,7 @@ async function main() {
   const db = getDb();
   const result = await seedCharacterOptions(db);
   console.log(
-    `[seed:character-options] Done — ${result.species} species, ${result.classes} classes.`,
+    `[seed:character-options] Done — ${result.species} species (${result.speciesPruned} pruned), ${result.classes} classes, ${result.subclasses} subclasses.`,
   );
 }
 

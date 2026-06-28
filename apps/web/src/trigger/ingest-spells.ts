@@ -16,7 +16,7 @@ import { logger, schedules } from "@trigger.dev/sdk/v3";
  * Nightly Codex refresh.
  *
  * Runs on Trigger.dev infrastructure (not Vercel), so it is free of serverless
- * timeouts. Re-ingests the full SRD 5.1 spell list into `codex_spells` via the
+ * timeouts. Re-ingests the full SRD 5.2 spell list into `codex_spells` via the
  * shared `ingestOpen5eSpells()` lib, then re-seeds the curated SRD species +
  * classes into `codex_species` / `codex_classes` via `seedCharacterOptions()`
  * (the Creation Wizard's data source, #6). Both share the same code paths as the

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Engine } from "./engine";
-import { SPELL_REGISTRY } from "./content/spell-registry";
+import { HAND_AUTHORED_SPELL_IDS, SPELL_REGISTRY } from "./content/spell-registry";
 import type { SpellDefinition } from "./content/spells";
 import type { CastSpellCommand } from "./commands/types";
 import type { AbilityScores } from "./entities/types";
@@ -214,7 +214,7 @@ describe("Spells: golden resolution snapshots", () => {
   it("resolves every authored spell to its golden outcome", async () => {
     const golden: Record<string, GoldenRecord> = {};
 
-    for (const id of Object.keys(SPELL_REGISTRY).sort()) {
+    for (const id of [...HAND_AUTHORED_SPELL_IDS].sort()) {
       const spell = SPELL_REGISTRY[id]!;
       const engine = new Engine({ now: () => SEED });
       await setupArena(engine);

@@ -166,8 +166,8 @@ Assumptions that must hold for v1 to succeed. Each one is a place a future agent
 - **Yjs CRDT over WebSocket is sufficient for Tier 4 combat sync** at 6 players. We treat clients as advisory and re-sync from server on detected divergence (`engine/architecture.md` §10.1), which buys us robustness against CRDT subtleties.
 - **pgvector + OpenAI `text-embedding-3-large` is good enough for v1 RAG.** No need for a dedicated vector DB (Pinecone, Weaviate, Qdrant) in v1. May revisit at scale.
 - **A solo engineer ships v1 in ~28–34 months** with top-120 spells in v1.0, all seven generators, and tutorial as open-beta/GA gate. See `docs/02-implementation-roadmap.md`. Full ~360-spell registry ships in v1.x without schema break.
-- **SRD 5.2 will be released and substantially compatible** with what we've designed against. We have a hybrid ingest path (Open5e/5e-bits first, custom SRD 5.2 later — `data-sources.md` §1) that absorbs minor incompatibility, but a major schema break would force significant rework of the Codex.
-- **Open5e and 5e-bits APIs remain available** during the early hybrid-ingest period (~6-12 months). If both APIs disappear simultaneously, we accelerate the custom SRD 5.2 ingest with cost we'd planned for later.
+- **SRD 5.2 is the live rules baseline** (Jun 2026 audit complete). Canonical reference is the official SRD 5.2.1 PDF; machine ingest uses Open5e `srd-2024`. Custom PDF parse remains the GA migration path (`data-sources.md` §1, `deferrals.md` INFRA-6).
+- **Open5e API remains available** for nightly ingest and diff/QA. If Open5e disappears, we accelerate custom PDF ingest (INFRA-6) with cost we'd planned for later.
 
 ### 4.2 Product assumptions
 

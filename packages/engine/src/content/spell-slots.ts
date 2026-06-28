@@ -1,10 +1,10 @@
 /**
- * Full-caster spell-slot progression (PHB) — the single source of truth for how
- * many slots a caster of a given level has, per spell level 1–9 (#40, E3).
+ * SRD 5.2.1 full-caster spell-slot progression — single source of truth for
+ * pooled multiclass slots (#40, E3).
  *
- * The foundation assumes a single full-caster class. Multiclass slot pooling,
- * half-casters (Paladin/Ranger), and Pact Magic (Warlock) are deferred (E4);
- * those will layer alternate tables on top of this same shape.
+ * Multiclass slot pooling (full + half casters) uses
+ * {@link multiclassCasterLevel} in `multiclass-spell-slots.ts`. Warlock Pact
+ * Magic is separate (`warlock-pact-slots.ts`).
  */
 import type { SpellSlots } from "../entities/types";
 

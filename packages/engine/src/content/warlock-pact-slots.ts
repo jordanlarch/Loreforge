@@ -1,5 +1,5 @@
 /**
- * Warlock Pact Magic slot progression (PHB) — separate from pooled multiclass slots.
+ * Warlock Pact Magic slot progression (SRD 5.2.1) — separate from pooled multiclass slots.
  */
 
 export type PactMagicPool = {

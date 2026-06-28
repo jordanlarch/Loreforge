@@ -5,19 +5,21 @@
  * Why curated rather than Open5e-ingested: Open5e's race/class records express
  * ability bonuses and skill choices as free-text prose ("Choose two from …"),
  * which is fragile to parse into the structured shape the wizard needs. This
- * in-repo dataset is the SRD 5.1 core, hand-normalized. It is seeded into
- * `codex_species` / `codex_classes` via {@link seedCharacterOptions} so the
- * wizard reads it over the same tRPC→DB path a future structured Open5e race
- * ingest would use — swapping the source later won't touch the wizard.
+ * in-repo dataset is the SRD 5.2.1 core (9 unified species), hand-normalized
+ * from the official PDF. It is seeded into `codex_species` / `codex_classes`
+ * via {@link seedCharacterOptions} so the wizard reads it over the same
+ * tRPC→DB path a future structured Open5e race ingest would use — swapping the
+ * source later won't touch the wizard.
  *
- * Scope: fixed-bonus species only (variable-ASI lineages like Half-Elf and
- * point-of-choice subraces are a follow-up). Backgrounds/equipment/spells are
- * out of #6's stepper.
+ * SRD 2024 species do not grant fixed ability score increases; those come from
+ * the character's background (+2/+1 or three +1s). `abilityBonuses` is kept
+ * empty on species rows until background ASI is wired in the wizard.
  *
  * @see docs/data-sources.md §1
  * @see docs/ui-flows/character-creation-wizard.md
+ * @see docs/srd-version-audit.md (SRD-AUDIT-4)
  */
-import { sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 
 import type { Database } from "../client";
 import { codexClasses, codexSpecies, type SkillChoice } from "../schema/codex";
@@ -45,124 +47,105 @@ export interface SeedClass {
 
 export const SRD_SPECIES: SeedSpecies[] = [
   {
-    slug: "hill-dwarf",
-    name: "Hill Dwarf",
+    slug: "dragonborn",
+    name: "Dragonborn",
     description:
-      "As a hill dwarf, you have keen senses, deep intuition, and remarkable resilience. Hill dwarves are known as the most common dwarven folk — hardy, wise, and at home in rugged highlands.",
-    abilityBonuses: { con: 2, wis: 1 },
-    speed: 25,
-    size: "Medium",
-    traits: ["Darkvision", "Dwarven Resilience", "Stonecunning", "Dwarven Toughness"],
-  },
-  {
-    slug: "mountain-dwarf",
-    name: "Mountain Dwarf",
-    description:
-      "As a mountain dwarf, you are strong and hardy, accustomed to a difficult life in rugged terrain. Mountain dwarves are trained for battle from youth and comfortable in armor.",
-    abilityBonuses: { con: 2, str: 2 },
-    speed: 25,
-    size: "Medium",
-    traits: ["Darkvision", "Dwarven Resilience", "Dwarven Armor Training"],
-  },
-  {
-    slug: "high-elf",
-    name: "High Elf",
-    description:
-      "As a high elf, you have a keen mind and a mastery of at least the basics of magic. High elves are graceful, long-lived, and often devoted to art, scholarship, or wizardry.",
-    abilityBonuses: { dex: 2, int: 1 },
+      "Dragonborn descend from dragon progenitors. Your draconic ancestry shapes your breath weapon, damage resistance, and appearance — and at higher levels grants spectral wings.",
+    abilityBonuses: {},
     speed: 30,
     size: "Medium",
-    traits: ["Darkvision", "Keen Senses", "Fey Ancestry", "Trance", "Cantrip"],
+    traits: [
+      "Draconic Ancestry",
+      "Breath Weapon",
+      "Damage Resistance",
+      "Darkvision",
+      "Draconic Flight",
+    ],
   },
   {
-    slug: "wood-elf",
-    name: "Wood Elf",
+    slug: "dwarf",
+    name: "Dwarf",
     description:
-      "As a wood elf, you have keen senses and intuition, and your fleet feet carry you quickly and stealthily through your native forests. Wood elves are reclusive guardians of wild places.",
-    abilityBonuses: { dex: 2, wis: 1 },
+      "Dwarves are hardy folk at home in rugged highlands and deep halls. You have exceptional darkvision, resilience to poison, extra hit points, and stonecunning tremorsense.",
+    abilityBonuses: {},
+    speed: 30,
+    size: "Medium",
+    traits: [
+      "Darkvision",
+      "Dwarven Resilience",
+      "Dwarven Toughness",
+      "Stonecunning",
+    ],
+  },
+  {
+    slug: "elf",
+    name: "Elf",
+    description:
+      "Elves are graceful, long-lived, and attuned to fey magic. Choose an elven lineage (Drow, High Elf, or Wood Elf) for lineage spells and extra benefits.",
+    abilityBonuses: {},
+    speed: 30,
+    size: "Medium",
+    traits: ["Darkvision", "Elven Lineage", "Fey Ancestry", "Keen Senses", "Trance"],
+  },
+  {
+    slug: "gnome",
+    name: "Gnome",
+    description:
+      "Gnomes are small, clever, and often magical. Choose Forest Gnome or Rock Gnome lineage for cantrips, spells, and tinkering tricks.",
+    abilityBonuses: {},
+    speed: 30,
+    size: "Small",
+    traits: ["Darkvision", "Gnomish Cunning", "Gnomish Lineage"],
+  },
+  {
+    slug: "goliath",
+    name: "Goliath",
+    description:
+      "Goliaths trace their ancestry to giants. You inherit a supernatural boon from that heritage and can grow to Large size at higher levels.",
+    abilityBonuses: {},
     speed: 35,
     size: "Medium",
-    traits: ["Darkvision", "Keen Senses", "Fey Ancestry", "Trance", "Mask of the Wild"],
+    traits: ["Giant Ancestry", "Large Form", "Powerful Build"],
   },
   {
-    slug: "lightfoot-halfling",
-    name: "Lightfoot Halfling",
+    slug: "halfling",
+    name: "Halfling",
     description:
-      "As a lightfoot halfling, you can easily hide from notice, even using other people as cover. Lightfoots are nomadic and friendly, traveling widely and making friends wherever they go.",
-    abilityBonuses: { dex: 2, cha: 1 },
-    speed: 25,
+      "Halflings are small, nimble, and quietly brave. You can slip through larger creatures' spaces, reroll natural 1s, and hide behind bigger allies.",
+    abilityBonuses: {},
+    speed: 30,
     size: "Small",
-    traits: ["Lucky", "Brave", "Halfling Nimbleness", "Naturally Stealthy"],
-  },
-  {
-    slug: "stout-halfling",
-    name: "Stout Halfling",
-    description:
-      "As a stout halfling, you are hardier than average and have some resistance to poison. Stouts are often found in farming communities and are less inclined to wander than lightfoots.",
-    abilityBonuses: { dex: 2, con: 1 },
-    speed: 25,
-    size: "Small",
-    traits: ["Lucky", "Brave", "Halfling Nimbleness", "Stout Resilience"],
+    traits: ["Brave", "Halfling Nimbleness", "Luck", "Naturally Stealthy"],
   },
   {
     slug: "human",
     name: "Human",
     description:
-      "Humans are the most adaptable and ambitious people among the common races. Whatever drives them, humans are the innovators, the achievers, and the pioneers of the worlds they inhabit.",
-    abilityBonuses: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 },
+      "Humans are adaptable and ambitious. You gain Heroic Inspiration on long rests, an extra skill proficiency, and an Origin feat (Medium or Small size).",
+    abilityBonuses: {},
     speed: 30,
     size: "Medium",
-    traits: ["Versatile"],
+    traits: ["Resourceful", "Skillful", "Versatile"],
   },
   {
-    slug: "dragonborn",
-    name: "Dragonborn",
+    slug: "orc",
+    name: "Orc",
     description:
-      "Born of dragons, dragonborn walk proudly through a world that greets them with fearful incomprehension. Their draconic ancestry grants breath weapons, elemental resilience, and a proud bearing.",
-    abilityBonuses: { str: 2, cha: 1 },
+      "Orcs combine strength with relentless endurance. You can dash as a bonus action for temporary hit points and shrug off a killing blow once per long rest.",
+    abilityBonuses: {},
     speed: 30,
     size: "Medium",
-    traits: ["Draconic Ancestry", "Breath Weapon", "Damage Resistance"],
-  },
-  {
-    slug: "rock-gnome",
-    name: "Rock Gnome",
-    description:
-      "As a rock gnome, you have a natural inventiveness and hardiness beyond that of other gnomes. Rock gnomes are tinkerers and illusionists, delighting in clever devices and subtle magic.",
-    abilityBonuses: { int: 2, con: 1 },
-    speed: 25,
-    size: "Small",
-    traits: ["Darkvision", "Gnome Cunning", "Artificer's Lore", "Tinker"],
-  },
-  {
-    slug: "forest-gnome",
-    name: "Forest Gnome",
-    description:
-      "As a forest gnome, you have a natural knack for illusion and an affinity with small woodland creatures. Forest gnomes are rare and secretive, rarely seen by outsiders.",
-    abilityBonuses: { int: 2, dex: 1 },
-    speed: 25,
-    size: "Small",
-    traits: ["Darkvision", "Gnome Cunning", "Natural Illusionist", "Speak with Small Beasts"],
-  },
-  {
-    slug: "half-orc",
-    name: "Half-Orc",
-    description:
-      "Half-orcs combine the best qualities of humans and orcs: human ambition and orcish strength and endurance. Many half-orcs rise to prove their worth in a world that often shuns them.",
-    abilityBonuses: { str: 2, con: 1 },
-    speed: 30,
-    size: "Medium",
-    traits: ["Darkvision", "Menacing", "Relentless Endurance", "Savage Attacks"],
+    traits: ["Adrenaline Rush", "Darkvision", "Relentless Endurance"],
   },
   {
     slug: "tiefling",
     name: "Tiefling",
     description:
-      "To be greeted with stares and whispers is the lot of tieflings — bearers of a distant infernal legacy. Their appearance and heritage grant resistance to fire and a talent for minor magic.",
-    abilityBonuses: { cha: 2, int: 1 },
+      "Tieflings bear a fiendish legacy. Choose a fiendish legacy for resistance and lineage spells, and know the Thaumaturgy cantrip (Medium or Small size).",
+    abilityBonuses: {},
     speed: 30,
     size: "Medium",
-    traits: ["Darkvision", "Hellish Resistance", "Infernal Legacy"],
+    traits: ["Darkvision", "Fiendish Legacy", "Otherworldly Presence"],
   },
 ];
 
@@ -373,6 +356,7 @@ export const SRD_CLASSES: SeedClass[] = [
 
 export interface SeedCharacterOptionsResult {
   species: number;
+  speciesPruned: number;
   classes: number;
   subclasses: number;
 }
@@ -413,6 +397,23 @@ export async function seedCharacterOptions(
       },
     });
 
+  const curatedSlugs = SRD_SPECIES.map((s) => s.slug);
+  const prunedRows = await db
+    .delete(codexSpecies)
+    .where(
+      and(
+        eq(codexSpecies.source, "srd"),
+        notInArray(codexSpecies.slug, curatedSlugs),
+      ),
+    )
+    .returning({ slug: codexSpecies.slug });
+  const speciesPruned = prunedRows.length;
+  if (speciesPruned > 0) {
+    console.log(
+      `[seed:character-options] Pruned ${speciesPruned} legacy SRD species row(s): ${prunedRows.map((r) => r.slug).join(", ")}`,
+    );
+  }
+
   await db
     .insert(codexClasses)
     .values(
@@ -442,5 +443,10 @@ export async function seedCharacterOptions(
 
   const { subclasses } = await seedSubclasses(db);
 
-  return { species: SRD_SPECIES.length, classes: SRD_CLASSES.length, subclasses };
+  return {
+    species: SRD_SPECIES.length,
+    speciesPruned,
+    classes: SRD_CLASSES.length,
+    subclasses,
+  };
 }

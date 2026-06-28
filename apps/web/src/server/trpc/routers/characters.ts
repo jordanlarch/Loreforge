@@ -371,7 +371,7 @@ export const charactersRouter = createTRPCRouter({
         /** Take first level in a new class (multiclass). Ignores classIndex increment. */
         addNewClass: z.string().trim().max(60).optional(),
         milestone: z.boolean().optional(),
-        /** Sync PHB slot maxima from class levels after level-up. */
+        /** Sync SRD slot maxima from class levels after level-up. */
         applySpellSlots: z.boolean().optional(),
         /** Fighting style when this level grants the pick. */
         fightingStyle: z.string().trim().max(40).optional(),

@@ -8,16 +8,16 @@ export function subclassPickLevel(className: string): number | null {
   const map: Record<string, number> = {
     Barbarian: 3,
     Bard: 3,
-    Cleric: 1,
-    Druid: 2,
+    Cleric: 3,
+    Druid: 3,
     Fighter: 3,
     Monk: 3,
     Paladin: 3,
     Ranger: 3,
     Rogue: 3,
-    Sorcerer: 1,
-    Warlock: 1,
-    Wizard: 2,
+    Sorcerer: 3,
+    Warlock: 3,
+    Wizard: 3,
   };
   return map[className] ?? null;
 }
@@ -29,30 +29,26 @@ export function fightingStylePickLevel(className: string): number | null {
   return null;
 }
 
+/** SRD 5.2.1 fighting style feats (also ingested in Codex as featType "Fighting Style"). */
 export const FIGHTING_STYLES = [
   "Archery",
   "Defense",
-  "Dueling",
   "Great Weapon Fighting",
-  "Protection",
   "Two-Weapon Fighting",
 ] as const;
 
 export type FightingStyle = (typeof FIGHTING_STYLES)[number];
 
-/** SRD fighting style rules text for sheet tooltips. */
+/** SRD 5.2.1 fighting style rules — fallback when Codex description is unavailable. */
 export const FIGHTING_STYLE_DESCRIPTIONS: Record<FightingStyle, string> = {
   Archery:
-    "You gain a +2 bonus to attack rolls you make with ranged weapons.",
-  Defense: "While you are wearing armor, you gain a +1 bonus to AC.",
-  Dueling:
-    "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon.",
+    "You gain a +2 bonus to attack rolls you make with Ranged weapons.",
+  Defense:
+    "While you're wearing Light, Medium, or Heavy armor, you gain a +1 bonus to Armor Class.",
   "Great Weapon Fighting":
-    "When you roll a 1 or 2 on a damage die for an attack with a melee weapon you are wielding with two hands, you can reroll the die and must use the new roll, even if the new roll is a 1 or a 2.",
-  Protection:
-    "When a creature you can see attacks a target other than you that is within 5 feet of you, you can use your reaction to impose disadvantage on the attack roll. You must be wielding a shield.",
+    "When you roll damage for a Two-Handed or Versatile melee weapon held in two hands, you can treat any 1 or 2 on a damage die as a 3.",
   "Two-Weapon Fighting":
-    "When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack.",
+    "When you make an extra attack from a Light weapon, you can add your ability modifier to that attack's damage if you aren't already adding it.",
 };
 
 export function fightingStyleDescription(style: string): string | undefined {
@@ -74,45 +70,6 @@ export const SUBCLASS_OPTIONS: Record<string, readonly string[]> = {
   Warlock: ["Fiend Patron"],
   Wizard: ["Evoker"],
 };
-
-/** Legacy PHB names → SRD 5.2 display names (for existing characters). */
-export const SUBCLASS_NAME_ALIASES: Record<string, string> = {
-  "Way of the Open Hand": "Warrior of the Open Hand",
-  "Draconic Bloodline": "Draconic Sorcery",
-  "The Fiend": "Fiend Patron",
-  "The Archfey": "Fiend Patron",
-  "The Great Old One": "Fiend Patron",
-  "School of Evocation": "Evoker",
-  "School of Abjuration": "Evoker",
-  "School of Conjuration": "Evoker",
-  "School of Divination": "Evoker",
-  "School of Enchantment": "Evoker",
-  "School of Illusion": "Evoker",
-  "School of Necromancy": "Evoker",
-  "School of Transmutation": "Evoker",
-  "Battle Master": "Champion",
-  "Eldritch Knight": "Champion",
-  "Beast Master": "Hunter",
-  Assassin: "Thief",
-  "Arcane Trickster": "Thief",
-  "College of Valor": "College of Lore",
-  "Path of the Totem Warrior": "Path of the Berserker",
-  "Circle of the Moon": "Circle of the Land",
-  "Way of Shadow": "Warrior of the Open Hand",
-  "Way of the Four Elements": "Warrior of the Open Hand",
-  "Oath of the Ancients": "Oath of Devotion",
-  "Oath of Vengeance": "Oath of Devotion",
-  "Wild Magic": "Draconic Sorcery",
-  "Light Domain": "Life Domain",
-  "Nature Domain": "Life Domain",
-  "Tempest Domain": "Life Domain",
-  "Trickery Domain": "Life Domain",
-  "War Domain": "Life Domain",
-};
-
-export function normalizeSubclassName(name: string): string {
-  return SUBCLASS_NAME_ALIASES[name] ?? name;
-}
 
 export function subclassOptionsFor(className: string): readonly string[] {
   return SUBCLASS_OPTIONS[className] ?? [];

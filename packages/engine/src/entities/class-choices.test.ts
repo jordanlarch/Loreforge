@@ -21,7 +21,7 @@ describe("fightingStyleDescription", () => {
     expect(fightingStyleDescription("Archery")).toBe(
       FIGHTING_STYLE_DESCRIPTIONS.Archery,
     );
-    expect(fightingStyleDescription("Defense")).toContain("+1 bonus to AC");
+    expect(fightingStyleDescription("Defense")).toContain("+1 bonus to Armor Class");
   });
 
   it("returns undefined for unknown labels", () => {

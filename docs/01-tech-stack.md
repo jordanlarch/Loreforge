@@ -138,7 +138,7 @@ Per the engine architecture doc §13, power-user homebrew can include scripted h
 
 ## 14. External Services & Data Sources
 
-The application stack above intentionally stops short of LLM providers, embedding models, TTS, image generation, procedural map libraries, and SRD content ingestion. Those are covered in [`./data-sources.md`](./data-sources.md). The short version: Anthropic Claude is primary for LLM-as-GM with OpenAI as fallback; OpenAI handles embeddings for RAG; ElevenLabs handles TTS with OpenAI as fallback; Flux/DALL-E 3 handle on-demand art generation (deferred to v1.5); rot-js / honeycomb-grid / d3-voronoi / custom Watabou-style ports cover procedural map geometry; SRD content ingests from Open5e and 5e-bits APIs initially with a planned migration to a custom SRD 5.2 parse.
+The application stack above intentionally stops short of LLM providers, embedding models, TTS, image generation, procedural map libraries, and SRD content ingestion. Those are covered in [`./data-sources.md`](./data-sources.md). The short version: Anthropic Claude is primary for LLM-as-GM with OpenAI as fallback; OpenAI handles embeddings for RAG; ElevenLabs handles TTS with OpenAI as fallback; Flux/DALL-E 3 handle on-demand art generation (deferred to v1.5); rot-js / honeycomb-grid / d3-voronoi / custom Watabou-style ports cover procedural map geometry; SRD content ingests from **Open5e `srd-2024`** (PDF-first QA) with a planned migration to custom SRD 5.2 PDF parse post-GA.
 
 ### LLM generation package (`@app/llm`) + tool-calling contract — implemented
 

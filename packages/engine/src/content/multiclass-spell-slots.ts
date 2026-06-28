@@ -1,15 +1,9 @@
 /**
- * Multiclass spell-slot pooling (PHB) — full + half casters combine into one
- * slot table via effective caster level. Warlock Pact Magic and third-caster
- * archetypes merge via {@link thirdCasterSlotMaxima}.
+ * Multiclass spell-slot pooling (SRD 5.2.1) — full + half casters combine into
+ * one slot table via effective caster level. Warlock Pact Magic stays separate.
  */
-import type { ClassLevel, SpellSlots } from "../entities/types";
+import type { SpellSlots } from "../entities/types";
 import { fullCasterSlots } from "./spell-slots";
-import {
-  hasThirdCasterSlots,
-  mergeSlotMaxima,
-  thirdCasterSlotMaxima,
-} from "./third-caster-slots";
 
 const FULL_CASTERS = new Set([
   "Bard",
@@ -22,7 +16,7 @@ const FULL_CASTERS = new Set([
 const HALF_CASTERS = new Set(["Paladin", "Ranger"]);
 
 /**
- * Effective caster level for the combined slot table (PHB multiclassing).
+ * Effective caster level for the combined slot table (SRD multiclassing).
  * Full casters contribute their level; half casters contribute floor(level / 2).
  */
 export function multiclassCasterLevel(
@@ -43,13 +37,11 @@ export function spellSlotsForClasses(
   return fullCasterSlots(multiclassCasterLevel(classes));
 }
 
-/** Sheet-friendly slot pools keyed by spell level string. */
-/** True when the class list contributes pooled slots, pact magic, or third-caster slots. */
+/** True when the class list contributes pooled slots or Warlock pact magic. */
 export function isSpellcastingClasses(
   classes: { class: string; level: number; subclass?: string }[],
 ): boolean {
   if (classes.some((c) => c.class === "Warlock" && c.level > 0)) return true;
-  if (hasThirdCasterSlots(classes as ClassLevel[])) return true;
   return multiclassCasterLevel(classes) > 0;
 }
 
@@ -64,9 +56,7 @@ function slotMaximaFromSpellSlots(slots: SpellSlots): Record<string, number> {
 export function sheetSlotPoolsFromClasses(
   classes: { class: string; level: number; subclass?: string }[],
 ): Record<string, { max: number; used: number }> {
-  const pooled = slotMaximaFromSpellSlots(spellSlotsForClasses(classes));
-  const third = thirdCasterSlotMaxima(classes as ClassLevel[]);
-  const merged = mergeSlotMaxima(pooled, third);
+  const merged = slotMaximaFromSpellSlots(spellSlotsForClasses(classes));
   const out: Record<string, { max: number; used: number }> = {};
   for (const [level, max] of Object.entries(merged)) {
     if (max > 0) out[level] = { max, used: 0 };

@@ -191,10 +191,8 @@ export {
   fightingStylePickLevel,
   needsFightingStylePick,
   needsSubclassPick,
-  normalizeSubclassName,
   subclassOptionsFor,
   subclassPickLevel,
-  SUBCLASS_NAME_ALIASES,
   SUBCLASS_OPTIONS,
   type FightingStyle,
 } from "./entities/class-choices";
@@ -315,11 +313,6 @@ export {
   spellcastingClasses,
 } from "./content/spell-eligibility";
 export {
-  hasThirdCasterSlots,
-  isThirdCasterSubclass,
-  thirdCasterSlotMaxima,
-} from "./content/third-caster-slots";
-export {
   activeCombatAdjustments,
   aggregateFeatModifiers,
   effectiveMaxHpFromFeats,
@@ -356,7 +349,7 @@ export {
   warlockPactMagic,
   type PactMagicPool,
 } from "./content/warlock-pact-slots";
-export { getSpell, SPELL_REGISTRY } from "./content/spell-registry";
+export { getSpell, HAND_AUTHORED_SPELL_IDS, SPELL_REGISTRY } from "./content/spell-registry";
 export { isSpellPrepared, spellNameToId } from "./content/spell-id";
 export {
   cantripDamageDice,

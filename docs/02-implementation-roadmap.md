@@ -35,7 +35,7 @@ Loreforge ships as a **solo-engineer** effort over **~28–34 months to GA** (ta
 | 9 | Tutorial gate | Strict open beta + GA; closed alpha without polished tutorial OK |
 | 10 | Beta | Three-stage: closed alpha → closed beta → open beta → GA |
 | 11 | Commercial | Paid from closed beta; **10 free DM chats** (see `product-spec.md` §5.1) |
-| 12 | SRD ingest | Open5e / 5e-bits first; custom SRD 5.2 migrate post-GA |
+| 12 | SRD ingest | Open5e `srd-2024` + PDF-first QA; custom SRD 5.2 PDF parse post-GA |
 
 **Still open before closed beta:** price points (flat vs usage vs hybrid) and paid-plan DM allowance after the 10 free chats.
 

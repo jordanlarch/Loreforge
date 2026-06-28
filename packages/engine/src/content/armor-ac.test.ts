@@ -83,4 +83,29 @@ describe("deriveEquippedArmorClass", () => {
     });
     expect(result).toEqual({ ac: 14, source: "derived" });
   });
+
+  it("derives AC from equipped Codex armor by slug", () => {
+    const result = deriveEquippedArmorClass({
+      dexScore: 10,
+      storedBaseAc: 10,
+      equipment: [
+        {
+          name: "Plate Armor",
+          equipped: true,
+          quantity: 1,
+          codexSlug: "plate-armor",
+        },
+      ],
+      itemDefinitions: {},
+      codexDefinitions: {
+        "plate-armor": buildItemDefinition({
+          name: "Plate Armor",
+          itemType: "Armor",
+          description: "Heavy armor.",
+          armor: { baseAc: 18, dexBonusMax: 0 },
+        }),
+      },
+    });
+    expect(result).toEqual({ ac: 18, source: "derived" });
+  });
 });

@@ -42,7 +42,10 @@ type CharacterInput = {
 export function effectiveSheetVitals(
   character: CharacterInput,
   meta: CharacterSheetMeta,
-  opts?: { smithyDefinitions?: Readonly<Record<string, ItemDefinition>> },
+  opts?: {
+    smithyDefinitions?: Readonly<Record<string, ItemDefinition>>;
+    codexDefinitions?: Readonly<Record<string, ItemDefinition>>;
+  },
 ) {
   const sheet = buildCharacterSheet(character);
   const feats = aggregateFeatModifiers(meta.feats);
@@ -51,6 +54,7 @@ export function effectiveSheetVitals(
     storedBaseAc: character.baseAc,
     equipment: character.equipment ?? [],
     itemDefinitions: opts?.smithyDefinitions ?? {},
+    codexDefinitions: opts?.codexDefinitions,
   });
   const baseAcForStyles =
     derived.source === "derived" ? derived.ac : character.baseAc;

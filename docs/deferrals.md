@@ -196,9 +196,9 @@ are metadata-only. Diverges sharply from the full "homebrew forge."
 
 | ID | Item | Deferred-to | Tracking | Status | Notes |
 |---|---|---|---|---|---|
-| DATA-1a | Armor AC from equipped `ItemDefinition` on character sheet | SMITH-7 | engine + sheet | **Done** | `deriveEquippedArmorClass` in `@app/engine`; `smithy.resolveItemDefinitions` + `effectiveSheetVitals` on character sheet. Requires equipped item with `smithyItemId` + armor block. |
-| DATA-1b | Hazard / trap / poison / disease schema (`HazardDefinition`) | P3 engine | engine types | Partial | **`hazard-definitions.ts`** + validation harness. Codex advanced-rules ingest + Smithy copy + runtime resolution deferred. |
-| DATA-1c | `MonsterDefinition` + Codex bestiary → engine bridge | P3/P6 | engine types | Partial | **`monster-definitions.ts`** design stub + validation. Full Open5e monster ingest + encounter builder deferred (CAMP-8 uses curated `MonsterTemplate` only). |
+| DATA-1a | Armor AC from equipped `ItemDefinition` on character sheet | SMITH-7 | engine + sheet | Partial | **`deriveEquippedArmorClass`** + Smithy/Codex `resolveItemDefinitions` + `effectiveSheetVitals`; `codexSlug` on equipment; Live Stats HUD wired. **Prod verify pending:** forge/equip Smithy armor or buy/equip Codex armor → save inventory → AC updates on right rail + Live Stats. |
+| DATA-1b | Hazard / trap / poison / disease / environmental schema | P3 engine | engine types | Partial | Discriminated **`HazardDefinition`** kinds in `@app/engine` (`TrapDefinition`, `PoisonDefinition`, `DiseaseDefinition`, `EnvironmentalHazardDefinition`) + validation. **Grill backlog:** per-category source + ingest — see `docs/data-model-hazards.md`. Codex advanced-rules normalization + engine/map/campaign hooks deferred. |
+| DATA-1c | `MonsterDefinition` + Codex bestiary → engine bridge | P3/P6 | engine types | Partial | **`monster-definitions.ts`** validation stub only — not credible for encounter builder until Open5e monster → `MonsterDefinition` ingest + grill on action/legendary blocks. CAMP-8 uses curated `MonsterTemplate` only. |
 | DATA-1d | Consumable / wondrous items without weapon shape (acid vial, etc.) | SMITH-7 | engine | Missing | `validateItemDefinition` weapon-centric; needs consumable/hazard item kind or relaxed validation for prose-only Codex copies. |
 
 ### 3.5 Realms — `docs/ui-flows/realms-library.md`

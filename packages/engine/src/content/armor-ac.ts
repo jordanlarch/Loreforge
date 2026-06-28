@@ -1,5 +1,5 @@
 /**
- * Derive character AC from equipped Smithy {@link ItemDefinition} armor blocks (DATA-1a).
+ * Derive character AC from equipped Smithy/Codex {@link ItemDefinition} armor blocks (DATA-1a).
  * Falls back to stored `baseAc` when no structured armor is equipped.
  */
 import { abilityModifier } from "../entities/abilities";
@@ -10,6 +10,7 @@ export type EquipmentArmorEntry = {
   equipped: boolean;
   quantity: number;
   smithyItemId?: string;
+  codexSlug?: string;
 };
 
 export type DerivedArmorClass = {
@@ -38,14 +39,17 @@ function applyDexToArmor(baseAc: number, dexMod: number, dexBonusMax?: number | 
 }
 
 /**
- * Compute AC from equipped Smithy armor/shield definitions when present.
+ * Compute AC from equipped Smithy/Codex armor/shield definitions when present.
  * Uses the highest base AC body armor + one shield (+2) + equipped AC effects.
  */
 export function deriveEquippedArmorClass(input: {
   dexScore: number;
   storedBaseAc: number;
   equipment: readonly EquipmentArmorEntry[];
+  /** Smithy homebrew items keyed by `smithyItemId`. */
   itemDefinitions: Readonly<Record<string, ItemDefinition>>;
+  /** Codex SRD items keyed by `codexSlug`. */
+  codexDefinitions?: Readonly<Record<string, ItemDefinition>>;
 }): DerivedArmorClass {
   const dexMod = abilityModifier(input.dexScore);
   const items = equippedItems(input.equipment);
@@ -55,8 +59,12 @@ export function deriveEquippedArmorClass(input: {
   let effectBonus = 0;
 
   for (const item of items) {
-    if (!item.smithyItemId) continue;
-    const def = input.itemDefinitions[item.smithyItemId];
+    let def: ItemDefinition | undefined;
+    if (item.smithyItemId) {
+      def = input.itemDefinitions[item.smithyItemId];
+    } else if (item.codexSlug) {
+      def = input.codexDefinitions?.[item.codexSlug];
+    }
     if (!def?.armor) continue;
     effectBonus += acBonusFromEffects(def);
     if (def.armor.shield) {

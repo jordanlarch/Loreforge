@@ -106,6 +106,7 @@ const equipmentItem = z.object({
   equipped: z.boolean(),
   slot: z.string().trim().max(40).optional(),
   smithyItemId: z.string().uuid().optional(),
+  codexSlug: z.string().trim().max(160).optional(),
   weight: z.number().min(0).max(100_000).optional(),
   rarity: z.string().trim().max(40).optional(),
   attunement: z.boolean().optional(),

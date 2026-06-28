@@ -4,10 +4,10 @@
  * is reused by Smithy and Realms. Write paths (Copy to Smithy, etc.) arrive in
  * later phases.
  */
-import { and, asc, count, desc, eq, gte, ilike, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { masteryFromOpen5eItemRaw } from "@app/engine";
+import { masteryFromOpen5eItemRaw, open5eRawToItemDefinition, type ItemDefinition } from "@app/engine";
 
 import {
   codexAdvancedRules,
@@ -538,6 +538,32 @@ export const codexRouter = createTRPCRouter({
         .where(eq(codexItems.slug, input.slug))
         .limit(1);
       return row ?? null;
+    }),
+
+  /** Batch-resolve Codex items to engine {@link ItemDefinition} for sheet AC / inspect (DATA-1a). */
+  resolveItemDefinitions: protectedProcedure
+    .input(z.object({ slugs: z.array(z.string().trim().min(1).max(160)).max(40) }))
+    .query(async ({ input }) => {
+      if (input.slugs.length === 0) return {} as Record<string, ItemDefinition>;
+      const db = getDb();
+      const rows = await db
+        .select()
+        .from(codexItems)
+        .where(inArray(codexItems.slug, input.slugs));
+      return Object.fromEntries(
+        rows.map((row) => [
+          row.slug,
+          open5eRawToItemDefinition((row.raw ?? {}) as Record<string, unknown>, {
+            slug: row.slug,
+            name: row.name,
+            category: row.category,
+            description: row.description,
+            cost: row.cost,
+            weight: row.weight,
+            weightUnit: row.weightUnit,
+          }),
+        ]),
+      ) as Record<string, ItemDefinition>;
     }),
 
   /** Weapon mastery properties for equipped item names (Open5e raw JSON). */

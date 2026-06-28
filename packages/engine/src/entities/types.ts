@@ -154,6 +154,20 @@ export type EntityState = {
   rangedAttackRangeFt?: number;
   rangedAttackBonus?: number;
   rangedDamage?: { notation: string; type: string };
+  /** Active poison instances after delivery (GRILL-LIVE-POISON Q2). */
+  activePoisons?: ActivePoisonInstance[];
+  /** Pending injury poison on weapon — cleared after one qualifying hit (Q4). */
+  coatedPoisonSlug?: string;
+};
+
+/** Ongoing poison tracked on an entity (injury or ingested after delivery). */
+export type ActivePoisonInstance = {
+  instanceId: string;
+  poisonSlug: string;
+  /** Repeat save at turn start until removed (Pale Tincture, Burnt Othur). */
+  pendingRepeat: boolean;
+  /** Successful repeat saves toward ending (Burnt Othur: 3). */
+  repeatSuccesses?: number;
 };
 
 export type DeathSaveTally = { successes: number; failures: number };

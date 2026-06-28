@@ -70,6 +70,13 @@ import {
   trapTriggerEventsAfterMove,
 } from "./trap-handlers";
 import {
+  handleApplyPoison,
+  handleCoatWeapon,
+  handleResolvePoisonTick,
+  poisonDeliveryEventsAfterHit,
+  poisonTickEventsAfterTurnStart,
+} from "./poison-handlers";
+import {
   reject,
   type AbilityCheckCommand,
   type AddCombatantCommand,
@@ -618,6 +625,7 @@ function handleRollInitiative(
     ...meta(ctx, first.entity),
     payload: { entity: first.entity, index: 0 },
   });
+  events.push(...poisonTickEventsAfterTurnStart(ctx, first.entity));
 
   return {
     accepted: true,
@@ -789,6 +797,7 @@ function handleEndTurn(
     ...meta(ctx, nextEntity),
     payload: { entity: nextEntity, index: nextIndex },
   });
+  events.push(...poisonTickEventsAfterTurnStart(ctx, nextEntity));
 
   return {
     accepted: true,
@@ -986,6 +995,9 @@ function handleAttack(
       },
     });
     events.push(...concentrationCheckEvents(ctx, target, damage, hpAfter));
+    events.push(
+      ...poisonDeliveryEventsAfterHit(ctx, cmd.attacker, cmd.target, cmd.damage.type),
+    );
   }
 
   // Debit the turn economy (own turn only): spend the action on the first attack
@@ -2822,5 +2834,11 @@ export function handleCommand(
       return handleDisableTrap(command, ctx);
     case "trigger_trap":
       return handleTriggerTrap(command, ctx);
+    case "coat_weapon":
+      return handleCoatWeapon(command, ctx);
+    case "apply_poison":
+      return handleApplyPoison(command, ctx);
+    case "resolve_poison_tick":
+      return handleResolvePoisonTick(command, ctx);
   }
 }

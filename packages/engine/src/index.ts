@@ -308,6 +308,12 @@ export {
   type SrdTrapSeed,
 } from "./content/srd-trap-seeds";
 export {
+  getPoisonDefinition,
+  POISON_REGISTRY,
+  SRD_POISON_SEEDS,
+  type SrdPoisonSeed,
+} from "./content/srd-poison-seeds";
+export {
   isTrapEligibleSceneKind,
   normalizeSceneTraps,
   TRAP_ELIGIBLE_SCENE_KINDS,

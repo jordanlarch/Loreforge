@@ -130,7 +130,7 @@ const DUNGEON_WALLS: GridPosition[] = [
 const DUNGEON_DEMO_TRAP: SceneTrapInstance = {
   instanceId: "trap:demo-poison-needle",
   trapSlug: "srd-2024_poison-needle",
-  position: { x: 5, y: 1 },
+  position: { x: 5, y: 5 },
   detected: false,
   disabled: false,
   triggered: false,

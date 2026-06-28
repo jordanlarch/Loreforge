@@ -184,6 +184,14 @@ function hasPoisonEffect(def: PoisonDefinition): boolean {
   return false;
 }
 
+function hasCurseEffect(def: CurseDefinition): boolean {
+  if (def.save) return true;
+  if (def.effects?.length) return true;
+  if (def.contagion?.trim()) return true;
+  if (def.recovery?.trim()) return true;
+  return false;
+}
+
 export function validateTrapDefinition(def: TrapDefinition): string[] {
   const errors: string[] = [];
   if (!def.name?.trim()) errors.push("Name is required.");
@@ -217,20 +225,29 @@ export function validatePoisonDefinition(def: PoisonDefinition): string[] {
   return errors;
 }
 
+export function validateCurseDefinition(def: CurseDefinition): string[] {
+  const errors: string[] = [];
+  if (!def.name?.trim()) errors.push("Name is required.");
+  if (!def.id?.trim()) errors.push("Entry id is required.");
+  if (!hasCurseEffect(def)) {
+    errors.push("Curse requires save, effects, contagion, or recovery rules.");
+  }
+  validateSave(def.save, errors);
+  return errors;
+}
+
 export function validateGameplayToolboxEntryDefinition(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
   if (def.kind === "trap") return validateTrapDefinition(def);
   if (def.kind === "poison") return validatePoisonDefinition(def);
+  if (def.kind === "curse") return validateCurseDefinition(def);
 
   const errors: string[] = [];
   if (!def.name?.trim()) errors.push("Name is required.");
   if (!def.id?.trim()) errors.push("Entry id is required.");
 
   switch (def.kind) {
-    case "curse":
-      validateSave(def.save, errors);
-      break;
     case "environmental_effect":
       validateSave(def.save, errors);
       validateDamageRows(def.damage, errors);
@@ -253,6 +270,10 @@ export function isValidTrapDefinition(def: TrapDefinition): boolean {
 
 export function isValidPoisonDefinition(def: PoisonDefinition): boolean {
   return validatePoisonDefinition(def).length === 0;
+}
+
+export function isValidCurseDefinition(def: CurseDefinition): boolean {
+  return validateCurseDefinition(def).length === 0;
 }
 
 export function isValidGameplayToolboxEntryDefinition(

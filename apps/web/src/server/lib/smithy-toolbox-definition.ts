@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import {
   toolboxEntryId,
   validateGameplayToolboxEntryDefinition,
+  type CurseDefinition,
   type GameplayToolboxEntryDefinition,
   type PoisonDefinition,
   type PoisonType,
@@ -33,6 +34,15 @@ export type SmithyPoisonFormInput = {
   damage?: ToolboxDamage[];
   conditions?: string[];
   repeat?: string;
+};
+
+export type SmithyCurseFormInput = {
+  name: string;
+  description: string;
+  contagion?: string;
+  save?: ToolboxSave;
+  effects?: string[];
+  recovery?: string;
 };
 
 export function assembleTrapDefinition(
@@ -88,10 +98,36 @@ export function assemblePoisonDefinition(
   return definition;
 }
 
+export function assembleCurseDefinition(
+  input: SmithyCurseFormInput,
+): CurseDefinition {
+  const definition: CurseDefinition = {
+    kind: "curse",
+    id: toolboxEntryId(input.name),
+    name: input.name.trim(),
+    description: input.description.trim(),
+    contagion: input.contagion?.trim() || undefined,
+    save: input.save,
+    effects: input.effects?.length ? input.effects : undefined,
+    recovery: input.recovery?.trim() || undefined,
+  };
+
+  const errors = validateGameplayToolboxEntryDefinition(definition);
+  if (errors.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: errors.join(" "),
+    });
+  }
+
+  return definition;
+}
+
 export function assembleToolboxDefinition(input: {
   topic: ToolboxTopic;
   trap?: SmithyTrapFormInput;
   poison?: SmithyPoisonFormInput;
+  curse?: SmithyCurseFormInput;
 }): GameplayToolboxEntryDefinition {
   if (input.topic === "trap") {
     if (!input.trap) {
@@ -110,6 +146,15 @@ export function assembleToolboxDefinition(input: {
       });
     }
     return assemblePoisonDefinition(input.poison);
+  }
+  if (input.topic === "curse") {
+    if (!input.curse) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Curse mechanics are required.",
+      });
+    }
+    return assembleCurseDefinition(input.curse);
   }
   throw new TRPCError({
     code: "BAD_REQUEST",

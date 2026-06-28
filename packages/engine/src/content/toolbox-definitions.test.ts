@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isValidCurseDefinition,
   isValidPoisonDefinition,
   isValidTrapDefinition,
   toolboxEntryId,
+  validateCurseDefinition,
   validatePoisonDefinition,
   validateTrapDefinition,
+  type CurseDefinition,
   type PoisonDefinition,
   type TrapDefinition,
 } from "./toolbox-definitions";
@@ -86,6 +89,33 @@ describe("toolbox-definitions poisons", () => {
     };
     expect(validatePoisonDefinition(def)).toContain(
       "Poison requires save, damage, conditions, or repeat rules.",
+    );
+  });
+});
+
+describe("toolbox-definitions curses", () => {
+  it("validates demonic possession style curse", () => {
+    const def: CurseDefinition = {
+      id: toolboxEntryId("Demonic Possession"),
+      name: "Demonic Possession",
+      kind: "curse",
+      description: "Environmental curse.",
+      save: { ability: "cha", dc: 15, onSuccess: "negates" },
+      effects: ["Possessed on a failed initial save."],
+      recovery: "Remove Curse or successful save after Long Rest.",
+    };
+    expect(isValidCurseDefinition(def)).toBe(true);
+  });
+
+  it("requires at least one mechanical field", () => {
+    const def: CurseDefinition = {
+      id: "bad",
+      name: "Bad",
+      kind: "curse",
+      description: "x",
+    };
+    expect(validateCurseDefinition(def)).toContain(
+      "Curse requires save, effects, contagion, or recovery rules.",
     );
   });
 });

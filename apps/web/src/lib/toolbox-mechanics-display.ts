@@ -1,4 +1,4 @@
-import type { GameplayToolboxEntryDefinition, PoisonDefinition, TrapDefinition, ToolboxCheck } from "@app/engine";
+import type { CurseDefinition, GameplayToolboxEntryDefinition, PoisonDefinition, TrapDefinition, ToolboxCheck } from "@app/engine";
 
 function formatCheck(label: string, check: ToolboxCheck): string {
   const parts = [`${label}: DC ${check.dc}`, check.ability.toUpperCase()];
@@ -50,10 +50,30 @@ export function formatPoisonMechanicsSummary(def: PoisonDefinition): string[] {
   return lines;
 }
 
+export function formatCurseMechanicsSummary(def: CurseDefinition): string[] {
+  const lines: string[] = [];
+  if (def.contagion) {
+    lines.push(`Contagion: ${def.contagion}`);
+  }
+  if (def.save) {
+    lines.push(
+      `Save: DC ${def.save.dc} ${def.save.ability.toUpperCase()} (${def.save.onSuccess} on success)`,
+    );
+  }
+  def.effects?.forEach((effect) => {
+    lines.push(`Effect: ${effect}`);
+  });
+  if (def.recovery) {
+    lines.push(`Recovery: ${def.recovery}`);
+  }
+  return lines;
+}
+
 export function formatToolboxDefinitionSummary(
   def: GameplayToolboxEntryDefinition,
 ): string[] {
   if (def.kind === "trap") return formatTrapMechanicsSummary(def);
   if (def.kind === "poison") return formatPoisonMechanicsSummary(def);
+  if (def.kind === "curse") return formatCurseMechanicsSummary(def);
   return [];
 }

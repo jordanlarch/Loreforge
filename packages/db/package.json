@@ -24,6 +24,7 @@
     "seed:character-options": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/seed-character-options.ts",
     "seed:toolbox-traps": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/seed-toolbox-traps.ts",
     "seed:toolbox-poisons": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/seed-toolbox-poisons.ts",
+    "seed:toolbox-curses": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/seed-toolbox-curses.ts",
     "srd-audit:db": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/srd-audit-db.ts",
     "purge:characters": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/purge-all-characters.ts",
     "generate:spell-registry": "dotenv -e ../../.env.local --no-expand -- tsx src/scripts/generate-spell-registry.ts",

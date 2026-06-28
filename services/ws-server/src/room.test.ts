@@ -154,4 +154,22 @@ describe("isBattleAction", () => {
       }),
     ).toBe(false);
   });
+
+  it("accepts coat_weapon and apply_poison (GRILL-LIVE-POISON)", () => {
+    expect(
+      isBattleAction({
+        type: "coat_weapon",
+        entity: "pc:1",
+        poisonSlug: "srd-2024_serpent-venom",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "apply_poison",
+        target: "pc:1",
+        poisonSlug: "srd-2024_assassins-blood",
+      }),
+    ).toBe(true);
+    expect(isBattleAction({ type: "coat_weapon", entity: "pc:1" })).toBe(false);
+  });
 });

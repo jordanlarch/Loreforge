@@ -12,6 +12,7 @@ import type { WeaponAttack } from "@/lib/sheet-loadout";
 import type { SceneTrapInstance } from "@app/engine";
 
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
+import { PoisonTurnControls } from "./poison-turn-controls";
 import { ReactionPrompt } from "./reaction-prompt";
 import { TrapTurnControls } from "./trap-action-bar";
 
@@ -84,6 +85,9 @@ export function CombatTurnBar({
   nearbyTraps,
   onDetectTrap,
   onDisableTrap,
+  injuryPoisons,
+  coatedPoisonSlug,
+  onCoatWeapon,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -107,8 +111,8 @@ export function CombatTurnBar({
   castTargetCount?: number;
   castTargetMax?: number;
   onConfirmMultiCast?: () => void;
-  items?: { name: string; quantity: number }[];
-  onQuickUse?: (name: string) => void;
+  items?: { name: string; quantity: number; poisonSlug?: string }[];
+  onQuickUse?: (item: { name: string; poisonSlug?: string }) => void;
   showReaction: boolean;
   reaction?: { reactor: EntityState; mover: EntityState };
   reactorReactionSpells: CastableSpell[];
@@ -120,6 +124,9 @@ export function CombatTurnBar({
   nearbyTraps?: readonly SceneTrapInstance[];
   onDetectTrap?: (trapInstanceId: string) => void;
   onDisableTrap?: (trapInstanceId: string) => void;
+  injuryPoisons?: readonly { slug: string; label: string; quantity: number }[];
+  coatedPoisonSlug?: string;
+  onCoatWeapon?: (poisonSlug: string) => void;
 }) {
   const armedMode = armed !== null;
 
@@ -235,7 +242,7 @@ export function CombatTurnBar({
                       <button
                         key={item.name}
                         type="button"
-                        onClick={() => onQuickUse(item.name)}
+                        onClick={() => onQuickUse(item)}
                         className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
                       >
                         {item.name}
@@ -243,6 +250,15 @@ export function CombatTurnBar({
                       </button>
                     ))}
                   </div>
+                ) : null}
+                {injuryPoisons?.length && onCoatWeapon ? (
+                  <PoisonTurnControls
+                    poisons={injuryPoisons}
+                    coatedSlug={coatedPoisonSlug}
+                    disabled={isBusy}
+                    canAct={canAct}
+                    onCoat={onCoatWeapon}
+                  />
                 ) : null}
                 {nearbyTraps?.length && onDetectTrap && onDisableTrap ? (
                   <TrapTurnControls

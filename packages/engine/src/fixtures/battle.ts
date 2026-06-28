@@ -17,6 +17,8 @@ import type {
   AttackCommand,
   CastSpellCommand,
   Command,
+  ApplyPoisonCommand,
+  CoatWeaponCommand,
   DetectTrapCommand,
   DisableTrapCommand,
   EndTurnCommand,
@@ -125,6 +127,8 @@ export type FoeSpec = {
   rangedAttackBonus?: number;
   rangedDamage?: { notation: string; type: string };
   spellcasting?: import("../entities/types").SpellcastingInit;
+  /** Injury poison already on weapon (GRILL-LIVE-POISON Q8 demo). */
+  coatedPoisonSlug?: string;
 };
 
 /** The two goblin foes the default ambush fields, as {@link FoeSpec}s. */
@@ -254,6 +258,7 @@ export function buildPartyBattleCommands(
           : {}),
         ...(f.rangedDamage !== undefined ? { rangedDamage: f.rangedDamage } : {}),
         ...(f.spellcasting ? { spellcasting: f.spellcasting } : {}),
+        ...(f.coatedPoisonSlug ? { coatedPoisonSlug: f.coatedPoisonSlug } : {}),
       },
     })),
     {
@@ -361,7 +366,9 @@ export type BattleAction =
   | ReadyActionCommand
   | TriggerReadiedCommand
   | DetectTrapCommand
-  | DisableTrapCommand;
+  | DisableTrapCommand
+  | CoatWeaponCommand
+  | ApplyPoisonCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {
@@ -460,6 +467,26 @@ export function disableTrapAction(
   trapInstanceId: string,
 ): DisableTrapCommand {
   return { type: "disable_trap", entity, sceneId, trapInstanceId };
+}
+
+export function coatWeaponAction(
+  entity: EntityRef,
+  poisonSlug: string,
+): CoatWeaponCommand {
+  return { type: "coat_weapon", entity, poisonSlug };
+}
+
+export function applyPoisonAction(
+  target: EntityRef,
+  poisonSlug: string,
+  source?: EntityRef,
+): ApplyPoisonCommand {
+  return {
+    type: "apply_poison",
+    target,
+    poisonSlug,
+    ...(source ? { source } : {}),
+  };
 }
 
 /**

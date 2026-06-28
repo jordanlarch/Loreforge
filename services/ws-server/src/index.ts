@@ -80,6 +80,7 @@ import {
   getEventStore,
   getTutorialHookStatus,
   grantTutorialLoot,
+  grantPoisonDemoLoot,
   isCampaignOwner,
   canAccessCampaign,
   awardTutorialReputation,
@@ -1668,6 +1669,12 @@ const server = new Hocuspocus({
       if (travelResult) {
         writeProjection(document, await room.getState());
         if (travelResult.startedCombat) {
+          if (travelResult.destination.type === "dungeon") {
+            const parsedTravel = parseRoom(documentName);
+            if (parsedTravel?.kind === "campaign") {
+              await grantPoisonDemoLoot(parsedTravel.campaignId);
+            }
+          }
           await runEnemyTurns(room, document, documentName, getNarrationClient());
         }
       }
@@ -1795,6 +1802,9 @@ const server = new Hocuspocus({
       const { changed, startedCombat } = await room.enterLocation(location, extras);
       if (changed) {
         writeProjection(document, await room.getState());
+        if (location.type === "dungeon") {
+          await grantPoisonDemoLoot(parsed.campaignId);
+        }
         const arrival = arrivalNarrationForLocation(location, extras.entityData);
         await appendAndPersist(document, documentName, [
           await gmEntryWithReveal(documentName, {

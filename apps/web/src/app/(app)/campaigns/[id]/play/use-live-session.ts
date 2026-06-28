@@ -428,6 +428,16 @@ export function useLiveSession({
         t: "cmd",
         action: { type: "disable_trap", entity, sceneId, trapInstanceId },
       }),
+    coatWeapon: (entity: string, poisonSlug: string) =>
+      send({
+        t: "cmd",
+        action: { type: "coat_weapon", entity, poisonSlug },
+      }),
+    applyPoison: (target: string, poisonSlug: string) =>
+      send({
+        t: "cmd",
+        action: { type: "apply_poison", target, poisonSlug },
+      }),
     reset: () => send({ t: "reset" }),
     syncParty,
     /** Travel to a World-tab location (Rung 4 Slice 2 / CAMP-UX UX-1). */

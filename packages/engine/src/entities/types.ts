@@ -287,4 +287,6 @@ export type EntityInit = {
   sceneId?: SceneId;
   position?: GridPosition;
   spellcasting?: SpellcastingInit;
+  /** Pre-coated injury poison (GRILL-LIVE-POISON demo foes). */
+  coatedPoisonSlug?: string;
 };

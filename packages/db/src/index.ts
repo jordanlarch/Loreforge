@@ -74,3 +74,4 @@ export {
   TRAPS_RULES_PROSE,
   TRAPS_RULES_SECTION_SLUG,
 } from "./ingest/srd-toolbox-traps";
+export { traitDescription } from "./ingest/srd-trait-descriptions";

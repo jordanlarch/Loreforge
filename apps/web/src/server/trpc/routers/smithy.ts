@@ -7,7 +7,7 @@
  * never drift. Codex spell copy is live via `copySpellFromCodex` (SMITH-6).
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -101,6 +101,7 @@ const itemMechanicsInput = z.object({
       finesse: z.boolean().optional(),
       ranged: z.boolean().optional(),
       rangeFt: z.number().int().min(5).max(600).optional(),
+      mastery: z.string().trim().max(40).optional(),
     })
     .optional(),
   armor: z
@@ -112,6 +113,18 @@ const itemMechanicsInput = z.object({
     })
     .optional(),
   equippedEffects: z.array(itemEquippedEffect).max(6).optional(),
+  propertyDetails: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1).max(40),
+        name: z.string().trim().min(1).max(60),
+        description: z.string().trim().max(500).optional(),
+        detail: z.string().trim().max(120).nullable().optional(),
+        mastery: z.boolean().optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 
 const createInput = z.object({
@@ -199,12 +212,14 @@ function spellId(name: string): string {
 
 function itemDefinitionFromInput(
   input: z.infer<typeof createInput>,
+  existing?: ItemDefinition,
 ): ItemDefinition {
   const definition = assembleItemDefinition({
     name: input.name,
     type: input.type,
     description: input.description,
     mechanics: input.mechanics,
+    existing,
   });
   const errors = validateItemDefinition(definition);
   if (errors.length > 0) {
@@ -345,6 +360,29 @@ export const smithyRouter = createTRPCRouter({
       return row ?? null;
     }),
 
+  /** Batch-resolve Smithy item definitions for sheet loadout / AC (DATA-1a). */
+  resolveItemDefinitions: protectedProcedure
+    .input(z.object({ ids: z.array(z.string().uuid()).max(40) }))
+    .query(async ({ ctx, input }) => {
+      if (input.ids.length === 0) return {} as Record<string, ItemDefinition>;
+      const db = getDb();
+      const rows = await db
+        .select({
+          id: homebrewItems.id,
+          definition: homebrewItems.definition,
+        })
+        .from(homebrewItems)
+        .where(
+          and(
+            eq(homebrewItems.ownerId, ctx.user.id),
+            inArray(homebrewItems.id, input.ids),
+          ),
+        );
+      return Object.fromEntries(
+        rows.map((row) => [row.id, row.definition]),
+      ) as Record<string, ItemDefinition>;
+    }),
+
   /** Forge a new homebrew item owned by the current user. */
   create: protectedProcedure
     .input(createInput)
@@ -365,7 +403,20 @@ export const smithyRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
       const { id, mechanics: _mechanics, ...patch } = input;
-      const definition = itemDefinitionFromInput(input);
+      const [existing] = await db
+        .select({ definition: homebrewItems.definition })
+        .from(homebrewItems)
+        .where(
+          and(
+            eq(homebrewItems.id, id),
+            eq(homebrewItems.ownerId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Item not found." });
+      }
+      const definition = itemDefinitionFromInput(input, existing.definition);
       const [row] = await db
         .update(homebrewItems)
         .set({ ...patch, definition, updatedAt: new Date() })

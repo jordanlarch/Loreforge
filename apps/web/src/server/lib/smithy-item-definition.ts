@@ -4,6 +4,7 @@ import {
   type ItemArmorStats,
   type ItemDefinition,
   type ItemEquippedEffect,
+  type ItemPropertyDefinition,
   type ItemType,
   type ItemWeaponStats,
 } from "@app/engine";
@@ -12,6 +13,7 @@ export type SmithyItemMechanicsInput = {
   weapon?: ItemWeaponStats;
   armor?: ItemArmorStats;
   equippedEffects?: ItemEquippedEffect[];
+  propertyDetails?: ItemPropertyDefinition[];
 };
 
 export function assembleItemDefinition(input: {
@@ -19,6 +21,7 @@ export function assembleItemDefinition(input: {
   type: ItemType;
   description: string;
   mechanics?: SmithyItemMechanicsInput;
+  existing?: ItemDefinition;
 }): ItemDefinition {
   return buildItemDefinition({
     name: input.name,
@@ -27,6 +30,11 @@ export function assembleItemDefinition(input: {
     weapon: input.mechanics?.weapon,
     armor: input.mechanics?.armor,
     equippedEffects: input.mechanics?.equippedEffects,
+    propertyDetails: input.mechanics?.propertyDetails,
+    cost: input.existing?.cost,
+    weight: input.existing?.weight,
+    optionContent: input.existing?.optionContent,
+    id: input.existing?.id,
   });
 }
 

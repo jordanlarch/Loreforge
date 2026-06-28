@@ -5,10 +5,12 @@ import {
   aggregateFeatModifiers,
   aggregateFightingStyleModifiers,
   buildCharacterSheet,
+  deriveEquippedArmorClass,
   effectiveArmorClass,
   effectiveMaxHpFromFeats,
   type Ability,
   type ClassLevel,
+  type ItemDefinition,
 } from "@app/engine";
 
 import type { EquipmentItem } from "./character";
@@ -40,10 +42,20 @@ type CharacterInput = {
 export function effectiveSheetVitals(
   character: CharacterInput,
   meta: CharacterSheetMeta,
+  opts?: { smithyDefinitions?: Readonly<Record<string, ItemDefinition>> },
 ) {
   const sheet = buildCharacterSheet(character);
   const feats = aggregateFeatModifiers(meta.feats);
+  const derived = deriveEquippedArmorClass({
+    dexScore: character.abilityScores.dex,
+    storedBaseAc: character.baseAc,
+    equipment: character.equipment ?? [],
+    itemDefinitions: opts?.smithyDefinitions ?? {},
+  });
+  const baseAcForStyles =
+    derived.source === "derived" ? derived.ac : character.baseAc;
   const wearingArmor =
+    derived.source === "derived" ||
     equipmentHasArmor(character.equipment ?? []) ||
     character.baseAc > 12 + sheet.abilityModifiers.dex;
   const style = aggregateFightingStyleModifiers(
@@ -57,7 +69,7 @@ export function effectiveSheetVitals(
     meta.feats,
     sheet.level,
   );
-  const ac = effectiveArmorClass(sheet.ac, style.acBonus);
+  const ac = effectiveArmorClass(baseAcForStyles, style.acBonus);
   const initiative = sheet.initiative + feats.initiativeBonus;
   const speed = sheet.speed + feats.speedBonus;
 
@@ -65,6 +77,7 @@ export function effectiveSheetVitals(
     sheet,
     maxHp,
     ac,
+    derivedAc: derived,
     initiative,
     speed,
     passivePerceptionBonus: feats.passivePerceptionBonus,

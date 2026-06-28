@@ -1,6 +1,6 @@
 # Gameplay Toolbox + exploration hazards — grill backlog (DATA-1b)
 
-**Status:** **Traps v1 shipped** (DATA-1b). Codex **Gameplay Toolbox** + Smithy toolbox entries live for traps. Sibling topics (poison/curse/env/fear) have locked grill decisions; seeds deferred per topic slice.
+**Status:** **Traps v1 shipped** (DATA-1b). **Poisons + curses seeded** (Codex + Smithy). Sibling topics env/fear have locked grill decisions; seeds deferred per topic slice.
 
 ## SRD 5.2 PDF taxonomy (canonical — do not conflate)
 

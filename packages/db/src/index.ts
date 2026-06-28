@@ -72,6 +72,10 @@ export {
   seedToolboxPoisons,
   type SeedToolboxPoisonsResult,
 } from "./ingest/seed-toolbox-poisons";
+export {
+  seedToolboxCurses,
+  type SeedToolboxCursesResult,
+} from "./ingest/seed-toolbox-curses";
 export { GAMEPLAY_TOOLBOX_CHAPTER_SLUG } from "./ingest/srd-toolbox-shared";
 export {
   SRD_TOOLBOX_TRAP_SEEDS,
@@ -83,4 +87,9 @@ export {
   POISONS_RULES_PROSE,
   POISONS_RULES_SECTION_SLUG,
 } from "./ingest/srd-toolbox-poisons";
+export {
+  SRD_TOOLBOX_CURSE_SEEDS,
+  CURSES_RULES_PROSE,
+  CURSES_RULES_SECTION_SLUG,
+} from "./ingest/srd-toolbox-curses";
 export { traitDescription } from "./ingest/srd-trait-descriptions";

@@ -265,6 +265,19 @@ const toolboxPoisonInput = z.object({
   repeat: z.string().trim().max(500).optional(),
 });
 
+const toolboxCurseInput = z.object({
+  contagion: z.string().trim().max(1000).optional(),
+  save: z
+    .object({
+      ability: ABILITY,
+      dc: z.number().int().min(1).max(30),
+      onSuccess: z.enum(TOOLBOX_SAVE_OUTCOMES),
+    })
+    .optional(),
+  effects: z.array(z.string().trim().max(500)).max(12).optional(),
+  recovery: z.string().trim().max(1000).optional(),
+});
+
 const createToolboxInput = z.object({
   name: z.string().trim().min(1).max(120),
   topic: z.enum(TOOLBOX_TOPICS).default("trap"),
@@ -273,6 +286,7 @@ const createToolboxInput = z.object({
   copiedFromSlug: z.string().trim().max(160).optional(),
   trap: toolboxTrapInput.optional(),
   poison: toolboxPoisonInput.optional(),
+  curse: toolboxCurseInput.optional(),
 });
 
 function toolboxDefinitionFromInput(
@@ -301,6 +315,16 @@ function toolboxDefinitionFromInput(
           damage: input.poison.damage,
           conditions: input.poison.conditions,
           repeat: input.poison.repeat,
+        }
+      : undefined,
+    curse: input.curse
+      ? {
+          name: input.name,
+          description: input.description,
+          contagion: input.curse.contagion,
+          save: input.curse.save,
+          effects: input.curse.effects,
+          recovery: input.curse.recovery,
         }
       : undefined,
   });

@@ -32,6 +32,7 @@ import {
   TRAPS_RULES_SECTION_SLUG,
   POISONS_RULES_PROSE,
   POISONS_RULES_SECTION_SLUG,
+  CURSES_RULES_SECTION_SLUG,
 } from "@app/db";
 
 import { sortSizes } from "@/lib/codex-monster-filters";
@@ -1047,6 +1048,7 @@ export const codexRouter = createTRPCRouter({
       const slugByTopic: Partial<Record<ToolboxTopic, string>> = {
         trap: TRAPS_RULES_SECTION_SLUG,
         poison: POISONS_RULES_SECTION_SLUG,
+        curse: CURSES_RULES_SECTION_SLUG,
       };
       const slug = slugByTopic[input.topic];
       if (!slug) return null;

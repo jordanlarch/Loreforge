@@ -273,12 +273,14 @@ export {
   type TrapDefinition,
 } from "./content/hazard-definitions";
 export {
+  isValidCurseDefinition,
   isValidGameplayToolboxEntryDefinition,
   isValidPoisonDefinition,
   isValidTrapDefinition,
   toolboxEntryId,
   TOOLBOX_TOPICS,
   TRAP_RESET_MODES,
+  validateCurseDefinition,
   validateGameplayToolboxEntryDefinition,
   validatePoisonDefinition,
   validateTrapDefinition,

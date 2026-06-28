@@ -80,6 +80,10 @@ export {
   seedToolboxEnvironmentalEffects,
   type SeedToolboxEnvironmentalEffectsResult,
 } from "./ingest/seed-toolbox-environmental-effects";
+export {
+  seedToolboxFearStress,
+  type SeedToolboxFearStressResult,
+} from "./ingest/seed-toolbox-fear-stress";
 export { GAMEPLAY_TOOLBOX_CHAPTER_SLUG } from "./ingest/srd-toolbox-shared";
 export {
   SRD_TOOLBOX_TRAP_SEEDS,
@@ -101,4 +105,9 @@ export {
   ENVIRONMENTAL_EFFECTS_RULES_PROSE,
   ENVIRONMENTAL_EFFECTS_RULES_SECTION_SLUG,
 } from "./ingest/srd-toolbox-environmental-effects";
+export {
+  SRD_TOOLBOX_FEAR_STRESS_SEEDS,
+  FEAR_STRESS_RULES_PROSE,
+  FEAR_STRESS_RULES_SECTION_SLUG,
+} from "./ingest/srd-toolbox-fear-stress";
 export { traitDescription } from "./ingest/srd-trait-descriptions";

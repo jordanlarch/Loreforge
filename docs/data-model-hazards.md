@@ -1,6 +1,6 @@
 # Gameplay Toolbox + exploration hazards — grill backlog (DATA-1b)
 
-**Status:** **Traps v1 shipped** (DATA-1b). **Poisons, curses, and environmental effects seeded** (Codex + Smithy). Sibling topic fear has locked grill decision; seeds deferred per topic slice.
+**Status:** **Traps v1 shipped** (DATA-1b). **All five Gameplay Toolbox sibling topics seeded** (Codex + Smithy). Smithy forge forms are best-effort Q3 editors — complex PDF mechanics may use prose in effects/duration/repeat fields; full structured edit fidelity deferred.
 
 ## SRD 5.2 PDF taxonomy (canonical — do not conflate)
 
@@ -236,7 +236,7 @@ File: `packages/engine/src/content/toolbox-definitions.ts` (canonical).
 `hazard-definitions.ts` — deprecated re-exports only.
 
 - `TrapDefinition` — ✅ Q3 shipped in DATA-1b v1
-- `PoisonDefinition`, `CurseDefinition`, `EnvironmentalEffectDefinition`, `FearStressDefinition` — validation stubs; sibling grill Q3 locked above
+- `PoisonDefinition`, `CurseDefinition`, `EnvironmentalEffectDefinition`, `FearStressDefinition` — ✅ validation + seeds shipped per sibling slice; Smithy forge forms best-effort (see deferrals DATA-1b)
 
 ## Related deferrals
 

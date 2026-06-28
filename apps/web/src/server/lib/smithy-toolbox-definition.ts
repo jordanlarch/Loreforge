@@ -5,6 +5,7 @@ import {
   validateGameplayToolboxEntryDefinition,
   type CurseDefinition,
   type EnvironmentalEffectDefinition,
+  type FearStressDefinition,
   type GameplayToolboxEntryDefinition,
   type PoisonDefinition,
   type PoisonType,
@@ -55,6 +56,14 @@ export type SmithyEnvironmentalEffectFormInput = {
   damage?: ToolboxDamage[];
   conditions?: string[];
   repeat?: string;
+};
+
+export type SmithyFearStressFormInput = {
+  name: string;
+  description: string;
+  save?: ToolboxSave;
+  effects?: string[];
+  duration?: string;
 };
 
 export function assembleTrapDefinition(
@@ -162,12 +171,37 @@ export function assembleEnvironmentalEffectDefinition(
   return definition;
 }
 
+export function assembleFearStressDefinition(
+  input: SmithyFearStressFormInput,
+): FearStressDefinition {
+  const definition: FearStressDefinition = {
+    kind: "fear_stress",
+    id: toolboxEntryId(input.name),
+    name: input.name.trim(),
+    description: input.description.trim(),
+    save: input.save,
+    effects: input.effects?.length ? input.effects : undefined,
+    duration: input.duration?.trim() || undefined,
+  };
+
+  const errors = validateGameplayToolboxEntryDefinition(definition);
+  if (errors.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: errors.join(" "),
+    });
+  }
+
+  return definition;
+}
+
 export function assembleToolboxDefinition(input: {
   topic: ToolboxTopic;
   trap?: SmithyTrapFormInput;
   poison?: SmithyPoisonFormInput;
   curse?: SmithyCurseFormInput;
   environmentalEffect?: SmithyEnvironmentalEffectFormInput;
+  fearStress?: SmithyFearStressFormInput;
 }): GameplayToolboxEntryDefinition {
   if (input.topic === "trap") {
     if (!input.trap) {
@@ -204,6 +238,15 @@ export function assembleToolboxDefinition(input: {
       });
     }
     return assembleEnvironmentalEffectDefinition(input.environmentalEffect);
+  }
+  if (input.topic === "fear_stress") {
+    if (!input.fearStress) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Fear/stress mechanics are required.",
+      });
+    }
+    return assembleFearStressDefinition(input.fearStress);
   }
   throw new TRPCError({
     code: "BAD_REQUEST",

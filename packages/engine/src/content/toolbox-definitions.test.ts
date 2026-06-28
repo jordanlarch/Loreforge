@@ -3,15 +3,18 @@ import { describe, expect, it } from "vitest";
 import {
   isValidCurseDefinition,
   isValidEnvironmentalEffectDefinition,
+  isValidFearStressDefinition,
   isValidPoisonDefinition,
   isValidTrapDefinition,
   toolboxEntryId,
   validateCurseDefinition,
   validateEnvironmentalEffectDefinition,
+  validateFearStressDefinition,
   validatePoisonDefinition,
   validateTrapDefinition,
   type CurseDefinition,
   type EnvironmentalEffectDefinition,
+  type FearStressDefinition,
   type PoisonDefinition,
   type TrapDefinition,
 } from "./toolbox-definitions";
@@ -144,6 +147,33 @@ describe("toolbox-definitions environmental effects", () => {
     };
     expect(validateEnvironmentalEffectDefinition(def)).toContain(
       "Environmental effect requires area, duration, save, damage, conditions, or repeat rules.",
+    );
+  });
+});
+
+describe("toolbox-definitions fear/stress", () => {
+  it("validates abyss portal style fear effect", () => {
+    const def: FearStressDefinition = {
+      id: toolboxEntryId("Abyss Portal"),
+      name: "Abyss Portal",
+      kind: "fear_stress",
+      description: "Terrifying portal.",
+      save: { ability: "wis", dc: 20, onSuccess: "negates" },
+      effects: ["Frightened on a failed save."],
+      duration: "Repeat save at end of each turn.",
+    };
+    expect(isValidFearStressDefinition(def)).toBe(true);
+  });
+
+  it("requires at least one mechanical field", () => {
+    const def: FearStressDefinition = {
+      id: "bad",
+      name: "Bad",
+      kind: "fear_stress",
+      description: "x",
+    };
+    expect(validateFearStressDefinition(def)).toContain(
+      "Fear/stress requires save, effects, or duration rules.",
     );
   });
 });

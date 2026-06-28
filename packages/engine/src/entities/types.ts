@@ -206,6 +206,16 @@ export type SceneMap = {
   blockedCells: GridPosition[];
 };
 
+/** Live Play map category — gates trap placement (GRILL-LIVE-TOOLBOX Q2b). */
+export type SceneKind =
+  | "encounter"
+  | "dungeon"
+  | "building"
+  | "shop"
+  | "tavern"
+  | "settlement"
+  | "region";
+
 /** Scene-placed trap instance (GRILL-LIVE-TOOLBOX Q2). */
 export type SceneTrapInstance = {
   instanceId: string;
@@ -223,6 +233,8 @@ export type SceneState = {
   name: string;
   description?: string;
   map?: SceneMap;
+  /** When set, gates trap placement — settlement/region never carry traps. */
+  sceneKind?: SceneKind;
   /** Traps placed on this scene's grid (Live Play toolbox resolution). */
   traps?: SceneTrapInstance[];
 };

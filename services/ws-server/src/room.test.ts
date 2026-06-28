@@ -128,4 +128,30 @@ describe("isBattleAction", () => {
     expect(isBattleAction({ type: "trigger_readied", entity: "pc:1" })).toBe(true);
     expect(isBattleAction({ type: "trigger_readied", entity: 5 })).toBe(false);
   });
+
+  it("accepts detect_trap and disable_trap (GRILL-LIVE-TOOLBOX)", () => {
+    expect(
+      isBattleAction({
+        type: "detect_trap",
+        entity: "pc:1",
+        sceneId: "s:1",
+        trapInstanceId: "trap:1",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "disable_trap",
+        entity: "pc:1",
+        sceneId: "s:1",
+        trapInstanceId: "trap:1",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "detect_trap",
+        entity: "pc:1",
+        sceneId: "s:1",
+      }),
+    ).toBe(false);
+  });
 });

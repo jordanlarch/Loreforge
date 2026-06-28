@@ -5,7 +5,14 @@
  * begins when fiction requires it (armed encounter, Run Now, or in-fiction trigger).
  */
 import type { Command } from "../commands/types";
-import type { AbilityScores, EntityRef, GridPosition } from "../entities/types";
+import type {
+  AbilityScores,
+  EntityRef,
+  GridPosition,
+  SceneKind,
+  SceneState,
+  SceneTrapInstance,
+} from "../entities/types";
 import type { WorldState } from "../projections/world-state";
 import { monsterTemplate } from "../content/monsters";
 import {
@@ -119,6 +126,45 @@ const DUNGEON_WALLS: GridPosition[] = [
   { x: 5, y: 5 },
   { x: 5, y: 6 },
 ];
+
+const DUNGEON_DEMO_TRAP: SceneTrapInstance = {
+  instanceId: "trap:demo-poison-needle",
+  trapSlug: "srd-2024_poison-needle",
+  position: { x: 5, y: 1 },
+  detected: false,
+  disabled: false,
+  triggered: false,
+};
+
+function sceneKindForLocation(type: ExplorableRealmType): SceneKind {
+  return type;
+}
+
+function trapsForLocation(type: ExplorableRealmType): SceneTrapInstance[] | undefined {
+  if (type !== "dungeon") return undefined;
+  return [DUNGEON_DEMO_TRAP];
+}
+
+function buildExplorationScene(
+  sceneId: string,
+  location: Pick<CampaignStartingLocation, "name" | "type">,
+  map: ExplorationMapDef,
+): SceneState {
+  return {
+    id: sceneId,
+    name: location.name,
+    description: map.description,
+    sceneKind: sceneKindForLocation(location.type),
+    map: {
+      width: map.width,
+      height: map.height,
+      blockedCells: map.blockedCells,
+    },
+    ...(trapsForLocation(location.type)
+      ? { traps: trapsForLocation(location.type) }
+      : {}),
+  };
+}
 
 function mapForType(type: ExplorableRealmType): ExplorationMapDef {
   switch (type) {
@@ -325,16 +371,7 @@ export function buildEnterLocationCommands(
   if (!scenes[sceneId]) {
     commands.push({
       type: "create_scene",
-      scene: {
-        id: sceneId,
-        name: location.name,
-        description: map.description,
-        map: {
-          width: map.width,
-          height: map.height,
-          blockedCells: map.blockedCells,
-        },
-      },
+      scene: buildExplorationScene(sceneId, location, map),
     });
   }
 
@@ -556,16 +593,7 @@ export function buildCampaignExplorationCommands(
   return [
     {
       type: "create_scene",
-      scene: {
-        id: sceneId,
-        name: location.name,
-        description: map.description,
-        map: {
-          width: map.width,
-          height: map.height,
-          blockedCells: map.blockedCells,
-        },
-      },
+      scene: buildExplorationScene(sceneId, location, map),
     },
     { type: "change_scene", sceneId },
     ...members.map(

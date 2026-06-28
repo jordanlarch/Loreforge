@@ -27,6 +27,7 @@ describe("Gameplay Toolbox traps (GRILL-LIVE-TOOLBOX)", () => {
       scene: {
         id: "s:trap-room",
         name: "Trapped hall",
+        sceneKind: "dungeon",
         map: { width: 5, height: 5, blockedCells: [] },
         traps: [
           {
@@ -105,5 +106,30 @@ describe("Gameplay Toolbox traps (GRILL-LIVE-TOOLBOX)", () => {
     expect(result.accepted).toBe(true);
     if (!result.accepted) return;
     expect(result.events.some((e) => e.type === "TrapTriggered")).toBe(false);
+  });
+
+  it("create_scene strips traps from settlement scenes (GRILL-LIVE-TOOLBOX Q2b)", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: {
+        id: "s:town",
+        name: "Town square",
+        sceneKind: "settlement",
+        map: { width: 5, height: 5, blockedCells: [] },
+        traps: [
+          {
+            instanceId: "trap:bad",
+            trapSlug: "srd-2024_poison-needle",
+            position: { x: 1, y: 1 },
+            detected: false,
+            disabled: false,
+            triggered: false,
+          },
+        ],
+      },
+    });
+
+    const state = await engine.getState(CAMPAIGN);
+    expect(state.scenes["s:town"]?.traps).toBeUndefined();
   });
 });

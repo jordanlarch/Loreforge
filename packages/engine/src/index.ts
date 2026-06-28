@@ -69,6 +69,7 @@ export {
   type ReadyState,
   type ResourceState,
   type SceneId,
+  type SceneKind,
   type SceneMap,
   type SceneState,
   type SceneTrapInstance,
@@ -307,6 +308,12 @@ export {
   type SrdTrapSeed,
 } from "./content/srd-trap-seeds";
 export {
+  isTrapEligibleSceneKind,
+  normalizeSceneTraps,
+  TRAP_ELIGIBLE_SCENE_KINDS,
+  type TrapEligibleSceneKind,
+} from "./content/scene-traps";
+export {
   isValidMonsterDefinition,
   monsterDefinitionId,
   validateMonsterDefinition,
@@ -507,6 +514,8 @@ export {
   opportunityAttackAction,
   readyAction,
   triggerReadiedAction,
+  detectTrapAction,
+  disableTrapAction,
   type BattleAction,
   type FoeSpec,
   type PartyMember,

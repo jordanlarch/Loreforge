@@ -17,8 +17,9 @@ import {
   withinCube,
   withinLine,
 } from "../combat/grid";
-import { getSpell } from "../content/spell-registry";
+import { normalizeSceneTraps } from "../content/scene-traps";
 import { isSpellPrepared } from "../content/spell-id";
+import { getSpell } from "../content/spell-registry";
 import {
   cantripDamageDice,
   spellAttackBonus,
@@ -156,10 +157,11 @@ function handleCreateScene(
   if (ctx.world.scenes[cmd.scene.id]) {
     return reject("DUPLICATE_SCENE", `Scene ${cmd.scene.id} already exists.`);
   }
+  const scene = normalizeSceneTraps(cmd.scene);
   return {
     accepted: true,
-    events: [{ type: "SceneCreated", ...meta(ctx, "system"), payload: { scene: cmd.scene } }],
-    summary: { sceneId: cmd.scene.id },
+    events: [{ type: "SceneCreated", ...meta(ctx, "system"), payload: { scene } }],
+    summary: { sceneId: scene.id },
   };
 }
 

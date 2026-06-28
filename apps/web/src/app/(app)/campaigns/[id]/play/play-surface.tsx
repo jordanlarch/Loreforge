@@ -49,6 +49,7 @@ import {
 import type { CoachmarkDef } from "@/lib/coachmark";
 import type { EquipmentItem, SpellLoadout } from "@/lib/character";
 import { buildExploreModel } from "@/lib/live-explore";
+import { trapsInRange } from "@/lib/live-traps";
 import { resolvePcCharacterId } from "@/lib/campaign-access";
 import { resolveCurrentMapLevel } from "@/lib/map-zoom-level";
 import { joinedSincePrompt } from "@/lib/live-presence";
@@ -81,6 +82,7 @@ import type { AimOverlay, BattleToken, TargetingOverlay } from "./battle-map";
 import { ChatZone } from "./chat-zone";
 import { type ArmedAction } from "./combat-action-bar";
 import { CombatTurnBar } from "./combat-turn-bar";
+import { TrapActionBar } from "./trap-action-bar";
 import { CharacterHud } from "./character-hud";
 import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { GraduationModal } from "./graduation-modal";
@@ -353,6 +355,27 @@ function LiveBattle({
   }, [campaignId, session.state?.lastSequence, rosterSyncKey, session.syncParty]);
 
   const state = session.state;
+
+  const nearbyTraps = useMemo(() => {
+    if (!state?.currentSceneId || !pcCharacterId) return [];
+    const scene = state.scenes[state.currentSceneId];
+    const pc = state.entities[pcCharacterId];
+    return trapsInRange(scene?.traps, pc?.position);
+  }, [state, pcCharacterId]);
+
+  const trapActionBar =
+    nearbyTraps.length > 0 && state?.currentSceneId && pcCharacterId ? (
+      <TrapActionBar
+        traps={nearbyTraps}
+        disabled={session.isBusy || paused}
+        onDetect={(trapInstanceId) =>
+          session.detectTrap(pcCharacterId, state.currentSceneId!, trapInstanceId)
+        }
+        onDisable={(trapInstanceId) =>
+          session.disableTrap(pcCharacterId, state.currentSceneId!, trapInstanceId)
+        }
+      />
+    ) : null;
 
   // Whether the armed action is an AoE spell that uses the aim picker (#99).
   const isAreaCast = armed?.kind === "cast" && armed.spell.area !== undefined;
@@ -764,12 +787,22 @@ function LiveBattle({
               </section>
             }
             mapFooter={
-              explore.sceneDescription ? (
+              trapActionBar ? (
+                <div className="space-y-2">
+                  {trapActionBar}
+                  {explore.sceneDescription ? (
+                    <p className="max-w-[33rem] text-xs text-lore-muted">
+                      {explore.sceneDescription}
+                    </p>
+                  ) : null}
+                </div>
+              ) : explore.sceneDescription ? (
                 <p className="max-w-[33rem] text-xs text-lore-muted">
                   {explore.sceneDescription}
                 </p>
               ) : undefined
             }
+            actionBar={trapActionBar ?? undefined}
             chat={
               <div
                 className="flex min-h-0 flex-1 flex-col"
@@ -937,7 +970,9 @@ function LiveBattle({
           </p>
         }
         actionBar={
-          <CombatTurnBar
+          <>
+            {trapActionBar}
+            <CombatTurnBar
             activeEntity={activeEntity}
             activeName={vm.activeName}
             controllableTurn={controllableTurn}
@@ -982,6 +1017,7 @@ function LiveBattle({
               activeReactionSpells[0] ? onCastShieldSelf : undefined
             }
           />
+          </>
         }
         chat={
           <ChatZone

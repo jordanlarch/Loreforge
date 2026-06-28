@@ -17,6 +17,8 @@ import type {
   AttackCommand,
   CastSpellCommand,
   Command,
+  DetectTrapCommand,
+  DisableTrapCommand,
   EndTurnCommand,
   MoveEntityCommand,
   OpportunityAttackCommand,
@@ -203,6 +205,7 @@ export function buildPartyBattleCommands(
         id: FIXTURE_BATTLE_SCENE_ID,
         name: sceneName,
         description: map.description,
+        sceneKind: "encounter",
         map: {
           width: map.width,
           height: map.height,
@@ -356,7 +359,9 @@ export type BattleAction =
   | OpportunityAttackCommand
   | AbilityCheckCommand
   | ReadyActionCommand
-  | TriggerReadiedCommand;
+  | TriggerReadiedCommand
+  | DetectTrapCommand
+  | DisableTrapCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {
@@ -439,6 +444,22 @@ export function opportunityAttackAction(
     damage,
     ...(rangeFt !== undefined ? { rangeFt } : {}),
   };
+}
+
+export function detectTrapAction(
+  entity: EntityRef,
+  sceneId: string,
+  trapInstanceId: string,
+): DetectTrapCommand {
+  return { type: "detect_trap", entity, sceneId, trapInstanceId };
+}
+
+export function disableTrapAction(
+  entity: EntityRef,
+  sceneId: string,
+  trapInstanceId: string,
+): DisableTrapCommand {
+  return { type: "disable_trap", entity, sceneId, trapInstanceId };
 }
 
 /**

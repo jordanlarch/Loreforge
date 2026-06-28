@@ -282,6 +282,10 @@ function eventText(action: BattleAction): string {
       return "A check was resolved by the engine.";
     case "cast_spell":
       return `A spell (${action.spellId}) was cast.`;
+    case "detect_trap":
+      return "A Perception check was made to detect a trap.";
+    case "disable_trap":
+      return "A check was made to disable a trap.";
     default:
       return "The engine resolved an action.";
   }

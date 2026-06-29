@@ -758,6 +758,32 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "FearStressApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const activeFearStress = [...(target.activeFearStress ?? [])];
+        activeFearStress.push({
+          instanceId: event.payload.instanceId,
+          fearStressSlug: event.payload.fearStressSlug,
+          pendingRepeat: event.payload.pendingRepeat,
+          boundSceneId: event.payload.boundSceneId,
+        });
+        next.entities[target.id] = { ...target, activeFearStress };
+      }
+      break;
+    }
+    case "FearStressRemoved": {
+      const target = next.entities[event.payload.target];
+      if (target?.activeFearStress?.length) {
+        next.entities[target.id] = {
+          ...target,
+          activeFearStress: target.activeFearStress.filter(
+            (i) => i.instanceId !== event.payload.instanceId,
+          ),
+        };
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":

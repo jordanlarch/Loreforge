@@ -162,6 +162,8 @@ export type EntityState = {
   activeCurses?: ActiveCurseInstance[];
   /** Active environmental effect instances (GRILL-LIVE-ENV-EFFECT Q2). */
   activeEnvironmentalEffects?: ActiveEnvironmentalEffectInstance[];
+  /** Active fear instances after delivery (GRILL-LIVE-FEAR Q2). */
+  activeFearStress?: ActiveFearStressInstance[];
 };
 
 /** Ongoing poison tracked on an entity (injury or ingested after delivery). */
@@ -189,6 +191,16 @@ export type ActiveEnvironmentalEffectInstance = {
   effectSlug: string;
   /** Turn-start repeat save (Slippery Ice v1). */
   pendingRepeat: boolean;
+};
+
+/** Ongoing fear tracked on an entity (GRILL-LIVE-FEAR Q2). */
+export type ActiveFearStressInstance = {
+  instanceId: string;
+  fearStressSlug: string;
+  /** Turn-start repeat save (Sarcophagus Apparition v1). */
+  pendingRepeat: boolean;
+  /** Set when applied from scene enter — cleared on leave (Q4 C1). */
+  boundSceneId?: SceneId;
 };
 
 export type DeathSaveTally = { successes: number; failures: number };

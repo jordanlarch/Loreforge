@@ -333,6 +333,28 @@ export type EnvironmentalEffectTickResolvedPayload = {
   success: boolean;
 };
 
+export type FearStressAppliedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  fearStressSlug: string;
+  pendingRepeat: boolean;
+  boundSceneId?: SceneId;
+};
+
+export type FearStressRemovedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  fearStressSlug: string;
+  reason: "saved" | "removed";
+};
+
+export type FearStressTickResolvedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  fearStressSlug: string;
+  success: boolean;
+};
+
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
   /** The creature whose movement opened the window. */
@@ -484,6 +506,12 @@ export type EngineEvent =
   | (EventMeta & {
       type: "EnvironmentalEffectTickResolved";
       payload: EnvironmentalEffectTickResolvedPayload;
+    })
+  | (EventMeta & { type: "FearStressApplied"; payload: FearStressAppliedPayload })
+  | (EventMeta & { type: "FearStressRemoved"; payload: FearStressRemovedPayload })
+  | (EventMeta & {
+      type: "FearStressTickResolved";
+      payload: FearStressTickResolvedPayload;
     });
 
 export type EngineEventType = EngineEvent["type"];

@@ -93,6 +93,13 @@ import {
   handleSetSceneEnvironmentalEffects,
 } from "./environmental-effect-handlers";
 import {
+  buildLeaveSceneFearStressEvents,
+  fearStressTickEventsAfterTurnStart,
+  handleApplyFearStress,
+  handleRemoveFearStress,
+  handleResolveFearStressTick,
+} from "./fear-stress-handlers";
+import {
   reject,
   type AbilityCheckCommand,
   type AddCombatantCommand,
@@ -199,6 +206,7 @@ function handleChangeScene(
   const departing = ctx.world.currentSceneId;
   if (departing && departing !== cmd.sceneId) {
     events.push(...buildLeaveSceneEnvironmentalEffectEvents(ctx, departing));
+    events.push(...buildLeaveSceneFearStressEvents(ctx, departing));
   }
   events.push({
     type: "SceneChanged",
@@ -654,6 +662,7 @@ function handleRollInitiative(
   events.push(...poisonTickEventsAfterTurnStart(ctx, first.entity));
   events.push(...curseTickEventsAfterTurnStart(ctx, first.entity));
   events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, first.entity));
+  events.push(...fearStressTickEventsAfterTurnStart(ctx, first.entity));
 
   return {
     accepted: true,
@@ -828,6 +837,7 @@ function handleEndTurn(
   events.push(...poisonTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...curseTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, nextEntity));
+  events.push(...fearStressTickEventsAfterTurnStart(ctx, nextEntity));
 
   return {
     accepted: true,
@@ -2985,5 +2995,11 @@ export function handleCommand(
       return handleResolveEnvironmentalEffectTick(command, ctx);
     case "remove_environmental_effect":
       return handleRemoveEnvironmentalEffect(command, ctx);
+    case "apply_fear_stress":
+      return handleApplyFearStress(command, ctx);
+    case "resolve_fear_stress_tick":
+      return handleResolveFearStressTick(command, ctx);
+    case "remove_fear_stress":
+      return handleRemoveFearStress(command, ctx);
   }
 }

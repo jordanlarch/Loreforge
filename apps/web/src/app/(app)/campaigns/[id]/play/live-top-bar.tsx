@@ -73,6 +73,7 @@ export type PacingBundle = {
 export function LivePlayTopBar({
   title,
   sceneName,
+  sceneEnvironmentalEffects,
   peers,
   round,
   activeName,
@@ -92,6 +93,8 @@ export function LivePlayTopBar({
 }: {
   title: string;
   sceneName?: string;
+  /** Ambient environmental effect labels for the current scene (Q5). */
+  sceneEnvironmentalEffects?: string[];
   peers: number;
   round?: number;
   activeName?: string;
@@ -156,6 +159,14 @@ export function LivePlayTopBar({
       <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-lore-muted">
           <span className="text-lore-text">📍 {sceneName ?? "Unknown location"}</span>
+          {sceneEnvironmentalEffects?.map((label) => (
+            <span
+              key={label}
+              className="rounded border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-200"
+            >
+              {label}
+            </span>
+          ))}
           {round !== undefined && (
             <span className="rounded bg-lore-accent-dim px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-lore-accent">
               Round {round}

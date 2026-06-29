@@ -862,7 +862,7 @@ All nine decisions locked. **Slice 1 (Codex)** is unblocked.
 
 | Slice | Deliverable | Status |
 |---|---|---|
-| **1 — Codex** | `seed-exploration-hazards.ts`; six `srd-2024_*` rule sections; Rules two-tier UI (overview ↔ glossary links) | ⏳ |
+| **1 — Codex** | `seed-exploration-hazards.ts`; six `srd-2024_*` rule sections; Rules two-tier UI (overview ↔ glossary links) | 🚧 In progress (`feat/exploration-hazards-codex-s1`) |
 | **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, shared seed module, tests | ⏳ |
 | **3 — Live Play** | WS hooks; burning HUD chip; fall/burn chat events | ⏳ |
 

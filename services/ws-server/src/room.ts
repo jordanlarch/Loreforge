@@ -436,6 +436,7 @@ export function isBattleAction(value: unknown): value is BattleAction {
     trapInstanceId?: unknown;
     poisonSlug?: unknown;
     curseSlug?: unknown;
+    fearStressSlug?: unknown;
     instanceId?: unknown;
   };
   if (action.type === "end_turn") return true;

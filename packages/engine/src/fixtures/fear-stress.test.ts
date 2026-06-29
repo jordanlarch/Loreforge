@@ -12,6 +12,7 @@ describe("fear-stress fixtures", () => {
       {
         entityId: "11111111-1111-4111-8111-111111111111",
         name: "Crypt",
+        summary: "A dark crypt.",
         type: "dungeon",
       },
       { toolboxFearStressSlugs: ["srd-2024_abyss-portal"] },
@@ -23,6 +24,7 @@ describe("fear-stress fixtures", () => {
     const slugs = resolveLocationFearStressSlugs({
       entityId: "11111111-1111-4111-8111-111111111111",
       name: "Crypt",
+      summary: "A dark crypt.",
       type: "dungeon",
     });
     expect(slugs).toEqual([...DEMO_DUNGEON_FEAR_STRESS_SLUGS]);

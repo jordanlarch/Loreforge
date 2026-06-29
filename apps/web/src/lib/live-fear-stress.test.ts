@@ -27,7 +27,7 @@ describe("live-fear-stress", () => {
       "item-1": {
         id: "item-1",
         name: "Strange Tincture",
-        itemType: "gear",
+        itemType: "Adventuring Gear",
         description: "Test",
         toolboxFearStressSlug: "srd-2024_hallucinogenic-substance",
       },

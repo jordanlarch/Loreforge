@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_STARTING_LOCATION,
   DEMO_DUNGEON_ENVIRONMENTAL_EFFECT_SLUGS,
+  DEMO_DUNGEON_FEAR_STRESS_SLUGS,
   FIXTURE_BATTLE_SCENE_ID,
   InMemoryEventStore,
   resolveEncounterMap,
@@ -409,6 +410,24 @@ describe("CampaignRoom", () => {
         (i) => i.effectSlug === "srd-2024_extreme-cold",
       ),
     ).toBe(true);
+
+    const events = await store.read(CAMPAIGN);
+    const fearApplied = events.some(
+      (e) =>
+        e.type === "FearStressApplied" &&
+        (e.payload as { fearStressSlug?: string }).fearStressSlug ===
+          "srd-2024_sarcophagus-apparition",
+    );
+    const fearSaveRolled = events.some(
+      (e) =>
+        e.type === "SaveRolled" &&
+        (e.payload as { ability?: string; dc?: number }).ability === "wis" &&
+        (e.payload as { dc?: number }).dc === 10,
+    );
+    expect(fearApplied || fearSaveRolled).toBe(true);
+    expect(DEMO_DUNGEON_FEAR_STRESS_SLUGS).toContain(
+      "srd-2024_sarcophagus-apparition",
+    );
   });
 
   it("rejects an illegal move (into a wall) and leaves state unchanged", async () => {

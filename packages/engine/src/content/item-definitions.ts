@@ -82,6 +82,8 @@ export type ItemDefinition = {
   toolboxPoisonSlug?: string;
   /** Links a consumable to a Gameplay Toolbox curse (GRILL-LIVE-CURSE). */
   toolboxCurseSlug?: string;
+  /** Links a consumable to a Gameplay Toolbox fear/stress entry (GRILL-LIVE-FEAR). */
+  toolboxFearStressSlug?: string;
   description: string;
 };
 

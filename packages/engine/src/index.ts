@@ -582,6 +582,11 @@ export {
   resolveLocationEnvironmentalEffectSlugs,
 } from "./fixtures/environmental-effects";
 export {
+  buildFearStressEnterCommands,
+  DEMO_DUNGEON_FEAR_STRESS_SLUGS,
+  resolveLocationFearStressSlugs,
+} from "./fixtures/fear-stress";
+export {
   formatQuestTeaseLine,
   enrichEntityDataWithQuests,
   inheritQuestDataFromParent,

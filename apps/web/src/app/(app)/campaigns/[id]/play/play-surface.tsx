@@ -56,6 +56,11 @@ import {
 } from "@/lib/live-poisons";
 import { cursesForUse } from "@/lib/live-curses";
 import { environmentalEffectLabel } from "@/lib/live-environmental-effects";
+import {
+  fearStressForUse,
+  fearStressLabel,
+} from "@/lib/live-fear-stress";
+import { DEMO_DUNGEON_FEAR_STRESS_SLUGS } from "@app/engine";
 import { resolvePcCharacterId } from "@/lib/campaign-access";
 import { resolveCurrentMapLevel } from "@/lib/map-zoom-level";
 import { joinedSincePrompt } from "@/lib/live-presence";
@@ -322,12 +327,18 @@ function LiveBattle({
   const sceneEnvironmentalLabels = sceneEnvironmentalSlugs?.map(
     environmentalEffectLabel,
   );
+  const sceneFearSlugs =
+    transitionScene?.sceneKind === "dungeon"
+      ? [...DEMO_DUNGEON_FEAR_STRESS_SLUGS]
+      : undefined;
+  const sceneFearLabels = sceneFearSlugs?.map(fearStressLabel);
   const { banner: sceneBanner, transitioning, dividers: sceneDividers } =
     useSceneTransition(
       transitionSceneId,
       transitionScene?.name,
       transitionScene?.description,
       sceneEnvironmentalSlugs,
+      sceneFearSlugs,
     );
   const combatDividers = useCombatTransition(inCombat);
   const chatEntries = useMemo(
@@ -424,15 +435,28 @@ function LiveBattle({
   );
 
   const onQuickUseItem = useCallback(
-    (item: { name: string; poisonSlug?: string; curseSlug?: string }) => {
+    (item: {
+      name: string;
+      poisonSlug?: string;
+      curseSlug?: string;
+      fearStressSlug?: string;
+    }) => {
       if (item.poisonSlug && pcCharacterId) {
         session.applyPoison(pcCharacterId, item.poisonSlug);
       } else if (item.curseSlug && pcCharacterId) {
         session.applyCurse(pcCharacterId, item.curseSlug);
+      } else if (item.fearStressSlug && pcCharacterId) {
+        session.applyFearStress(pcCharacterId, item.fearStressSlug);
       }
       session.sendChat(`uses ${item.name}`, "use_item");
     },
-    [pcCharacterId, session.applyPoison, session.applyCurse, session.sendChat],
+    [
+      pcCharacterId,
+      session.applyPoison,
+      session.applyCurse,
+      session.applyFearStress,
+      session.sendChat,
+    ],
   );
 
   const weapons: WeaponAttack[] = activeEntity
@@ -686,6 +710,13 @@ function LiveBattle({
       quantity: c.quantity,
       curseSlug: c.slug,
     }));
+    const fearItems = fearStressForUse(activeSheet.equipment, smithyItems).map(
+      (f) => ({
+        name: f.label,
+        quantity: f.quantity,
+        fearStressSlug: f.slug,
+      }),
+    );
     const seen = new Set(consumables.map((c) => c.name.toLowerCase()));
     const merged = [...consumables];
     for (const vial of poisonVials) {
@@ -693,6 +724,9 @@ function LiveBattle({
     }
     for (const curse of curseItems) {
       if (!seen.has(curse.name.toLowerCase())) merged.push(curse);
+    }
+    for (const fear of fearItems) {
+      if (!seen.has(fear.name.toLowerCase())) merged.push(fear);
     }
     return merged;
   }, [controllableTurn, activeSheet, smithyItems]);
@@ -782,6 +816,7 @@ function LiveBattle({
                   title={title}
                   sceneName={explore.sceneName ?? context}
                   sceneEnvironmentalEffects={sceneEnvironmentalLabels}
+                  sceneFearStressEffects={sceneFearLabels}
                   peers={session.peers}
                   backHref={backHref}
                   paused={paused}
@@ -945,6 +980,7 @@ function LiveBattle({
               title={title}
               sceneName={sceneName ?? context}
               sceneEnvironmentalEffects={sceneEnvironmentalLabels}
+              sceneFearStressEffects={sceneFearLabels}
               peers={session.peers}
               backHref={backHref}
               paused={paused}

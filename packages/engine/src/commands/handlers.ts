@@ -85,6 +85,14 @@ import {
   buildClearAllCursesEvents,
 } from "./curse-handlers";
 import {
+  buildLeaveSceneEnvironmentalEffectEvents,
+  environmentalEffectTickEventsAfterTurnStart,
+  handleApplyEnvironmentalEffect,
+  handleRemoveEnvironmentalEffect,
+  handleResolveEnvironmentalEffectTick,
+  handleSetSceneEnvironmentalEffects,
+} from "./environmental-effect-handlers";
+import {
   reject,
   type AbilityCheckCommand,
   type AddCombatantCommand,
@@ -187,9 +195,19 @@ function handleChangeScene(
   if (!ctx.world.scenes[cmd.sceneId]) {
     return reject("SCENE_NOT_FOUND", `Scene ${cmd.sceneId} does not exist.`);
   }
+  const events: DraftEvent[] = [];
+  const departing = ctx.world.currentSceneId;
+  if (departing && departing !== cmd.sceneId) {
+    events.push(...buildLeaveSceneEnvironmentalEffectEvents(ctx, departing));
+  }
+  events.push({
+    type: "SceneChanged",
+    ...meta(ctx, "system"),
+    payload: { sceneId: cmd.sceneId },
+  });
   return {
     accepted: true,
-    events: [{ type: "SceneChanged", ...meta(ctx, "system"), payload: { sceneId: cmd.sceneId } }],
+    events,
     summary: { sceneId: cmd.sceneId },
   };
 }
@@ -635,6 +653,7 @@ function handleRollInitiative(
   });
   events.push(...poisonTickEventsAfterTurnStart(ctx, first.entity));
   events.push(...curseTickEventsAfterTurnStart(ctx, first.entity));
+  events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, first.entity));
 
   return {
     accepted: true,
@@ -808,6 +827,7 @@ function handleEndTurn(
   });
   events.push(...poisonTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...curseTickEventsAfterTurnStart(ctx, nextEntity));
+  events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, nextEntity));
 
   return {
     accepted: true,
@@ -2957,5 +2977,13 @@ export function handleCommand(
       return handleResolveCurseTick(command, ctx);
     case "remove_curse":
       return handleRemoveCurse(command, ctx);
+    case "set_scene_environmental_effects":
+      return handleSetSceneEnvironmentalEffects(command, ctx);
+    case "apply_environmental_effect":
+      return handleApplyEnvironmentalEffect(command, ctx);
+    case "resolve_environmental_effect_tick":
+      return handleResolveEnvironmentalEffectTick(command, ctx);
+    case "remove_environmental_effect":
+      return handleRemoveEnvironmentalEffect(command, ctx);
   }
 }

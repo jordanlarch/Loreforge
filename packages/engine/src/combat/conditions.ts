@@ -19,10 +19,10 @@
  *  - exhaustion (SRD 5.2.1 uniform model): a flat −2×level penalty to every D20
  *    Test and a −5×level-foot speed reduction; death at level 6.
  *
- * Not yet modelled (deferred to the Effect/spell systems): damage
- * resistance/immunity (petrified), condition immunities, perception/check
- * auto-fails (blinded sight checks, deafened hearing), and the social-only facets
- * of charmed. Frightened's "while the source is in line of sight" gate is
+ * Not yet modelled (deferred to the Effect/spell systems): condition immunities,
+ * perception/check auto-fails (blinded sight checks, deafened hearing), and the
+ * social-only facets of charmed. Entity-level damage resist/vuln/immunity lists
+ * are handled in `combat/damage.ts` (SRD-FID-19). Frightened's "while the source
  * approximated as always-on for the attack/check disadvantage (the engine
  * resolvers are position-free); the can't-approach restriction is enforced
  * against the tracked source in the movement handler.

@@ -3,6 +3,7 @@
  * apply_environmental_effect / resolve_environmental_effect_tick / remove_environmental_effect
  */
 import { CONDITIONS, type Condition } from "../combat/conditions";
+import { adjustDamageAmount } from "../combat/damage";
 import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { EnvironmentalEffectDefinition } from "../content/toolbox-definitions";
 import { getEnvironmentalEffectDefinition } from "../content/srd-environmental-effect-seeds";
@@ -117,7 +118,7 @@ function applyEnvironmentalDamage(
         mode: "normal",
       },
     });
-    const amount = dmgRoll.total;
+    const amount = adjustDamageAmount(dmgRoll.total, chunk.type, entity);
     if (amount > 0) {
       const fromTemp = Math.min(entity.hp.temp, amount);
       const toCurrent = amount - fromTemp;

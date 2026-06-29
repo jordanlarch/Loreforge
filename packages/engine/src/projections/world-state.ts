@@ -192,6 +192,16 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "TempHpGranted": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        next.entities[target.id] = {
+          ...target,
+          hp: { ...target.hp, temp: event.payload.tempAfter },
+        };
+      }
+      break;
+    }
     case "EntityMoved": {
       const entity = next.entities[event.payload.entity];
       if (entity) {

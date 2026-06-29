@@ -3,6 +3,7 @@
  * apply_fall_damage / apply_burning / extinguish_burning / resolve_burning_tick
  */
 import type { Condition } from "../combat/conditions";
+import { adjustDamageAmount } from "../combat/damage";
 import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import {
   BURNING_EXTINGUISH_DC,
@@ -62,7 +63,7 @@ function applyFireDamage(
     },
   ];
 
-  const amount = dmgRoll.total;
+  const amount = adjustDamageAmount(dmgRoll.total, "fire", entity);
   if (amount > 0) {
     const toCurrent = Math.max(0, amount - Math.min(entity.hp.temp, amount));
     const hpAfter = Math.max(0, entity.hp.current - toCurrent);
@@ -119,7 +120,7 @@ export function handleApplyFallDamage(
     },
   ];
 
-  const amount = dmgRoll.total;
+  const amount = adjustDamageAmount(dmgRoll.total, "bludgeoning", target);
   if (amount > 0) {
     const toCurrent = Math.max(0, amount - Math.min(target.hp.temp, amount));
     const hpAfter = Math.max(0, target.hp.current - toCurrent);

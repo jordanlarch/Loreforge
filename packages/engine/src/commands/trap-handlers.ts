@@ -3,6 +3,7 @@
  * detect_trap / disable_trap / trigger_trap — deterministic checks and effects.
  */
 import type { Condition } from "../combat/conditions";
+import { adjustDamageAmount } from "../combat/damage";
 import { getTrapDefinition } from "../content/srd-trap-seeds";
 import type { TrapDefinition, TrapEffect } from "../content/toolbox-definitions";
 import { abilityModifier, isSaveProficient, saveRollTotal } from "../entities/abilities";
@@ -168,7 +169,11 @@ function applyTrapEffectEvents(
           mode: "normal",
         },
       });
-      const amount = Math.floor(dmgRoll.total * damageMultiplier);
+      const amount = adjustDamageAmount(
+        Math.floor(dmgRoll.total * damageMultiplier),
+        chunk.type,
+        entity,
+      );
       if (amount > 0) {
         const fromTemp = Math.min(entity.hp.temp, amount);
         const toCurrent = amount - fromTemp;

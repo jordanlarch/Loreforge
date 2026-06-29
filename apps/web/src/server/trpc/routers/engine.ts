@@ -105,6 +105,12 @@ const commandSchema = z.discriminatedUnion("type", [
     scope: z.string().optional(),
   }),
   z.object({
+    type: z.literal("grant_temp_hp"),
+    target: z.string(),
+    source: damageSource,
+    scope: z.string().optional(),
+  }),
+  z.object({
     type: z.literal("move_entity"),
     entity: z.string(),
     to: gridPosition,

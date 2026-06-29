@@ -10,6 +10,7 @@
 
 import type { ConditionState } from "../combat/conditions";
 import type { ActiveEffect } from "../combat/effects";
+import type { DamageType } from "../content/spells";
 
 export type AbilityScores = {
   str: number;
@@ -183,6 +184,10 @@ export type EntityState = {
   activeFearStress?: ActiveFearStressInstance[];
   /** Active burning instances (GRILL-EXPLORATION Q4). */
   activeBurning?: ActiveBurningInstance[];
+  /** Explicit damage modifiers (SRD-FID-19). */
+  damageResistances?: DamageType[];
+  damageVulnerabilities?: DamageType[];
+  damageImmunities?: DamageType[];
 };
 
 /** Ongoing poison tracked on an entity (injury or ingested after delivery). */
@@ -355,4 +360,7 @@ export type EntityInit = {
   spellcasting?: SpellcastingInit;
   /** Pre-coated injury poison (GRILL-LIVE-POISON demo foes). */
   coatedPoisonSlug?: string;
+  damageResistances?: DamageType[];
+  damageVulnerabilities?: DamageType[];
+  damageImmunities?: DamageType[];
 };

@@ -62,6 +62,13 @@ export type ApplyHealingCommand = {
   scope?: string;
 };
 
+export type GrantTempHpCommand = {
+  type: "grant_temp_hp";
+  target: EntityRef;
+  source: DamageSource;
+  scope?: string;
+};
+
 export type MoveEntityCommand = {
   type: "move_entity";
   entity: EntityRef;
@@ -451,6 +458,7 @@ export type Command =
   | RollDiceCommand
   | ApplyDamageCommand
   | ApplyHealingCommand
+  | GrantTempHpCommand
   | MoveEntityCommand
   | RelocateEntityCommand
   | StartEncounterCommand

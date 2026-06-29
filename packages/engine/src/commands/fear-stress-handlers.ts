@@ -3,6 +3,7 @@
  * apply_fear_stress / resolve_fear_stress_tick / remove_fear_stress
  */
 import type { Condition } from "../combat/conditions";
+import { adjustDamageAmount } from "../combat/damage";
 import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { FearStressDefinition } from "../content/toolbox-definitions";
 import {
@@ -120,7 +121,11 @@ function applyPsychicDamage(
     },
   ];
 
-  const amount = multiplier === 0.5 ? Math.floor(dmgRoll.total / 2) : dmgRoll.total;
+  const amount = adjustDamageAmount(
+    multiplier === 0.5 ? Math.floor(dmgRoll.total / 2) : dmgRoll.total,
+    "psychic",
+    entity,
+  );
   if (amount <= 0) return events;
 
   const fromTemp = Math.min(entity.hp.temp, amount);

@@ -1434,8 +1434,8 @@ const FALSE_LIFE: SpellDefinition = {
   concentration: false,
   ritual: false,
   targeting: "self",
-  healing: { dice: "1d4+4" },
-  description: "You gain 1d4 + 4 temporary hit points for 1 hour (tracer: heals current HP).",
+  healing: { dice: "1d4+4", temp: true },
+  description: "You gain 1d4 + 4 temporary hit points for 1 hour.",
 };
 
 const COLOR_SPRAY: SpellDefinition = {

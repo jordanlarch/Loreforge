@@ -130,6 +130,7 @@ export {
   coverBonus,
   type CoverTier,
 } from "./combat/cover";
+export { adjustDamageAmount } from "./combat/damage";
 export {
   charmedSources,
   combineMode,
@@ -515,6 +516,7 @@ export {
   type ApplyConditionCommand,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
+  type GrantTempHpCommand,
   type AttackCommand,
   type DashCommand,
   type DisengageCommand,

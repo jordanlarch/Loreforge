@@ -59,6 +59,7 @@ function world(
         initiative: 10,
       })),
       initiativeRolled: true,
+      surpriseResolved: false,
       round: 1,
       activeIndex: opts.activeIndex ?? 0,
     },

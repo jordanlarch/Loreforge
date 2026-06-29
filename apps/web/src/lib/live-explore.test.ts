@@ -54,6 +54,7 @@ function world(
       sides: {},
       order: entities.map((e) => ({ entity: e.id, initiative: 10 })),
       initiativeRolled: true,
+      surpriseResolved: false,
       round: 1,
       activeIndex: 0,
     },

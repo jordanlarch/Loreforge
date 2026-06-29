@@ -48,6 +48,7 @@ function world(entities: EntityState[], sides: Record<string, string>): WorldSta
       sides,
       order: [],
       initiativeRolled: true,
+      surpriseResolved: false,
       round: 1,
       activeIndex: 0,
     },

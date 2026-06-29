@@ -62,6 +62,7 @@ function combatState(
       sides,
       order,
       initiativeRolled: true,
+      surpriseResolved: false,
       round: 1,
       activeIndex: opts.activeIndex ?? 0,
       ...(opts.reactionWindow

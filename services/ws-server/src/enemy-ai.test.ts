@@ -88,6 +88,7 @@ function battle(
       sides,
       order: entities.map((e) => ({ entity: e.id })),
       initiativeRolled: true,
+      surpriseResolved: false,
       round: 1,
       activeIndex,
       ...(reactionWindow ? { reactionWindow } : {}),

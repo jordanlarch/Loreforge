@@ -4,12 +4,14 @@ import {
   abilityModifier,
   type ActiveCurseInstance,
   type ActiveEnvironmentalEffectInstance,
+  type ActiveFearStressInstance,
   type ActivePoisonInstance,
   type EntityState,
 } from "@app/engine";
 
 import { activeCurseHudLabel } from "@/lib/live-curses";
 import { activeEnvironmentalEffectHudLabel } from "@/lib/live-environmental-effects";
+import { activeFearStressHudLabel } from "@/lib/live-fear-stress";
 import { activePoisonHudLabel } from "@/lib/live-poisons";
 
 const ABILITIES: { key: keyof EntityState["abilityScores"]; label: string }[] = [
@@ -120,6 +122,19 @@ export function PartyMemberDetail({ member }: { member: EntityState }) {
               </span>
             ),
           )}
+        </div>
+      ) : null}
+
+      {member.activeFearStress && member.activeFearStress.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {member.activeFearStress.map((f: ActiveFearStressInstance) => (
+            <span
+              key={f.instanceId}
+              className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-200"
+            >
+              {activeFearStressHudLabel(f)}
+            </span>
+          ))}
         </div>
       ) : null}
 
@@ -237,6 +252,10 @@ export function PartyMemberRow({
       ) : member.activeEnvironmentalEffects?.[0] ? (
         <span className="text-[10px] text-cyan-200 line-clamp-1">
           {activeEnvironmentalEffectHudLabel(member.activeEnvironmentalEffects[0])}
+        </span>
+      ) : member.activeFearStress?.[0] ? (
+        <span className="text-[10px] text-amber-200 line-clamp-1">
+          {activeFearStressHudLabel(member.activeFearStress[0])}
         </span>
       ) : null}
     </>

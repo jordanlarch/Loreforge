@@ -443,6 +443,11 @@ export function useLiveSession({
         t: "cmd",
         action: { type: "apply_curse", target, curseSlug },
       }),
+    applyFearStress: (target: string, fearStressSlug: string) =>
+      send({
+        t: "cmd",
+        action: { type: "apply_fear_stress", target, fearStressSlug },
+      }),
     reset: () => send({ t: "reset" }),
     syncParty,
     /** Travel to a World-tab location (Rung 4 Slice 2 / CAMP-UX UX-1). */

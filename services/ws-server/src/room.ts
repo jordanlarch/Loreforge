@@ -24,8 +24,10 @@ import {
   buildDungeonEntryCommands,
   buildEnterLocationCommands,
   buildEnvironmentalEffectEnterCommands,
+  buildFearStressEnterCommands,
   buildLocationNpcCommands,
   resolveLocationEnvironmentalEffectSlugs,
+  resolveLocationFearStressSlugs,
   buildPartyBattleCommands,
   buildPartyMemberJoinCommands,
   DEFAULT_STARTING_LOCATION,
@@ -45,7 +47,7 @@ import {
   type WorldState,
 } from "@app/engine";
 
-import { grantPoisonDemoLoot, grantCurseDemoLoot } from "./db.js";
+import { grantPoisonDemoLoot, grantCurseDemoLoot, grantFearDemoLoot } from "./db.js";
 
 /** Deterministic clock so a re-seeded room reproduces the same fixture state. */
 export const FIXED_CLOCK = () => 0;
@@ -240,6 +242,7 @@ export class CampaignRoom implements LiveRoom {
       if (location?.type === "dungeon") {
         await grantPoisonDemoLoot(this.campaignId);
         await grantCurseDemoLoot(this.campaignId);
+        await grantFearDemoLoot(this.campaignId);
       }
     }
     this.seeded = true;
@@ -324,6 +327,7 @@ export class CampaignRoom implements LiveRoom {
         await this.engine.execute(this.campaignId, command);
       }
       await this.applyEnvironmentalEffectsOnEnter(location, resolved?.entityData);
+      await this.applyFearStressOnEnter(location, resolved?.entityData);
       return { changed: true, startedCombat: true };
     }
 
@@ -342,6 +346,7 @@ export class CampaignRoom implements LiveRoom {
       }
     }
     await this.applyEnvironmentalEffectsOnEnter(location, resolved?.entityData);
+    await this.applyFearStressOnEnter(location, resolved?.entityData);
     return { changed: true, startedCombat: false };
   }
 
@@ -360,6 +365,29 @@ export class CampaignRoom implements LiveRoom {
       .map((e) => e.id);
 
     for (const command of buildEnvironmentalEffectEnterCommands(
+      sceneId,
+      slugs,
+      partyIds,
+    )) {
+      await this.engine.execute(this.campaignId, command);
+    }
+  }
+
+  /** GRILL-LIVE-FEAR Q4 — auto-apply fear/stress for party on enter. */
+  private async applyFearStressOnEnter(
+    location: CampaignStartingLocation,
+    entityData?: Record<string, unknown>,
+  ): Promise<void> {
+    const slugs = resolveLocationFearStressSlugs(location, entityData);
+    if (slugs.length === 0) return;
+
+    const state = await this.getState();
+    const sceneId = sceneIdForRealmEntity(location.entityId);
+    const partyIds = Object.values(state.entities)
+      .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
+      .map((e) => e.id);
+
+    for (const command of buildFearStressEnterCommands(
       sceneId,
       slugs,
       partyIds,
@@ -408,6 +436,7 @@ export function isBattleAction(value: unknown): value is BattleAction {
     trapInstanceId?: unknown;
     poisonSlug?: unknown;
     curseSlug?: unknown;
+    fearStressSlug?: unknown;
     instanceId?: unknown;
   };
   if (action.type === "end_turn") return true;
@@ -488,6 +517,12 @@ export function isBattleAction(value: unknown): value is BattleAction {
   if (action.type === "apply_curse") {
     return (
       typeof action.target === "string" && typeof action.curseSlug === "string"
+    );
+  }
+  if (action.type === "apply_fear_stress") {
+    return (
+      typeof action.target === "string" &&
+      typeof action.fearStressSlug === "string"
     );
   }
   if (action.type === "remove_curse") {

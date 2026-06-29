@@ -292,6 +292,8 @@ function eventText(action: BattleAction): string {
       return "A poison dose was resolved by the engine.";
     case "apply_curse":
       return "A curse was resolved by the engine.";
+    case "apply_fear_stress":
+      return "A fear or mental stress effect was resolved by the engine.";
     case "remove_curse":
       return "A curse was removed from the target.";
     default:
@@ -370,6 +372,11 @@ function resolutionText(
   if (action.type === "apply_curse") {
     const target = nameOf(action.target);
     return `${target} is subjected to ${action.curseSlug.replace(/^srd-2024_/, "").replace(/-/g, " ")}.`;
+  }
+
+  if (action.type === "apply_fear_stress") {
+    const target = nameOf(action.target);
+    return `${target} is subjected to ${action.fearStressSlug.replace(/^srd-2024_/, "").replace(/-/g, " ")}.`;
   }
 
   if (action.type === "remove_curse") {

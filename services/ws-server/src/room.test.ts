@@ -190,4 +190,17 @@ describe("isBattleAction", () => {
     ).toBe(true);
     expect(isBattleAction({ type: "apply_curse", target: "pc:1" })).toBe(false);
   });
+
+  it("accepts apply_fear_stress (GRILL-LIVE-FEAR)", () => {
+    expect(
+      isBattleAction({
+        type: "apply_fear_stress",
+        target: "pc:1",
+        fearStressSlug: "srd-2024_hallucinogenic-substance",
+      }),
+    ).toBe(true);
+    expect(isBattleAction({ type: "apply_fear_stress", target: "pc:1" })).toBe(
+      false,
+    );
+  });
 });

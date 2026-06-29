@@ -19,6 +19,7 @@ import type {
   Command,
   ApplyPoisonCommand,
   ApplyCurseCommand,
+  ApplyFearStressCommand,
   CoatWeaponCommand,
   DetectTrapCommand,
   DisableTrapCommand,
@@ -373,6 +374,7 @@ export type BattleAction =
   | CoatWeaponCommand
   | ApplyPoisonCommand
   | ApplyCurseCommand
+  | ApplyFearStressCommand
   | ResolveCurseTickCommand
   | RemoveCurseCommand;
 

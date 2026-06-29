@@ -23,7 +23,9 @@ import {
   buildDungeonCombatStartCommands,
   buildDungeonEntryCommands,
   buildEnterLocationCommands,
+  buildEnvironmentalEffectEnterCommands,
   buildLocationNpcCommands,
+  resolveLocationEnvironmentalEffectSlugs,
   buildPartyBattleCommands,
   buildPartyMemberJoinCommands,
   DEFAULT_STARTING_LOCATION,
@@ -321,6 +323,7 @@ export class CampaignRoom implements LiveRoom {
       for (const command of buildDungeonEntryCommands(location, state, foes)) {
         await this.engine.execute(this.campaignId, command);
       }
+      await this.applyEnvironmentalEffectsOnEnter(location, resolved?.entityData);
       return { changed: true, startedCombat: true };
     }
 
@@ -338,7 +341,31 @@ export class CampaignRoom implements LiveRoom {
         await this.engine.execute(this.campaignId, command);
       }
     }
+    await this.applyEnvironmentalEffectsOnEnter(location, resolved?.entityData);
     return { changed: true, startedCombat: false };
+  }
+
+  /** GRILL-LIVE-ENV-EFFECT Q4 — ambient slugs + auto-apply for party on enter. */
+  private async applyEnvironmentalEffectsOnEnter(
+    location: CampaignStartingLocation,
+    entityData?: Record<string, unknown>,
+  ): Promise<void> {
+    const slugs = resolveLocationEnvironmentalEffectSlugs(location, entityData);
+    if (slugs.length === 0) return;
+
+    const state = await this.getState();
+    const sceneId = sceneIdForRealmEntity(location.entityId);
+    const partyIds = Object.values(state.entities)
+      .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
+      .map((e) => e.id);
+
+    for (const command of buildEnvironmentalEffectEnterCommands(
+      sceneId,
+      slugs,
+      partyIds,
+    )) {
+      await this.engine.execute(this.campaignId, command);
+    }
   }
 }
 

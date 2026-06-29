@@ -55,6 +55,7 @@ import {
   injuryPoisonsForCoat,
 } from "@/lib/live-poisons";
 import { cursesForUse } from "@/lib/live-curses";
+import { environmentalEffectLabel } from "@/lib/live-environmental-effects";
 import { resolvePcCharacterId } from "@/lib/campaign-access";
 import { resolveCurrentMapLevel } from "@/lib/map-zoom-level";
 import { joinedSincePrompt } from "@/lib/live-presence";
@@ -317,11 +318,16 @@ function LiveBattle({
     : undefined;
   const currentMapLevel = resolveCurrentMapLevel(inCombat);
   const currentSceneName = transitionScene?.name;
+  const sceneEnvironmentalSlugs = transitionScene?.environmentalEffectSlugs;
+  const sceneEnvironmentalLabels = sceneEnvironmentalSlugs?.map(
+    environmentalEffectLabel,
+  );
   const { banner: sceneBanner, transitioning, dividers: sceneDividers } =
     useSceneTransition(
       transitionSceneId,
       transitionScene?.name,
       transitionScene?.description,
+      sceneEnvironmentalSlugs,
     );
   const combatDividers = useCombatTransition(inCombat);
   const chatEntries = useMemo(
@@ -775,6 +781,7 @@ function LiveBattle({
                 <LivePlayTopBar
                   title={title}
                   sceneName={explore.sceneName ?? context}
+                  sceneEnvironmentalEffects={sceneEnvironmentalLabels}
                   peers={session.peers}
                   backHref={backHref}
                   paused={paused}
@@ -937,6 +944,7 @@ function LiveBattle({
             <LivePlayTopBar
               title={title}
               sceneName={sceneName ?? context}
+              sceneEnvironmentalEffects={sceneEnvironmentalLabels}
               peers={session.peers}
               backHref={backHref}
               paused={paused}

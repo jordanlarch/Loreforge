@@ -329,6 +329,30 @@ export type RemoveCurseCommand = {
   instanceId: string;
 };
 
+export type SetSceneEnvironmentalEffectsCommand = {
+  type: "set_scene_environmental_effects";
+  sceneId: SceneId;
+  slugs: string[];
+};
+
+export type ApplyEnvironmentalEffectCommand = {
+  type: "apply_environmental_effect";
+  target: EntityRef;
+  effectSlug: string;
+};
+
+export type ResolveEnvironmentalEffectTickCommand = {
+  type: "resolve_environmental_effect_tick";
+  entity: EntityRef;
+  instanceId: string;
+};
+
+export type RemoveEnvironmentalEffectCommand = {
+  type: "remove_environmental_effect";
+  target: EntityRef;
+  instanceId: string;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -366,7 +390,11 @@ export type Command =
   | ResolvePoisonTickCommand
   | ApplyCurseCommand
   | ResolveCurseTickCommand
-  | RemoveCurseCommand;
+  | RemoveCurseCommand
+  | SetSceneEnvironmentalEffectsCommand
+  | ApplyEnvironmentalEffectCommand
+  | ResolveEnvironmentalEffectTickCommand
+  | RemoveEnvironmentalEffectCommand;
 
 export type CommandType = Command["type"];
 
@@ -415,6 +443,9 @@ export type ValidationCode =
   | "CURSE_NOT_ACTIVE"
   | "CURSE_ALREADY_ACTIVE"
   | "CURSE_DELIVERY_NOT_SUPPORTED"
+  | "ENVIRONMENTAL_EFFECT_NOT_FOUND"
+  | "ENVIRONMENTAL_EFFECT_ALREADY_ACTIVE"
+  | "ENVIRONMENTAL_EFFECT_NOT_ACTIVE"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"

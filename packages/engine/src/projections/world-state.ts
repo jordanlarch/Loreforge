@@ -721,6 +721,43 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "SceneEnvironmentalEffectsSet": {
+      const scene = next.scenes[event.payload.sceneId];
+      if (scene) {
+        next.scenes[event.payload.sceneId] = {
+          ...scene,
+          environmentalEffectSlugs: [...event.payload.slugs],
+        };
+      }
+      break;
+    }
+    case "EnvironmentalEffectApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const activeEnvironmentalEffects = [
+          ...(target.activeEnvironmentalEffects ?? []),
+        ];
+        activeEnvironmentalEffects.push({
+          instanceId: event.payload.instanceId,
+          effectSlug: event.payload.effectSlug,
+          pendingRepeat: event.payload.pendingRepeat,
+        });
+        next.entities[target.id] = { ...target, activeEnvironmentalEffects };
+      }
+      break;
+    }
+    case "EnvironmentalEffectRemoved": {
+      const target = next.entities[event.payload.target];
+      if (target?.activeEnvironmentalEffects?.length) {
+        next.entities[target.id] = {
+          ...target,
+          activeEnvironmentalEffects: target.activeEnvironmentalEffects.filter(
+            (i) => i.instanceId !== event.payload.instanceId,
+          ),
+        };
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":

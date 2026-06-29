@@ -173,7 +173,7 @@ Deferred from GRILL-TRAP Q7. **Traps-only v1** for Live Play resolution.
 | Engine commands | ✅ handlers + projection + `engine.traps.test.ts` |
 | WS / Live Play UI | ✅ #293 — detect/disable affordances + `sceneKind` gate |
 | Scene trap placement (GM prep) | ⏳ deferred — CAMP / map editor |
-| Poisons+ siblings | ✅ **GRILL-LIVE-POISON** (#296–#297), **GRILL-LIVE-CURSE** (#298–#299); **GRILL-LIVE-ENV-EFFECT** next |
+| Poisons+ siblings | ✅ **GRILL-LIVE-POISON** (#296–#297), **GRILL-LIVE-CURSE** (#298–#299), **GRILL-LIVE-ENV-EFFECT** grill Q1–Q8 ✅; **GRILL-LIVE-FEAR** next |
 
 ---
 
@@ -358,7 +358,7 @@ SRD curses are exposure → save → ongoing state, not a third action economy. 
 |---|---|---|
 | **PR 1 — Engine** | Registry, `activeCurses[]`, commands, projection, tests | ✅ **#298** |
 | **PR 2 — WS + Live Play** | Use Item exposure path, HUD chip, demo loot | ✅ **#299** |
-| **Post-grill follow-ups** | Slug dedupe, spell bridges, prod verify | ✅ dedupe + spell bridges shipped; prod verify after merge |
+| **Post-grill follow-ups** | Slug dedupe, spell bridges, prod verify | ✅ **#300** (dedupe + spell bridges); prod verify after deploy |
 
 ### Q8 — Demo fixtures ✅ (grill confirmed)
 
@@ -394,6 +394,124 @@ SRD curses are exposure → save → ongoing state, not a third action economy. 
 **Deferred:** contagion spread → **GRILL-EXPLORATION**; long-rest recovery ticks (Cackle Fever, Sewer Plague); nat-1 possession hijack; Bestow/Remove Curse spell → command bridges.
 
 **Post-grill follow-ups ✅:** slug dedupe in `apply_curse`; spell cast → `remove_curse` / `apply_curse` (Bestow/Remove Curse); prod verify on dungeon campaign after merge.
+
+---
+
+## GRILL-LIVE-ENV-EFFECT — COMPLETE ✅
+
+Environmental effects attach via **scene ambient exposure + entity state** — not map tiles (traps) or items (poisons/curses). **Grill session Q1–Q8 confirmed** (Jun 2026). Inherits GRILL-ENV-EFFECT data model (Q3 fields) and Live Play sibling pattern (poison/curse).
+
+### Q1 — v1 delivery scope ✅ (grill confirmed)
+
+**Option A — Scene-attached ambient exposure.**
+
+| In v1 Live Play | Deferred |
+|---|---|
+| Scene/location carries `environmentalEffectSlug`(s); on **enter location** → `apply_environmental_effect` for exposed party | Per-tile zone painting |
+| **Repeat ticks** at turn start (or hour boundary when in combat) per `repeat` prose | Overland travel pace (High Altitude) → **GRILL-EXPLORATION** |
+| Passive HUD chip (ambient exposure feedback) | Resistance/immunity auto-succeed automation |
+| | Weather movement / dynamic zone drift |
+
+### Q2 — Attachment model ✅ (grill confirmed)
+
+**Option A — Scene slug + entity instances.**
+
+| State | Purpose |
+|---|---|
+| `SceneState.environmentalEffectSlugs?: string[]` | Ambient effect(s) active in this scene — set from location metadata on enter |
+| `EntityState.activeEnvironmentalEffects[]` | Per-entity exposure instances (slug, instance id, `pendingRepeat`) for repeat saves + conditions |
+| Dedupe | **One instance per slug per entity** — reject duplicate `apply_environmental_effect` |
+
+Scene carries *what's ambient*; entities carry *who is affected* and need repeat ticks.
+
+### Q3 — Engine commands ✅ (grill confirmed)
+
+**Option A — Minimal trio** (mirrors poison / curse command pattern).
+
+| Command | Purpose | Invoked by |
+|---|---|---|
+| `apply_environmental_effect` | Initial save, conditions, push to `activeEnvironmentalEffects[]` when ongoing | WS on enter location; GM hook later |
+| `resolve_environmental_effect_tick` | Repeat save + damage/conditions per `repeat` prose | Engine at turn boundary |
+| `remove_environmental_effect` | End instance + clear linked conditions | Leave scene (auto); successful repeat save; GM hook later |
+
+### Q4 — Trigger timing ✅ (grill confirmed)
+
+**All Option A.**
+
+| Topic | Decision |
+|---|---|
+| **Enter location** | WS sets `SceneState.environmentalEffectSlugs` from location metadata; auto `apply_environmental_effect` for each party PC per slug (dedupe per Q2) |
+| **Repeat saves** | Auto `resolve_environmental_effect_tick` at **start** of affected entity's turn when `pendingRepeat` |
+| **Leave scene** | Auto `remove_environmental_effect` for all ambient slugs on party when `change_scene` / exit location |
+| **Hourly / travel ticks** | Deferred (Extreme Cold hourly, High Altitude pace → **GRILL-EXPLORATION**) |
+| **Action economy** | None — passive exposure only; no env-effect action rail |
+
+### Q5 — Live Play UI ✅ (grill confirmed)
+
+**Option A′ — Passive exposure + feedback only (no env-effect action rail).**
+
+| Surface | Decision |
+|---|---|
+| **How effects arrive** | Silent engine `apply_environmental_effect` on enter location — no player button |
+| **Scene context** | Optional subtitle/chip near scene name when `environmentalEffectSlugs` set (e.g. "Extreme Cold") |
+| **Active exposure feedback** | Party rail HUD chip per instance — **distinct from curse violet** (frost/cyan) |
+| **Repeat saves** | Silent turn-start `resolve_environmental_effect_tick`; narrative log only |
+| **Leave scene** | Instances + chips clear automatically (Q4) |
+
+**Out of v1 UI:** Endure / Resist chips, env-effect picker on action rail, manual save button.
+
+### Q6 — Registry & location bridge ✅ (grill confirmed)
+
+**Option A — Engine seeds + location field** (mirrors poison / curse registry pattern).
+
+| Layer | Decision |
+|---|---|
+| **Env-effect registry** | `srd-environmental-effect-seeds.ts` in `@app/engine`; DB ingest imports same module |
+| **Location link** | Optional `toolboxEnvironmentalEffectSlugs?: string[]` on location/realm entity metadata |
+| **WS enter hook** | On enter location: read slug(s) → set `SceneState.environmentalEffectSlugs` → auto-apply for party |
+| **Demo fallback** | Dungeon bootstrap applies `srd-2024_extreme-cold` when metadata absent (prod verify only) |
+
+### Q7 — v1 delivery phasing ✅ (grill confirmed)
+
+**Option A — Two PRs** (mirror traps / poison / curse).
+
+| Slice | Scope | Verify |
+|---|---|---|
+| **PR 1 — Engine** | Registry, `SceneState.environmentalEffectSlugs`, `activeEnvironmentalEffects[]`, handlers + projection + tests | CI green |
+| **PR 2 — WS + Live Play** | Enter/leave hooks, scene subtitle chip, frost/cyan HUD chip, dungeon demo fallback | Prod verify |
+
+### Q8 — Demo fixtures ✅ (grill confirmed)
+
+**Option B — Dual slug pair** (mirror curse Q8 two-mechanic verify).
+
+| Fixture | Slug | Purpose |
+|---|---|---|
+| Dungeon ambient (demo fallback) | `srd-2024_extreme-cold` | Scene subtitle chip + enter apply + leave clear |
+| Same dungeon (bootstrap) | `srd-2024_slippery-ice` | Dex save on apply + turn-start `resolve_environmental_effect_tick` in combat |
+
+**Prod verify checklist:** Enter dungeon → scene chip "Extreme Cold" + frost/cyan HUD; turn-start tick on Slippery Ice; leave location → instances cleared.
+
+### Decision record (GRILL-LIVE-ENV-EFFECT)
+
+| # | Decision |
+|---|---|
+| **Q1** | Scene-attached ambient exposure — enter apply + turn-start repeat; defer tile zones, hourly/travel, resistance auto |
+| **Q2** | `SceneState.environmentalEffectSlugs[]` + `EntityState.activeEnvironmentalEffects[]`; **one instance per slug per entity** |
+| **Q3** | `apply_environmental_effect` / `resolve_environmental_effect_tick` / `remove_environmental_effect` |
+| **Q4** | Auto apply on enter, turn-start tick, auto remove on leave; defer hourly/travel ticks |
+| **Q5** | **A′** — passive exposure + scene subtitle + frost/cyan HUD; no action rail |
+| **Q6** | Engine `srd-environmental-effect-seeds.ts` + `toolboxEnvironmentalEffectSlugs` on location; dungeon demo fallback |
+| **Q7** | Two PRs (engine → WS + Live Play) |
+| **Q8** | Extreme Cold + Slippery Ice dual-slug dungeon demo pair |
+
+### Implementation checklist (v1 — two PRs)
+
+| PR | Scope |
+|---|---|
+| **Engine (#TBD)** | `srd-environmental-effect-seeds.ts`, `ENVIRONMENTAL_EFFECT_REGISTRY`, `SceneState.environmentalEffectSlugs`, `EntityState.activeEnvironmentalEffects[]`, handlers + projection + tests |
+| **WS + Live Play (#TBD)** | Enter/leave hooks, scene subtitle chip, frost/cyan HUD chip, dungeon demo slugs (Q8) |
+
+**Deferred:** hourly/travel repeat (Extreme Cold hourly, High Altitude pace) → **GRILL-EXPLORATION**; per-tile zones; resistance/immunity auto-succeed; weather movement.
 
 ---
 

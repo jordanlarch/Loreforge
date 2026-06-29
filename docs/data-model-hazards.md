@@ -7,8 +7,8 @@
 | PDF location | Content | Loreforge target |
 |---|---|---|
 | **Gameplay Toolbox** | Traps; Poisons; Curses and Magical Contagions; Environmental Effects; Fear and Mental Stress | Codex **Gameplay Toolbox** nav; `codex_toolbox_entries`; mandatory structured definitions per entry |
-| **Playing the Game → Exploration** | Exploration play guidance incl. **hazards** (distinct topic) | Separate from Gameplay Toolbox — glossary-backed |
-| **Rules Glossary** | Expanded hazard definitions | Engine reference / Codex glossary cross-links |
+| **Playing the Game → Exploration** | **Hazards:** Burning, Dehydration, Falling, Malnutrition, Suffocation (detail in Rules Glossary) | Separate from Gameplay Toolbox — **GRILL-EXPLORATION** |
+| **Rules Glossary** | Expanded definitions for the five Exploration hazards | Codex glossary cross-links; engine reference |
 
 **Traps are not "hazards" in SRD terms.** Current code (`HAZARD_KINDS`, `codex_advanced_rules`, Codex **Advanced** nav) reflects 5.1/Open5e drift — fix in **SRD-AUDIT-10** (full PDF alignment audit post–GRILL-TRAP).
 
@@ -149,7 +149,7 @@ After GRILL-TRAP (and sibling grill sessions), the project audit against SRD 5.2
 | **GRILL-CURSE** | Gameplay Toolbox → Curses and Magical Contagions | **COMPLETE** (inherits TRAP; Q3 locked) |
 | **GRILL-ENV-EFFECT** | Gameplay Toolbox → Environmental Effects | **COMPLETE** (inherits TRAP; Q3 locked) |
 | **GRILL-FEAR** | Gameplay Toolbox → Fear and Mental Stress | **COMPLETE** (inherits TRAP; Q3 locked) |
-| **GRILL-EXPLORATION** | Playing the Game → Exploration hazards + Glossary | **Active** — grill started Jun 2026 |
+| **GRILL-EXPLORATION** | Playing the Game → Exploration hazards + Glossary | **COMPLETE** (Q1–Q9, 2026-06-29) |
 
 ---
 
@@ -737,6 +737,15 @@ PDF section: **Fear and Mental Stress**.
 
 **Playing the Game → Exploration hazards** + **Rules Glossary** cross-links. **Separate program** from Gameplay Toolbox (GRILL-TRAP Q5 lock). Grill started Jun 2026.
 
+### PDF taxonomy lock (Jordan, Jun 2026)
+
+| SRD location | Content | Loreforge target |
+|---|---|---|
+| **Playing the Game → Exploration** | **Hazards:** Burning, Dehydration, Falling, Malnutrition, Suffocation — detail in **Rules Glossary** | **GRILL-EXPLORATION** — not `codex_toolbox_entries` |
+| **Gameplay Toolbox → Environmental Effects** | Deep Water, Extreme Cold, Extreme Heat, Frigid Water, Heavy Precipitation, High Altitude, Slippery Ice, Strong Wind, Thin Ice | **`codex_toolbox_entries`** `environmental_effect` topic — ✅ already seeded |
+
+**Do not conflate:** Exploration **Hazards** (bodily deprivation / trauma) ≠ Toolbox **Environmental Effects** (terrain / atmosphere modifiers). Frigid Water and Thin Ice stay in Environmental Effects.
+
 ### Deferred into this session (from sibling Live Play grills)
 
 | Source grill | Deferred mechanic |
@@ -744,11 +753,120 @@ PDF section: **Fear and Mental Stress**.
 | GRILL-LIVE-POISON | Contact + inhaled poison delivery |
 | GRILL-LIVE-CURSE | Contagion spread; long-rest recovery ticks (Cackle Fever, Sewer Plague) |
 | GRILL-LIVE-ENV-EFFECT | Hourly/travel repeat ticks (Extreme Cold hourly, High Altitude pace); overland-only hazards |
-| SRD-AUDIT-10 | Taxonomy cleanup — e.g. **Frigid Water** / **Thin Ice** currently seeded under toolbox `environmental_effect` but PDF places them under **Playing the Game → Exploration** |
+| SRD-AUDIT-10 | Open5e `exploration_hazards` key ≠ PDF taxonomy — legacy ingest drift only; **Environmental Effects** seeds (incl. Frigid Water, Thin Ice) are **correct** under Gameplay Toolbox |
 
-### Q1 — *(pending)*
+### Q1 — Source of truth ✅ (2026-06-29)
 
-*(Grill session in progress — see chat.)*
+**Option A — Rules + Glossary only.**
+
+| Layer | What | Storage |
+|---|---|---|
+| **Exploration hazards (5)** | Burning, Dehydration, Falling, Malnutrition, Suffocation | **No catalog table** — `codex_rule_sections` + glossary cross-links |
+| **Environmental Effects (9)** | Deep Water … Thin Ice | **`codex_toolbox_entries`** — unchanged |
+| **Live Play** | Per-hazard engine resolution when needed | **Falling + Burning** in v1 (Q3); others prose-only |
+
+### Q2 — Codex IA ✅ (2026-06-29)
+
+**Option A — Two-tier mirror (PDF handoff).**
+
+| Surface | Content |
+|---|---|
+| **Playing the Game → Exploration** chapter | One overview `codex_rule_sections` row — short prose + linked list of the five hazards |
+| **Rules Glossary** chapter | One `codex_rule_sections` row per hazard (Burning, Dehydration, Falling, Malnutrition, Suffocation) |
+| **Navigation** | Rules browser cross-links overview ↔ glossary entries (same two-tier pattern as Gameplay Toolbox rules → entries, but glossary rows replace a catalog table) |
+
+### Q3 — v1 Live Play scope ✅ (2026-06-29)
+
+**Option B+ — Falling + Burning only.**
+
+| In v1 Live Play | Deferred (Codex glossary prose only) |
+|---|---|
+| **Falling** — fall damage formula (1d6 bludgeoning per 10 ft, max 20d6, prone on landing) | **Dehydration** — daily water tracking |
+| **Burning** — engine resolution (see Q4) | **Malnutrition** — daily food tracking |
+| | **Suffocation** — air / breath holding |
+
+Codex seeds (overview + five glossary sections) ship regardless; engine slice covers **Falling + Burning** only.
+
+### Q4 — Burning resolution ✅ (2026-06-29)
+
+**Option A — Entity state + turn-start tick.**
+
+| Piece | Lock |
+|---|---|
+| **State** | `EntityState.activeBurning[]` (instance id, applied turn, optional source slug) |
+| **Commands** | **`apply_burning`** on exposure; **`extinguish_burning`** (action / Dex DC 15 save per SRD glossary); turn-start repeat damage via existing tick pipeline |
+| **Damage** | SRD glossary amount (seed-authoritative — typically 1d4 fire at start of each turn while burning) |
+| **Pattern** | Mirrors poison repeat ticks + fear/stress entity-state model |
+
+### Q5 — Falling resolution ✅ (2026-06-29)
+
+**Option A — Command-only.**
+
+| Piece | Lock |
+|---|---|
+| **Command** | **`apply_fall_damage`** — `{ entityId, heightFt }`; engine computes 1d6 bludgeoning per 10 ft (max 20d6) + applies **prone** |
+| **Triggers** | LLM tool call on narrated falls; explicit hooks from pit / Thin Ice break / trap payloads — **no** map elevation model in v1 |
+| **Deferred** | Tile/elevation auto-trigger on `move_entity` → later map-editor slice |
+
+### Q6 — Slug scheme ✅ (2026-06-29)
+
+**Option A — `srd-2024_<kebab-name>`.**
+
+| Row | Slug |
+|---|---|
+| Exploration overview | `srd-2024_exploration-hazards` |
+| Glossary entries | `srd-2024_burning`, `srd-2024_dehydration`, `srd-2024_falling`, `srd-2024_malnutrition`, `srd-2024_suffocation` |
+
+Engine seed modules reference the same slugs for Live Play hooks (Burning / Falling).
+
+### Q7 — v1 implementation slice ✅ (2026-06-29)
+
+**Option A — Codex → engine → Live Play (three slices, verify between).**
+
+| Slice | Ships | Verify |
+|---|---|---|
+| **1 — Codex** | Hand-seed six `codex_rule_sections` rows; Rules browser two-tier UI (overview ↔ glossary cross-links) | Prod: Rules → Exploration hazards overview + glossary detail |
+| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, unit tests | CI / engine tests |
+| **3 — Live Play** | WS hooks + burning HUD chip + fall/burn events in chat | Prod dogfood in campaign |
+
+### Q8 — Rules prose source ✅ (2026-06-29)
+
+**Option A — Hand-seed from SRD 5.2 PDF.**
+
+| Piece | Lock |
+|---|---|
+| **Authoring** | New seed script (e.g. `seed-exploration-hazards.ts`) — PDF-normalized prose for overview + five glossary rows |
+| **Engine** | Shared seed module for Falling/Burning constants (damage formula, burning tick, extinguish DC) — same pattern as toolbox seeds |
+| **Ingest** | Open5e rules ingest does **not** overwrite the six locked slugs |
+
+### Q9 — Program boundary ✅ (2026-06-29)
+
+**Option A — Exploration hazards only.**
+
+| In scope | Out of scope (explicit deferrals) |
+|---|---|
+| Six Codex rule sections (overview + five glossary hazards) | Contact / inhaled **poison** delivery → poison Live Play extension |
+| Engine + Live Play for **Falling + Burning** only | Curse **contagion** + long-rest recovery ticks → curse extension |
+| | Environmental Effects **hourly / travel** repeats → env-effect extension |
+| | **Dehydration / Malnutrition / Suffocation** engine |
+| | Tile / elevation auto-fall on `move_entity` |
+| | Smithy homebrew (rules read-only) |
+
+---
+
+## GRILL-EXPLORATION — COMPLETE ✅
+
+All nine decisions locked. **Slice 1 (Codex)** is unblocked.
+
+### Implementation checklist
+
+| Slice | Deliverable | Status |
+|---|---|---|
+| **1 — Codex** | `seed-exploration-hazards.ts`; six `srd-2024_*` rule sections; Rules two-tier UI (overview ↔ glossary links) | ⏳ |
+| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, shared seed module, tests | ⏳ |
+| **3 — Live Play** | WS hooks; burning HUD chip; fall/burn chat events | ⏳ |
+
+**Next step:** Slice 1 — Codex hand-seed + Rules browser two-tier UI.
 
 ---
 

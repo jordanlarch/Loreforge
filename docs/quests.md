@@ -108,6 +108,8 @@ type QuestTrigger = {
 
 Replace `data.hooks: string[]` with `data.quests: QuestTemplate[]`. Strings migrate to minimal templates (§9).
 
+> **As-built (Jun 2026).** The shipped type in `packages/engine/src/quests/types.ts` is **leaner** than the design schema below: most fields are **optional**, and `QuestScale`, `linkedEntityIds`, and the step-level `locationEntityId`/`npcEntityId`/`gmInstructions` shown here are **not implemented**; steps carry `encounterRef` / `nextStepId` / `alternateNextStepIds`. Implemented triggers are `on_session_start`, `on_enter_location`, `on_talk_to_npc`, `on_quest_accept` (the `whenStatus` trigger filter is not implemented). Treat the block below as design intent; the engine type is canonical.
+
 ```typescript
 type QuestTag =
   | "mystery"
@@ -194,6 +196,8 @@ type QuestStep = {
 ## 5. Quest instance schema (Campaign)
 
 Evolve `plot_hooks` → **`quests`** (table rename or compatibility view). Minimum columns + JSON payload:
+
+> **As-built (Jun 2026).** The implementer kept the table named **`plot_hooks`** (no rename; types/UI say "Quests") — see `packages/db/src/schema/campaigns.ts`. The runtime instance payload is in `packages/engine/src/quests/instance.ts`; the **`teasedSessionIds` tease-dedupe field below is not implemented** (a `lastTeasedAt` field is noted in the DB schema comment but has no runtime usage yet).
 
 | Column | Purpose |
 |--------|---------|

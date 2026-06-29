@@ -9,7 +9,7 @@ export default function RealmsPage() {
         </h1>
         <p className="mt-2 text-lore-muted">
           Your worldbuilding library — regions, settlements, factions, NPCs and
-          more. Forge them by hand now; generators arrive in a later slice.
+          more. Forge them by hand or generate them with AI.
         </p>
       </header>
 

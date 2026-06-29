@@ -1,6 +1,6 @@
 # Live Play Surface
 
-> **IA supersession (Jun 2026):** Play shell layout (center map above chat with **Current | World** tabs, left-nav lightboxes, **collapsible right character rail**), entry/handoff rules, and map hierarchy are **canonical in [`unified-campaign-ux.md`](./unified-campaign-ux.md)**. This doc retains combat mechanics, chat modes, pacing, and shipped vs target detail; where layout/entry conflicts with the unified spec, follow the unified spec. Implementation: `docs/deferrals.md` **CAMP-UX**.
+> **IA supersession (Jun 2026):** Play shell layout (center map above chat with **Current | World** tabs, left-nav lightboxes, **collapsible right character rail**), entry/handoff rules, and map hierarchy are **canonical in [`unified-campaign-ux.md`](./unified-campaign-ux.md)**. This doc retains **combat mechanics, chat modes, pacing, and drill-down detail**; legacy layout wireframes are **archived** in [`../archive/ui-flows/live-play-surface-legacy-layout.md`](../archive/ui-flows/live-play-surface-legacy-layout.md). Implementation: `docs/deferrals.md` **CAMP-UX**.
 
 *The dedicated **play shell** at `/campaigns/[id]/play` — invoked via **Play Now** / **Continue** from prep. The single surface where humans play their characters under the AI-GM. Hybrid text-chat backbone with the **always-on map above the chat log** in the **center column**. **Exploration** scenes show a collapsible PC rail on the right; **combat** adds an initiative strip above the map and a turn bar between map and chat. Designed for solo async sessions on a laptop and live multiplayer sessions across multiple connected clients with real-time sync.*
 
@@ -37,81 +37,16 @@ The same shell hosts two render paths (see `play-surface.tsx`):
 
 During combat, character vitals come from the **party rail** (hover mini-HUD, click for read-only sheet peek). The engine still owns all mechanics; the UI only surfaces what the synced `WorldState` exposes for party-side entities.
 
-## Layout — shipped (Jun 2026, #214)
 
-**Exploration** (desktop):
+## Layout (as-built)
 
-```
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │ ① TOP BAR (breadcrumb · title · Live/Async · scene · clock · Pause)   │
-  ├──────┬──────────────────────────────────────────────┬──────────────────┤
-  │      │  ② MAP (tactical grid when scene has a map)  │ ④ COMPACT PC HUD │
-  │ ⑤    │                                              │ (name · HP/AC/   │
-  │PARTY │                                              │  speed · Sheet)  │
-  │RAIL  ├──────────────────────────────────────────────┤ + tutorial panel │
-  │(left)│  ③ CHAT + moded composer                     │  when applicable │
-  │      │                                              │                  │
-  └──────┴──────────────────────────────────────────────┴──────────────────┘
-```
+Canonical play shell: [`unified-campaign-ux.md`](./unified-campaign-ux.md) — **left icon nav** + **center map above chat** (`Current | World` tabs) + **collapsible right `PlayRightRail`** (`play-shell-chrome.tsx`, #241).
 
-**Combat**:
+**Exploration:** map column + chat; right rail shows PC panel (+ tutorial extras when applicable). **Combat:** initiative strip above map; turn bar between map and chat; compact HUD in right rail during combat.
 
-```
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │ ① TOP BAR (no End turn · no round/turn/movement during combat)        │
-  ├─────────────────────────────────────────────────────────────────────────┤
-  │ INITIATIVE STRIP — Round N · active name · horizontal initiative chips  │
-  ├──────┬──────────────────────────────────────────────────────────────────┤
-  │ ⑤    │  ② MAP — tokens · movement radius · target/aim pickers           │
-  │PARTY │                                                                  │
-  │RAIL  ├──────────────────────────────────────────────────────────────────┤
-  │      │  TURN BAR — economy · Attack/Ready/Cast · quick-use · End turn   │
-  │      │            · reaction prompts (when open)                        │
-  │      ├──────────────────────────────────────────────────────────────────┤
-  │      │  ③ CHAT + moded composer                                         │
-  └──────┴──────────────────────────────────────────────────────────────────┘
-```
+Legacy **#214 left party-rail** layout ASCII and the original five-zone target sketch are archived in [`../archive/ui-flows/live-play-surface-legacy-layout.md`](../archive/ui-flows/live-play-surface-legacy-layout.md).
 
-**Shipped proportions:** viewport-fit column; map and chat share vertical space; party rail is a **fixed-width left column** (~8–10rem), not a bottom strip.
-
-### Target layout (v1 design intent — not fully built)
-
-The original five-zone sketch below remains the north star for polish passes. Items **not shipped** include: bottom party rail, draggable map/chat split, full right-rail Live Stats HUD during combat, hierarchical L0–L4 map zoom, fog of war, and in-game clock in the top bar.
-
-```
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │ ① TOP BAR                                                                │
-  ├─────────────────────────────────────────────────────────────────────────┤
-  │                                                              ┌────────┐  │
-  │                                                              │        │  │
-  │                                                              │  ④     │  │
-  │           ② MAP ZONE (always-on, current location)           │ CHAR   │  │
-  │           ────────────────────────────────────────           │ HUD    │  │
-  │           [interactive map: tokens, layers, fog]             │ (you)  │  │
-  │                                                              │        │  │
-  │                                                              │        │  │
-  ├──────────────────────────────────────────────────────────────│        │  │
-  │                                                              │        │  │
-  │           ③ CHAT / NARRATIVE ZONE                            │        │  │
-  │           ──────────────────────────                         │        │  │
-  │           [AI narration, player actions, dice, chips]        │        │  │
-  │                                                              │        │  │
-  │                                                              │        │  │
-  │           ┌──────────────────────────────────────────┐       │        │  │
-  │           │ [Input: text / slash commands / actions] │       │        │  │
-  │           └──────────────────────────────────────────┘       │        │  │
-  ├─────────────────────────────────────────────────────────────│        │  │
-  │ ⑤ PARTY RAIL (target: bottom slim strip)                     └────────┘  │
-  └─────────────────────────────────────────────────────────────────────────┘
-```
-
-**Target proportions** (desktop, 1440px+): Map ≈ 45% vertical · Chat ≈ 50% vertical · Top bar ≈ 5%; Character HUD ≈ 280px right; Party Rail = bottom slim strip (collapsed).
-
-**User can resize**: the horizontal divider between Map and Chat is draggable. Each user's preference saved per campaign. *(Not built.)*
-
-**Visual tone**: same dark-fantasy theme as the rest of the app. Map zone uses parchment-on-dark tile; chat uses warm dark with subtle texture; HUD reuses the character sheet's Live Stats HUD aesthetics.
-
----
+**Still deferred:** hierarchical L0–L4 on Current, fog of war, Edit Map authoring, token context menus, draggable map/chat split — see `docs/deferrals.md` PLAY-7 / CAMP-UX.
 
 ## ① Top Bar
 

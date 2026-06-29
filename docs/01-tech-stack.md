@@ -4,6 +4,8 @@
 
 > **Version policy**: this document deliberately does not pin specific package versions. `package.json` is the source of truth. Choices below name a major/family ("Next.js 14+", "Postgres 15+") only where a major shift would invalidate an architectural assumption. When upgrading across majors, check this doc first; if the rationale still holds, update the version and add a note in the migration section.
 
+> **As-built status (Jun 2026).** Several "Choice" sections below name a planned library that is **not yet wired**. As actually shipped: **Next.js 15 + React 19 + tRPC 11 + Drizzle + Postgres/pgvector + Yjs/Hocuspocus + PixiJS** are all live; **Supabase Auth is the chosen auth (not "open", not Clerk)**; **Trigger.dev** is the jobs provider (Inngest/BullMQ rejected — no Redis/Upstash); styling is **Tailwind only — shadcn/ui + Radix are not installed**; client state uses **TanStack Query — Zustand is not installed**; tests are **Vitest only — Playwright is not installed**; the package set is `@app/engine`, `@app/db`, `@app/llm`, `@app/memory`, `@app/config`, `@app/ws-server` (**no `@app/ui`**) on **npm workspaces** (not pnpm). The not-yet-adopted picks remain reasonable future choices; treat them as planned, not present. `package.json` is the source of truth.
+
 ---
 
 ## 1. Frontend Framework — Next.js (App Router) + React + TypeScript
@@ -74,9 +76,9 @@ The same WebSocket channel also carries `EngineEvent` notifications, reaction wi
 
 **Alternatives considered**: Liveblocks (excellent DX but expensive at scale and adds vendor lock-in for a feature we can self-host); Automerge (similar CRDT story, smaller ecosystem); Socket.IO + custom OT (we'd reinvent the CRDT); Server-Sent Events only (one-way; bidirectional sync requires WS); WebRTC peer-to-peer (cool but the engine is server-authoritative so a hub-and-spoke model is the right topology).
 
-## 8. Authentication — Supabase Auth or Clerk (open)
+## 8. Authentication — Supabase Auth ✅ (locked Jun 2026)
 
-**Choice — open**: Either Supabase Auth (if we standardize on Supabase for Postgres hosting) or Clerk (if we want a richer pre-built UI). Decision deferred to the v0.1 setup phase.
+**Choice — locked to Supabase Auth.** (Originally "open" between Supabase Auth and Clerk.) Implemented via `@supabase/ssr` + `@supabase/supabase-js` with Next.js middleware gating; required env lives in `@app/config`. Clerk was not adopted.
 
 Both give us email/password + OAuth (Google, Discord, GitHub at minimum) + session management + an SDK that integrates cleanly with Next.js middleware. Supabase wins on cost-of-ownership if we're already paying for Supabase Postgres; Clerk wins on the polished out-of-the-box UI and the user-management dashboard.
 
@@ -96,11 +98,11 @@ Trigger.dev is a managed, cloud-hosted job platform: task code lives in our repo
 
 **Alternatives considered**: **Inngest** (the prior choice — excellent DX and also cloud-hosted, but functions run inside our own Vercel serverless routes, so long jobs are bounded by the serverless timeout); **BullMQ** (self-hosted Redis-backed queue — rejected because it requires an always-on worker process and a Redis instance, i.e. exactly the standing infrastructure we want to avoid); Vercel Cron alone (only scheduled work, no event-driven jobs with retry); Temporal (heavyweight; designed for long-running workflows we don't really have); pg-boss (Postgres-backed queue, viable but still needs a worker we host).
 
-> **Implementation status (Jun 2026):** Two Trigger.dev task surfaces exist. (1) The **nightly Open5e SRD spell ingest** runs as a scheduled task (cron `0 8 * * *`, deployed to prod) — the first real background job. (2) A **durable Realms generation cascade** task (`generate-cascade`) exists for timeout-free multi-entity cascades (D3); the v1 thin-schema cascade also runs synchronously inside the `realms.generate` tRPC mutation, and the durable route is used as deeper cascades arrive. Runtime task triggering needs the `tr_prod_` secret key (`docs/deferrals.md` INFRA-1); the nightly cron does not. Per-task wiring gotchas are in `docs/02-implementation-roadmap.md` §6 P1 "Trigger.dev wiring notes."
+> **Implementation status (Jun 2026):** **Six** Trigger.dev task files exist in `apps/web/src/trigger/`: (1) **nightly Open5e SRD ingest** (`ingest-spells.ts`, scheduled cron `0 8 * * *` — spells + creatures + items + backgrounds + feats + rules + character seed); (2) **durable Realms generation cascade** (`generate-cascade.ts`, D3); (3) **nightly re-embed** (`reembed-entities.ts`, scheduled cron `0 9 * * *`); (4) **runtime entity embed** (`embed-entity.ts`); (5) **session recap** (`generate-recap.ts`); (6) **health check** (`health-check.ts`). The v1 thin-schema cascade also runs synchronously inside the `realms.generate` tRPC mutation. Runtime task triggering needs the `tr_prod_` secret key (`docs/deferrals.md` INFRA-1); scheduled crons do not. Per-task wiring gotchas are in `docs/02-implementation-roadmap.md` §6 P1 "Trigger.dev wiring notes."
 
 ## 10. Hosting — Vercel + Supabase (most likely)
 
-**Choice — likely**: Vercel for the Next.js application + a managed Postgres (Supabase, or Neon as an alternative) + a managed Redis (Upstash) if we go BullMQ. Tier-4 WebSocket server hosted separately (Fly.io or Railway) since Vercel's serverless model isn't ideal for long-lived connections.
+**Choice**: Vercel for the Next.js application + managed Postgres (Supabase). Tier-4 WebSocket server hosted separately (Railway) since Vercel's serverless model isn't ideal for long-lived connections. *(No managed Redis — BullMQ was rejected in favor of Trigger.dev (§9), so the "Upstash if we go BullMQ" path does not apply.)*
 
 This split is the standard modern-web pattern: serverless edge for the request/response surface, dedicated VMs for stateful real-time. Both can autoscale; both have good free/dev tiers for the pre-launch period.
 
@@ -158,7 +160,7 @@ Grounding today is schema-driven (enums + min/max in the prompt) + a curated lis
 
 ## 15. Cross-Cutting Conventions
 
-- **Module organization**: monorepo via a single Next.js app with internal packages (`@app/engine`, `@app/ui`, `@app/db`) wired through TypeScript path aliases. We may move to pnpm workspaces if package boundaries get heavier.
+- **Module organization**: monorepo on **npm workspaces** — `apps/web` (Next.js) + `services/ws-server` + internal packages `@app/engine`, `@app/db`, `@app/llm`, `@app/memory`, `@app/config` wired through TypeScript path aliases. *(There is no `@app/ui` package — UI lives in `apps/web`; and the repo uses npm workspaces, not pnpm.)*
 - **Code style**: Prettier + ESLint (typescript-eslint plugin) with a strict ruleset; no unused vars, no implicit any, exhaustive switch checking via `assertNever`.
 - **Schema validation**: Zod everywhere at boundaries — tRPC procedures, LLM tool-call validation, form inputs, environment variables.
 - **Environment management**: `.env` files for local development, platform env vars in production. All env vars validated through a Zod schema at boot — the app refuses to start with missing or malformed config.

@@ -9,9 +9,9 @@
 **Code progress (Jun 2026): P0–P5 substantially complete ahead of calendar.** Milestones reached: **M1 Hello Codex, M2 First Character, M3 First Fight, M4 First World, M5 First Campaign (tracer depth), M6 Tutorial E2E.** Memory tier (MEM-1–MEM-8) is Done. **`docs/deferrals.md` is the single source of truth for everything deferred.**
 
 Highlights of what's built:
-- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**339** catalog + **124** combat-authored + golden harness on hand-authored set), **ENG-13 active effects** (Bless/Shield/Hunter's Mark/Blur/Faerie Fire). ~452 engine tests.
+- **Engine (`packages/engine`, E1–E3):** deterministic dice, event-sourced state, combat pipeline (conditions, action economy, initiative, movement/LOS, rests, concentration, OA reactions, weapon range, Multiattack), spell registry (**339** catalog + **126** combat-authored + golden harness on hand-authored set), **ENG-13 active effects** (Bless/Shield/Hunter's Mark/Blur/Faerie Fire). ~570 engine tests (75 files).
 - **Tier 4 sync:** `@app/ws-server` Hocuspocus Yjs server + PixiJS battle map; persisted per-campaign live play. Invite links shipped at tracer depth (#211, CAMP-14); **multiplayer depth parked** until solo prod polish.
-- **Product surfaces:** six-item nav; Codex (spells, species/classes, backgrounds/feats, monsters, items, rules); Characters; Smithy; Realms (7 rich generators + AI pipeline); **9-tab Campaign workspace** (all tabs at tracer+ depth, World Map included); Live Play (chat/HUD/combat/AoE/enemy AI/reactions/party rail/top bar).
+- **Product surfaces:** six-item nav; Codex (spells, species/classes, backgrounds/feats, monsters, items, rules); Characters; Smithy; Realms (7 rich generators + AI pipeline); **7-tab Campaign prep workspace** (Overview / Map / Locations / Party / Quests / Notes / Settings — Map = overworld grid; CAMP-7 partial) + a unified Live Play shell (sessions/memories as lightboxes); Live Play (chat/HUD/combat/AoE/enemy AI/reactions/right party rail/top bar).
 - **Tutorial:** *Lantern's Last Flicker* E2E (#169–#178) with launch gate.
 - **Memory tier (P5):** rolling summaries, recaps, pins, RAG, live-turn context — shipped.
 - **Quest system (Phases A–D):** structured `QuestTemplate` on Realms entities; tease/offer/briefing runtime; Realms + Campaign editors; prerequisite gates, step advance, XP on Resolve — see `docs/quests.md`.
@@ -56,42 +56,14 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 | Track | Focus | Key IDs |
 |---|---|---|
-| **1 — Engine + spells** | Top-120 push, effect riders, known/prepared gate | ENG-2, ENG-13 (tracer), ENG-12 |
+| **1 — Engine + spells** | Deepen combat handlers for catalog-only spells, effect riders (top-120 declarative curation + ENG-12 prepared-cast gate are Done) | ENG-2, ENG-13 |
 | **2 — LLM observability** | Usage audit, adherence harness, model routing | ENG-6, `llm_usage_events` (#212) |
 | **3 — UI production depth** | Live Play, Campaign, Characters, Codex, Realms polish | PLAY-3/6/12, CAMP-2/6/8, CHAR-7, REALM-2 |
 | **4 — Generator depth** | Settlement tabs, dungeon→encounter, shop transactions | GENR-7, GENR-5, GENR-2 |
 
-**Recently shipped (Jun 2026, post-#281):** CHAR-ADV-3 — SRD 5.2 one-subclass-per-class audit, rich subclass features in Codex/seed, fighting style pick + persist through creation/advancement, species trait descriptions, multiclass toggle-off, legacy subclass name aliases.
+> Live status/IDs for every track item live in `docs/deferrals.md`; the rows above are orientation only.
 
-**Recently shipped (Jun 2026, post-#280):** CHAR-ADV-2 — creation Features step validation (level>1), feat prerequisite gating, subclass detail modal, level-up spell picker + multiclass validate/undo.
-
-**Recently shipped (Jun 2026, post-#246):** Roll20-style character sheet — 3-column layout, HP panel, Live Stats HUD, Inventory/About/Notes tabs, notes meta via `character-sheet-storage`.
-
-**Recently shipped (#309, Jun 2026):** GRILL-EXPLORATION Slice 3 — Live Play fall/burn WS hooks, burning HUD chip, chat resolution, demo Use Item items.
-
-**Recently shipped (#308, Jun 2026):** GRILL-EXPLORATION Slice 2 — engine `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start burning tick.
-
-**Recently shipped (#307, Jun 2026):** GRILL-EXPLORATION Slice 1 — Codex Rules two-tier UI for Exploration hazards (overview + five glossary entries).
-
-**Recently shipped (#306, Jun 2026):** Smithy Gameplay Toolbox removed — Codex SRD 5.2 read-only for toolbox; GRILL-SMITHY-EDIT deferred.
-
-**Recently shipped (#303–#305, Jun 2026):** GRILL-LIVE-FEAR — engine registry + apply/tick/remove handlers; WS enter/leave hooks; Live Play amber scene + party-rail chips; dungeon demo Sarcophagus Apparition + Hallucinogenic Substance vial.
-
-**Recently shipped (#301–#302, Jun 2026):** GRILL-LIVE-ENV-EFFECT — engine registry + apply/tick/remove handlers; WS enter/leave hooks; Live Play scene chips + frost/cyan exposure HUD; dungeon demo Extreme Cold + Slippery Ice.
-
-**Recently shipped (#298–#299, Jun 2026):** GRILL-LIVE-CURSE — engine registry + apply/remove/tick handlers; Live Play Use Item → curse, party rail HUD, dungeon demo vials.
-
-**Recently shipped (#296–#297, Jun 2026):** GRILL-LIVE-POISON — engine registry + `coat_weapon` / `apply_poison` / repeat ticks; Live Play Coat chip, Use Item → ingested poison, party rail HUD, dungeon demo vials.
-
-**Recently shipped (Jun 2026, post-#245):** Characters dashboard sweep (⋯ menu, XP bars, Play Now, 10-step creation wizard) · sheet Features + Personality tabs · **5-step level-up** (Spells step, level history, fighting-style combat math) · PLAY-3 party-rail HUD **statsOnly** dedup (turn controls stay on combat bar).
-
-**Recently shipped (#244, Jun 2026):** ENG-2 batch 11 — registry **103 → 120** (top-120 declarative curation complete) + golden snapshots.
-
-**Recently shipped (#243, Jun 2026):** ENG-2 batch 10 — registry **92 → 103** (Hold Monster, Dominate Person, Fear, Suggestion, Wall of Fire, Chain Lightning, Otto's Irresistible Dance, Power Word Stun, Sleep, Greater Restoration, Crown of Madness) + golden snapshots.
-
-**Recently shipped (#212–214, Jun 2026):** `llm_usage_events` + Settings AI usage panel · ENG-6 fixture expansion · ENG-2 batches 4–9 · ENG-12 prepared-cast gate · ENG-13 active effects · mid-campaign **roster → live sync** · PLAY-4 party sheet peek · Bless multi-target + Shield reaction tracer · CAMP-6 Sessions deep view · Characters Combat tab · migration 0030 · **Rung 1 dogfood fixes**.
-
-**Recently shipped (#211, merged Jun 2026):** PLAY-15 Multiattack · ENG-10 reach OA · ENG-2 spell batch 3 · CAMP-14 invite tracer · CAMP-7 World Map tab · REP-1 reputation tracer · migration 0029.
+**Recent ships + full backlog:** see **`docs/deferrals.md`** — the single source of truth for every shipped/`Done`/`Partial`/deferred item (PR-numbered). Do not maintain a duplicate shipped-list here. Most recent frontier (Jun 2026): GRILL-EXPLORATION exploration hazards (#307–#309, Falling + Burning); Smithy Gameplay Toolbox removed (#306); TUT-1 tutorial E2E shipped (#169–#178).
 
 **Parked until polish pass done:** CAMP-14 multiplayer depth · PLAY-9 multi-client reaction sync · INFRA-4 billing · M8 closed beta.
 

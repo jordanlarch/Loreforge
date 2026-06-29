@@ -18,7 +18,7 @@
 | **Codex** | Official SRD 5.2 reference | (already designed) |
 | **Smithy** | Your homebrew SRD rules content | (already designed) |
 | **Realms** | Worldbuilding library (8 entity types: Regions, Settlements, Buildings, Taverns, Shops, Dungeons, Factions, NPCs) | Flat-by-type sidebar mirroring Codex + Grid/List/**Graph** view toggle + relationship panels in detail pages |
-| **Campaigns** | Workspace per campaign (9 tabs) | Overview / Party / World / Hooks / Sessions / World Map / Combat / Notes / Settings |
+| **Campaigns** | Workspace per campaign (7 prep tabs) + unified Live Play shell | Overview / Map / Locations / Party / Quests / Notes / Settings — sessions & memories surface as Live Play lightboxes (CAMP-UX, Jun 2026; canonical IA in `docs/ui-flows/unified-campaign-ux.md`) |
 | **Plot Hooks / Quests** | Campaign-scoped narrative state (not in Realms library) | Kanban-style: Suggested / Open / Active / Resolved / Abandoned. **Jun 2026:** unified **Quest** model locked (`docs/quests.md`); Realms embed `data.quests[]` templates; Live Play tease triggers Phase A shipped; campaign tab rename **Hooks → Quests** in Phase B. |
 
 ## Entity model

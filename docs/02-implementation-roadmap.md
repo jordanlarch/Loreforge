@@ -2,6 +2,17 @@
 
 *Phased delivery plan for solo-engineer v1. Calendar anchor: **M0 = May 2026**. Canonical product decisions: `docs/product-spec.md` §5. Engine-only phasing: `docs/engine/architecture.md` §16.*
 
+> **⚠️ Reconciliation (Jun 2026) — the project shipped far ahead of this calendar.** The
+> month/milestone dates below (M10–M26 in 2027–2028) are the *original* plan; actual progress
+> is **P0–P5 substantially complete, M1–M6 reached** by Jun 2026. Specifically: the **7-tab
+> campaign prep workspace + unified Live Play shell** are built (not "0/9 tabs"); Live Play
+> (chat/HUD/combat/AoE/enemy-AI/reactions) is shipped; the **top-120 declarative curation is
+> done** (registry = 339 Open5e catalog + 126 hand-authored overrides; product target remains
+> full ~360); spell ingest runs on **Open5e `srd-2024` (~339)**, not `srd-2014`; Tier-4
+> sync-stress harness is **CI-gated** (`docs/perf/sync-stress.md`). Treat the per-phase status
+> banners below as historical snapshots; **`docs/deferrals.md` is the single source of truth**
+> for live status, and `docs/ui-flows/unified-campaign-ux.md` for campaign IA.
+
 ---
 
 ## 1. Executive Summary
@@ -68,7 +79,7 @@ Demo-able deliverables with calendar targets (solo).
 | **M2** | First character | Nov 2026 (M6) | Character Creation Wizard + read/edit sheet; Smithy MVP (item + declarative spell) |
 | **M3** | First fight | Feb 2027 (M9) | 2-client Tier 4 combat: attack, conditions, OA; battle map; ~30 T1 spells |
 | **M4** | First world | Jun 2027 (M13) | Realms shell (Grid/List/Graph); NPC + Region + Settlement generators; cascading stubs |
-| **M5** | First campaign | Mar 2028 (M22) | All 7 generators; Campaign workspace (9 tabs); Live Play + always-on map; hook lifecycle |
+| **M5** | First campaign | Mar 2028 (M22) | All 7 generators; Campaign workspace (7 prep tabs + Live Play shell); Live Play + always-on map; hook lifecycle — **reached Jun 2026** |
 | **M6** | Tutorial E2E | Jul 2028 (M26) | *Lantern's Last Flicker* internal green path; top-120 covers tutorial spells |
 | **M7** | Closed alpha | Sep 2028 (M28) | 10–50 invites; unpaid; engine + play stable; tutorial WIP OK |
 | **M8** | Closed beta | Dec 2028 (M31) | 100–300 waitlist; Stripe + 10-chat metering; tutorial ≥40% completion in cohort |
@@ -161,7 +172,7 @@ Slippage in **top-120 authoring** or **Dungeon generator** (rooms-as-entities + 
 
 ### P1 — Engine Skeleton + App Shell (M1–M3) — ✅ COMPLETE (Jun 2026)
 
-> **P1 status (Jun 2026):** Done — **M1 "Hello, Codex" reached.** Engine **E1 skeleton** and the **M1 product surfaces** are implemented and green (typecheck/lint/build + 67 engine tests; CI green on `main`). The **full Open5e SRD spell ingest** now runs as a **scheduled nightly Trigger.dev job** (cron `0 8 * * *`, deployed to prod as version `20260619.1`, project `proj_pywyqcovveavdmoqpzsg`) — the first real background job — pulling the full SRD 5.1 document (`srd-2014`, ~319 spells) into `codex_spells` via a shared `ingestOpen5eSpells()` lib reused by the manual CLI. A prod run is verified green (319 upserted). Deferred to P2: Postgres-backed per-campaign event persistence behind the engine tRPC router (lands with campaigns/combat — issue #2). Remaining P1+P2 work is filed as GitHub issues #2–#16.
+> **P1 status (Jun 2026):** Done — **M1 "Hello, Codex" reached.** Engine **E1 skeleton** and the **M1 product surfaces** are implemented and green (typecheck/lint/build + 67 engine tests; CI green on `main`). The **full Open5e SRD spell ingest** now runs as a **scheduled nightly Trigger.dev job** (cron `0 8 * * *`, deployed to prod as version `20260619.1`, project `proj_pywyqcovveavdmoqpzsg`) — the first real background job — pulling the full SRD document into `codex_spells` via a shared `ingestOpen5eSpells()` lib reused by the manual CLI. *(At M1 this ingested SRD 5.1 `srd-2014` ~319 spells; the SRD 5.1→5.2 audit later switched the canonical document to Open5e **`srd-2024` (~339)** — see `docs/srd-version-audit.md`.)* Deferred to P2: Postgres-backed per-campaign event persistence behind the engine tRPC router (lands with campaigns/combat — issue #2). Remaining P1+P2 work is filed as GitHub issues #2–#16.
 >
 > **Trigger.dev wiring notes (Jun 2026):** the v4 CLI bin is `trigger` (not `trigger.dev`); all `@trigger.dev/*` packages must be pinned to the exact CLI version; OpenTelemetry needs `import-in-the-middle`/`require-in-the-middle` with an npm override pinning `import-in-the-middle` to v3; `trigger.config.ts` hardcodes the (non-secret) project ref so `trigger deploy` works without env loading. The CLI is logged in (PAT stored); only the `tr_dev_` runtime secret key is on hand — the `tr_prod_` key is needed only once the app triggers tasks at runtime.
 >
@@ -225,9 +236,9 @@ Combat pipeline, all conditions, action economy, initiative, movement/LOS, rests
 
 ---
 
-### P4 — Generators + Campaign + Live Play (M10–M22) — 🚧 STARTED (M5 ~30%, Jun 2026)
+### P4 — Generators + Campaign + Live Play (M10–M22) — ✅ SUBSTANTIALLY COMPLETE (M5 reached, Jun 2026)
 
-> **P4 status (Jun 2026):** Started toward **M5 "First Campaign."** Built so far: the shared generator pipeline + tracer-depth NPC/Region/Settlement (in P3 above) and a generic **Advanced Form** that can emit any type onto thin schemas.
+> **P4 status (Jun 2026, updated):** **M5 "First Campaign" reached.** All 7 rich generators shipped; the **7-tab campaign prep workspace** (Overview / Map / Locations / Party / Quests / Notes / Settings) + a unified **Live Play shell** (chat/HUD/combat/AoE/enemy-AI/reactions/right party rail/top bar/scene transitions) are built; plot-hook → quest lifecycle shipped. Per-surface depth (e.g. Settlement tabs GENR-7, World Map CAMP-7, encounter builder) tracked in `docs/deferrals.md`. *(Original "M5 ~30% / 0/9 tabs" framing below is superseded — kept for history.)*
 >
 > **Intentional deviation from the prescribed generator order/depth (record, not drift):** the plan below sequences 7 **rich per-type** generators (Tavern→Shop→Building→Faction→Settlement→Region→Dungeon) on rich tabbed schemas. We instead shipped a **generic thin-schema pipeline for all types** + tracer-depth NPC/Region/Settlement + an Advanced Form over the thin `REALM_FIELDS` schemas. This satisfies M4's NPC+Region+Settlement at tracer depth but **not** the rich P4/M5 generators. The "ship-fast over current schemas" choice is deliberate; the rich per-type schema expansion (`docs/deferrals.md` GEN-1) gates the 5 unbuilt rich generators (GENR-1–5) and rich Realms detail tabs (REALM-1).
 >
@@ -278,7 +289,7 @@ Settlement/Region are sequenced **after** Tavern/Shop/Building so child patterns
 
 ### P6 — Polish + Closed Alpha (M22–M28)
 
-**Engine (E5)** — retcon UI, QuickJS Smithy sandbox, perf/sync stress, LLM tool-adherence harness.
+**Engine (E5)** — retcon UI, QuickJS Smithy sandbox, perf/sync stress, LLM tool-adherence harness. *(Jun 2026: **sync-stress harness already shipped + CI-gated** at P95 < 500ms — see `docs/perf/sync-stress.md`; a tool-adherence harness scaffold also exists in `services/ws-server/src/adherence/`. Retcon UI + QuickJS sandbox remain deferred.)*
 
 **Product**
 - Closed **alpha**: invite codes, PostHog funnels, unlimited chats (no billing)

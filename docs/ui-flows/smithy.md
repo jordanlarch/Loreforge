@@ -47,7 +47,8 @@ Exactly mirrors Codex structure for instant familiarity, but shows **only your c
 7. **Items** (sub-tabs: Weapons | Armor | Adventuring Gear | Tools | Potions | Magic Items)
 8. **Spells**
 9. **Feats**
-10. **Advanced Rules** (Curses & Magical Contagions | Environmental Effects | Fear & Mental Stress | Poisons | Traps)
+
+> **⚠️ Removed (#306, Jun 2026).** The **Gameplay Toolbox / Advanced Rules** (traps, poisons, curses, environmental effects, fear & mental stress) is **no longer a Smithy category** and is **not forgeable/copyable here**. It lives **read-only in Codex** (`/codex/toolbox`); `/smithy/toolbox/*` redirects to Codex, and server-side `copyFromCodex` / `createToolboxEntry` / `updateToolboxEntry` are blocked. `SmithyToolboxForm` + `homebrew_toolbox_entries` are retained in-repo for a future **GRILL-SMITHY-EDIT** pass (`docs/data-model-hazards.md`). The 9 categories above are the live Smithy library (`apps/web/src/lib/smithy-categories.ts`).
 
 ---
 

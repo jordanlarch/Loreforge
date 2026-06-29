@@ -78,6 +78,15 @@ export const SRD_CURSE_SEEDS: readonly SrdCurseSeed[] = [
     recovery:
       "Heal or Lesser Restoration ends immediately. Herbalism Kit ointment (1 hour per dose) suppresses 24 hours; three applications (72 hours total) ends the contagion.",
   }),
+  curse("srd-spell_bestow-curse", 4, {
+    name: "Bestow Curse (spell)",
+    description:
+      "Spell-created curse — rider effect chosen at cast (v1 tracks instance; mechanics narrative).",
+    effects: [
+      "One rider: ability disadvantage, attack disadvantage vs caster, forced Dodge, or +1d8 necrotic on hit.",
+    ],
+    recovery: "Remove Curse, Greater Restoration, or Wish ends the effect.",
+  }),
 ];
 
 export const CURSE_REGISTRY: Readonly<Record<string, CurseDefinition>> = Object.fromEntries(

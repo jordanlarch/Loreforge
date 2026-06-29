@@ -173,7 +173,7 @@ Deferred from GRILL-TRAP Q7. **Traps-only v1** for Live Play resolution.
 | Engine commands | ✅ handlers + projection + `engine.traps.test.ts` |
 | WS / Live Play UI | ✅ #293 — detect/disable affordances + `sceneKind` gate |
 | Scene trap placement (GM prep) | ⏳ deferred — CAMP / map editor |
-| Poisons+ siblings | ⏳ after traps v1 prod verify — **GRILL-LIVE-POISON** session |
+| Poisons+ siblings | ✅ **GRILL-LIVE-POISON** (#296–#297), **GRILL-LIVE-CURSE** (#298–#299); **GRILL-LIVE-ENV-EFFECT** next |
 
 ---
 
@@ -277,74 +277,112 @@ Do **not** overload generic `conditions[]` for repeat-save poisons.
 
 ## GRILL-LIVE-CURSE — COMPLETE ✅
 
-Curses attach via **entity state + item metadata** — not map tiles. **Contagion spread** (radius emanation, carrier wound contact) deferred to **GRILL-EXPLORATION** (Q1). **Bestow Curse** spell uses the spell pipeline; Live Play v1 uses **`apply_curse`** only.
+Curses attach via **entity state + item metadata** — not map tiles. **Proper grill session** confirmed Q1–Q8 after #298–#299 shipped on assumed defaults. Bestow Curse / Remove Curse use the **spell pipeline**; Live Play v1 is passive exposure + HUD feedback only (Q5 A′).
 
-### Q1 — v1 delivery scope ✅ (2026-06-28)
+### Q1 — v1 delivery scope ✅ (grill confirmed)
 
 **Option A — Direct infection only.**
 
 | In v1 Live Play | Deferred |
 |---|---|
 | **`apply_curse`** — initial save + structured conditions (Use Item / GM hook) | **Contagion spread** — radius/carrier rules (→ **GRILL-EXPLORATION**) |
-| **`remove_curse`** — Remove Curse / Lesser Restoration hook | **Environmental auto-apply** on scene enter |
-| | **Demonic possession nat-1** hijack (narrative-only in v1) |
+| **`remove_curse`** — engine command; Remove Curse / Lesser Restoration spell bridge deferred | **Environmental auto-apply** on scene enter |
+| Turn-start **`resolve_curse_tick`** for **Demonic Possession** only | **Demonic possession nat-1** hijack (narrative-only in v1) |
+| | Long-rest / daily recovery (Cackle Fever, Sewer Plague) |
 
-### Q2 — Attachment model ✅ (2026-06-28)
+### Q2 — Attachment model ✅ (grill confirmed)
 
-**Option A — Entity instances.**
+**Option A + A2 — Entity instances; one active instance per slug per entity.**
 
 | State | Purpose |
 |---|---|
-| `EntityState.activeCurses[]` | Ongoing curse instances (slug, instance id, recovery counter) |
-| Optional `conditions[]` on `CurseDefinition` | Structured engine effects (e.g. Sight Rot → blinded) |
+| `EntityState.activeCurses[]` | Ongoing curse instances (slug, instance id, recovery counter) — **dedupe: reject or refresh if slug already active** |
+| Optional `conditions[]` on `CurseDefinition` | Structured engine effects (e.g. Sight Rot → blinded); cleared on `remove_curse` |
 
-Do **not** overload generic `conditions[]` on the entity for recovery-tracked curses.
+Do **not** overload generic entity `conditions[]` for recovery-tracked curses without an `activeCurses[]` instance.
 
-### Q3 — Engine commands ✅ (2026-06-28)
+**Follow-up ✅:** one-instance-per-slug enforced in `apply_curse` handler (`CURSE_ALREADY_ACTIVE`).
 
-**Option A — Minimal trio** (mirrors poison).
+### Q3 — Engine commands ✅ (grill confirmed)
+
+**Option A — Minimal trio** (mirrors poison / trap command pattern).
 
 | Command | Purpose | Invoked by |
 |---|---|---|
-| `apply_curse` | Initial save, conditions, push to `activeCurses[]` when ongoing | Use Item; GM tool later |
+| `apply_curse` | Initial save, conditions, push to `activeCurses[]` when ongoing (dedupe per Q2) | Use Item; GM tool later |
 | `resolve_curse_tick` | Recovery save per turn-start rules | Engine at turn boundary |
-| `remove_curse` | End curse instance + clear linked conditions | Remove Curse spell; Lesser Restoration item later |
+| `remove_curse` | End curse instance + clear linked definition conditions | Remove Curse / Lesser Restoration spell bridge later; GM tool |
 
-### Q4 — Trigger timing ✅ (2026-06-28)
+### Q4 — Trigger timing ✅ (grill confirmed)
+
+**All Option A.**
 
 | Topic | Decision |
 |---|---|
 | **Direct apply** | Auto `apply_curse` when Use Item resolves an item tagged with `toolboxCurseSlug` |
-| **Recovery saves** | Auto `resolve_curse_tick` at **start of cursed entity's turn** when `pendingRecovery` (Demonic Possession v1) |
-| **Long-rest recovery** | Deferred (Cackle Fever, Sewer Plague daily rules → slice 1.5 or GRILL-EXPLORATION) |
+| **Turn recovery (Demonic Possession)** | Auto `resolve_curse_tick` at **start** of cursed entity's turn when `pendingRecovery` (poison-consistent; not SRD end-of-turn) |
+| **Long-rest / daily recovery** | Deferred (Cackle Fever, Sewer Plague → GRILL-EXPLORATION or v1.1) |
+| **`remove_curse` Live Play** | Engine command only in v1; spell / scroll bridge deferred |
 
-### Q5 — Live Play UI ✅ (2026-06-28)
+### Q5 — Live Play UI ✅ (grill confirmed)
 
-**Slice 2 (WS + Live Play PR)** — party rail HUD chip, Use Item hook, demo vials. Engine slice 1 is CI-only.
+**Option A′ — Passive exposure + feedback only (no curse action rail).**
 
-### Q6 — Registry & item bridge ✅ (2026-06-28)
+SRD curses are exposure → save → ongoing state, not a third action economy. Bestow Curse / Remove Curse live in the **spell pipeline**; Live Play v1 has no dedicated curse buttons.
+
+| Surface | Decision |
+|---|---|
+| **How curses arrive** | Engine `apply_curse` on exposure: environment, creature/NPC, GM hook; contagion deferred (Q1) |
+| **Consumables** | **Use Item** for normal potion use only (demo vials = tainted water narrative) — not a curse-specific affordance |
+| **Spells** | Bestow Curse → `apply_curse`; Remove Curse → `remove_curse` — spell cast handlers own UI (bridges deferred) |
+| **Active curse feedback** | Party rail violet HUD chip (passive state) |
+| **Recovery saves** | Silent turn-start `resolve_curse_tick`; narrative log only |
+
+**Out of v1 UI:** Inflict / Break curse chips, curse picker on action rail, manual save-vs-curse button.
+
+### Q6 — Registry & item bridge ✅ (grill confirmed)
+
+**Option A — Engine seeds + item field** (mirrors poison / trap registry pattern).
 
 | Layer | Decision |
 |---|---|
 | **Curse registry** | `srd-curse-seeds.ts` in `@app/engine`; DB ingest imports same module |
 | **Item link** | Optional `toolboxCurseSlug?: string` on `ItemDefinition` |
-| **Demo** | Sight Rot vial + Demonic Possession scroll (Q8) |
+| **Demo fallback** | Name map in `live-curses.ts` when Smithy metadata absent (prod verify only) |
 
-### Q7 — v1 delivery phasing ✅ (2026-06-28)
+### Q7 — v1 delivery phasing ✅ (grill confirmed)
 
-| Slice | Scope | Verify |
+**Option A — Two PRs** (mirror traps / poison).
+
+| Slice | Scope | Status |
 |---|---|---|
-| **PR 1 — Engine** | Registry, `activeCurses[]`, handlers, projection, tests | CI green |
-| **PR 2 — WS + Live Play** | Use Item hook, HUD chip, demo fixtures | Prod verify |
+| **PR 1 — Engine** | Registry, `activeCurses[]`, commands, projection, tests | ✅ **#298** |
+| **PR 2 — WS + Live Play** | Use Item exposure path, HUD chip, demo loot | ✅ **#299** |
+| **Post-grill follow-ups** | Slug dedupe, spell bridges, prod verify | ✅ dedupe + spell bridges shipped; prod verify after merge |
 
-### Q8 — Demo fixtures ✅ (2026-06-28)
+### Q8 — Demo fixtures ✅ (grill confirmed)
+
+**Option A — Simple pair** (matches #299 dungeon demo loot).
 
 | Fixture | Curse slug | Purpose |
 |---|---|---|
-| Inventory vial | `srd-2024_sight-rot` | Con save → blinded; `remove_curse` clears |
-| Inventory scroll | `srd-2024_demonic-possession` | Cha save → turn-start recovery tick |
+| Inventory vial | `srd-2024_sight-rot` | Use Item (tainted water) → Con save → blinded + violet HUD |
+| Inventory scroll | `srd-2024_demonic-possession` | Use Item → Cha save → turn-start `resolve_curse_tick` |
 
-**Prod verify checklist (slice 2):** Use Item Sight Rot → HUD chip + blinded; turn-start recovery on Demonic Possession; Remove Curse clears instance.
+**Prod verify checklist:** Use Item Sight Rot → HUD chip + blinded; Use Item Demonic Possession → turn-start recovery tick in combat. Remove Curse / Lesser Restoration via spell bridge deferred.
+
+### Decision record (GRILL-LIVE-CURSE)
+
+| # | Decision |
+|---|---|
+| **Q1** | Direct infection only — `apply_curse` + `remove_curse` command; defer contagion spread, environmental auto-apply, nat-1 hijack, long-rest/daily recovery |
+| **Q2** | `activeCurses[]` + definition `conditions[]`; **one instance per slug per entity** (dedupe on apply) |
+| **Q3** | `apply_curse` / `resolve_curse_tick` / `remove_curse` |
+| **Q4** | Use Item auto-apply; turn-**start** recovery tick; defer long-rest/daily and remove UI |
+| **Q5** | **A′** — passive exposure + violet HUD only; no curse action rail; spells own Bestow/Remove |
+| **Q6** | Engine `srd-curse-seeds.ts` + `toolboxCurseSlug`; demo name-map fallback |
+| **Q7** | Two PRs (#298 → #299); post-grill gaps as targeted follow-ups |
+| **Q8** | Sight Rot vial + Demonic Possession scroll demo pair |
 
 ### Implementation checklist (v1 — two PRs)
 
@@ -353,7 +391,9 @@ Do **not** overload generic `conditions[]` on the entity for recovery-tracked cu
 | **Engine (#298)** | `srd-curse-seeds.ts`, `CURSE_REGISTRY`, `EntityState.activeCurses[]`, `toolboxCurseSlug`, handlers + projection + tests | ✅ merged |
 | **WS + Live Play (#299)** | `apply_curse` battle action, Use Item hook, HUD chip, demo fixtures (Q8) | ✅ merged |
 
-**Deferred:** contagion spread → **GRILL-EXPLORATION**; long-rest recovery ticks (Cackle Fever, Sewer Plague); nat-1 possession hijack.
+**Deferred:** contagion spread → **GRILL-EXPLORATION**; long-rest recovery ticks (Cackle Fever, Sewer Plague); nat-1 possession hijack; Bestow/Remove Curse spell → command bridges.
+
+**Post-grill follow-ups ✅:** slug dedupe in `apply_curse`; spell cast → `remove_curse` / `apply_curse` (Bestow/Remove Curse); prod verify on dungeon campaign after merge.
 
 ---
 

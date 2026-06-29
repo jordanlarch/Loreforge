@@ -449,8 +449,8 @@ Tracked here; several alias to existing engine rows (don't mint duplicates — f
 
 | ID | Item | Tracking | Status | Notes |
 |---|---|---|---|---|
-| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | **Partial** | **Save proficiencies done** — `saveProficiencies` on `EntityState`; threaded from DB → ws-server → live entities; applied in all save roll paths. Skill/tool proficiency on entity still open. |
-| SRD-FID-17 | Surprise (combat order) | doc-only | Missing | |
+| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | **Partial** | **Save proficiencies done** — PR #328: `saveProficiencies` on `EntityState`; threaded DB → ws-server → live entities; all save paths. Skill/tool on entity still open. |
+| SRD-FID-17 | Surprise (combat order) | doc-only | **Done** | PR TBD — `resolve_surprise` command; surprised flag blocks move/actions/reactions on first turn. |
 | SRD-FID-18 | Difficult terrain movement cost | doc-only | Missing | |
 | SRD-FID-19 | Resistance / Vulnerability / Immunity + temp-HP **grant** command | doc-only | Missing | damage types logged, never multiplied; no temp-HP event. |
 | SRD-FID-20 | Condition depth (grapple escape, frightened gates, blinded/deafened auto-fail, petrified resistances) | doc-only | Partial | see also SRD-FID-3, SRD-FID-14. |

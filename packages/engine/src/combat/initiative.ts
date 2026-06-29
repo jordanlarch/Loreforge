@@ -58,3 +58,16 @@ export function freshActionEconomy(
     freeInteractionUsed: false,
   };
 }
+
+/** Action economy for a surprised combatant's first turn — no move or actions. */
+export function surprisedActionEconomy(
+  attacks = 1,
+): ActionEconomyState {
+  return {
+    action: "lost",
+    bonusAction: "lost",
+    movement: { used: 0, total: 0 },
+    attacks: { used: 0, total: Math.max(1, Math.floor(attacks)) },
+    freeInteractionUsed: true,
+  };
+}

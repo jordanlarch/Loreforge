@@ -29,7 +29,7 @@
 |---|---|---|---|---|
 | Playing the Game — D20 Tests | n/a | checks/attacks ✅; **save proficiency** ✅; skill prof on entity ✗ | 🟡 | SRD-FID-16 (saves done) |
 | Playing the Game — Actions (12 standard) | n/a | Dash/Disengage/Dodge/Help/Hide ✅; Grapple/Shove/Use Object etc. ✗ | 🟡 | SRD-FID-14 (done); two-weapon/unarmed/shove/grapple still open |
-| Playing the Game — Combat order | n/a | initiative/turns/rounds ✅; **surprise** ✗ | 🟡 | SRD-FID-17 |
+| Playing the Game — Combat order | n/a | initiative/turns/rounds/surprise ✅ | 🟡 | SRD-FID-17 done |
 | Playing the Game — Movement/position | n/a | grid/LOS/OA/cover ✅; **difficult terrain** ✗ | 🟡 | SRD-FID-18 |
 | Playing the Game — Damage/Healing | n/a | HP/crit/heal/death saves ✅; **resist/vuln/immunity** ✗; temp-HP grant ✗ | 🟡 | SRD-FID-19, ENG-8 |
 | Conditions (15) | declared ✅ | ~9 accurate, ~6 simplified | 🟡 | SRD-FID-3, SRD-FID-20 |
@@ -97,7 +97,7 @@ Work end-to-end with deterministic math + tests:
 
 - **D20 core:** ability checks (+proficiency flag), attack rolls, advantage/disadvantage with correct cancel-to-normal stacking.
 - **Progression:** proficiency bonus by level, HP at L1 + per level, XP thresholds & milestone, ASI at 4/8/12/16/19 + class extras, multiclassing prerequisites + spell-slot pooling math.
-- **Combat loop:** initiative (DEX tiebreak), turns/rounds, action economy for Attack + Extra Attack/Multiattack, **Dash/Disengage/Dodge/Help/Hide**, opportunity attacks (respects Disengage), Ready, reaction budget.
+- **Combat loop:** initiative (DEX tiebreak), turns/rounds, **surprise** (first-turn skip), action economy for Attack + Extra Attack/Multiattack, **Dash/Disengage/Dodge/Help/Hide**, opportunity attacks (respects Disengage), Ready, reaction budget.
 - **Movement:** 5-5-5 grid, speed budget, Bresenham line-of-sight enforced on attacks/spells; **cover** (half +2 / three-quarters +5 AC & Dex saves; total cover = wall blocks targeting).
 - **Damage/Healing:** HP/temp-HP soak, critical hits (dice doubling, adjacent auto-crit on prone/unconscious), healing clamp, death saving throws, 0-HP downing clears concentration.
 - **Concentration:** start/replace/break, CON save DC `max(10, dmg/2)`, strips linked effects.
@@ -135,7 +135,6 @@ Work end-to-end with deterministic math + tests:
 
 | ID | Item | Notes |
 |---|---|---|
-| SRD-FID-17 | **Surprise** | combat order |
 | SRD-FID-18 | **Difficult terrain** movement cost | |
 | SRD-FID-19 | **Resistance / Vulnerability / Immunity** | damage types logged but never multiplied (explicitly deferred in `combat/conditions.ts`) |
 | ENG-8 | **Instant death / massive damage**, crit-doubles-death-failures, Stabilize action | partially overlaps SRD-FID-13 |

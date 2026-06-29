@@ -6,7 +6,7 @@
  * in place — each step returns a new state object — so a retcon can rebuild
  * from genesis deterministically (`docs/engine/architecture.md` §3.2).
  */
-import { freshActionEconomy, type InitiativeEntry } from "../combat/initiative";
+import { freshActionEconomy, surprisedActionEconomy, type InitiativeEntry } from "../combat/initiative";
 import { distanceFeet } from "../combat/grid";
 import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import {
@@ -39,6 +39,8 @@ export type EncounterState = {
   /** Resolved descending turn order; empty until initiative is rolled. */
   order: InitiativeEntry[];
   initiativeRolled: boolean;
+  /** Set after `resolve_surprise`; optional before rolling initiative. */
+  surpriseResolved: boolean;
   /** 0 before initiative; 1-based once combat begins. */
   round: number;
   /** Index into `order` of the active combatant. */
@@ -78,8 +80,13 @@ function clampHp(value: number, max: number): number {
 
 /** Reconcile a single resource with incapacitation: lost while incapacitated,
  * restored from `lost` once the condition clears (a spent `used` stays spent). */
-function reconcile(current: ResourceState, incap: boolean): ResourceState {
+function reconcile(
+  current: ResourceState,
+  incap: boolean,
+  preserveLost = false,
+): ResourceState {
   if (incap) return "lost";
+  if (preserveLost && current === "lost") return "lost";
   return current === "lost" ? "available" : current;
 }
 
@@ -90,11 +97,14 @@ function reconcile(current: ResourceState, incap: boolean): ResourceState {
  */
 function syncEconomy(entity: EntityState): EntityState {
   const incap = isIncapacitated(entity.conditions);
+  const preserveLost = entity.surprised === true;
   const ae = entity.actionEconomy;
 
   const reaction =
-    entity.reaction !== undefined ? reconcile(entity.reaction, incap) : undefined;
-  const action = ae ? reconcile(ae.action, incap) : undefined;
+    entity.reaction !== undefined
+      ? reconcile(entity.reaction, incap, preserveLost)
+      : undefined;
+  const action = ae ? reconcile(ae.action, incap, preserveLost) : undefined;
 
   const reactionChanged = reaction !== entity.reaction;
   const actionChanged = ae !== undefined && action !== ae.action;
@@ -225,6 +235,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         sides: { ...event.payload.sides },
         order: [],
         initiativeRolled: false,
+        surpriseResolved: false,
         round: 0,
         activeIndex: 0,
       };
@@ -240,10 +251,23 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
               actionEconomy: undefined,
               reaction: undefined,
               readied: undefined,
+              surprised: undefined,
             };
           }
         }
         next.encounter = undefined;
+      }
+      break;
+    }
+    case "SurpriseResolved": {
+      if (next.encounter) {
+        next.encounter = { ...next.encounter, surpriseResolved: true };
+      }
+      for (const ref of event.payload.surprised) {
+        const entity = next.entities[ref];
+        if (entity) {
+          next.entities[ref] = { ...entity, surprised: true };
+        }
       }
       break;
     }
@@ -307,11 +331,13 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           effects,
           dodging: undefined,
           disengaged: undefined,
-          actionEconomy: freshActionEconomy(
-            effectiveSpeedForEntity(actor),
-            attacksPerAction(actor),
-          ),
-          reaction: "available",
+          actionEconomy: actor.surprised
+            ? surprisedActionEconomy(attacksPerAction(actor))
+            : freshActionEconomy(
+                effectiveSpeedForEntity(actor),
+                attacksPerAction(actor),
+              ),
+          reaction: actor.surprised ? "lost" : "available",
           readied: undefined,
         });
       }
@@ -324,6 +350,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           ...actor,
           actionEconomy: undefined,
           disengaged: undefined,
+          surprised: undefined,
         };
       }
       break;

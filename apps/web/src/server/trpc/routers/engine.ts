@@ -119,6 +119,10 @@ const commandSchema = z.discriminatedUnion("type", [
     type: z.literal("roll_initiative"),
     bonuses: z.record(z.string(), z.number().int()).optional(),
   }),
+  z.object({
+    type: z.literal("resolve_surprise"),
+    surprised: z.array(z.string()),
+  }),
   z.object({ type: z.literal("end_turn") }),
   z.object({
     type: z.literal("attack"),

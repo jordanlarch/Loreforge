@@ -86,6 +86,12 @@ function requireOwnTurnAction(
       `${entity.name} can only take this action on its own turn.`,
     );
   }
+  if (entity.surprised) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${entity.name} is surprised and cannot act this turn.`,
+    );
+  }
   if (entity.actionEconomy?.action !== "available") {
     return reject(
       "ACTION_UNAVAILABLE",

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ITEM_TYPES, type ItemType } from "@app/engine";
@@ -12,7 +11,6 @@ import {
   useSmithyBrowseState,
 } from "@/components/smithy-library-browse";
 import { SmithyItemForm } from "@/components/smithy-item-form";
-import { SmithyToolboxForm } from "@/components/smithy-toolbox-form";
 import {
   SMITHY_LIBRARY_CATEGORIES,
   smithyCategoryLabel,
@@ -48,8 +46,6 @@ export function SmithyBrowser() {
           <SpellBrowser />
         ) : category === "Items" ? (
           <ItemsBrowser />
-        ) : category === "Toolbox" ? (
-          <ToolboxBrowser />
         ) : (
           <LibraryGrid category={category} />
         )}
@@ -116,76 +112,6 @@ function LibraryGrid({ category }: { category: SmithyLibraryCategory }) {
           emptyMessage="No homebrew matches these filters."
         />
       )}
-    </>
-  );
-}
-
-function ToolboxBrowser() {
-  const router = useRouter();
-  const [forging, setForging] = useState(false);
-  const browse = useSmithyBrowseState();
-  const list = trpc.smithy.listLibrary.useQuery({
-    category: "Toolbox",
-    ...browse.queryInput,
-  });
-
-  const entries = list.data ?? [];
-
-  return (
-    <>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-xl">Gameplay Toolbox</h2>
-          <p className="text-sm text-lore-muted">
-            Traps and other optional rules entries (v1: traps).
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setForging((v) => !v)}
-          className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-1.5 text-sm text-lore-text"
-        >
-          {forging ? "Cancel forge" : "Forge trap →"}
-        </button>
-      </div>
-
-      {forging ? (
-        <div className="mb-6">
-          <SmithyToolboxForm
-            onSaved={(id) => {
-              setForging(false);
-              router.push(`/smithy/toolbox/${id}`);
-            }}
-            onCancel={() => setForging(false)}
-          />
-        </div>
-      ) : null}
-
-      <SmithyBrowseToolbar
-        search={browse.search}
-        onSearchChange={browse.setSearch}
-        source={browse.source}
-        onSourceChange={browse.setSource}
-        sort={browse.sort}
-        onSortChange={browse.setSort}
-        view={browse.view}
-        onViewChange={browse.setView}
-        countLabel={
-          list.isLoading
-            ? "Loading…"
-            : `${entries.length} entr${entries.length === 1 ? "y" : "ies"}`
-        }
-      />
-
-      <SmithyLibraryViews
-        entries={entries}
-        view={browse.view}
-        emptyMessage={
-          browse.search || browse.source
-            ? "No homebrew matches these filters."
-            : "Copy traps from Codex Gameplay Toolbox or forge your own."
-        }
-      />
     </>
   );
 }

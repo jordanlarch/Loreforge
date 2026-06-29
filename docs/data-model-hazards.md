@@ -1,6 +1,6 @@
 # Gameplay Toolbox + exploration hazards — grill backlog (DATA-1b)
 
-**Status:** **Traps v1 shipped** (DATA-1b). **All five Gameplay Toolbox sibling topics seeded** (Codex + Smithy). **Live Play v1 complete** (#292–#305). Smithy forge forms are best-effort Q3 editors — **GRILL-SMITHY-EDIT** scheduled for structured field fidelity across all five topics.
+**Status:** **Traps v1 shipped** (DATA-1b). **All five Gameplay Toolbox sibling topics seeded** in Codex (`codex_toolbox_entries`). **Live Play v1 complete** (#292–#305). **Smithy toolbox forge/copy removed** (Jun 2026) — toolbox content is **Codex SRD 5.2 read-only** until **GRILL-SMITHY-EDIT** (deferred).
 
 ## SRD 5.2 PDF taxonomy (canonical — do not conflate)
 
@@ -635,17 +635,17 @@ Registry distinguishes fear vs stress entries by `effects[]` prose (`frightened`
 
 ---
 
-## GRILL-SMITHY-EDIT — SCHEDULED ⏳
+## GRILL-SMITHY-EDIT — DEFERRED ⏸
 
-**Richer Smithy editing** for all five Gameplay Toolbox topics. **Grill session not started** (Jun 2026).
+**Smithy Gameplay Toolbox homebrew deferred** (Jun 2026). Traps, poisons, curses, environmental effects, and fear/stress are **Codex SRD 5.2 entries only** for v1. Live Play resolves via engine seeds + Codex slugs (`toolbox*Slug` item metadata); no Smithy forge, copy, or edit surface until this grill resumes.
 
-### Problem statement
+### Original problem (when resumed)
 
-`SmithyToolboxForm` (`apps/web/src/components/smithy-toolbox-form.tsx`) ships **best-effort Q3 editors** per topic — core fields are structured, but complex PDF mechanics often land in **prose textareas** (`effects[]` as newline-separated lines, `duration` / `repeat` as free text, trap `effectProse`). Live Play reads structured engine fields; homebrew that only fills prose may not resolve in play.
+`SmithyToolboxForm` shipped **best-effort Q3 editors** per topic — core fields structured, complex PDF mechanics often in prose fallbacks. Live Play reads structured engine fields; homebrew that only fills prose may not resolve in play.
 
-### Scope candidates (for grill)
+### Scope candidates (for grill, when resumed)
 
-| Topic | Current form gaps (audit starting point) |
+| Topic | Form gaps (audit starting point) |
 |---|---|
 | **Traps** | Structured save/damage/conditions + detect/disable checks; `effectProse` escape hatch |
 | **Poisons** | `poisonType`, save, damage dice, conditions, repeat interval |
@@ -659,7 +659,7 @@ Registry distinguishes fear vs stress entries by `effects[]` prose (`frightened`
 - Codex ingest schema changes
 - New toolbox topics
 
-**Next step:** GRILL-SMITHY-EDIT Q1 — v1 editing depth vs prose escape hatches per topic.
+**Next step (when prioritized):** GRILL-SMITHY-EDIT Q1 — v1 editing depth vs prose escape hatches per topic.
 
 ---
 

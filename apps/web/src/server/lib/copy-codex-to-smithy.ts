@@ -494,7 +494,11 @@ export async function copyCodexEntryToSmithy(input: {
     return copyItem(input.ownerId, input.slug);
   }
   if (input.category === "Gameplay Toolbox") {
-    return copyToolboxEntry(input.ownerId, input.slug);
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "Gameplay Toolbox homebrew is deferred — use Codex SRD 5.2 entries for traps, poisons, curses, environmental effects, and fear/stress.",
+    });
   }
   return copySnapshot(input.ownerId, input.category, input.slug);
 }

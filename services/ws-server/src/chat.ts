@@ -294,6 +294,12 @@ function eventText(action: BattleAction): string {
       return "A curse was resolved by the engine.";
     case "apply_fear_stress":
       return "A fear or mental stress effect was resolved by the engine.";
+    case "apply_fall_damage":
+      return "Fall damage was resolved by the engine.";
+    case "apply_burning":
+      return "A burning hazard was applied by the engine.";
+    case "extinguish_burning":
+      return "An attempt to extinguish flames was resolved by the engine.";
     case "remove_curse":
       return "A curse was removed from the target.";
     default:
@@ -377,6 +383,29 @@ function resolutionText(
   if (action.type === "apply_fear_stress") {
     const target = nameOf(action.target);
     return `${target} is subjected to ${action.fearStressSlug.replace(/^srd-2024_/, "").replace(/-/g, " ")}.`;
+  }
+
+  if (action.type === "apply_fall_damage") {
+    const target = nameOf(action.target);
+    const height = num(summary.heightFt) ?? action.heightFt;
+    const damage = num(summary.damage) ?? 0;
+    if (damage <= 0) {
+      return `${target} falls ${height} ft but takes no damage.`;
+    }
+    return `${target} falls ${height} ft — ${damage} bludgeoning and lands prone.`;
+  }
+
+  if (action.type === "apply_burning") {
+    const target = nameOf(action.target);
+    return `${target} catches fire.`;
+  }
+
+  if (action.type === "extinguish_burning") {
+    const target = nameOf(action.target);
+    if (summary.extinguished === false) {
+      return `${target} fails to beat the flames (Dex save).`;
+    }
+    return `${target} extinguishes the flames.`;
   }
 
   if (action.type === "remove_curse") {

@@ -920,6 +920,12 @@ export const FEAR_DEMO_ITEMS = [
   { name: "Hallucinogenic Substance (vial)", quantity: 1 },
 ] as const;
 
+/** Demo exploration hazard items for GRILL-EXPLORATION Slice 3 prod verify. */
+export const EXPLORATION_DEMO_ITEMS = [
+  { name: "Alchemist's Fire (flask)", quantity: 1 },
+  { name: "Pitfall Sample (30 ft)", quantity: 1 },
+] as const;
+
 export async function grantCurseDemoLoot(campaignId: string): Promise<string[]> {
   try {
     const db = getDb();
@@ -978,6 +984,45 @@ export async function grantFearDemoLoot(campaignId: string): Promise<string[]> {
     const current = (row.equipment ?? []) as EquipmentItem[];
     const have = new Set(current.map((i) => i.name));
     const additions = FEAR_DEMO_ITEMS.filter((i) => !have.has(i.name));
+    if (additions.length === 0) return [];
+
+    const next: EquipmentItem[] = [
+      ...current,
+      ...additions.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        equipped: false,
+      })),
+    ];
+    await db
+      .update(characters)
+      .set({ equipment: next, updatedAt: new Date() })
+      .where(eq(characters.id, row.id));
+    return additions.map((i) => i.name);
+  } catch {
+    return [];
+  }
+}
+
+export async function grantExplorationDemoLoot(campaignId: string): Promise<string[]> {
+  try {
+    const db = getDb();
+    const [row] = await db
+      .select({ id: characters.id, equipment: characters.equipment })
+      .from(campaignCharacters)
+      .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
+      .where(
+        and(
+          eq(campaignCharacters.campaignId, campaignId),
+          eq(campaignCharacters.role, "pc"),
+        ),
+      )
+      .limit(1);
+    if (!row) return [];
+
+    const current = (row.equipment ?? []) as EquipmentItem[];
+    const have = new Set(current.map((i) => i.name));
+    const additions = EXPLORATION_DEMO_ITEMS.filter((i) => !have.has(i.name));
     if (additions.length === 0) return [];
 
     const next: EquipmentItem[] = [

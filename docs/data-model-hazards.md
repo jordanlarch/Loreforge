@@ -827,7 +827,7 @@ Engine seed modules reference the same slugs for Live Play hooks (Burning / Fall
 |---|---|---|
 | **1 — Codex** | Hand-seed six `codex_rule_sections` rows; Rules browser two-tier UI (overview ↔ glossary cross-links) | Prod: Rules → Exploration hazards overview + glossary detail |
 | **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, unit tests | CI / engine tests ✅ |
-| **3 — Live Play** | WS hooks + burning HUD chip + fall/burn events in chat | Prod dogfood in campaign |
+| **3 — Live Play** | WS hooks + burning HUD chip + fall/burn events in chat | Prod dogfood in campaign ✅ |
 
 ### Q8 — Rules prose source ✅ (2026-06-29)
 
@@ -863,8 +863,8 @@ All nine decisions locked. **Slice 1 (Codex)** is unblocked.
 | Slice | Deliverable | Status |
 |---|---|---|
 | **1 — Codex** | `seed-exploration-hazards.ts`; six `srd-2024_*` rule sections; Rules two-tier UI (overview ↔ glossary links) | ✅ Shipped (#307) |
-| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, shared seed module, tests | ⏳ |
-| **3 — Live Play** | WS hooks; burning HUD chip; fall/burn chat events | ⏳ |
+| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, shared seed module, tests | ✅ (#308) |
+| **3 — Live Play** | WS hooks; burning HUD chip; fall/burn chat events | ✅ |
 
 **Next step:** Slice 1 — Codex hand-seed + Rules browser two-tier UI.
 

@@ -60,6 +60,7 @@ export {
   type ActiveCurseInstance,
   type ActiveEnvironmentalEffectInstance,
   type ActiveFearStressInstance,
+  type ActiveBurningInstance,
   type ClassLevel,
   type ConcentrationState,
   type DeathSaveTally,
@@ -586,6 +587,21 @@ export {
   DEMO_DUNGEON_FEAR_STRESS_SLUGS,
   resolveLocationFearStressSlugs,
 } from "./fixtures/fear-stress";
+export {
+  buildExplorationBurningEnterCommands,
+  DEMO_DUNGEON_EXPLORATION_HAZARD_SCENE_SLUGS,
+  resolveLocationExplorationBurningSlugs,
+  resolveLocationExplorationHazardSlugs,
+} from "./fixtures/exploration-hazards-live";
+export {
+  BURNING_SLUG,
+  BURNING_TICK_DAMAGE,
+  BURNING_EXTINGUISH_DC,
+  FALLING_SLUG,
+  fallDamageDiceCount,
+  fallDamageNotation,
+  isBurningSlug,
+} from "./content/srd-exploration-hazard-seeds";
 export {
   formatQuestTeaseLine,
   enrichEntityDataWithQuests,

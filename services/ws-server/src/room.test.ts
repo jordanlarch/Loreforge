@@ -203,4 +203,32 @@ describe("isBattleAction", () => {
       false,
     );
   });
+
+  it("accepts exploration hazard battle actions (GRILL-EXPLORATION)", () => {
+    expect(
+      isBattleAction({
+        type: "apply_fall_damage",
+        target: "pc:1",
+        heightFt: 30,
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "apply_burning",
+        target: "pc:1",
+        burningSlug: "srd-2024_burning",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "extinguish_burning",
+        target: "pc:1",
+        instanceId: "burn:pc:1:srd-2024_burning:0",
+        method: "action",
+      }),
+    ).toBe(true);
+    expect(isBattleAction({ type: "apply_fall_damage", target: "pc:1" })).toBe(
+      false,
+    );
+  });
 });

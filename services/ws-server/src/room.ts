@@ -24,9 +24,11 @@ import {
   buildDungeonEntryCommands,
   buildEnterLocationCommands,
   buildEnvironmentalEffectEnterCommands,
+  buildExplorationBurningEnterCommands,
   buildFearStressEnterCommands,
   buildLocationNpcCommands,
   resolveLocationEnvironmentalEffectSlugs,
+  resolveLocationExplorationBurningSlugs,
   resolveLocationFearStressSlugs,
   buildPartyBattleCommands,
   buildPartyMemberJoinCommands,
@@ -47,7 +49,7 @@ import {
   type WorldState,
 } from "@app/engine";
 
-import { grantPoisonDemoLoot, grantCurseDemoLoot, grantFearDemoLoot } from "./db.js";
+import { grantPoisonDemoLoot, grantCurseDemoLoot, grantFearDemoLoot, grantExplorationDemoLoot } from "./db.js";
 
 /** Deterministic clock so a re-seeded room reproduces the same fixture state. */
 export const FIXED_CLOCK = () => 0;
@@ -243,6 +245,7 @@ export class CampaignRoom implements LiveRoom {
         await grantPoisonDemoLoot(this.campaignId);
         await grantCurseDemoLoot(this.campaignId);
         await grantFearDemoLoot(this.campaignId);
+        await grantExplorationDemoLoot(this.campaignId);
       }
     }
     this.seeded = true;
@@ -328,6 +331,7 @@ export class CampaignRoom implements LiveRoom {
       }
       await this.applyEnvironmentalEffectsOnEnter(location, resolved?.entityData);
       await this.applyFearStressOnEnter(location, resolved?.entityData);
+      await this.applyExplorationBurningOnEnter(resolved?.entityData);
       return { changed: true, startedCombat: true };
     }
 
@@ -347,6 +351,7 @@ export class CampaignRoom implements LiveRoom {
     }
     await this.applyEnvironmentalEffectsOnEnter(location, resolved?.entityData);
     await this.applyFearStressOnEnter(location, resolved?.entityData);
+    await this.applyExplorationBurningOnEnter(resolved?.entityData);
     return { changed: true, startedCombat: false };
   }
 
@@ -395,6 +400,23 @@ export class CampaignRoom implements LiveRoom {
       await this.engine.execute(this.campaignId, command);
     }
   }
+
+  /** GRILL-EXPLORATION Q4 — auto-apply burning when location metadata requests it. */
+  private async applyExplorationBurningOnEnter(
+    entityData?: Record<string, unknown>,
+  ): Promise<void> {
+    const slugs = resolveLocationExplorationBurningSlugs(entityData);
+    if (slugs.length === 0) return;
+
+    const state = await this.getState();
+    const partyIds = Object.values(state.entities)
+      .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
+      .map((e) => e.id);
+
+    for (const command of buildExplorationBurningEnterCommands(partyIds, slugs)) {
+      await this.engine.execute(this.campaignId, command);
+    }
+  }
 }
 
 function isGridPosition(value: unknown): value is { x: number; y: number } {
@@ -437,6 +459,9 @@ export function isBattleAction(value: unknown): value is BattleAction {
     poisonSlug?: unknown;
     curseSlug?: unknown;
     fearStressSlug?: unknown;
+    heightFt?: unknown;
+    burningSlug?: unknown;
+    method?: unknown;
     instanceId?: unknown;
   };
   if (action.type === "end_turn") return true;
@@ -523,6 +548,27 @@ export function isBattleAction(value: unknown): value is BattleAction {
     return (
       typeof action.target === "string" &&
       typeof action.fearStressSlug === "string"
+    );
+  }
+  if (action.type === "apply_fall_damage") {
+    return (
+      typeof action.target === "string" &&
+      typeof action.heightFt === "number" &&
+      Number.isFinite(action.heightFt) &&
+      action.heightFt >= 0
+    );
+  }
+  if (action.type === "apply_burning") {
+    return (
+      typeof action.target === "string" &&
+      (action.burningSlug === undefined || typeof action.burningSlug === "string")
+    );
+  }
+  if (action.type === "extinguish_burning") {
+    return (
+      typeof action.target === "string" &&
+      typeof action.instanceId === "string" &&
+      (action.method === "action" || action.method === "dex_save")
     );
   }
   if (action.type === "remove_curse") {

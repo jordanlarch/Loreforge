@@ -448,6 +448,29 @@ export function useLiveSession({
         t: "cmd",
         action: { type: "apply_fear_stress", target, fearStressSlug },
       }),
+    applyFallDamage: (target: string, heightFt: number) =>
+      send({
+        t: "cmd",
+        action: { type: "apply_fall_damage", target, heightFt },
+      }),
+    applyBurning: (target: string, burningSlug?: string) =>
+      send({
+        t: "cmd",
+        action: {
+          type: "apply_burning",
+          target,
+          ...(burningSlug ? { burningSlug } : {}),
+        },
+      }),
+    extinguishBurning: (
+      target: string,
+      instanceId: string,
+      method: "action" | "dex_save" = "action",
+    ) =>
+      send({
+        t: "cmd",
+        action: { type: "extinguish_burning", target, instanceId, method },
+      }),
     reset: () => send({ t: "reset" }),
     syncParty,
     /** Travel to a World-tab location (Rung 4 Slice 2 / CAMP-UX UX-1). */

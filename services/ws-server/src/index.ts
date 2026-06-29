@@ -83,6 +83,7 @@ import {
   grantPoisonDemoLoot,
   grantCurseDemoLoot,
   grantFearDemoLoot,
+  grantExplorationDemoLoot,
   isCampaignOwner,
   canAccessCampaign,
   awardTutorialReputation,
@@ -1677,6 +1678,7 @@ const server = new Hocuspocus({
               await grantPoisonDemoLoot(parsedTravel.campaignId);
               await grantCurseDemoLoot(parsedTravel.campaignId);
               await grantFearDemoLoot(parsedTravel.campaignId);
+              await grantExplorationDemoLoot(parsedTravel.campaignId);
             }
           }
           await runEnemyTurns(room, document, documentName, getNarrationClient());
@@ -1810,6 +1812,7 @@ const server = new Hocuspocus({
           await grantPoisonDemoLoot(parsed.campaignId);
           await grantCurseDemoLoot(parsed.campaignId);
           await grantFearDemoLoot(parsed.campaignId);
+          await grantExplorationDemoLoot(parsed.campaignId);
         }
         const arrival = arrivalNarrationForLocation(location, extras.entityData);
         await appendAndPersist(document, documentName, [

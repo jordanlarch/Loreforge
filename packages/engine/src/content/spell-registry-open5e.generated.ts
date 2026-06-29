@@ -83,7 +83,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -230,7 +230,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Target a Beast that you can see within range. The target must succeed on a Wisdom saving throw or have the Charmed condition for the duration. If you or one of your allies deals damage to the target, the spells ends.\n\nAt Higher Levels. You can target one additional Beast for each spell slot level above 1."
   },
@@ -267,7 +267,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "A Tiny Beast of your choice that you can see within range must succeed on a Charisma saving throw, or it attempts to deliver a message for you (if the target's Challenge Rating isn't 0, it automatically succeeds). You specify a location you have visited and a recipient who matches a general description, such as \"a person dressed in the uniform of the town guard\" or \"a red-haired dwarf wearing a pointed hat.\" You also communicate a message of up to twenty-five words. The Beast travels for the duration toward the specified location, covering about 25 miles per 24 hours or 50 miles if the Beast can fly. When the Beast arrives, it delivers your message to the creature that you described, mimicking your communication. If the Beast doesn't reach its destination before the spell ends, the message is lost, and the Beast returns to where you cast the spell.\n\nAt Higher Levels. The spell's duration increases by 48 hours for each spell slot level above 2."
   },
@@ -452,7 +452,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "As you cast the spell, choose whether it creates antipathy or sympathy, and target one creature or object that is Huge or smaller. Then specify a kind of creature, such as red dragons, goblins, or vampires. A creature of the chosen kind makes a Wisdom saving throw when it comes within 120 feet of the target. Your choice of antipathy or sympathy determines what happens to a creature when it fails that save:\n\n**Antipathy**. The creature has the Frightened condition. The Frightened creature must use its movement on its turns to get as far away as possible from the target, moving by the safest route.\n\n**Sympathy**. The creature has the Charmed condition. The Charmed creature must use its movement on its turns to get as close as possible to the target, moving by the safest route. If the creature is within 5 feet of the target, the creature can't willingly move away. If the target damages the Charmed creature, that creature can make a Wisdom saving throw to end the effect, as described below.\n\n**Ending the Effect**. If the Frightened or Charmed creature ends its turn more than 120 feet away from the target, the creature makes a Wisdom saving throw. On a successful save, the creature is no longer affected by the target. A creature that successfully saves against this effect is immune to it for 1 minute, after which it can be affected again."
   },
@@ -793,7 +793,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One creature that you can see within range must succeed on a Charisma saving throw or be transported to a harmless demiplane for the duration. While there, the target has the Incapacitated condition. When the spell ends, the target reappears in the space it left or in the nearest unoccupied space if that space is occupied. If the target is an Aberration, a Celestial, an Elemental, a Fey, or a Fiend, the target doesn't return if the spell lasts for 1 minute. The target is instead transported to a random location on a plane (GM's choice) associated with its creature type.\n\nAt Higher Levels. You can target one additional creature for each spell slot level above 4."
   },
@@ -857,7 +857,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Choose any number of creatures within range. For the duration, each target has Advantage on Wisdom saving throws and Death Saving Throws and regains the maximum number of Hit Points possible from any healing."
   },
@@ -960,7 +960,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "str",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -1129,7 +1129,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One creature that you can see within range must succeed on a Constitution saving throw, or it has the Blinded or Deafened condition (your choice) for the duration. At the end of each of its turns, the target repeats the save, ending the spell on itself on a success.\n\nAt Higher Levels. You can target one additional creature for each spell slot level above 2."
   },
@@ -1304,7 +1304,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Each Humanoid in a 20-foot-radius Sphere centered on a point you choose within range must succeed on a Charisma saving throw or be affected by one of the following effects (choose for each creature): - The creature has Immunity to the Charmed and Frightened conditions until the spell ends. If the creature was already Charmed or Frightened, those conditions are suppressed for the duration. - The creature becomes Indifferent about creatures of your choice that it's Hostile toward. This indifference ends if the target takes damage or witnesses its allies taking damage. When the spell ends, the creature's attitude returns to normal."
   },
@@ -1383,7 +1383,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One creature you can see within range makes a Wisdom saving throw. It does so with Advantage if you or your allies are fighting it. On a failed save, the target has the Charmed condition until the spell ends or until you or your allies damage it. The Charmed creature is Friendly to you. When the spell ends, the target knows it was Charmed by you.\n\nAt Higher Levels. You can target one additional creature for each spell slot level above 4."
   },
@@ -1421,7 +1421,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One Humanoid you can see within range makes a Wisdom saving throw. It does so with Advantage if you or your allies are fighting it. On a failed save, the target has the Charmed condition until the spell ends or until you or your allies damage it. The Charmed creature is Friendly to you. When the spell ends, the target knows it was Charmed by you.\n\nAt Higher Levels. You can target one additional creature for each spell slot level above 1."
   },
@@ -1722,7 +1722,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You speak a one-word command to a creature you can see within range. The target must succeed on a Wisdom saving throw or follow the command on its next turn. Choose the command from these options:\n\n- **Drop.** The target drops whatever it is holding and then ends its turn.\n- **Flee.** The target spends its turn moving away from you by the fastest available means.\n- **Grovel.** The target has the Prone condition and then ends its turn.\n- **Halt.** On its turn, the target doesn't move and takes no action or Bonus Action.\n\nAt Higher Levels. You can affect one additional creature for each spell slot level above 1."
   },
@@ -1845,7 +1845,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Each creature of your choice that you can see within range must succeed on a Wisdom saving throw or have the Charmed condition until the spell ends. For the duration, you can take a Bonus Action to designate a direction that is horizontal to you. Each Charmed target must use as much of its movement as possible to move in that direction on its next turn, taking the safest route. After moving in this way, a target repeats the save, ending the spell on itself on a success."
   },
@@ -1912,7 +1912,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -1953,7 +1953,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "str",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -2027,7 +2027,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -2193,7 +2193,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "int",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -2233,7 +2233,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -2402,7 +2402,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You attempt to interrupt a creature in the process of casting a spell. The creature makes a Constitution saving throw. On a failed save, the spell dissipates with no effect, and the action, Bonus Action, or Reaction used to cast it is wasted. If that spell was cast with a spell slot, the slot isn't expended."
   },
@@ -2946,7 +2946,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You activate one of the effects below. Until the spell ends, you can activate either effect as a Magic action on your later turns.\n\n***Sense Thoughts.*** You sense the presence of thoughts within 30 feet of yourself that belong to creatures that know languages or are telepathic. You don't read the thoughts, but you know that a thinking creature is present. The spell is blocked by 1 foot of stone, dirt, or wood; 1 inch of metal; or a thin sheet of lead.\n\n**Read Thoughts.** Target one creature you can see within 30 feet of yourself or one creature within 30 feet of yourself that you detected with the Sense Thoughts option. You learn what is most on the target's mind right now. If the target doesn't know any languages and isn't telepathic, you learn nothing.\n\nAs a Magic action on your next turn, you can try to probe deeper into the target's mind. If you probe deeper, the target makes a Wisdom saving throw. On a failed save, you discern the target's reasoning, emotions, and something that looms large in its mind (such as a worry, love, or hate). On a successful save, the spell ends. Either way, the target knows that you are probing into its mind, and until you shift your attention away from the target's mind, the target can take an action on its turn to make an Intelligence (Arcana) check against your spell save DC, ending the spell on a success."
   },
@@ -3048,7 +3048,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -3295,7 +3295,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You utter a word imbued with power from the Upper Planes. Each creature of your choice in range makes a Charisma saving throw. On a failed save, a target that has 50 Hit Points or fewer suffers an effect based on its current Hit Points, as shown in the Divine Word Effects table. Regardless of its Hit Points, a Celestial, an Elemental, a Fey, or a Fiend target that fails its save is forced back to its plane of origin (if it isn't there already) and can't return to the current plane for 24 hours by any means short of a Wish spell.\n\n| Hit Points | Effect |\n|---|---|\n| 0–20 | The target dies. |\n| 21–30 | The target has the Blinded, Deafened, and Stunned conditions for 1 hour. |\n| 31–40 | The target has the Blinded and Deafened conditions for 10 minutes. |\n| 41–50 | The target has the Deafened condition for 1 minute. |"
   },
@@ -3331,7 +3331,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One Beast you can see within range must succeed on a Wisdom saving throw or have the Charmed condition for the duration. The target has Advantage on the save if you or your allies are fighting it. Whenever the target takes damage, it repeats the save, ending the spell on itself on a success. You have a telepathic link with the Charmed target while the two of you are on the same plane of existence. On your turn, you can use this link to issue commands to the target (no action required), such as \"Attack that creature,\" \"Move over there,\" or \"Fetch that object.\" The target does its best to obey on its turn. If it completes an order and doesn't receive further direction from you, it acts and moves as it likes, focusing on protecting itself. You can command the target to take a Reaction but must take your own Reaction to do so.\n\nAt Higher Levels. Your Concentration can last longer with a spell slot of level 5 (up to 10 minutes), 6 (up to 1 hour), or 7+ (up to 8 hours)."
   },
@@ -3368,7 +3368,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One creature you can see within range must succeed on a Wisdom saving throw or have the Charmed condition for the duration. The target has Advantage on the save if you or your allies are fighting it. Whenever the target takes damage, it repeats the save, ending the spell on itself on a success. You have a telepathic link with the Charmed target while the two of you are on the same plane of existence. On your turn, you can use this link to issue commands to the target (no action required), such as \"Attack that creature,\" \"Move over there,\" or \"Fetch that object.\" The target does its best to obey on its turn. If it completes an order and doesn't receive further direction from you, it acts and moves as it likes, focusing on protecting itself. You can command the target to take a Reaction but must take your own Reaction to do so.\n\nAt Higher Levels. Your Concentration can last longer with a level 9 spell slot (up to 8 hours)."
   },
@@ -3404,7 +3404,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One Humanoid you can see within range must succeed on a Wisdom saving throw or have the Charmed condition for the duration. The target has Advantage on the save if you or your allies are fighting it. Whenever the target takes damage, it repeats the save, ending the spell on itself on a success. You have a telepathic link with the Charmed target while the two of you are on the same plane of existence. On your turn, you can use this link to issue commands to the target (no action required), such as \"Attack that creature,\" \"Move over there,\" or \"Fetch that object.\" The target does its best to obey on its turn. If it completes an order and doesn't receive further direction from you, it acts and moves as it likes, focusing on protecting itself. You can command the target to take a Reaction but must take your own Reaction to do so.\n\nAt Higher Levels. Your Concentration can last longer with a spell slot of level 6 (up to 10 minutes), 7 (up to 1 hour), or 8+ (up to 8 hours)."
   },
@@ -3668,7 +3668,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "For the duration, the spell enlarges or reduces a creature or an object you can see within range (see the chosen effect below). A targeted object must be neither worn nor carried. If the target is an unwilling creature, it can make a Constitution saving throw. On a successful save, the spell has no effect. Everything that a targeted creature is wearing and carrying changes size with it. Any item it drops returns to normal size at once. A thrown weapon or piece of ammunition returns to normal size immediately after it hits or misses a target.\n\n**_Enlarge._** The target's size increases by one category—from Medium to Large, for example. The target also has Advantage on Strength checks and Strength saving throws. The target's attacks with its enlarged weapons or Unarmed Strikes deal an extra 1d4 damage on a hit.\n\n**_Reduce._** The target's size decreases by one category—from Medium to Small, for example. The target also has Disadvantage on Strength checks and Strength saving throws. The target's attacks with its reduced weapons or Unarmed Strikes deal 1d4 less damage on a hit (this can't reduce the damage below 1)."
   },
@@ -3701,7 +3701,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "str",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -3746,7 +3746,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "str",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Grasping plants sprout from the ground in a 20-foot square within range. For the duration, these plants turn the ground in the area into Difficult Terrain. They disappear when the spell ends. Each creature (other than you) in the area when you cast the spell must succeed on a Strength saving throw or have the Restrained condition until the spell ends. A Restrained creature can take an action to make a Strength (Athletics) check against your spell save DC. On a success, it frees itself from the grasping plants and is no longer Restrained by them."
   },
@@ -3781,7 +3781,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You weave a distracting string of words, causing creatures of your choice that you can see within range to make a Wisdom saving throw. Any creature you or your companions are fighting automatically succeeds on this save. On a failed save, a target has a −10 penalty to Wisdom (Perception) checks and Passive Perception until the spell ends."
   },
@@ -3879,7 +3879,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "For the duration, your eyes become an inky void. One creature of your choice within 60 feet of you that you can see must succeed on a Wisdom saving throw or be affected by one of the following effects of your choice for the duration. On each of your turns until the spell ends, you can take a Magic action to target another creature but can't target a creature again if it has succeeded on a save against this casting of the spell.\n\n**_Asleep._** The target has the Unconscious condition. It wakes up if it takes any damage or if another creature takes an action to shake it awake.\n\n**_Panicked._** The target has the Frightened condition. On each of its turns, the Frightened target must take the Dash action and move away from you by the safest and shortest route available. If the target moves to a space at least 60 feet away from you where it can't see you, this effect ends.\n\n**_Sickened._** The target has the Poisoned condition."
   },
@@ -3971,7 +3971,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -4571,7 +4571,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You attempt to turn one creature that you can see within range into stone. The target makes a Constitution saving throw. On a failed save, it has the Restrained condition for the duration. On a successful save, its Speed is 0 until the start of your next turn. Constructs automatically succeed on the save. A Restrained target makes another Constitution saving throw at the end of each of its turns. If it successfully saves against this spell three times, the spell ends. If it fails its saves three times, it is turned to stone and has the Petrified condition for the duration. The successes and failures needn't be consecutive; keep track of both until the target collects three of a kind. If you maintain your Concentration on this spell for the entire possible duration, the target is Petrified until the condition is ended by Greater Restoration or similar magic."
   },
@@ -4740,7 +4740,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "An immobile, Invisible, Cube-shaped prison composed of magical force springs into existence around an area you choose within range. The prison can be a cage or a solid box, as you choose.\n\nA prison in the shape of a cage can be up to 20 feet on a side and is made from 1/2-inch diameter bars spaced 1/2 inch apart. A prison in the shape of a box can be up to 10 feet on a side, creating a solid barrier that prevents any matter from passing through it and blocking any spells cast into or out from the area.\n\nWhen you cast the spell, any creature that is completely inside the cage's area is trapped. Creatures only partially within the area, or those too large to fit inside it, are pushed away from the center of the area until they are completely outside it.\n\nA creature inside the cage can't leave it by nonmagical means. If the creature tries to use teleportation or interplanar travel to leave, it must first make a Charisma saving throw. On a successful save, the creature can use that magic to exit the cage. On a failed save, the creature doesn't exit the cage and wastes the spell or effect. The cage also extends into the Ethereal Plane, blocking ethereal travel.\n\nThis spell can't be dispelled by Dispel Magic."
   },
@@ -4885,7 +4885,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "A willing creature you touch shape-shifts, along with everything it's wearing and carrying, into a misty cloud for the duration. The spell ends on the target if it drops to 0 Hit Points or if it takes a Magic action to end the spell on itself. While in this form, the target's only method of movement is a Fly Speed of 10 feet, and it can hover. The target can enter and occupy the space of another creature. The target has Resistance to Bludgeoning, Piercing, and Slashing damage; it has Immunity to the Prone condition; and it has Advantage on Strength, Dexterity, and Constitution saving throws. The target can pass through narrow openings, but it treats liquids as though they were solid surfaces. The target can't talk or manipulate objects, and any objects it was carrying or holding can't be dropped, used, or otherwise interacted with. Finally, the target can't attack or cast spells.\n\nAt Higher Levels. You can target one additional creature for each spell slot level above 3."
   },
@@ -4956,7 +4956,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -5177,7 +5177,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Nonflammable grease covers the ground in a 10 foot square centered on a point within range and turns it into Difficult Terrain for the duration. When the grease appears, each creature standing in its area must succeed on a Dexterity saving throw or have the Prone condition. A creature that enters the area or ends its turn there must also succeed on that save or fall Prone."
   },
@@ -5417,7 +5417,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "str",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "A Line of strong wind 60 feet long and 10 feet wide blasts from you in a direction you choose for the duration. Each creature in the Line must succeed on a Strength saving throw or be pushed 15 feet away from you in a direction following the Line. A creature that ends its turn in the Line must make the same save. Any creature in the Line must spend 2 feet of movement for every 1 foot it moves when moving closer to you. The gust disperses gas or vapor, and it extinguishes candles and similar unprotected flames in the area. It causes protected flames, such as those of lanterns, to dance wildly and has a 50 percent chance to extinguish them. As a Bonus Action on your later turns, you can change the direction in which the Line blasts from you."
   },
@@ -5557,7 +5557,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Choose a willing creature that you can see within range. Until the spell ends, the target's Speed is doubled, it gains a +2 bonus to Armor Class, it has Advantage on Dexterity saving throws, and it gains an additional action on each of its turns. That action can be used to take only the Attack (one attack only), Dash, Disengage, Hide, or Utilize action. When the spell ends, the target is Incapacitated and has a Speed of 0 until the end of its next turn, as a wave of lethargy washes over it."
   },
@@ -5824,7 +5824,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One creature of your choice that you can see within range makes a Wisdom saving throw. On a failed save, it has the Prone and Incapacitated conditions for the duration. During that time, it laughs uncontrollably if it's capable of laughter, and it can't end the Prone condition on itself. At the end of each of its turns and each time it takes damage, it makes another Wisdom saving throw. The target has Advantage on the save if the save is triggered by damage. On a successful save, the spell ends.\n\nAt Higher Levels. You can target one additional creature for each spell slot level above 1."
   },
@@ -5862,7 +5862,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Choose a creature that you can see within range. The target must succeed on a Wisdom saving throw or have the Paralyzed condition for the duration. At the end of each of its turns, the target repeats the save, ending the spell on itself on a success.\n\nAt Higher Levels. You can target one additional creature for each spell slot level above 5."
   },
@@ -5902,7 +5902,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Choose a Humanoid that you can see within range. The target must succeed on a Wisdom saving throw or have the Paralyzed condition for the duration. At the end of each of its turns, the target repeats the save, ending the spell on itself on a success.\n\nAt Higher Levels. You can target one additional Humanoid for each spell slot level above 2."
   },
@@ -6014,7 +6014,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You create a twisting pattern of colors in a 30-foot Cube within range. The pattern appears for a moment and vanishes. Each creature in the area who can see the pattern must succeed on a Wisdom saving throw or have the Charmed condition for the duration. While Charmed, the creature has the Incapacitated condition and a Speed of 0. The spell ends for an affected creature if it takes any damage or if someone else uses an action to shake the creature out of its stupor."
   },
@@ -6180,7 +6180,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You create a magical restraint to hold a creature that you can see within range. The target must make a Wisdom saving throw. On a successful save, the target is unaffected, and it is immune to this spell for the next 24 hours. On a failed save, the target is imprisoned. While imprisoned, the target doesn't need to breathe, eat, or drink, and it doesn't age. Divination spells can't locate or perceive the imprisoned target, and the target can't teleport.\n\nUntil the spell ends, the target is also affected by one of the following effects of your choice:\n\n- **Burial.** The target is entombed beneath the earth in a hollow globe of magical force that is just large enough to contain the target. Nothing can pass into or out of the globe.\n- **Chaining.** Chains firmly rooted in the ground hold the target in place. The target has the Restrained condition and can't be moved by any means.\n- **Hedged Prison.** The target is trapped in a demiplane that is warded against teleportation and planar travel. The demiplane is your choice of a labyrinth, a cage, a tower, or the like.\n- **Minimus Containment.** The target becomes 1 inch tall and is trapped inside an indestructible gemstone or a similar object. Light can pass through the gemstone (allowing the target to see out and other creatures to see in), but nothing else can pass through by any means.\n- **Slumber.** The target has the Unconscious condition and can't be awoken.\n\n**_Ending the Spell._** When you cast the spell, specify a trigger that will end it. The trigger can be as simple or as elaborate as you choose, but the GM must agree that it has a high likelihood of happening within the next decade. The trigger must be an observable action, such as someone making a particular offering at the temple of your god, saving your true love, or defeating a specific monster.\n\nA Dispel Magic spell can end the spell only if it is cast with a level 9 spell slot, targeting either the prison or the component used to create it."
   },
@@ -6565,7 +6565,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "One creature or loose object of your choice that you can see within range rises vertically up to 20 feet and remains suspended there for the duration. The spell can levitate an object that weighs up to 500 pounds. An unwilling creature that succeeds on a Constitution saving throw is unaffected. The target can move only by pushing or pulling against a fixed object or surface within reach (such as a wall or a ceiling), which allows it to move as if it were climbing. You can change the target's altitude by up to 20 feet in either direction on your turn. If you are the target, you can move up or down as part of your move. Otherwise, you can take a Magic action to move the target, which must remain within the spell's range. When the spell ends, the target floats gently to the ground if it is still aloft."
   },
@@ -6872,7 +6872,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Your body falls into a catatonic state as your soul leaves it and enters the container you used for the spell's Material component. While your soul inhabits the container, you are aware of your surroundings as if you were in the container's space. You can't move or take Reactions. The only action you can take is to project your soul up to 100 feet out of the container, either returning to your living body (and ending the spell) or attempting to possess a Humanoid's body. You can attempt to possess any Humanoid within 100 feet of you that you can see (creatures warded by a Protection from Evil and Good or Magic Circle spell can't be possessed). The target makes a Charisma saving throw. On a failed save, your soul enters the target's body, and the target's soul becomes trapped in the container. On a successful save, the target resists your efforts to possess it, and you can't attempt to possess it again for 24 hours. Once you possess a creature's body, you control it. Your Hit Points, Hit Point Dice, Strength, Dexterity, Constitution, Speed, and senses are replaced by the creature's. You otherwise keep your game statistics. Meanwhile, the possessed creature's soul can perceive from the container using its own senses, but it can't move and it is Incapacitated. While possessing a body, you can take a Magic action to return from the host body to the container if it is within 100 feet of you, returning the host creature's soul to its body. If the host body dies while you're in it, the creature dies, and you make a Charisma saving throw against your own spellcasting DC. On a success, you return to the container if it is within 100 feet of you. Otherwise, you die. If the container is destroyed or the spell ends, your soul returns to your body. If your body is more than 100 feet away from you or if your body is dead, you die. If another creature's soul is in the container when it is destroyed, the creature's soul returns to its body if the body is alive and within 100 feet. Otherwise, that creature dies. When the spell ends, the container is destroyed."
   },
@@ -7191,7 +7191,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You suggest a course of activity—described in no more than 25 words—to twelve or fewer creatures you can see within range that can hear and understand you. The suggestion must sound achievable and not involve anything that would obviously deal damage to any of the targets or their allies. For example, you could say, \"Walk to the village down that road, and help the villagers there harvest crops until sunset.\" Or you could say, \"Now is not the time for violence. Drop your weapons, and dance! Stop in an hour.\" Each target must succeed on a Wisdom saving throw or have the Charmed condition for the duration or until you or your allies deal damage to the target. Each Charmed target pursues the suggestion to the best of its ability. The suggested activity can continue for the entire duration, but if the suggested activity can be completed in a shorter time, the spell ends for a target upon completing it.\n\nAt Higher Levels. The duration is longer with a spell slot of level 7 (10 days), 8 (30 days), or 9 (366 days)."
   },
@@ -7629,7 +7629,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You attempt to reshape another creature's memories. One creature that you can see within range makes a Wisdom saving throw. If you are fighting the creature, it has Advantage on the save. On a failed save, the target has the Charmed condition for the duration. While Charmed in this way, the target also has the Incapacitated condition and is unaware of its surroundings, though it can hear you. If it takes any damage or is targeted by another spell, this spell ends, and no memories are modified. While this charm lasts, you can affect the target's memory of an event that it experienced within the last 24 hours and that lasted no more than 10 minutes. You can permanently eliminate all memory of the event, allow the target to recall the event with perfect clarity, change its memory of the event's details, or create a memory of some other event. You must speak to the target to describe how its memories are affected, and it must be able to understand your language for the modified memories to take root. Its mind fills in any gaps in the details of your description. If the spell ends before you finish describing the modified memories, the creature's memory isn't altered. Otherwise, the modified memories take hold when the spell ends. A modified memory doesn't necessarily affect how a creature behaves, particularly if the memory contradicts the creature's natural inclinations, alignment, or beliefs. An illogical modified memory, such as a false memory of how much the creature enjoyed swimming in acid, is dismissed as a bad dream. The GM might deem a modified memory too nonsensical to affect a creature. A Remove Curse or Greater Restoration spell cast on the target restores the creature's true memory.\n\nAt Higher Levels. You can alter the target's memories of an event that took place up to 7 days ago (level 6 spell slot), 30 days ago (level 7 spell slot), 365 days ago (level 8 spell slot), or any time in the creature's past (level 9 spell slot)."
   },
@@ -7838,7 +7838,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "int",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -7965,7 +7965,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You attempt to bind a Celestial, an Elemental, a Fey, or a Fiend to your service. The creature must be within range for the entire casting of the spell. (Typically, the creature is first summoned into the center of the inverted version of the Magic Circle spell to trap it while this spell is cast.) At the completion of the casting, the target must succeed on a Charisma saving throw or be bound to serve you for the duration. If the creature was summoned or created by another spell, that spell's duration is extended to match the duration of this spell. A bound creature must follow your commands to the best of its ability. You might command the creature to accompany you on an adventure, to guard a location, or to deliver a message. If the creature is Hostile, it strives to twist your commands to achieve its own objectives. If the creature carries out your commands completely before the spell ends, it travels to you to report this fact if you are on the same plane of existence. If you are on a different plane, it returns to the place where you bound it and remains there until the spell ends.\n\nAt Higher Levels. The duration increases with a spell slot of level 6 (10 days), 7 (30 days), 8 (180 days), and 9 (366 days)."
   },
@@ -8105,7 +8105,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You attempt to transform a creature that you can see within range into a Beast. The target must succeed on a Wisdom saving throw or shape-shift into a Beast form for the duration. That form can be any Beast you choose that has a Challenge Rating equal to or less than the target's (or the target's level if it doesn't have a Challenge Rating). The target's game statistics are replaced by the stat block of the chosen Beast, but the target retains its alignment, personality, creature type, Hit Points, and Hit Point Dice. See the \"Animals\" section of \"Monsters\" for a sample of Beast stat blocks. The target gains a number of Temporary Hit Points equal to the Hit Points of the Beast form. These Temporary Hit Points vanish if any remain when the spell ends. The spell ends early on the target if it has no Temporary Hit Points left. The target is limited in the actions it can perform by the anatomy of its new form, and it can't speak or cast spells. The target's gear melds into the new form. The creature can't use or otherwise benefit from any of that equipment."
   },
@@ -8207,7 +8207,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You overwhelm the mind of one creature you can see within range. If the target has 150 Hit Points or fewer, it has the Stunned condition. Otherwise, its Speed is 0 until the start of your next turn. The Stunned target makes a Constitution saving throw at the end of each of its turns, ending the condition on itself on a success."
   },
@@ -8880,7 +8880,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "A shimmering sphere encloses a Large or smaller creature or object within range. An unwilling creature must succeed on a Dexterity saving throw or be enclosed for the duration. Nothing—not physical objects, energy, or other spell effects—can pass through the barrier, in or out, though a creature in the sphere can breathe there. The sphere is immune to all damage, and a creature or object inside can't be damaged by attacks or effects originating from outside, nor can a creature inside the sphere damage anything outside it. The sphere is weightless and just large enough to contain the creature or object inside. An enclosed creature can take an action to push against the sphere's walls and thus roll the sphere at up to half the creature's Speed. Similarly, the globe can be picked up and moved by other creatures. A Disintegrate spell targeting the globe destroys it without harming anything inside."
   },
@@ -8981,7 +8981,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "This spell reverses gravity in a 50-foot-radius, 100 foot high Cylinder centered on a point within range. All creatures and objects in that area that aren't anchored to the ground fall upward and reach the top of the Cylinder. A creature can make a Dexterity saving throw to grab a fixed object it can reach, thus avoiding the fall upward. If a ceiling or an anchored object is encountered in this upward fall, creatures and objects strike it just as they would during a downward fall. If an affected creature or object reaches the Cylinder's top without striking anything, it hovers there for the duration. When the spell ends, affected objects and creatures fall downward."
   },
@@ -9074,7 +9074,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -9181,7 +9181,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You can see and hear a creature you choose that is on the same plane of existence as you. The target makes a Wisdom saving throw, which is modified (see the tables below) by how well you know the target and the sort of physical connection you have to it. The target doesn't know what it is making the save against, only that it feels uneasy.\n\n| Your Knowledge of the Target Is … | Save Modifier |\n|---|---|\n| Secondhand (heard of the target) | +5 |\n| Firsthand (met the target) | +0 |\n| Extensive (know the target well) | −5 |\n\n| You Have the Target's … | Save Modifier |\n|---|---|\n| Picture or other likeness | −2 |\n| Garment or other possession | −4 |\n| Body part, lock of hair, or bit of nail | −10 |\n\nOn a successful save, the target isn't affected, and you can't use this spell on it again for 24 hours.\n\nOn a failed save, the spell creates an Invisible, intangible sensor within 10 feet of the target. You can see and hear through the sensor as if you were there. The sensor moves with the target, remaining within 10 feet of it for the duration. If something can see the sensor, it appears as a luminous orb about the size of your fist.\n\nInstead of targeting a creature, you can target a location you have seen. When you do so, the sensor appears at that location and doesn't move."
   },
@@ -9214,7 +9214,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -9319,7 +9319,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You give an illusory appearance to each creature of your choice that you can see within range. An unwilling target can make a Charisma saving throw, and if it succeeds, it is unaffected by this spell. You can give the same appearance or different ones to the targets. The spell can change the appearance of the targets' bodies and equipment. You can make each creature seem 1 foot shorter or taller and appear heavier or lighter. A target's new appearance must have the same basic arrangement of limbs as the target, but the extent of the illusion is otherwise up to you. The spell lasts for the duration. The changes wrought by this spell fail to hold up to physical inspection. For example, if you use this spell to add a hat to a creature's outfit, objects pass through the hat. A creature that takes the Study action to examine a target can make an Intelligence (Investigation) check against your spell save DC. If it succeeds, it becomes aware that the target is disguised."
   },
@@ -9759,7 +9759,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Each creature of your choice in a 5-foot-radius Sphere centered on a point within range must succeed on a Wisdom saving throw or have the Incapacitated condition until the end of its next turn, at which point it must repeat the save. If the target fails the second save, the target has the Unconscious condition for the duration. The spell ends on a target if it takes damage or someone within 5 feet of it takes an action to shake it out of the spell's effect. Creatures that don't sleep, such as elves, or that have Immunity to the Exhaustion condition automatically succeed on saves against this spell."
   },
@@ -9796,7 +9796,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Until the spell ends, sleet falls in a 40-foot-tall, 20-foot-radius Cylinder centered on a point you choose within range. The area is Heavily Obscured, and exposed flames in the area are doused. Ground in the Cylinder is Difficult Terrain. When a creature enters the Cylinder for the first time on a turn or starts its turn there, it must succeed on a Dexterity saving throw or have the Prone condition and lose Concentration."
   },
@@ -9837,7 +9837,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You alter time around up to six creatures of your choice in a 40-foot Cube within range. Each target must succeed on a Wisdom saving throw or be affected by this spell for the duration. An affected target's Speed is halved, it takes a −2 penalty to AC and Dexterity saving throws, and it can't take Reactions. On its turns, it can take either an action or a Bonus Action, not both, and it can make only one attack if it takes the Attack action. If it casts a spell with a Somatic component, there is a 25 percent chance the spell fails as a result of the target making the spell's gestures too slowly. An affected target repeats the save at the end of each of its turns, ending the spell on itself on a success."
   },
@@ -10230,7 +10230,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "con",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You create a 20-foot-radius Sphere of yellow, nauseating gas centered on a point within range. The cloud is Heavily Obscured. The cloud lingers in the air for the duration or until a strong wind (such as the one created by Gust of Wind) disperses it. Each creature that starts its turn in the Sphere must succeed on a Constitution saving throw or have the Poisoned condition until the end of the current turn. While Poisoned in this way, the creature can't take an action or a Bonus Action."
   },
@@ -10370,7 +10370,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You suggest a course of activity—described in no more than 25 words—to one creature you can see within range that can hear and understand you. The suggestion must sound achievable and not involve anything that would obviously deal damage to the target or its allies. For example, you could say, \"Fetch the key to the cult's treasure vault, and give the key to me.\" Or you could say, \"Stop fighting, leave this library peacefully, and don't return.\" The target must succeed on a Wisdom saving throw or have the Charmed condition for the duration or until you or your allies deal damage to the target. The Charmed target pursues the suggestion to the best of its ability. The suggested activity can continue for the entire duration, but if the suggested activity can be completed in a shorter time, the spell ends for the target upon completing it."
   },
@@ -10550,7 +10550,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "str",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You gain the ability to move or manipulate creatures or objects by thought. When you cast the spell and as a Magic action on your later turns before the spell ends, you can exert your will on one creature or object that you can see within range, causing the appropriate effect below. You can affect the same target round after round or choose a new one at any time. If you switch targets, the prior target is no longer affected by the spell.\n\n**_Creature._** You can try to move a Huge or smaller creature. The target must succeed on a Strength saving throw, or you move it up to 30 feet in any direction within the spell's range. Until the end of your next turn, the creature has the Restrained condition, and if you lift it into the air, it is suspended there. It falls at the end of your next turn unless you use this option on it again and it fails the save.\n\n**_Object._** You can try to move a Huge or smaller object. If the object isn't being worn or carried, you automatically move it up to 30 feet in any direction within the spell's range.\n\nIf the object is worn or carried by a creature, that creature must succeed on a Strength saving throw, or you pull the object away and move it up to 30 feet in any direction within the spell's range.\n\nYou can exert fine control on objects with your telekinetic grip, such as manipulating a simple tool,"
   },
@@ -10900,7 +10900,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "wis",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "Choose one creature or nonmagical object that you can see within range. The creature shape-shifts into a different creature or a nonmagical object, or the object shape-shifts into a creature (the object must be neither worn nor carried). The transformation lasts for the duration or until the target dies or is destroyed, but if you maintain Concentration on this spell for the full duration, the spell lasts until dispelled.\n\nAn unwilling creature can make a Wisdom saving throw, and if it succeeds, it isn't affected by this spell.\n\n**_Creature into Creature._** If you turn a creature into another kind of creature, the new form can be any kind you choose that has a Challenge Rating equal to or less than the target's Challenge Rating or level. The target's game statistics are replaced by the stat block of the new form, but it retains its Hit Points, Hit Point Dice, alignment, and personality.\n\nThe target gains a number of Temporary Hit Points equal to the Hit Points of the new form. These Temporary Hit Points vanish if any remain when the spell ends. The target is limited in the actions it can perform by the anatomy of its new form, and it can't speak or cast spells.\n\nThe target's gear melds into the new form. The creature can't use or otherwise benefit from any of that equipment.\n\n**_Object into Creature._** You can turn an object into any kind of creature, as long as the creature's size is no larger than the object's size and the creature has a Challenge Rating of 9 or lower. The creature is Friendly to you and your allies. In combat, it takes its turns immediately after yours, and it obeys your commands.\n\nIf the spell lasts more than an hour, you no longer control the creature. It might remain Friendly to you, depending on how you have treated it.\n\n**_Creature into Object._** If you turn a creature into an object, it transforms along with whatever it is wearing and carrying into that form, as long as the object's size is no larger than the creature's size. The creature's statistics become those of the object, and the creature has no memory of time spent in this form after the spell ends and it returns to normal."
   },
@@ -11172,7 +11172,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -11341,7 +11341,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "A nonmagical wall of solid stone springs into existence at a point you choose within range. The wall is 6 inches thick and is composed of ten 10-foot-by-10-foot panels. Each panel must be contiguous with another panel. Alternatively, you can create 10-footby-20-foot panels that are only 3 inches thick. If the wall cuts through a creature's space when it appears, the creature is pushed to one side of the wall (you choose which side). If a creature would be surrounded on all sides by the wall (or the wall and another solid surface), that creature can make a Dexterity saving throw. On a success, it can use its Reaction to move up to its Speed so that it is no longer enclosed by the wall. The wall can have any shape you desire, though it can't occupy the same space as a creature or object. The wall doesn't need to be vertical or rest on a firm foundation. It must, however, merge with and be solidly supported by existing stone. Thus, you can use this spell to bridge a chasm or create a ramp. If you create a span greater than 20 feet in length, you must halve the size of each panel to create supports. You can crudely shape the wall to create battlements and the like. The wall is an object made of stone that can be damaged and thus breached. Each panel has AC 15 and 30 Hit Points per inch of thickness, and it has Immunity to Poison and Psychic damage. Reducing a panel to 0 Hit Points destroys it and might cause connected panels to collapse at the GM's discretion. If you maintain your Concentration on this spell for its full duration, the wall becomes permanent and can't be dispelled. Otherwise, the wall disappears when the spell ends."
   },
@@ -11522,7 +11522,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "dex",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "damage": [
       {
@@ -11747,7 +11747,7 @@ export const OPEN5E_SPELL_REGISTRY: Record<string, SpellDefinition> = {
     "saveAgainst": {
       "ability": "cha",
       "dc": "spellsave",
-      "onSuccess": "half_damage"
+      "onSuccess": "no_effect"
     },
     "description": "You create a magical zone that guards against deception in a 15-foot-radius Sphere centered on a point within range. Until the spell ends, a creature that enters the spell's area for the first time on a turn or starts its turn there makes a Charisma saving throw. On a failed save, a creature can't speak a deliberate lie while in the radius. You know whether a creature succeeds or fails on this save. An affected creature is aware of the spell and can avoid answering questions to which it would normally respond with a lie. Such a creature can be evasive yet must be truthful."
   }

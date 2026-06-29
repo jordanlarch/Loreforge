@@ -10,16 +10,22 @@
  * Modelled effects (the "primary effect" of each condition):
  *  - advantage / disadvantage on the creature's own attacks
  *  - advantage / disadvantage on attacks made against the creature
+ *  - disadvantage on the creature's ability checks (frightened)
  *  - incapacitation (no actions or reactions)
  *  - speed reduced to zero
  *  - auto-failed STR/DEX saving throws; per-ability save disadvantage
- *  - charmed: cannot attack the charmer
+ *  - charmed: cannot attack the charmer; frightened: cannot approach the source
  *  - melee attacks against a prone/paralyzed/unconscious creature crit when adjacent
+ *  - exhaustion (SRD 5.2.1 uniform model): a flat −2×level penalty to every D20
+ *    Test and a −5×level-foot speed reduction; death at level 6.
  *
  * Not yet modelled (deferred to the Effect/spell systems): damage
  * resistance/immunity (petrified), condition immunities, perception/check
  * auto-fails (blinded sight checks, deafened hearing), and the social-only facets
- * of charmed.
+ * of charmed. Frightened's "while the source is in line of sight" gate is
+ * approximated as always-on for the attack/check disadvantage (the engine
+ * resolvers are position-free); the can't-approach restriction is enforced
+ * against the tracked source in the movement handler.
  */
 import type { Ability } from "../entities/types";
 
@@ -74,6 +80,10 @@ type ConditionMechanics = {
   saveDisadvantage?: Ability[];
   /** Cannot attack the condition's source (charmed). */
   cannotAttackSource?: boolean;
+  /** Cannot willingly move closer to the condition's source (frightened). */
+  cannotApproachSource?: boolean;
+  /** Disadvantage on the creature's ability checks (frightened). */
+  checkDisadvantage?: boolean;
   /** Melee attacks from an adjacent attacker are automatic crits on a hit. */
   meleeCritWhenAdjacent?: boolean;
   prone?: boolean;
@@ -85,9 +95,14 @@ const CONDITION_MECHANICS: Record<Condition, ConditionMechanics> = {
   blinded: { ownAttacksDisadvantage: true, attacksAgainstAdvantage: true },
   charmed: { cannotAttackSource: true },
   deafened: NO_MECHANICS,
-  // Simplified: disadvantage on attacks while frightened (SRD gates on the
-  // source being in line of sight, which we approximate as always-on here).
-  frightened: { ownAttacksDisadvantage: true },
+  // Frightened (SRD 5.2.1): disadvantage on attack rolls *and* ability checks
+  // while the source is in line of sight (approximated as always-on), and the
+  // creature can't willingly move closer to the source (enforced in movement).
+  frightened: {
+    ownAttacksDisadvantage: true,
+    checkDisadvantage: true,
+    cannotApproachSource: true,
+  },
   grappled: { speedZero: true },
   incapacitated: { incapacitated: true },
   invisible: { ownAttacksAdvantage: true, attacksAgainstDisadvantage: true },
@@ -151,7 +166,18 @@ export function isIncapacitated(conditions: readonly ConditionState[]): boolean 
   return conditions.some((c) => CONDITION_MECHANICS[c.condition].incapacitated);
 }
 
-/** Effective speed after speed-zeroing conditions and exhaustion tiers. */
+/**
+ * Flat penalty applied to every D20 Test (attack rolls, ability checks, saving
+ * throws) from exhaustion: SRD 5.2.1 reduces the roll by 2× the exhaustion
+ * level. Returns a non-negative number to subtract from the roll total.
+ */
+export function exhaustionD20Penalty(
+  conditions: readonly ConditionState[],
+): number {
+  return 2 * exhaustionLevel(conditions);
+}
+
+/** Effective speed after speed-zeroing conditions and exhaustion (−5ft/level). */
 export function effectiveSpeed(
   baseSpeed: number,
   conditions: readonly ConditionState[],
@@ -159,10 +185,8 @@ export function effectiveSpeed(
   if (conditions.some((c) => CONDITION_MECHANICS[c.condition].speedZero)) {
     return 0;
   }
-  const ex = exhaustionLevel(conditions);
-  if (ex >= 5) return 0;
-  if (ex >= 2) return Math.floor(baseSpeed / 2);
-  return baseSpeed;
+  const reduction = 5 * exhaustionLevel(conditions);
+  return Math.max(0, baseSpeed - reduction);
 }
 
 /** Roll mode for the creature's own attack rolls, from its conditions. */
@@ -175,7 +199,17 @@ export function ownAttackMode(
     if (m.ownAttacksDisadvantage) modes.push("disadvantage");
     if (m.ownAttacksAdvantage) modes.push("advantage");
   }
-  if (exhaustionLevel(conditions) >= 3) modes.push("disadvantage");
+  return combineMode(...modes);
+}
+
+/** Roll mode for the creature's ability checks, from its conditions. */
+export function checkMode(conditions: readonly ConditionState[]): RollAdjust {
+  const modes: RollAdjust[] = [];
+  for (const c of conditions) {
+    if (CONDITION_MECHANICS[c.condition].checkDisadvantage) {
+      modes.push("disadvantage");
+    }
+  }
   return combineMode(...modes);
 }
 
@@ -218,6 +252,19 @@ export function charmedSources(
   return sources;
 }
 
+/** The set of fear sources this creature can't willingly move closer to. */
+export function frightenedSources(
+  conditions: readonly ConditionState[],
+): Set<string> {
+  const sources = new Set<string>();
+  for (const c of conditions) {
+    if (CONDITION_MECHANICS[c.condition].cannotApproachSource && c.source) {
+      sources.add(c.source);
+    }
+  }
+  return sources;
+}
+
 /** Saving-throw resolution for an ability given the creature's conditions. */
 export function saveResolution(
   ability: Ability,
@@ -232,6 +279,5 @@ export function saveResolution(
     const m = CONDITION_MECHANICS[c.condition];
     if (m.saveDisadvantage?.includes(ability)) modes.push("disadvantage");
   }
-  if (exhaustionLevel(conditions) >= 3) modes.push("disadvantage");
   return { autoFail, mode: combineMode(...modes) };
 }

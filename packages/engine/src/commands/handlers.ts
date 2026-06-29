@@ -31,9 +31,12 @@ import { parseDice } from "../rng/dice";
 import {
   attackedMode,
   charmedSources,
+  checkMode,
   combineMode,
   critsWhenAdjacent,
   effectiveSpeed,
+  exhaustionD20Penalty,
+  frightenedSources,
   isCondition,
   isIncapacitated,
   isProne,
@@ -446,6 +449,27 @@ function handleMoveEntity(
   }
 
   const to = cmd.to;
+
+  // Frightened: a creature can't willingly move closer to a fear source it can
+  // still perceive (SRD 5.2.1). Reject a step that shortens the distance to any
+  // tracked fear source on the same scene.
+  if (entity.position) {
+    for (const sourceId of frightenedSources(entity.conditions)) {
+      const source = ctx.world.entities[sourceId];
+      if (
+        source?.position &&
+        source.sceneId === entity.sceneId &&
+        distanceFeet(to, source.position) <
+          distanceFeet(entity.position, source.position)
+      ) {
+        return reject(
+          "FRIGHTENED",
+          `${entity.name} is frightened and can't move closer to ${source.name}.`,
+          { source: sourceId },
+        );
+      }
+    }
+  }
   const scene = entity.sceneId ? ctx.world.scenes[entity.sceneId] : undefined;
   const map = scene?.map;
   if (map) {
@@ -986,7 +1010,12 @@ function handleAttack(
     events.push(rollDiceEvent(ctx, roll));
     banePenalty += roll.total;
   }
-  const total = natural + cmd.attackBonus + blessBonus - banePenalty;
+  const total =
+    natural +
+    cmd.attackBonus +
+    blessBonus -
+    banePenalty -
+    exhaustionD20Penalty(attacker.conditions);
   const targetAc = effectiveAc(target);
   const forceCrit =
     adjacent === true && critsWhenAdjacent(target.conditions);
@@ -1173,7 +1202,10 @@ function handleSavingThrow(
   const mode = combineMode((cmd.mode ?? "normal") as RollAdjust, condMode);
   const roll = ctx.roll("1d20", `save:${cmd.entity}:${cmd.ability}`, mode);
   const natural = roll.total;
-  const total = natural + abilityModifier(entity.abilityScores[cmd.ability]);
+  const total =
+    natural +
+    abilityModifier(entity.abilityScores[cmd.ability]) -
+    exhaustionD20Penalty(entity.conditions);
   const success = total >= cmd.dc;
 
   return {
@@ -1208,12 +1240,18 @@ function handleAbilityCheck(
     return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
   }
 
-  const mode = (cmd.mode ?? "normal") as RollMode;
+  const mode = combineMode(
+    (cmd.mode ?? "normal") as RollAdjust,
+    checkMode(entity.conditions),
+  ) as RollMode;
   const roll = ctx.roll("1d20", `check:${cmd.entity}:${cmd.ability}`, mode);
   const natural = roll.total;
   const profBonus = cmd.proficient ? entity.proficiencyBonus : 0;
   const total =
-    natural + abilityModifier(entity.abilityScores[cmd.ability]) + profBonus;
+    natural +
+    abilityModifier(entity.abilityScores[cmd.ability]) +
+    profBonus -
+    exhaustionD20Penalty(entity.conditions);
   const success = cmd.dc === undefined ? undefined : total >= cmd.dc;
 
   return {
@@ -1951,7 +1989,10 @@ function rollSpellSave(
   }
   const roll = ctx.roll("1d20", `save:${target.id}:${ability}`, mode);
   const natural = roll.total;
-  const total = natural + abilityModifier(target.abilityScores[ability]);
+  const total =
+    natural +
+    abilityModifier(target.abilityScores[ability]) -
+    exhaustionD20Penalty(target.conditions);
   const success = total >= dc;
   return {
     success,
@@ -2458,18 +2499,21 @@ function handleCastSpell(
     if (!area) {
       return reject("INVALID_PAYLOAD", `${spell.name} has no area shape.`);
     }
-    if (!cmd.origin) {
-      return reject("INVALID_PAYLOAD", `${spell.name} needs an origin point.`);
-    }
-    const origin = cmd.origin;
     const isCone = area.shape === "cone";
     const isLine = area.shape === "line";
-    const usesPointOrigin = !isCone && !isLine;
-    if ((isCone || isLine) && !caster.position) {
+    // An emanation is centered on the caster and excludes the caster's own
+    // square (SRD 5.2.1), so its origin is the caster, not a chosen point.
+    const isEmanation = area.shape === "emanation";
+    const usesPointOrigin = !isCone && !isLine && !isEmanation;
+    if ((isCone || isLine || isEmanation) && !caster.position) {
       return reject(
         "INVALID_PAYLOAD",
         `${spell.name} needs the caster's position.`,
       );
+    }
+    const origin = isEmanation ? caster.position! : cmd.origin;
+    if (!origin) {
+      return reject("INVALID_PAYLOAD", `${spell.name} needs an origin point.`);
     }
     const map = caster.sceneId
       ? ctx.world.scenes[caster.sceneId]?.map
@@ -2495,14 +2539,16 @@ function handleCastSpell(
       }
     }
 
-    // A sphere bursts from its center; a cone emanates from the caster. A wall
-    // between that source and a creature shields it from the blast.
-    const source = isCone || isLine ? caster.position! : origin;
+    // A sphere bursts from its center; a cone/line/emanation emanates from the
+    // caster. A wall between that source and a creature shields it from the
+    // blast. An emanation excludes the caster's own square.
+    const source = isCone || isLine || isEmanation ? caster.position! : origin;
     areaAffected = Object.values(ctx.world.entities)
       .filter((e) => {
         if (e.sceneId !== caster.sceneId || !e.alive || !e.position) {
           return false;
         }
+        if (isEmanation && e.id === caster.id) return false;
         const inShape =
           isCone
             ? withinCone(caster.position!, origin, e.position, area.size)
@@ -2510,7 +2556,9 @@ function handleCastSpell(
               ? withinLine(caster.position!, origin, e.position, area.size)
               : area.shape === "cube"
                 ? withinCube(origin, e.position, area.size)
-                : withinBurst(origin, e.position, area.size);
+                : isEmanation
+                  ? withinBurst(caster.position!, e.position, area.size)
+                  : withinBurst(origin, e.position, area.size);
         if (!inShape) return false;
         return !map || hasLineOfSight(source, e.position, wallBlocked);
       })
@@ -2628,7 +2676,12 @@ function handleCastSpell(
       events.push(rollDiceEvent(ctx, roll));
       banePenalty += roll.total;
     }
-    const total = natural + bonus + blessBonus - banePenalty;
+    const total =
+      natural +
+      bonus +
+      blessBonus -
+      banePenalty -
+      exhaustionD20Penalty(caster.conditions);
     const adjacentCrit =
       spell.attackAgainst.type === "melee" &&
       caster.position &&

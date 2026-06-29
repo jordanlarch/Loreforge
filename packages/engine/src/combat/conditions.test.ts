@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   attackedMode,
   charmedSources,
+  checkMode,
   combineMode,
   critsWhenAdjacent,
   effectiveSpeed,
+  exhaustionD20Penalty,
+  frightenedSources,
   isIncapacitated,
   isProne,
   ownAttackMode,
@@ -32,12 +35,33 @@ describe("effectiveSpeed", () => {
     expect(effectiveSpeed(30, [c("grappled")])).toBe(0);
     expect(effectiveSpeed(30, [c("restrained")])).toBe(0);
   });
-  it("halves at exhaustion 2 and zeroes at 5", () => {
-    expect(effectiveSpeed(30, [c("exhaustion", { level: 2 })])).toBe(15);
-    expect(effectiveSpeed(30, [c("exhaustion", { level: 5 })])).toBe(0);
+  // SRD 5.2.1 uniform exhaustion: −5 ft of Speed per level (not the 2014 tiers).
+  it("reduces speed by 5 ft per exhaustion level", () => {
+    expect(effectiveSpeed(30, [c("exhaustion", { level: 1 })])).toBe(25);
+    expect(effectiveSpeed(30, [c("exhaustion", { level: 2 })])).toBe(20);
+    expect(effectiveSpeed(30, [c("exhaustion", { level: 6 })])).toBe(0);
+  });
+  it("never goes below zero", () => {
+    expect(effectiveSpeed(20, [c("exhaustion", { level: 5 })])).toBe(0);
   });
   it("is unchanged with no relevant condition", () => {
     expect(effectiveSpeed(30, [c("poisoned")])).toBe(30);
+  });
+});
+
+describe("exhaustionD20Penalty", () => {
+  // SRD 5.2.1: every D20 Test is reduced by 2 × the exhaustion level.
+  it("is 2 × the exhaustion level", () => {
+    expect(exhaustionD20Penalty([])).toBe(0);
+    expect(exhaustionD20Penalty([c("exhaustion", { level: 1 })])).toBe(2);
+    expect(exhaustionD20Penalty([c("exhaustion", { level: 3 })])).toBe(6);
+  });
+  it("does not turn exhaustion into roll disadvantage", () => {
+    // The 2024 model is a flat penalty, not advantage/disadvantage.
+    expect(ownAttackMode([c("exhaustion", { level: 5 })])).toBe("normal");
+    expect(saveResolution("con", [c("exhaustion", { level: 5 })]).mode).toBe(
+      "normal",
+    );
   });
 });
 
@@ -50,8 +74,31 @@ describe("ownAttackMode", () => {
   it("gives advantage when invisible", () => {
     expect(ownAttackMode([c("invisible")])).toBe("advantage");
   });
-  it("gives disadvantage at exhaustion 3", () => {
-    expect(ownAttackMode([c("exhaustion", { level: 3 })])).toBe("disadvantage");
+  it("is unaffected by exhaustion (now a flat D20 penalty)", () => {
+    expect(ownAttackMode([c("exhaustion", { level: 3 })])).toBe("normal");
+  });
+});
+
+describe("checkMode", () => {
+  it("gives disadvantage on ability checks while frightened", () => {
+    expect(checkMode([c("frightened", { source: "npc:dragon" })])).toBe(
+      "disadvantage",
+    );
+  });
+  it("is normal for conditions without a check rider", () => {
+    expect(checkMode([c("poisoned")])).toBe("normal");
+    expect(checkMode([c("exhaustion", { level: 4 })])).toBe("normal");
+  });
+});
+
+describe("frightenedSources", () => {
+  it("collects fear sources the creature can't approach", () => {
+    expect(
+      frightenedSources([c("frightened", { source: "npc:dragon" })]),
+    ).toEqual(new Set(["npc:dragon"]));
+  });
+  it("ignores frightened instances with no recorded source", () => {
+    expect(frightenedSources([c("frightened")])).toEqual(new Set());
   });
 });
 
@@ -87,9 +134,9 @@ describe("saveResolution", () => {
     expect(saveResolution("dex", [c("restrained")]).mode).toBe("disadvantage");
     expect(saveResolution("str", [c("restrained")]).mode).toBe("normal");
   });
-  it("gives disadvantage on all saves at exhaustion 3", () => {
+  it("does not give save disadvantage from exhaustion (now a flat penalty)", () => {
     expect(saveResolution("con", [c("exhaustion", { level: 3 })]).mode).toBe(
-      "disadvantage",
+      "normal",
     );
   });
 });

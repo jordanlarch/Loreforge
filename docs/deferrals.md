@@ -407,6 +407,72 @@ Full discovery matrix: **`docs/srd-version-audit.md`**. Re-run DB counts: `cd pa
 
 ---
 
+## 12. SRD 5.2.1 feature-coverage (fidelity) — `SRD-FID-*`
+
+Full coverage map: **`docs/srd-feature-coverage-audit.md`** (the SRD-shaped reference companion to the
+version audit in §10). That doc answers *"does the engine implement the rule, correctly?"*; the rows
+here are the **work-of-record** for the gaps. First audited 2026-06-29 against `SRD_CC_v5.2.1.pdf`.
+
+**2026-06-29 fix pass (PR-pending):** all incongruences were **re-verified against the 5.2.1 PDF text**
+before touching code. FID-1/3/4/5/6 fixed; FID-12 partially fixed (Flame Strike); **FID-10 retracted**
+(the audit claim was the 2014 spell — 2024 Sleep is a Wisdom save, so the engine was already a valid
+tracer; the 5-ft-Sphere/Concentration gaps were fixed anyway). Engine suite green (603 tests) + typecheck.
+
+### 12.1 Incongruences — implemented but contradicts the PDF (correctness bugs)
+
+| ID | Item | Tracking | Status | Notes |
+|---|---|---|---|---|
+| SRD-FID-1 | Exhaustion uses 2014 tiered model, not 2024 uniform (−2/level D20, −5ft/level, death at 6) | #310 | **Done** | `combat/conditions.ts` (`exhaustionD20Penalty`, `effectiveSpeed` −5/level) + penalty threaded into attack/check/save/spell-attack handlers. PDF p.181. |
+| SRD-FID-2 | Background ability bonuses (+2/+1) never applied; species ASI empty; UI copy contradicts behavior | #311 | Deferred | `srd-character-options.ts`, `creation-wizard.tsx`. PDF p.83. **Silent char-stat bug.** (web slice) |
+| SRD-FID-3 | Frightened missing can't-approach / ability-check disadvantage | #312 | **Done** | `combat/conditions.ts` (`checkMode`, `frightenedSources`) + can't-approach in `handleMoveEntity`. LOS gate kept as documented always-on approximation. PDF p.182. |
+| SRD-FID-4 | Faerie Fire modeled as sphere; should be 20-ft cube | #313 | **Done** | spell registry → `cube`. |
+| SRD-FID-5 | Spirit Guardians sphere; should be 15-ft emanation (no Emanation shape in engine) | #314 | **Done** | Added `emanation` AoE shape (taxonomy + cast resolution, caster-centered, excludes caster). |
+| SRD-FID-6 | Open5e converter defaults every save spell to `half_damage` (~165 spells wrong) | #315 | **Done** | `open5e-spell.ts` infers `no_effect` unless text says "half"; **registry regenerated — 68 spells corrected** (e.g. Sacred Flame, Hold Person). |
+| SRD-FID-7 | Hex reuses Hunter's Mark machinery (wrong damage type, weapon-only) | #316 | Deferred | Meaningful fix (necrotic typing) needs the resistance engine (SRD-FID-19); "any-attack" scope + chosen-ability check-disadvantage need new effect plumbing. |
+| SRD-FID-8 | Scorching Ray auto-hits; should be separate ranged spell attacks | #317 | Deferred | Needs a per-ray spell-attack resolution mode (schema addition); `projectiles` (auto-hit) is correct only for Magic Missile. |
+| SRD-FID-9 | Revivify heals a living ally; should raise the recently dead | #318 | Deferred | Needs a revive/raise-dead path (clear `dead`/`deathSaves`); overlaps a missing "Dead" lifecycle. |
+| SRD-FID-10 | ~~Sleep flat save; should be 5d8 HP-total budget~~ — **RETRACTED** (2014 claim) | #319 | **Done/retracted** | 2024 Sleep *is* a Wisdom save → engine was already a valid tracer. Fixed remaining gaps: 5-ft Sphere + Concentration. |
+| SRD-FID-11 | Counterspell / Dispel Magic lack interrupt + spell-level contest | #320 | Deferred | `handlers.ts`, `effects.ts`. Counterspell interrupt needs a reaction-during-cast window. |
+| SRD-FID-12 | Tracer spells simplified | #321 | **Partial** | **Flame Strike done** (cylinder + 5d6 fire/5d6 radiant). Wall of Fire (persistent zone) / Polymorph (stat-swap) / Spiritual Weapon (recurring bonus-action) still need subsystems (overlap ENG-3). |
+| SRD-FID-13 | Damage at 0 HP: no crit=2 failures, no instant death | #322 | Deferred | overlaps **ENG-8** (needs a `critical` flag on `DamageDealt`). Instant-death is projection-local; crit-doubles-failures needs payload plumbing. PDF p.17. |
+
+### 12.2 Next-up — cheap, high-visibility combat completeness
+
+| ID | Item | Tracking | Status | Notes |
+|---|---|---|---|---|
+| SRD-FID-14 | Standard actions Dash / Disengage / Dodge / Help / Hide (only Attack/Magic/Ready exist) | #323 | Deferred | gateway for SRD-FID-3 (Disengage), Hide→Invisible. PDF pp.180–183. |
+| SRD-FID-15 | Cover (half +2 / three-quarters +5 / total) for AC + Dex saves | #324 | Deferred | feeds AoE accuracy + Sacred Flame "ignores cover". |
+
+### 12.3 Partial / missing fidelity gaps (depth backlog)
+
+Tracked here; several alias to existing engine rows (don't mint duplicates — fix under the linked ID).
+
+| ID | Item | Tracking | Status | Notes |
+|---|---|---|---|---|
+| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | Partial | High-impact: every save is currently mathematically wrong. |
+| SRD-FID-17 | Surprise (combat order) | doc-only | Missing | |
+| SRD-FID-18 | Difficult terrain movement cost | doc-only | Missing | |
+| SRD-FID-19 | Resistance / Vulnerability / Immunity + temp-HP **grant** command | doc-only | Missing | damage types logged, never multiplied; no temp-HP event. |
+| SRD-FID-20 | Condition depth (grapple escape, frightened gates, blinded/deafened auto-fail, petrified resistances) | doc-only | Partial | see also SRD-FID-3, SRD-FID-14. |
+| SRD-FID-21 | Class + subclass feature **mechanics** (2 of ~12 wired; subclasses 0) | doc-only | Partial | overlaps CHAR-ADV-1 (choice UI). |
+| SRD-FID-22 | Species trait mechanics (Darkvision, Breath Weapon, Lucky, lineages…) — 0 wired | doc-only | Missing | |
+| SRD-FID-23 | Feat mechanical coverage (8 wired of full Codex set) | doc-only | Partial | |
+| SRD-FID-24 | Weapon properties (Light/Heavy/Loading/Ammo/Thrown/Versatile/long-range) + **weapon-mastery effects** | doc-only | Partial | mastery is display-only; see ENG-15 for range bands. |
+| SRD-FID-25 | Armor: stealth disadvantage, Str requirement, **Armor Training** (2024), don/doff | doc-only | Partial | |
+| SRD-FID-26 | Tools, mounts & vehicles, lifestyle, hirelings, services | doc-only | Missing | |
+| SRD-FID-27 | Spellcasting rules: ritual casting, V/S/M components, prepared-vs-known class models, runtime Warlock/multiclass slots | doc-only | Partial | |
+| SRD-FID-28 | 2024 glossary mechanics: Bloodied, Heroic Inspiration, Emanation/Cylinder AoE, dehydration/malnutrition/suffocation | doc-only | Missing | Emanation also needed by SRD-FID-5. |
+| SRD-FID-29 | Magic-item effect schema, **attunement-limit enforcement** (max 3), charges/activation, cursed-item type | doc-only | Missing | catalog-only today; see DATA-1d. |
+| SRD-FID-30 | Mounted combat, Underwater combat | doc-only | Missing | |
+| SRD-FID-31 | Crafting (nonmagical, potions of healing math, spell-scroll casting, magic-item crafting) | doc-only | Missing | |
+| SRD-FID-32 | Advanced spell classes: summoning, polymorph/wild-shape stat swap, persistent walls/zones, teleportation, divination, banish/restore/command-obedience | doc-only | Missing | overlaps ENG-3. |
+
+> **Out of SRD scope (no `SRD-FID`):** AI-GM chat, Realms generators, Smithy, Quests, overworld map/discovery,
+> memory/recap tier, Yjs multiplayer, tutorial, GM persona / art-style / play tempo — these are the product
+> layer on top of the ruleset and are governed by their own families above (GEN-*/REALM-*/SMITH-*/CAMP-*/PLAY-*/MEM-*/TUT-*).
+
+---
+
 ## 11. Maintenance
 
 - When you ship an item, set its **Status** to `Done` (and add the merge commit/PR in

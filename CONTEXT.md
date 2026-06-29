@@ -16,7 +16,7 @@ Highlights of what's built:
 - **Memory tier (P5):** rolling summaries, recaps, pins, RAG, live-turn context — shipped.
 - **Quest system (Phases A–D):** structured `QuestTemplate` on Realms entities; tease/offer/briefing runtime; Realms + Campaign editors; prerequisite gates, step advance, XP on Resolve — see `docs/quests.md`.
 - **Background jobs:** nightly Open5e ingest (`srd-2024`) + re-embed via Trigger.dev; spell registry catalog via `npm run generate:spell-registry`.
-- **SRD 5.2 audit (Jun 2026):** AUDIT-0–9 complete — PDF-first policy, Open5e-only ingest, 339-spell registry catalog, 9 species seed, legacy character purge. See `docs/srd-version-audit.md`.
+- **SRD 5.2 audit (Jun 2026):** AUDIT-0–9 complete — PDF-first policy, Open5e-only ingest, 339-spell registry catalog, 9 species seed, legacy character purge. See `docs/srd-version-audit.md`. **Feature/fidelity coverage map (does the engine implement each rule, correctly?):** `docs/srd-feature-coverage-audit.md` + `deferrals.md` §12 (`SRD-FID-*`).
 
 ## What This Is
 

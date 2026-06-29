@@ -472,6 +472,7 @@ export type ValidationCode =
   | "NO_LINE_OF_SIGHT"
   | "ACTION_UNAVAILABLE"
   | "IMMOBILIZED"
+  | "FRIGHTENED"
   | "INVALID_TARGET"
   | "UNKNOWN_CONDITION"
   | "NOT_DYING"

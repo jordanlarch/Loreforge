@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Engine } from "./engine";
 import type { AbilityScores, GridPosition } from "./entities/types";
-import type { AttackResolvedPayload, SaveRolledPayload } from "./events/types";
+import type {
+  AttackResolvedPayload,
+  CheckRolledPayload,
+  SaveRolledPayload,
+} from "./events/types";
 
 const ABILITIES: AbilityScores = {
   str: 14,
@@ -322,6 +326,138 @@ describe("Conditions: saving throws", () => {
     });
     expect(savePayload(low).success).toBe(true);
     expect(savePayload(high).success).toBe(false);
+  });
+});
+
+describe("Exhaustion (SRD 5.2.1 uniform model)", () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 7 });
+    await setup(engine);
+  });
+
+  const savePayload = (r: Awaited<ReturnType<Engine["execute"]>>) => {
+    if (!r.accepted) throw new Error("save rejected");
+    const e = r.events.find((ev) => ev.type === "SaveRolled");
+    return (e as { payload: SaveRolledPayload }).payload;
+  };
+  const checkPayload = (r: Awaited<ReturnType<Engine["execute"]>>) => {
+    if (!r.accepted) throw new Error("check rejected");
+    const e = r.events.find((ev) => ev.type === "CheckRolled");
+    return (e as { payload: CheckRolledPayload }).payload;
+  };
+
+  it("subtracts 2 × level from a saving-throw total", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "apply_condition",
+      target: "pc:hero",
+      condition: "exhaustion",
+      level: 2,
+    });
+    const r = await engine.execute(CAMPAIGN, {
+      type: "saving_throw",
+      entity: "pc:hero",
+      ability: "con",
+      dc: 1,
+    });
+    const p = savePayload(r);
+    // con mod +2, exhaustion-2 penalty −4 ⇒ total = natural − 2.
+    expect(p.total).toBe((p.natural ?? 0) + 2 - 4);
+  });
+
+  it("subtracts 2 × level from an ability-check total", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "apply_condition",
+      target: "pc:hero",
+      condition: "exhaustion",
+      level: 3,
+    });
+    const r = await engine.execute(CAMPAIGN, {
+      type: "ability_check",
+      entity: "pc:hero",
+      ability: "str",
+    });
+    const p = checkPayload(r);
+    // str mod +2, exhaustion-3 penalty −6 ⇒ total = natural − 4.
+    expect(p.total).toBe((p.natural ?? 0) + 2 - 6);
+  });
+
+  it("reduces Speed by 5 ft per level (not halved)", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "apply_condition",
+      target: "pc:hero",
+      condition: "exhaustion",
+      level: 4,
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      sceneId: "s:1",
+      combatants: ["pc:hero", "npc:foe"],
+      sides: { "pc:hero": "party", "npc:foe": "foes" },
+    });
+    await engine.execute(CAMPAIGN, { type: "roll_initiative" });
+    const hero = (await engine.getState(CAMPAIGN)).entities["pc:hero"];
+    // 30 − 5×4 = 10 ft of movement on a fresh turn.
+    expect(hero?.actionEconomy?.movement.total).toBe(10);
+  });
+});
+
+describe("Frightened (SRD 5.2.1)", () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 8 });
+    await setup(engine);
+  });
+
+  const checkPayload = (r: Awaited<ReturnType<Engine["execute"]>>) => {
+    if (!r.accepted) throw new Error("check rejected");
+    const e = r.events.find((ev) => ev.type === "CheckRolled");
+    return (e as { payload: CheckRolledPayload }).payload;
+  };
+
+  it("gives disadvantage on ability checks", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "apply_condition",
+      target: "pc:hero",
+      condition: "frightened",
+      source: "npc:foe",
+    });
+    const r = await engine.execute(CAMPAIGN, {
+      type: "ability_check",
+      entity: "pc:hero",
+      ability: "wis",
+    });
+    expect(checkPayload(r).mode).toBe("disadvantage");
+  });
+
+  it("blocks moving closer to the fear source but allows retreating", async () => {
+    // hero at (0,0); foe (fear source) at (3,0).
+    await engine.execute(CAMPAIGN, {
+      type: "relocate_entity",
+      entity: "npc:foe",
+      sceneId: "s:1",
+      position: { x: 3, y: 0 },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "apply_condition",
+      target: "pc:hero",
+      condition: "frightened",
+      source: "npc:foe",
+    });
+    const closer = await engine.execute(CAMPAIGN, {
+      type: "move_entity",
+      entity: "pc:hero",
+      to: { x: 1, y: 0 },
+    });
+    expect(closer.accepted).toBe(false);
+    if (!closer.accepted) expect(closer.reason.code).toBe("FRIGHTENED");
+
+    const away = await engine.execute(CAMPAIGN, {
+      type: "move_entity",
+      entity: "pc:hero",
+      to: { x: 0, y: 1 },
+    });
+    expect(away.accepted).toBe(true);
   });
 });
 

@@ -173,7 +173,7 @@ Deferred from GRILL-TRAP Q7. **Traps-only v1** for Live Play resolution.
 | Engine commands | ✅ handlers + projection + `engine.traps.test.ts` |
 | WS / Live Play UI | ✅ #293 — detect/disable affordances + `sceneKind` gate |
 | Scene trap placement (GM prep) | ⏳ deferred — CAMP / map editor |
-| Poisons+ siblings | ✅ **GRILL-LIVE-POISON** (#296–#297), **GRILL-LIVE-CURSE** (#298–#299), **GRILL-LIVE-ENV-EFFECT** grill Q1–Q8 ✅; **GRILL-LIVE-FEAR** next |
+| Poisons+ siblings | ✅ **GRILL-LIVE-POISON** (#296–#297), **GRILL-LIVE-CURSE** (#298–#299), **GRILL-LIVE-ENV-EFFECT** (#301–#302), **GRILL-LIVE-FEAR** grill Q1–Q8 ✅ — **Active:** engine PR 1 |
 
 ---
 
@@ -508,10 +508,130 @@ Scene carries *what's ambient*; entities carry *who is affected* and need repeat
 
 | PR | Scope |
 |---|---|
-| **Engine (#TBD)** | `srd-environmental-effect-seeds.ts`, `ENVIRONMENTAL_EFFECT_REGISTRY`, `SceneState.environmentalEffectSlugs`, `EntityState.activeEnvironmentalEffects[]`, handlers + projection + tests |
-| **WS + Live Play (#TBD)** | Enter/leave hooks, scene subtitle chip, frost/cyan HUD chip, dungeon demo slugs (Q8) |
+| **Engine (#301)** | `srd-environmental-effect-seeds.ts`, `ENVIRONMENTAL_EFFECT_REGISTRY`, `SceneState.environmentalEffectSlugs`, `EntityState.activeEnvironmentalEffects[]`, handlers + projection + tests |
+| **WS + Live Play (#302)** | Enter/leave hooks, scene subtitle chip, frost/cyan HUD chip, dungeon demo slugs (Q8) |
 
 **Deferred:** hourly/travel repeat (Extreme Cold hourly, High Altitude pace) → **GRILL-EXPLORATION**; per-tile zones; resistance/immunity auto-succeed; weather movement.
+
+---
+
+## GRILL-LIVE-FEAR — COMPLETE ✅
+
+Fear and mental stress attach via **entity state** — not map tiles. **Grill session Q1–Q8 confirmed** (Jun 2026). Inherits GRILL-FEAR data model (Q3 fields) and Live Play sibling pattern (poison/curse/env-effect). **Fear** spell stays in spell pipeline; toolbox fear is exposure → save → state.
+
+### Q1 — v1 delivery scope ✅ (grill confirmed)
+
+**Option A — Fear + one-shot stress.**
+
+| In v1 Live Play | Deferred |
+|---|---|
+| **Fear exposure** — Wis save → `frightened` + turn-start repeat save (Sarcophagus / Abyss Portal pattern) | **Prolonged stress** — short/long/indefinite entries |
+| **One-shot mental stress** — Wis save → psychic damage; half on `onSuccess: "half"` (Hallucinogenic / Fiendish Idol pattern) | **Worst Fears Illusion** per-target visibility |
+| Scene enter + Use Item delivery (Q4) | **Far Realm Trap** "until end of next turn" duration edge |
+| | Calm Emotions / Lesser Restoration / Greater Restoration spell bridges |
+| | Trap `trigger_trap` fear payload (optional follow-up) |
+
+### Q2 — Attachment model ✅ (grill confirmed)
+
+**Option A — Entity instances only.**
+
+| State | Purpose |
+|---|---|
+| `EntityState.activeFearStress[]` | Ongoing **fear** instances only (slug, instance id, `pendingRepeat`) — **dedupe: one instance per slug per entity** |
+| One-shot **stress** | Resolves entirely inside `apply_fear_stress` — damage applied, **no array entry** |
+
+Do **not** overload generic `conditions[]` for repeat-save fear without an `activeFearStress[]` instance.
+
+### Q3 — Engine commands ✅ (grill confirmed)
+
+**Option A — Minimal trio** (mirrors poison / curse / env-effect command pattern).
+
+| Command | Purpose | Invoked by |
+|---|---|---|
+| `apply_fear_stress` | Initial save; fear → `frightened` + push to `activeFearStress[]`; stress → psychic damage inline (half on success) | WS on enter location; Use Item; GM hook later |
+| `resolve_fear_stress_tick` | Repeat save for ongoing fear; clear instance + condition on success | Engine at turn boundary |
+| `remove_fear_stress` | Force-end instance + clear linked conditions | Scene leave (auto); GM hook later |
+
+Registry distinguishes fear vs stress entries by `effects[]` prose (`frightened` vs psychic damage dice).
+
+### Q4 — Trigger timing ✅ (grill confirmed)
+
+| Topic | Decision |
+|---|---|
+| **Scene enter (A1)** | WS reads `toolboxFearStressSlugs` on location metadata → auto `apply_fear_stress` per party PC per slug (dedupe per Q2) |
+| **Use Item (A2)** | Auto `apply_fear_stress` when Use Item resolves an item tagged with `toolboxFearStressSlug` |
+| **Repeat saves (B2)** | Auto `resolve_fear_stress_tick` at **start** of affected entity's turn when `pendingRepeat` — poison/curse/env-effect consistent; **not** SRD literal end-of-turn |
+| **Scene leave (C1)** | Auto `remove_fear_stress` for location-applied instances on `change_scene` / exit location |
+| **Action economy (D1)** | None — passive exposure only; no fear/stress action rail |
+
+### Q5 — Live Play UI ✅ (grill confirmed)
+
+**Option A — Passive exposure + feedback + optional scene chip.**
+
+| Surface | Decision |
+|---|---|
+| **How effects arrive** | Silent engine `apply_fear_stress` on scene enter / Use Item — no player button |
+| **Scene context** | Optional top-bar chip when location metadata carries fear slugs (e.g. "Sarcophagus Apparition") |
+| **Active fear feedback** | Party rail HUD chip per ongoing instance — **amber/dread** (distinct from curse violet + env cyan) |
+| **One-shot stress** | No HUD chip — damage in narrative/combat log only |
+| **Repeat saves** | Silent turn-start `resolve_fear_stress_tick`; narrative log only |
+| **Scene leave** | Instances + chips clear automatically (Q4 C1) |
+
+**Out of v1 UI:** Resist / Face Fear chips, fear picker on action rail, manual save button. **Fear** spell → Cast pipeline (existing).
+
+### Q6 — Registry & location bridge ✅ (grill confirmed)
+
+**Option A — Engine seeds + location/item fields** (mirrors poison / curse / env-effect registry pattern).
+
+| Layer | Decision |
+|---|---|
+| **Fear/stress registry** | `srd-fear-stress-seeds.ts` in `@app/engine`; DB ingest imports same module |
+| **Location link** | Optional `toolboxFearStressSlugs?: string[]` on location/realm entity metadata |
+| **Item link** | Optional `toolboxFearStressSlug?: string` on `ItemDefinition` |
+| **WS enter hook** | On enter location: read slug(s) → auto-apply for party |
+| **Demo fallback** | Dungeon bootstrap applies demo slugs when metadata absent (prod verify only) |
+
+### Q7 — v1 delivery phasing ✅ (grill confirmed)
+
+**Option A — Two PRs** (mirror traps / poison / curse / env-effect).
+
+| Slice | Scope | Verify |
+|---|---|---|
+| **PR 1 — Engine** | Registry, `activeFearStress[]`, handlers + projection + tests | CI green |
+| **PR 2 — WS + Live Play** | Enter/leave hooks, Use Item bridge, amber/dread HUD chip, optional scene chip, dungeon demo fixtures | Prod verify |
+
+### Q8 — Demo fixtures ✅ (grill confirmed)
+
+**Option A — Simple pair** (covers A1 + A2 delivery paths).
+
+| Fixture | Slug | Delivery | Purpose |
+|---|---|---|---|
+| Dungeon location metadata | `srd-2024_sarcophagus-apparition` | Scene enter (A1) | Wis DC 10 → frightened + amber HUD + turn-start repeat |
+| Inventory vial | `srd-2024_hallucinogenic-substance` | Use Item (A2) | Wis DC 10 → 1d6 psychic (half on success); no ongoing instance |
+
+**Prod verify checklist:** Enter dungeon → frightened chip + optional scene chip; turn-start repeat clears on success; Use Item vial → psychic damage line; leave tavern → fear instance cleared.
+
+### Decision record (GRILL-LIVE-FEAR)
+
+| # | Decision |
+|---|---|
+| **Q1** | Fear + one-shot stress in v1; defer prolonged stress, Worst Fears illusion, Far Realm duration, spell bridges |
+| **Q2** | `EntityState.activeFearStress[]` for ongoing fear only; one-shot stress fire-and-forget; **one instance per slug per entity** |
+| **Q3** | `apply_fear_stress` / `resolve_fear_stress_tick` / `remove_fear_stress` |
+| **Q4** | A1 scene enter + A2 Use Item; B2 turn-start repeat; C1 auto remove on leave; D1 passive |
+| **Q5** | Passive + amber/dread HUD + optional scene chip; no action rail |
+| **Q6** | Engine `srd-fear-stress-seeds.ts` + `toolboxFearStressSlugs` / `toolboxFearStressSlug` on location/item |
+| **Q7** | Two PRs (engine → WS + Live Play) |
+| **Q8** | Sarcophagus Apparition (scene) + Hallucinogenic Substance vial (Use Item) |
+
+### Implementation checklist (v1 — two PRs)
+
+| PR | Scope |
+|---|---|
+| **Engine (#TBD)** | `srd-fear-stress-seeds.ts`, `FEAR_STRESS_REGISTRY`, `EntityState.activeFearStress[]`, handlers + projection + tests |
+| **WS + Live Play (#TBD)** | Enter/leave hooks, Use Item bridge, amber/dread HUD chip, optional scene chip, dungeon demo slugs (Q8) |
+
+**Deferred:** prolonged stress (short/long/indefinite); Worst Fears per-target illusion; Far Realm duration edge; Calm Emotions / Lesser Restoration / Greater Restoration bridges; trap fear payload.
 
 ---
 

@@ -59,6 +59,7 @@ export {
   type ActivePoisonInstance,
   type ActiveCurseInstance,
   type ActiveEnvironmentalEffectInstance,
+  type ActiveFearStressInstance,
   type ClassLevel,
   type ConcentrationState,
   type DeathSaveTally,
@@ -328,6 +329,16 @@ export {
   SRD_ENVIRONMENTAL_EFFECT_SEEDS,
   type SrdEnvironmentalEffectSeed,
 } from "./content/srd-environmental-effect-seeds";
+export {
+  fearStressAppliesFrightened,
+  fearStressNeedsRepeatTick,
+  fearStressPsychicDamage,
+  getFearStressDefinition,
+  FEAR_STRESS_REGISTRY,
+  isProlongedFearStressSlug,
+  SRD_FEAR_STRESS_SEEDS,
+  type SrdFearStressSeed,
+} from "./content/srd-fear-stress-seeds";
 export {
   isTrapEligibleSceneKind,
   normalizeSceneTraps,

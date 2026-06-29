@@ -353,6 +353,26 @@ export type RemoveEnvironmentalEffectCommand = {
   instanceId: string;
 };
 
+export type ApplyFearStressCommand = {
+  type: "apply_fear_stress";
+  target: EntityRef;
+  fearStressSlug: string;
+  /** When set, instance clears on leave from this scene (Q4 C1). */
+  boundSceneId?: SceneId;
+};
+
+export type ResolveFearStressTickCommand = {
+  type: "resolve_fear_stress_tick";
+  entity: EntityRef;
+  instanceId: string;
+};
+
+export type RemoveFearStressCommand = {
+  type: "remove_fear_stress";
+  target: EntityRef;
+  instanceId: string;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -394,7 +414,10 @@ export type Command =
   | SetSceneEnvironmentalEffectsCommand
   | ApplyEnvironmentalEffectCommand
   | ResolveEnvironmentalEffectTickCommand
-  | RemoveEnvironmentalEffectCommand;
+  | RemoveEnvironmentalEffectCommand
+  | ApplyFearStressCommand
+  | ResolveFearStressTickCommand
+  | RemoveFearStressCommand;
 
 export type CommandType = Command["type"];
 
@@ -446,6 +469,10 @@ export type ValidationCode =
   | "ENVIRONMENTAL_EFFECT_NOT_FOUND"
   | "ENVIRONMENTAL_EFFECT_ALREADY_ACTIVE"
   | "ENVIRONMENTAL_EFFECT_NOT_ACTIVE"
+  | "FEAR_STRESS_NOT_FOUND"
+  | "FEAR_STRESS_ALREADY_ACTIVE"
+  | "FEAR_STRESS_NOT_ACTIVE"
+  | "FEAR_STRESS_DELIVERY_NOT_SUPPORTED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"

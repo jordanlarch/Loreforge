@@ -164,6 +164,8 @@ export type SavingThrowCommand = {
   /** Origin for cover on Dex saves (defaults to no cover bonus). */
   coverOrigin?: GridPosition;
   ignoreCover?: boolean;
+  /** When set, overrides entity save proficiency lookup. */
+  proficient?: boolean;
 };
 
 /**

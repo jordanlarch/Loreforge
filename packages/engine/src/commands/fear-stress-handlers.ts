@@ -3,7 +3,7 @@
  * apply_fear_stress / resolve_fear_stress_tick / remove_fear_stress
  */
 import type { Condition } from "../combat/conditions";
-import { abilityModifier } from "../entities/abilities";
+import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { FearStressDefinition } from "../content/toolbox-definitions";
 import {
   fearStressAppliesFrightened,
@@ -58,8 +58,9 @@ function rollFearStressSave(
 
   const saveRoll = ctx.roll("1d20", scope, "normal");
   const natural = saveRoll.total;
-  const total = natural + abilityModifier(entity.abilityScores[def.save.ability]);
+  const total = saveRollTotal(entity, def.save.ability, natural);
   const success = total >= def.save.dc;
+  const proficient = isSaveProficient(entity, def.save.ability);
   const events: DraftEvent[] = [
     {
       type: "DiceRolled",
@@ -84,6 +85,8 @@ function rollFearStressSave(
         natural,
         total,
         success,
+        autoFail: false,
+        proficient,
       },
     },
   ];

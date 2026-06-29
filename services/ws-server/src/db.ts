@@ -140,6 +140,7 @@ export async function getCampaignParty(
       baseAc: characters.baseAc,
       speed: characters.speed,
       classes: characters.classes,
+      saveProficiencies: characters.saveProficiencies,
       spells: characters.spells,
       equipment: characters.equipment,
     })
@@ -170,6 +171,9 @@ export async function getCampaignParty(
       baseAc: row.baseAc,
       speed: row.speed,
       classes: row.classes,
+      ...(row.saveProficiencies?.length
+        ? { saveProficiencies: row.saveProficiencies }
+        : {}),
       ...(meleeReachFt !== undefined ? { meleeReachFt } : {}),
       ...(isCaster
         ? {

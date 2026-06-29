@@ -17,6 +17,7 @@ import {
   classFeaturesForLevel,
   featureStubsForLevel,
   formatBackgroundAsiLabel,
+  formatAsiLabel,
   isValidPointBuy,
   MANUAL_MAX,
   MANUAL_MIN,
@@ -388,6 +389,31 @@ export function CreationWizard() {
     () => [...new Set([...backgroundSkills, ...skills])],
     [backgroundSkills, skills],
   );
+
+  const reviewFeats = useMemo(() => {
+    const advanceFeats = advances
+      .map((a) => a.feat?.trim())
+      .filter((f): f is string => Boolean(f));
+    const originFeat = selectedBackground?.originFeatName?.trim();
+    const versatileFeat = humanOriginFeat.trim();
+    return [
+      ...new Set([
+        ...(originFeat ? [originFeat] : []),
+        ...(versatileFeat ? [versatileFeat] : []),
+        ...advanceFeats,
+      ]),
+    ];
+  }, [advances, selectedBackground, humanOriginFeat]);
+
+  const resolvedFightingStyle = useMemo(() => {
+    if (!selectedClass) return "";
+    const stylePick = fightingStylePickLevel(selectedClass.name);
+    const styleFromAdvance =
+      stylePick != null
+        ? advances.find((a) => a.level === stylePick)?.fightingStyle?.trim()
+        : undefined;
+    return fightingStyle.trim() || styleFromAdvance || "";
+  }, [selectedClass, fightingStyle, advances]);
 
   const steps = useMemo(() => {
     const list: string[] = [...BASE_STEPS];
@@ -840,6 +866,7 @@ export function CreationWizard() {
               nameValid={nameValid}
               concept={concept}
               species={selectedSpecies?.name ?? "—"}
+              speciesSize={selectedSpecies?.size}
               classLine={
                 classAllocations.length > 0
                   ? classAllocations
@@ -852,18 +879,24 @@ export function CreationWizard() {
                     ? `${selectedClass.name} ${startingLevel}`
                     : "—"
               }
+              hitDie={selectedClass?.hitDie}
               background={selectedBackground?.name ?? "—"}
               abilityMethod={method}
               backgroundAsi={backgroundAsi}
               finalScores={previewStats?.abilityScores ?? finalScores}
-              skills={allSkillProficiencies}
+              savingThrows={selectedClass?.savingThrows ?? []}
+              backgroundSkills={backgroundSkills}
+              classSkills={skills}
+              feats={reviewFeats}
+              packLabel={equipmentPack?.label ?? null}
+              spells={spellLoadout.spells}
               equipment={equipment}
               maxHp={previewStats?.maxHp ?? 0}
               baseAc={equipmentPack?.baseAc ?? baseArmorClass(finalScores.dex)}
               speed={selectedSpecies?.speed ?? 30}
               startingLevel={startingLevel}
               advances={advances}
-              fightingStyle={fightingStyle}
+              fightingStyle={resolvedFightingStyle}
               subclass={creationSubclass}
               personality={personality}
               backstory={backstory}
@@ -1711,12 +1744,19 @@ function ReviewStep({
   nameValid,
   concept,
   species,
+  speciesSize,
   classLine,
+  hitDie,
   background,
   abilityMethod,
   backgroundAsi,
   finalScores,
-  skills,
+  savingThrows,
+  backgroundSkills,
+  classSkills,
+  feats,
+  packLabel,
+  spells,
   equipment,
   maxHp,
   baseAc,
@@ -1736,12 +1776,19 @@ function ReviewStep({
   nameValid: boolean;
   concept: string;
   species: string;
+  speciesSize?: string;
   classLine: string;
+  hitDie?: number;
   background: string;
   abilityMethod: AbilityMethod;
   backgroundAsi: BackgroundAsiChoice | null;
   finalScores: AbilityScores;
-  skills: string[];
+  savingThrows: Ability[];
+  backgroundSkills: string[];
+  classSkills: string[];
+  feats: string[];
+  packLabel: string | null;
+  spells: CharacterSpell[];
   equipment: EquipmentItem[];
   maxHp: number;
   baseAc: number;
@@ -1761,9 +1808,10 @@ function ReviewStep({
       ? advances
           .map((a) => {
             const parts = [`L${a.level}: ${a.hpMethod} HP`];
-            if (a.asi) parts.push("ASI");
+            if (a.asi) parts.push(formatAsiLabel(a.asi));
             if (a.feat) parts.push(`Feat: ${a.feat}`);
             if (a.subclass) parts.push(a.subclass);
+            if (a.fightingStyle) parts.push(`Style: ${a.fightingStyle}`);
             return parts.join(" · ");
           })
           .join("; ")
@@ -1792,8 +1840,9 @@ function ReviewStep({
 
       <dl className="mt-6 grid gap-x-8 gap-y-2 sm:grid-cols-2">
         <Row label="Level" value={String(startingLevel)} />
-        <Row label="Species" value={species} />
+        <Row label="Species" value={speciesSize ? `${species} (${speciesSize})` : species} />
         <Row label="Class(es)" value={classLine} />
+        {hitDie != null && <Row label="Hit die" value={`d${hitDie}`} />}
         <Row label="Background" value={background} />
         <Row label="Abilities" value={METHOD_LABELS[abilityMethod]} />
         <Row
@@ -1805,7 +1854,20 @@ function ReviewStep({
         <Row label="Max HP" value={String(maxHp)} />
         <Row label="Base AC" value={String(baseAc)} />
         <Row label="Speed" value={`${speed} ft`} />
-        <Row label="Skills" value={skills.join(", ") || "—"} />
+        <Row
+          label="Saving throws"
+          value={
+            savingThrows.length > 0
+              ? savingThrows.map((s) => ABILITY_LABELS[s]).join(", ")
+              : "—"
+          }
+        />
+        <Row
+          label="Skills (background)"
+          value={backgroundSkills.join(", ") || "—"}
+        />
+        <Row label="Skills (class)" value={classSkills.join(", ") || "—"} />
+        {feats.length > 0 && <Row label="Feats" value={feats.join(", ")} />}
         {fightingStyle && (
           <Row label="Fighting style" value={fightingStyle} />
         )}
@@ -1825,6 +1887,12 @@ function ReviewStep({
         />
       </dl>
 
+      {packLabel && (
+        <p className="mt-4 text-xs text-lore-muted">
+          Starting pack: {packLabel}
+        </p>
+      )}
+
       {equipment.length > 0 && (
         <div className="mt-4">
           <h3 className="text-xs uppercase tracking-wide text-lore-muted">
@@ -1833,11 +1901,36 @@ function ReviewStep({
           <ul className="mt-2 flex flex-wrap gap-2">
             {equipment.map((item) => (
               <li
-                key={item.name}
+                key={equipmentKey(item)}
                 className="rounded border border-lore-border px-2 py-1 text-xs"
               >
                 {item.name}
                 {item.quantity > 1 ? ` ×${item.quantity}` : ""}
+                {item.equipped && (
+                  <span className="ml-2 uppercase text-lore-accent">
+                    equipped
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {spells.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-xs uppercase tracking-wide text-lore-muted">
+            Spells
+          </h3>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {spells.map((spell) => (
+              <li
+                key={spellKey(spell)}
+                className="rounded border border-lore-border px-2 py-1 text-xs"
+              >
+                {spell.name}
+                {spell.level > 0 ? ` (L${spell.level})` : " (cantrip)"}
+                {spell.prepared || spell.alwaysPrepared ? " · prepared" : ""}
               </li>
             ))}
           </ul>
@@ -1859,6 +1952,21 @@ function ReviewStep({
           {personality.traits.trim() && (
             <p className="mt-1 text-xs text-lore-muted">
               Traits: {personality.traits}
+            </p>
+          )}
+          {personality.ideals.trim() && (
+            <p className="mt-1 text-xs text-lore-muted">
+              Ideals: {personality.ideals}
+            </p>
+          )}
+          {personality.bonds.trim() && (
+            <p className="mt-1 text-xs text-lore-muted">
+              Bonds: {personality.bonds}
+            </p>
+          )}
+          {personality.flaws.trim() && (
+            <p className="mt-1 text-xs text-lore-muted">
+              Flaws: {personality.flaws}
             </p>
           )}
           {backstory.trim() && (

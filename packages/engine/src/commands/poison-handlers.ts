@@ -3,7 +3,7 @@
  * coat_weapon / apply_poison / resolve_poison_tick — deterministic saves and effects.
  */
 import type { Condition } from "../combat/conditions";
-import { abilityModifier } from "../entities/abilities";
+import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { PoisonDefinition } from "../content/toolbox-definitions";
 import { getPoisonDefinition } from "../content/srd-poison-seeds";
 import type { ActivePoisonInstance, EntityRef } from "../entities/types";
@@ -139,8 +139,9 @@ function rollPoisonSave(
 
   const saveRoll = ctx.roll("1d20", scope, "normal");
   const natural = saveRoll.total;
-  const total = natural + abilityModifier(entity.abilityScores[def.save.ability]);
+  const total = saveRollTotal(entity, def.save.ability, natural);
   const success = total >= def.save.dc;
+  const proficient = isSaveProficient(entity, def.save.ability);
   const events: DraftEvent[] = [
     {
       type: "DiceRolled",
@@ -166,6 +167,7 @@ function rollPoisonSave(
         total,
         success,
         autoFail: false,
+        proficient,
       },
     },
   ];

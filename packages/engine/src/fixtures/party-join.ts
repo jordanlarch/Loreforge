@@ -91,6 +91,9 @@ export function partyMemberToEntityInit(
     classes: member.classes,
     sceneId,
     position,
+    ...(member.saveProficiencies?.length
+      ? { saveProficiencies: member.saveProficiencies }
+      : {}),
     ...(member.meleeReachFt !== undefined
       ? { meleeReachFt: member.meleeReachFt }
       : {}),

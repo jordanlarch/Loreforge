@@ -48,7 +48,10 @@ export {
   attacksPerAction,
   createEntityState,
   extraAttackCount,
+  isSaveProficient,
   proficiencyBonusForLevel,
+  saveProficiencyBonus,
+  saveRollTotal,
   totalLevel,
 } from "./entities/abilities";
 export {

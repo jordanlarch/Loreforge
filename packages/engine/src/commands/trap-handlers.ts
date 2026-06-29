@@ -5,7 +5,7 @@
 import type { Condition } from "../combat/conditions";
 import { getTrapDefinition } from "../content/srd-trap-seeds";
 import type { TrapDefinition, TrapEffect } from "../content/toolbox-definitions";
-import { abilityModifier } from "../entities/abilities";
+import { abilityModifier, isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { EntityRef, SceneId, SceneTrapInstance } from "../entities/types";
 import type { DraftEvent } from "../events/types";
 import type { RollMode } from "../rng/dice";
@@ -111,9 +111,9 @@ function applyTrapEffectEvents(
       "normal",
     );
     const natural = saveRoll.total;
-    const total =
-      natural + abilityModifier(entity.abilityScores[effect.save.ability]);
+    const total = saveRollTotal(entity, effect.save.ability, natural);
     const success = total >= effect.save.dc;
+    const proficient = isSaveProficient(entity, effect.save.ability);
     events.push(
       {
         type: "DiceRolled",
@@ -139,6 +139,7 @@ function applyTrapEffectEvents(
           total,
           success,
           autoFail: false,
+          proficient,
         },
       },
     );

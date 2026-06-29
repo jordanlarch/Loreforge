@@ -195,6 +195,7 @@ export async function buildFixtureCampaign(
         baseAc: character.baseAc,
         speed: character.speed,
         classes: character.classes,
+        saveProficiencies: character.saveProficiencies,
         sceneId: "scene:tavern",
       },
     });

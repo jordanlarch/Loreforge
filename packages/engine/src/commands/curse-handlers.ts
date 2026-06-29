@@ -3,7 +3,7 @@
  * apply_curse / resolve_curse_tick / remove_curse — deterministic saves and effects.
  */
 import type { Condition } from "../combat/conditions";
-import { abilityModifier } from "../entities/abilities";
+import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { CurseDefinition } from "../content/toolbox-definitions";
 import { getCurseDefinition } from "../content/srd-curse-seeds";
 import type { ActiveCurseInstance, EntityRef } from "../entities/types";
@@ -87,8 +87,9 @@ function rollCurseSave(
 
   const saveRoll = ctx.roll("1d20", scope, "normal");
   const natural = saveRoll.total;
-  const total = natural + abilityModifier(entity.abilityScores[def.save.ability]);
+  const total = saveRollTotal(entity, def.save.ability, natural);
   const success = total >= def.save.dc;
+  const proficient = isSaveProficient(entity, def.save.ability);
   const events: DraftEvent[] = [
     {
       type: "DiceRolled",
@@ -113,6 +114,8 @@ function rollCurseSave(
         natural,
         total,
         success,
+        autoFail: false,
+        proficient,
       },
     },
   ];

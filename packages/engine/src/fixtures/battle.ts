@@ -75,6 +75,8 @@ export type PartyMember = {
   baseAc: number;
   speed: number;
   classes: ClassLevel[];
+  /** Class saving-throw proficiencies (SRD-FID-16). */
+  saveProficiencies?: Ability[];
   /** Present for casters so the live cast loop is exercisable. */
   spellcasting?: SpellcastingInit;
   /** Melee reach from equipped weapons (OA provoke detection, ENG-10). */
@@ -168,6 +170,7 @@ export const FIXTURE_PARTY: PartyMember[] = [
     baseAc: FIXTURE_CHARACTERS[0]!.baseAc,
     speed: FIXTURE_CHARACTERS[0]!.speed,
     classes: FIXTURE_CHARACTERS[0]!.classes,
+    saveProficiencies: FIXTURE_CHARACTERS[0]!.saveProficiencies,
   },
   {
     id: FIXTURE_CHARACTERS[1]!.id,
@@ -177,6 +180,7 @@ export const FIXTURE_PARTY: PartyMember[] = [
     baseAc: FIXTURE_CHARACTERS[1]!.baseAc,
     speed: FIXTURE_CHARACTERS[1]!.speed,
     classes: FIXTURE_CHARACTERS[1]!.classes,
+    saveProficiencies: FIXTURE_CHARACTERS[1]!.saveProficiencies,
     // The Bard is a caster so the live cast loop (#58) is exercisable.
     spellcasting: { ability: "cha" },
   },
@@ -236,6 +240,9 @@ export function buildPartyBattleCommands(
         baseAc: m.baseAc,
         speed: m.speed,
         classes: m.classes,
+        ...(m.saveProficiencies?.length
+          ? { saveProficiencies: m.saveProficiencies }
+          : {}),
         sceneId: FIXTURE_BATTLE_SCENE_ID,
         position: PARTY_POSITIONS[i]!,
         ...(m.spellcasting ? { spellcasting: m.spellcasting } : {}),

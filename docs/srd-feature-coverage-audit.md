@@ -27,7 +27,7 @@
 
 | SRD chapter | Data/Catalog | Engine mechanics | Verdict | Tracking |
 |---|---|---|---|---|
-| Playing the Game — D20 Tests | n/a | checks/attacks ✅; **saves lack proficiency** | 🟡 | SRD-FID-16 |
+| Playing the Game — D20 Tests | n/a | checks/attacks ✅; **save proficiency** ✅; skill prof on entity ✗ | 🟡 | SRD-FID-16 (saves done) |
 | Playing the Game — Actions (12 standard) | n/a | Dash/Disengage/Dodge/Help/Hide ✅; Grapple/Shove/Use Object etc. ✗ | 🟡 | SRD-FID-14 (done); two-weapon/unarmed/shove/grapple still open |
 | Playing the Game — Combat order | n/a | initiative/turns/rounds ✅; **surprise** ✗ | 🟡 | SRD-FID-17 |
 | Playing the Game — Movement/position | n/a | grid/LOS/OA/cover ✅; **difficult terrain** ✗ | 🟡 | SRD-FID-18 |
@@ -113,7 +113,7 @@ Work end-to-end with deterministic math + tests:
 
 | ID | Area | Works | Missing vs PDF |
 |---|---|---|---|
-| SRD-FID-16 | Saving throws | d20 + ability mod, condition auto-fail/adv | **save proficiency never added** — every save resolves as non-proficient |
+| SRD-FID-16 | Saving throws | d20 + ability mod + **class save proficiency**, condition auto-fail/adv | skill proficiency not on entity yet |
 | SRD-FID-16 | Skill/tool/weapon proficiency | added when caller passes `proficient:true` | not stored on `EntityState`; engine can't self-derive |
 | SRD-FID-19 | Temp HP | soaks damage first | **no command/event to grant it** (False Life heals current HP) |
 | ENG-9 | Short rest / Hit Dice | emits `Rested`, optional heal | **no Hit Dice pool tracked** |

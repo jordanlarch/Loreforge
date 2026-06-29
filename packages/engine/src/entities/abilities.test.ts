@@ -5,7 +5,10 @@ import {
   attacksPerAction,
   createEntityState,
   extraAttackCount,
+  isSaveProficient,
   proficiencyBonusForLevel,
+  saveProficiencyBonus,
+  saveRollTotal,
   totalLevel,
 } from "./abilities";
 
@@ -140,5 +143,41 @@ describe("attacksPerAction", () => {
 
   it("never returns less than 1", () => {
     expect(attacksPerAction({ attacksPerAction: 0, classes: [] })).toBe(1);
+  });
+});
+
+describe("saveProficiencyBonus", () => {
+  const scores = {
+    str: 10,
+    dex: 10,
+    con: 16,
+    int: 10,
+    wis: 10,
+    cha: 10,
+  };
+  const entity = createEntityState({
+    id: "pc:1",
+    kind: "character",
+    name: "Test",
+    abilityScores: scores,
+    maxHp: 10,
+    baseAc: 10,
+    classes: [{ class: "Fighter", level: 5 }],
+    saveProficiencies: ["str", "con"],
+  });
+
+  it("returns PB for a proficient save", () => {
+    expect(saveProficiencyBonus(entity, "con")).toBe(3);
+    expect(isSaveProficient(entity, "con")).toBe(true);
+  });
+
+  it("returns 0 for a non-proficient save", () => {
+    expect(saveProficiencyBonus(entity, "wis")).toBe(0);
+    expect(isSaveProficient(entity, "wis")).toBe(false);
+  });
+
+  it("honours override", () => {
+    expect(saveProficiencyBonus(entity, "wis", true)).toBe(3);
+    expect(saveProficiencyBonus(entity, "con", false)).toBe(0);
   });
 });

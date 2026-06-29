@@ -80,7 +80,6 @@ export function ToolboxEntryDetail({
                 category="Gameplay Toolbox"
                 slug={slug}
                 name={entry.data.name}
-                showCopyToSmithy
                 onCopyClose={onClose}
               />
               {description ? (

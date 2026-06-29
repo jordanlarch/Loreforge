@@ -1,10 +1,6 @@
-import { ToolboxDetail } from "./toolbox-detail";
+import { redirect } from "next/navigation";
 
-export default async function ToolboxDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  return <ToolboxDetail id={id} />;
+/** Gameplay Toolbox homebrew deferred — Codex SRD 5.2 entries only. */
+export default function ToolboxDetailPage() {
+  redirect("/codex/toolbox");
 }

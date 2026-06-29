@@ -8,7 +8,6 @@ export const SMITHY_LIBRARY_CATEGORIES = [
   "Items",
   "Spells",
   "Feats",
-  "Toolbox",
 ] as const;
 
 export type SmithyLibraryCategory = (typeof SMITHY_LIBRARY_CATEGORIES)[number];
@@ -31,11 +30,11 @@ export function smithyItemLibraryCategory(item: {
   if (slug?.includes(":")) {
     const prefix = slug.split(":")[0]!;
     if (prefix === "Rules") return null;
-    if (prefix === "Advanced" || prefix === "Gameplay Toolbox") return "Toolbox";
+    if (prefix === "Advanced" || prefix === "Gameplay Toolbox") return null;
     if (SNAPSHOT_CATEGORIES.has(prefix)) {
       return prefix as Exclude<
         SmithyLibraryCategory,
-        "All" | "Spells" | "Items" | "Toolbox"
+        "All" | "Spells" | "Items"
       >;
     }
   }
@@ -46,6 +45,5 @@ export function smithyCategoryLabel(category: SmithyLibraryCategory): string {
   if (category === "All") return "All My Homebrew";
   if (category === "Classes") return "Classes & Subclasses";
   if (category === "Monsters") return "Monsters & NPCs";
-  if (category === "Toolbox") return "Gameplay Toolbox";
   return category;
 }

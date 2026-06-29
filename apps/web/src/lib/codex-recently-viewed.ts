@@ -98,6 +98,6 @@ export function recentEntryHref(entry: RecentEntry): string {
   return entry.kind === "spell"
     ? `/smithy/spells/${entry.id}`
     : entry.kind === "toolbox"
-      ? `/smithy/toolbox/${entry.id}`
+      ? "/codex/toolbox"
       : `/smithy/${entry.id}`;
 }

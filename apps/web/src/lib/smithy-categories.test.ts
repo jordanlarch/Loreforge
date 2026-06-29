@@ -12,7 +12,7 @@ describe("smithy-categories", () => {
     ).toBe("Feats");
     expect(
       smithyItemLibraryCategory({ copiedFromSlug: "Advanced:srd_traps_pits" }),
-    ).toBe("Toolbox");
+    ).toBeNull();
     expect(smithyItemLibraryCategory({ copiedFromSlug: "longsword" })).toBe(
       "Items",
     );

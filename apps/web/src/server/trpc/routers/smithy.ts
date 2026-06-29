@@ -63,7 +63,15 @@ import {
   type SmithyLibraryCategory,
 } from "@/lib/smithy-categories";
 import { filterSortSmithyLibraryEntries } from "@/lib/smithy-library-filter";
-import { formatToolboxTopic } from "@/lib/codex-toolbox-display";
+
+const TOOLBOX_SMITHY_DEFERRED =
+  "Gameplay Toolbox homebrew is deferred — use Codex SRD 5.2 entries for traps, poisons, curses, environmental effects, and fear/stress.";
+
+function rejectToolboxSmithy(): never {
+  throw new TRPCError({ code: "FORBIDDEN", message: TOOLBOX_SMITHY_DEFERRED });
+}
+
+type HomebrewToolboxRow = typeof homebrewToolboxEntries.$inferSelect;
 
 const smithyLibraryCategory = z.enum(SMITHY_LIBRARY_CATEGORIES);
 const smithyLibrarySortBy = z.enum(["updatedAt", "name"]);
@@ -426,7 +434,7 @@ export const smithyRouter = createTRPCRouter({
       const db = getDb();
       const category = input?.category ?? "All";
 
-      const [items, spells, toolboxEntries] = await Promise.all([
+      const [items, spells] = await Promise.all([
         db
           .select()
           .from(homebrewItems)
@@ -445,22 +453,10 @@ export const smithyRouter = createTRPCRouter({
           .from(homebrewSpells)
           .where(eq(homebrewSpells.ownerId, ctx.user.id))
           .orderBy(desc(homebrewSpells.updatedAt)),
-        db
-          .select({
-            id: homebrewToolboxEntries.id,
-            name: homebrewToolboxEntries.name,
-            topic: homebrewToolboxEntries.topic,
-            source: homebrewToolboxEntries.source,
-            updatedAt: homebrewToolboxEntries.updatedAt,
-            description: homebrewToolboxEntries.description,
-          })
-          .from(homebrewToolboxEntries)
-          .where(eq(homebrewToolboxEntries.ownerId, ctx.user.id))
-          .orderBy(desc(homebrewToolboxEntries.updatedAt)),
       ]);
 
       type Entry = {
-        kind: "item" | "spell" | "toolbox";
+        kind: "item" | "spell";
         id: string;
         name: string;
         source: (typeof items)[number]["source"];
@@ -511,21 +507,6 @@ export const smithyRouter = createTRPCRouter({
           href: `/smithy/spells/${spell.id}`,
           updatedAt: spell.updatedAt,
           descriptionSnippet: spell.description.trim().slice(0, 120) || null,
-        });
-      }
-
-      for (const row of toolboxEntries) {
-        if (category !== "All" && category !== "Toolbox") continue;
-        entries.push({
-          kind: "toolbox",
-          id: row.id,
-          name: row.name,
-          source: row.source,
-          category: "Toolbox",
-          subtitle: formatToolboxTopic(row.topic),
-          href: `/smithy/toolbox/${row.id}`,
-          updatedAt: row.updatedAt,
-          descriptionSnippet: row.description.trim().slice(0, 120) || null,
         });
       }
 
@@ -1060,90 +1041,25 @@ export const smithyRouter = createTRPCRouter({
 
   getToolboxEntry: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const db = getDb();
-      const [row] = await db
-        .select()
-        .from(homebrewToolboxEntries)
-        .where(
-          and(
-            eq(homebrewToolboxEntries.id, input.id),
-            eq(homebrewToolboxEntries.ownerId, ctx.user.id),
-          ),
-        )
-        .limit(1);
-      return row ?? null;
+    .query(async (): Promise<HomebrewToolboxRow | null> => {
+      rejectToolboxSmithy();
     }),
 
   createToolboxEntry: protectedProcedure
     .input(createToolboxInput)
-    .mutation(async ({ ctx, input }) => {
-      const definition = toolboxDefinitionFromInput(input);
-      const db = getDb();
-      const [row] = await db
-        .insert(homebrewToolboxEntries)
-        .values({
-          ownerId: ctx.user.id,
-          name: input.name,
-          topic: input.topic,
-          description: input.description,
-          definition,
-          source: input.source,
-          copiedFromSlug: input.copiedFromSlug,
-        })
-        .returning();
-      return row!;
+    .mutation(async (): Promise<HomebrewToolboxRow> => {
+      rejectToolboxSmithy();
     }),
 
   updateToolboxEntry: protectedProcedure
     .input(createToolboxInput.extend({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const definition = toolboxDefinitionFromInput(input);
-      const db = getDb();
-      const [row] = await db
-        .update(homebrewToolboxEntries)
-        .set({
-          name: input.name,
-          topic: input.topic,
-          description: input.description,
-          definition,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(homebrewToolboxEntries.id, input.id),
-            eq(homebrewToolboxEntries.ownerId, ctx.user.id),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Toolbox entry not found.",
-        });
-      }
-      return row;
+    .mutation(async (): Promise<HomebrewToolboxRow> => {
+      rejectToolboxSmithy();
     }),
 
   deleteToolboxEntry: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const db = getDb();
-      const [row] = await db
-        .delete(homebrewToolboxEntries)
-        .where(
-          and(
-            eq(homebrewToolboxEntries.id, input.id),
-            eq(homebrewToolboxEntries.ownerId, ctx.user.id),
-          ),
-        )
-        .returning({ id: homebrewToolboxEntries.id });
-      if (!row) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Toolbox entry not found.",
-        });
-      }
-      return { id: row.id };
+    .mutation(async (): Promise<{ id: string }> => {
+      rejectToolboxSmithy();
     }),
 });

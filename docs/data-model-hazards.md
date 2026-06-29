@@ -1,6 +1,6 @@
 # Gameplay Toolbox + exploration hazards — grill backlog (DATA-1b)
 
-**Status:** **Traps v1 shipped** (DATA-1b). **All five Gameplay Toolbox sibling topics seeded** (Codex + Smithy). Smithy forge forms are best-effort Q3 editors — complex PDF mechanics may use prose in effects/duration/repeat fields; full structured edit fidelity deferred.
+**Status:** **Traps v1 shipped** (DATA-1b). **All five Gameplay Toolbox sibling topics seeded** in Codex (`codex_toolbox_entries`). **Live Play v1 complete** (#292–#305). **Smithy toolbox forge/copy removed** (Jun 2026) — toolbox content is **Codex SRD 5.2 read-only** until **GRILL-SMITHY-EDIT** (deferred).
 
 ## SRD 5.2 PDF taxonomy (canonical — do not conflate)
 
@@ -173,7 +173,7 @@ Deferred from GRILL-TRAP Q7. **Traps-only v1** for Live Play resolution.
 | Engine commands | ✅ handlers + projection + `engine.traps.test.ts` |
 | WS / Live Play UI | ✅ #293 — detect/disable affordances + `sceneKind` gate |
 | Scene trap placement (GM prep) | ⏳ deferred — CAMP / map editor |
-| Poisons+ siblings | ✅ **GRILL-LIVE-POISON** (#296–#297), **GRILL-LIVE-CURSE** (#298–#299), **GRILL-LIVE-ENV-EFFECT** (#301–#302), **GRILL-LIVE-FEAR** grill Q1–Q8 ✅ — **Active:** engine PR 1 |
+| Poisons+ siblings | ✅ **GRILL-LIVE-POISON** (#296–#297), **GRILL-LIVE-CURSE** (#298–#300), **GRILL-LIVE-ENV-EFFECT** (#301–#302), **GRILL-LIVE-FEAR** (#303–#305) |
 
 ---
 
@@ -624,14 +624,42 @@ Registry distinguishes fear vs stress entries by `effects[]` prose (`frightened`
 | **Q7** | Two PRs (engine → WS + Live Play) |
 | **Q8** | Sarcophagus Apparition (scene) + Hallucinogenic Substance vial (Use Item) |
 
-### Implementation checklist (v1 — two PRs)
+### Implementation checklist (v1 — two PRs) ✅
 
-| PR | Scope |
-|---|---|
-| **Engine (#TBD)** | `srd-fear-stress-seeds.ts`, `FEAR_STRESS_REGISTRY`, `EntityState.activeFearStress[]`, handlers + projection + tests |
-| **WS + Live Play (#TBD)** | Enter/leave hooks, Use Item bridge, amber/dread HUD chip, optional scene chip, dungeon demo slugs (Q8) |
+| PR | Scope | Status |
+|---|---|---|
+| **Engine (#303)** | `srd-fear-stress-seeds.ts`, `FEAR_STRESS_REGISTRY`, `EntityState.activeFearStress[]`, handlers + projection + tests | ✅ Shipped |
+| **WS + Live Play (#305)** | Enter/leave hooks, Use Item bridge, amber/dread HUD chip, optional scene chip, dungeon demo slugs (Q8) | ✅ Shipped · prod verify pass (Curse Verify Test) |
 
 **Deferred:** prolonged stress (short/long/indefinite); Worst Fears per-target illusion; Far Realm duration edge; Calm Emotions / Lesser Restoration / Greater Restoration bridges; trap fear payload.
+
+---
+
+## GRILL-SMITHY-EDIT — DEFERRED ⏸
+
+**Smithy Gameplay Toolbox homebrew deferred** (Jun 2026). Traps, poisons, curses, environmental effects, and fear/stress are **Codex SRD 5.2 entries only** for v1. Live Play resolves via engine seeds + Codex slugs (`toolbox*Slug` item metadata); no Smithy forge, copy, or edit surface until this grill resumes.
+
+### Original problem (when resumed)
+
+`SmithyToolboxForm` shipped **best-effort Q3 editors** per topic — core fields structured, complex PDF mechanics often in prose fallbacks. Live Play reads structured engine fields; homebrew that only fills prose may not resolve in play.
+
+### Scope candidates (for grill, when resumed)
+
+| Topic | Form gaps (audit starting point) |
+|---|---|
+| **Traps** | Structured save/damage/conditions + detect/disable checks; `effectProse` escape hatch |
+| **Poisons** | `poisonType`, save, damage dice, conditions, repeat interval |
+| **Curses** | Save, damage, conditions, `effects[]` prose |
+| **Environmental effects** | Save, damage, conditions, movement/visibility modifiers, repeat |
+| **Fear/stress** | Save, fear vs stress discrimination, `effects[]` / duration prose |
+
+### Out of scope until grill locks
+
+- Live Play behavior changes (unless grill explicitly ties a field to engine resolution)
+- Codex ingest schema changes
+- New toolbox topics
+
+**Next step (when prioritized):** GRILL-SMITHY-EDIT Q1 — v1 editing depth vs prose escape hatches per topic.
 
 ---
 

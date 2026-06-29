@@ -10,11 +10,13 @@ import { freshActionEconomy, type InitiativeEntry } from "../combat/initiative";
 import { distanceFeet } from "../combat/grid";
 import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import {
-  expireStartOfTurnEffects,
-  stripConcentrationEffects,
-  stripConcentrationConditions,
   applyTimedEffectTick,
   effectiveSpeedForEntity,
+  expireStartOfTurnEffects,
+  stripConcentrationConditions,
+  stripConcentrationEffects,
+  stripHelpAttackEffect,
+  stripHelpCheckEffects,
 } from "../combat/effects";
 import { attacksPerAction, createEntityState } from "../entities/abilities";
 import type {
@@ -303,6 +305,8 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         next.entities[actor.id] = syncEconomy({
           ...actor,
           effects,
+          dodging: undefined,
+          disengaged: undefined,
           actionEconomy: freshActionEconomy(
             effectiveSpeedForEntity(actor),
             attacksPerAction(actor),
@@ -316,7 +320,11 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "TurnEnded": {
       const actor = next.entities[event.payload.entity];
       if (actor) {
-        next.entities[actor.id] = { ...actor, actionEconomy: undefined };
+        next.entities[actor.id] = {
+          ...actor,
+          actionEconomy: undefined,
+          disengaged: undefined,
+        };
       }
       break;
     }
@@ -508,6 +516,37 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           ae = { ...ae, attacks: { ...ae.attacks, used: ae.attacks.used + 1 } };
         }
         next.entities[entity.id] = { ...entity, actionEconomy: ae };
+      }
+      break;
+    }
+    case "DashMovementGranted": {
+      const entity = next.entities[event.payload.entity];
+      if (entity?.actionEconomy) {
+        next.entities[entity.id] = {
+          ...entity,
+          actionEconomy: {
+            ...entity.actionEconomy,
+            movement: {
+              ...entity.actionEconomy.movement,
+              total:
+                entity.actionEconomy.movement.total + event.payload.bonusFeet,
+            },
+          },
+        };
+      }
+      break;
+    }
+    case "Disengaged": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        next.entities[entity.id] = { ...entity, disengaged: true };
+      }
+      break;
+    }
+    case "DodgingStarted": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        next.entities[entity.id] = { ...entity, dodging: true };
       }
       break;
     }
@@ -810,9 +849,29 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       break;
     }
     case "Rested":
-    case "AttackResolved":
+      break;
+    case "AttackResolved": {
+      const attacker = next.entities[event.payload.attacker];
+      if (attacker?.effects?.some((fx) => fx.modifier.type === "help_attack")) {
+        next.entities[attacker.id] = {
+          ...attacker,
+          effects: stripHelpAttackEffect(attacker, event.payload.target),
+        };
+      }
+      break;
+    }
     case "SaveRolled":
-    case "CheckRolled":
+      break;
+    case "CheckRolled": {
+      const entity = next.entities[event.payload.entity];
+      if (entity?.effects?.some((fx) => fx.modifier.type === "help_check")) {
+        next.entities[entity.id] = {
+          ...entity,
+          effects: stripHelpCheckEffects(entity),
+        };
+      }
+      break;
+    }
     case "DiceRolled":
       // Pure record; state changes ride on paired Healing/Condition/Slot events.
       break;

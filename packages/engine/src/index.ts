@@ -99,6 +99,8 @@ export {
 export {
   attackRollBonusDice,
   effectiveAc,
+  helpAttackMode,
+  helpCheckMode,
   huntersMarkOn,
   type ActiveEffect,
   type EffectModifier,
@@ -117,7 +119,12 @@ export {
   lineEndpoint,
 } from "./combat/grid";
 export {
-  attackedMode,
+  coverAcBonusFromLine,
+  coverBetween,
+  coverBonus,
+  type CoverTier,
+} from "./combat/cover";
+export {
   charmedSources,
   combineMode,
   CONDITIONS,
@@ -503,6 +510,11 @@ export {
   type ApplyDamageCommand,
   type ApplyHealingCommand,
   type AttackCommand,
+  type DashCommand,
+  type DisengageCommand,
+  type DodgeCommand,
+  type HelpCommand,
+  type HideCommand,
   type CastSpellCommand,
   type ChangeSceneCommand,
   type Command,

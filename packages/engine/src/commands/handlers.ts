@@ -53,9 +53,12 @@ import {
   effectFromSpec,
   effectiveAc,
   effectiveSpeedForEntity,
+  helpAttackMode,
+  helpCheckMode,
   huntersMarkOn,
   spellDurationRounds,
 } from "../combat/effects";
+import { coverAcBonusFromLine } from "../combat/cover";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
   Ability,
@@ -110,6 +113,13 @@ import {
   handleResolveBurningTick,
 } from "./exploration-hazard-handlers";
 import {
+  handleDash,
+  handleDisengage,
+  handleDodge,
+  handleHelp,
+  handleHide,
+} from "./standard-action-handlers";
+import {
   reject,
   type AbilityCheckCommand,
   type AddCombatantCommand,
@@ -126,13 +136,18 @@ import {
   type CreateEntityCommand,
   type CreateSceneCommand,
   type DamageSource,
+  type DashCommand,
   type DeathSaveCommand,
   type DetectTrapCommand,
   type DisableTrapCommand,
+  type DisengageCommand,
+  type DodgeCommand,
   type TriggerTrapCommand,
   type EndConcentrationCommand,
   type EndEncounterCommand,
   type EndTurnCommand,
+  type HelpCommand,
+  type HideCommand,
   type LongRestCommand,
   type MoveEntityCommand,
   type RelocateEntityCommand,
@@ -432,6 +447,18 @@ function occupantAt(
   );
 }
 
+function cellProvidesCover(
+  world: ExecutionContext["world"],
+  sceneId: string | undefined,
+  exclude: ReadonlySet<string>,
+): (cell: GridPosition) => boolean {
+  const map = sceneId ? world.scenes[sceneId]?.map : undefined;
+  return (cell: GridPosition): boolean => {
+    if (map?.blockedCells.some((c) => sameCell(c, cell))) return true;
+    return occupantAt(world, sceneId, cell, exclude) !== undefined;
+  };
+}
+
 function handleMoveEntity(
   cmd: MoveEntityCommand,
   ctx: ExecutionContext,
@@ -508,9 +535,10 @@ function handleMoveEntity(
     },
   ];
 
-  // In combat, leaving a threatener's reach opens an opportunity-attack window.
+  // In combat, leaving a threatener's reach opens an opportunity-attack window
+  // (unless the mover Disengaged this turn).
   const encounter = ctx.world.encounter;
-  if (encounter && entity.position) {
+  if (encounter && entity.position && !entity.disengaged) {
     const from = entity.position;
     const moverSide = encounter.sides[entity.id];
     const eligible = encounter.combatants.filter((ref) => {
@@ -955,11 +983,9 @@ function handleAttack(
     }
     const map = ctx.world.scenes[attacker.sceneId]?.map;
     if (map) {
-      const exclude = new Set([attacker.id, target.id]);
-      const blocked = (cell: GridPosition): boolean =>
-        map.blockedCells.some((c) => sameCell(c, cell)) ||
-        occupantAt(ctx.world, attacker.sceneId, cell, exclude) !== undefined;
-      if (!hasLineOfSight(attacker.position, targetPosition, blocked)) {
+      const wallBlocks = (cell: GridPosition): boolean =>
+        map.blockedCells.some((c) => sameCell(c, cell));
+      if (!hasLineOfSight(attacker.position, targetPosition, wallBlocks)) {
         return reject(
           "NO_LINE_OF_SIGHT",
           `${attacker.name} has no line of sight to ${target.name}.`,
@@ -988,6 +1014,7 @@ function handleAttack(
     (cmd.mode ?? "normal") as RollAdjust,
     ownAttackMode(attacker.conditions),
     attackedMode(target.conditions),
+    helpAttackMode(attacker, cmd.target),
     attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
     attacksAgainstHaveDisadvantage(target) ? "disadvantage" : "normal",
     proneMode,
@@ -1016,7 +1043,21 @@ function handleAttack(
     blessBonus -
     banePenalty -
     exhaustionD20Penalty(attacker.conditions);
-  const targetAc = effectiveAc(target);
+  let coverAc = 0;
+  if (
+    attacker.position &&
+    targetPosition &&
+    attacker.sceneId &&
+    attacker.sceneId === target.sceneId
+  ) {
+    const exclude = new Set([attacker.id, target.id]);
+    coverAc = coverAcBonusFromLine(
+      attacker.position,
+      targetPosition,
+      cellProvidesCover(ctx.world, attacker.sceneId, exclude),
+    );
+  }
+  const targetAc = effectiveAc(target) + coverAc;
   const forceCrit =
     adjacent === true && critsWhenAdjacent(target.conditions);
   const { hit, critical } = resolveHit(natural, total, targetAc, {
@@ -1177,6 +1218,8 @@ function handleSavingThrow(
     cmd.ability,
     entity.conditions,
   );
+  const dodgeMode: RollAdjust =
+    entity.dodging && cmd.ability === "dex" ? "advantage" : "normal";
 
   if (autoFail) {
     return {
@@ -1199,12 +1242,32 @@ function handleSavingThrow(
     };
   }
 
-  const mode = combineMode((cmd.mode ?? "normal") as RollAdjust, condMode);
+  const mode = combineMode(
+    (cmd.mode ?? "normal") as RollAdjust,
+    condMode,
+    dodgeMode,
+  );
   const roll = ctx.roll("1d20", `save:${cmd.entity}:${cmd.ability}`, mode);
   const natural = roll.total;
+  let coverSave = 0;
+  if (
+    !cmd.ignoreCover &&
+    cmd.ability === "dex" &&
+    cmd.coverOrigin &&
+    entity.position &&
+    entity.sceneId
+  ) {
+    const exclude = new Set([entity.id]);
+    coverSave = coverAcBonusFromLine(
+      cmd.coverOrigin,
+      entity.position,
+      cellProvidesCover(ctx.world, entity.sceneId, exclude),
+    );
+  }
   const total =
     natural +
-    abilityModifier(entity.abilityScores[cmd.ability]) -
+    abilityModifier(entity.abilityScores[cmd.ability]) +
+    coverSave -
     exhaustionD20Penalty(entity.conditions);
   const success = total >= cmd.dc;
 
@@ -1243,6 +1306,7 @@ function handleAbilityCheck(
   const mode = combineMode(
     (cmd.mode ?? "normal") as RollAdjust,
     checkMode(entity.conditions),
+    helpCheckMode(entity),
   ) as RollMode;
   const roll = ctx.roll("1d20", `check:${cmd.entity}:${cmd.ability}`, mode);
   const natural = roll.total;
@@ -1966,8 +2030,14 @@ function rollSpellSave(
   target: EntityState,
   ability: Ability,
   dc: number,
+  opts?: { coverOrigin?: GridPosition; ignoreCover?: boolean },
 ): { success: boolean; events: DraftEvent[] } {
-  const { autoFail, mode } = saveResolution(ability, target.conditions);
+  const { autoFail, mode: condMode } = saveResolution(
+    ability,
+    target.conditions,
+  );
+  const dodgeMode: RollAdjust =
+    target.dodging && ability === "dex" ? "advantage" : "normal";
   if (autoFail) {
     return {
       success: false,
@@ -1987,11 +2057,28 @@ function rollSpellSave(
       ],
     };
   }
+  const mode = combineMode(condMode, dodgeMode);
   const roll = ctx.roll("1d20", `save:${target.id}:${ability}`, mode);
   const natural = roll.total;
+  let coverSave = 0;
+  if (
+    !opts?.ignoreCover &&
+    ability === "dex" &&
+    opts?.coverOrigin &&
+    target.position &&
+    target.sceneId
+  ) {
+    const exclude = new Set([target.id]);
+    coverSave = coverAcBonusFromLine(
+      opts.coverOrigin,
+      target.position,
+      cellProvidesCover(ctx.world, target.sceneId, exclude),
+    );
+  }
   const total =
     natural +
-    abilityModifier(target.abilityScores[ability]) -
+    abilityModifier(target.abilityScores[ability]) +
+    coverSave -
     exhaustionD20Penalty(target.conditions);
   const success = total >= dc;
   return {
@@ -2648,6 +2735,7 @@ function handleCastSpell(
       (cmd.mode ?? "normal") as RollAdjust,
       ownAttackMode(caster.conditions),
       attackedMode(target.conditions),
+      helpAttackMode(caster, target.id),
       attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
       attacksAgainstHaveDisadvantage(target) ? "disadvantage" : "normal",
       proneMode,
@@ -2688,9 +2776,23 @@ function handleCastSpell(
       target.position &&
       distanceFeet(caster.position, target.position) <= 5 &&
       critsWhenAdjacent(target.conditions);
-    const { hit, critical } = resolveHit(natural, total, effectiveAc(target), {
-      forceCrit: adjacentCrit,
-    });
+    let spellCoverAc = 0;
+    if (caster.position && target.position && caster.sceneId === target.sceneId) {
+      const exclude = new Set([caster.id, target.id]);
+      spellCoverAc = coverAcBonusFromLine(
+        caster.position,
+        target.position,
+        cellProvidesCover(ctx.world, caster.sceneId, exclude),
+      );
+    }
+    const { hit, critical } = resolveHit(
+      natural,
+      total,
+      effectiveAc(target) + spellCoverAc,
+      {
+        forceCrit: adjacentCrit,
+      },
+    );
     events.push(rollDiceEvent(ctx, d20));
 
     let damage: number | undefined;
@@ -2760,7 +2862,14 @@ function handleCastSpell(
     let totalDamage = 0;
     let failures = 0;
     for (const target of affected) {
-      const save = rollSpellSave(ctx, target, ability, dc);
+      const saveOrigin =
+        spell.targeting === "area" && cmd.origin
+          ? cmd.origin
+          : caster.position;
+      const save = rollSpellSave(ctx, target, ability, dc, {
+        coverOrigin: saveOrigin,
+        ignoreCover: spell.saveAgainst.ignoreCover,
+      });
       events.push(...save.events);
       if (!save.success) {
         failures += 1;
@@ -2880,7 +2989,14 @@ function handleCastSpell(
     const ability = spell.saveAgainst.ability;
     let failures = 0;
     for (const target of affected) {
-      const save = rollSpellSave(ctx, target, ability, dc);
+      const saveOrigin =
+        spell.targeting === "area" && cmd.origin
+          ? cmd.origin
+          : caster.position;
+      const save = rollSpellSave(ctx, target, ability, dc, {
+        coverOrigin: saveOrigin,
+        ignoreCover: spell.saveAgainst.ignoreCover,
+      });
       events.push(...save.events);
       if (!save.success) {
         failures += 1;
@@ -3071,5 +3187,15 @@ export function handleCommand(
       return handleExtinguishBurning(command, ctx);
     case "resolve_burning_tick":
       return handleResolveBurningTick(command, ctx);
+    case "dash":
+      return handleDash(command, ctx);
+    case "disengage":
+      return handleDisengage(command, ctx);
+    case "dodge":
+      return handleDodge(command, ctx);
+    case "help":
+      return handleHelp(command, ctx);
+    case "hide":
+      return handleHide(command, ctx);
   }
 }

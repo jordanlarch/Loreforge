@@ -15,6 +15,8 @@ export type EffectModifier =
   | { type: "hunters_mark"; dice: string; markedBy: EntityRef }
   | { type: "attacks_against_advantage" }
   | { type: "attacks_against_disadvantage" }
+  | { type: "help_attack"; foe: EntityRef; helper: EntityRef }
+  | { type: "help_check"; helper: EntityRef }
   | { type: "speed_bonus"; amount: number };
 
 export type ActiveEffect = {
@@ -80,9 +82,42 @@ export function attacksAgainstHaveAdvantage(target: EntityState): boolean {
 
 /** Blur — attacks against this creature have disadvantage. */
 export function attacksAgainstHaveDisadvantage(target: EntityState): boolean {
+  if (target.dodging) return true;
   return (target.effects ?? []).some(
     (fx) => fx.modifier.type === "attacks_against_disadvantage",
   );
+}
+
+/** Help action — advantage on the beneficiary's next attack against `foe`. */
+export function helpAttackMode(
+  attacker: EntityState,
+  target: EntityRef,
+): "advantage" | "normal" {
+  const fx = (attacker.effects ?? []).find(
+    (e): e is ActiveEffect & { modifier: { type: "help_attack"; foe: EntityRef } } =>
+      e.modifier.type === "help_attack" && e.modifier.foe === target,
+  );
+  return fx ? "advantage" : "normal";
+}
+
+/** Help action — advantage on the next ability check. */
+export function helpCheckMode(entity: EntityState): "advantage" | "normal" {
+  return (entity.effects ?? []).some((fx) => fx.modifier.type === "help_check")
+    ? "advantage"
+    : "normal";
+}
+
+export function stripHelpAttackEffect(
+  entity: EntityState,
+  foe: EntityRef,
+): ActiveEffect[] {
+  return (entity.effects ?? []).filter(
+    (fx) => !(fx.modifier.type === "help_attack" && fx.modifier.foe === foe),
+  );
+}
+
+export function stripHelpCheckEffects(entity: EntityState): ActiveEffect[] {
+  return (entity.effects ?? []).filter((fx) => fx.modifier.type !== "help_check");
 }
 
 /** Active Hunter's Mark on `target` placed by `attacker`, if any. */

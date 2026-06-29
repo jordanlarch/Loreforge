@@ -161,6 +161,9 @@ export type SavingThrowCommand = {
   ability: Ability;
   dc: number;
   mode?: RollMode;
+  /** Origin for cover on Dex saves (defaults to no cover bonus). */
+  coverOrigin?: GridPosition;
+  ignoreCover?: boolean;
 };
 
 /**
@@ -398,6 +401,38 @@ export type ResolveBurningTickCommand = {
   instanceId: string;
 };
 
+/** Spend your action to gain extra movement equal to your Speed (SRD Dash). */
+export type DashCommand = { type: "dash"; entity: EntityRef };
+
+/** Spend your action; your movement doesn't provoke opportunity attacks this turn. */
+export type DisengageCommand = { type: "disengage"; entity: EntityRef };
+
+/**
+ * Spend your action; until your next turn starts, attacks against you have
+ * disadvantage and you have advantage on Dexterity saving throws.
+ */
+export type DodgeCommand = { type: "dodge"; entity: EntityRef };
+
+/** Grant an ally advantage on a check or on an attack against a nearby foe. */
+export type HelpCommand = {
+  type: "help";
+  helper: EntityRef;
+  beneficiary: EntityRef;
+  mode: "attack" | "check";
+  /** Required when `mode` is `attack`. */
+  foe?: EntityRef;
+};
+
+/** Hide — Dexterity (Stealth) check; on success gain the Invisible condition. */
+export type HideCommand = {
+  type: "hide";
+  entity: EntityRef;
+  /** Defaults to 15 (SRD Hide action tracer). */
+  dc?: number;
+  proficient?: boolean;
+  mode?: RollMode;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -446,7 +481,12 @@ export type Command =
   | ApplyFallDamageCommand
   | ApplyBurningCommand
   | ExtinguishBurningCommand
-  | ResolveBurningTickCommand;
+  | ResolveBurningTickCommand
+  | DashCommand
+  | DisengageCommand
+  | DodgeCommand
+  | HelpCommand
+  | HideCommand;
 
 export type CommandType = Command["type"];
 
@@ -509,7 +549,8 @@ export type ValidationCode =
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"
-  | "OUT_OF_RANGE";
+  | "OUT_OF_RANGE"
+  | "NOT_ADJACENT";
 
 export type ValidationFailure = {
   code: ValidationCode;

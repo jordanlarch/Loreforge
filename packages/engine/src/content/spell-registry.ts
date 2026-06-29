@@ -112,7 +112,12 @@ const SACRED_FLAME: SpellDefinition = {
   concentration: false,
   ritual: false,
   targeting: "single",
-  saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "no_effect" },
+  saveAgainst: {
+    ability: "dex",
+    dc: "spellsave",
+    onSuccess: "no_effect",
+    ignoreCover: true,
+  },
   damage: [{ dice: "1d8", type: "radiant" }],
   description:
     "Flame-like radiance descends on a creature that you can see within range. The target makes a Dexterity saving throw, taking 1d8 radiant damage on a failed save. The target gains no benefit from cover for this save. The damage increases by one die when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",

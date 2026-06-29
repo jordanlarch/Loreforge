@@ -157,6 +157,8 @@ export type SaveAgainst = {
   /** `"spellsave"` resolves to the caster's spell save DC at cast time. */
   dc: "spellsave" | number;
   onSuccess: SaveOutcome;
+  /** When true, Dex saves ignore cover (Sacred Flame). */
+  ignoreCover?: boolean;
 };
 
 export type SpellAttack = {

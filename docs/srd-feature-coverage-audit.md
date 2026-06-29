@@ -135,7 +135,7 @@ Work end-to-end with deterministic math + tests:
 
 | ID | Item | Notes |
 |---|---|---|
-| SRD-FID-18 | **Difficult terrain** movement cost | PR TBD — `SceneMap.difficultCells`; `movementCostFeet` doubles entered squares in handler + projection. |
+| SRD-FID-18 | **Difficult terrain** movement cost | PR #330 — `SceneMap.difficultCells`; `movementCostFeet` doubles entered squares in handler + projection. |
 | SRD-FID-19 | **Resistance / Vulnerability / Immunity** | damage types logged but never multiplied (explicitly deferred in `combat/conditions.ts`) |
 | ENG-8 | **Instant death / massive damage**, crit-doubles-death-failures, Stabilize action | partially overlaps SRD-FID-13 |
 | SRD-FID-30 | **Mounted combat**, **Underwater combat** | |

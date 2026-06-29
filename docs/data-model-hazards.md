@@ -358,7 +358,7 @@ SRD curses are exposure → save → ongoing state, not a third action economy. 
 |---|---|---|
 | **PR 1 — Engine** | Registry, `activeCurses[]`, commands, projection, tests | ✅ **#298** |
 | **PR 2 — WS + Live Play** | Use Item exposure path, HUD chip, demo loot | ✅ **#299** |
-| **Post-grill follow-ups** | Slug dedupe, spell bridges, prod verify | ✅ dedupe + spell bridges shipped; prod verify after merge |
+| **Post-grill follow-ups** | Slug dedupe, spell bridges, prod verify | ✅ **#300** (dedupe + spell bridges); prod verify after deploy |
 
 ### Q8 — Demo fixtures ✅ (grill confirmed)
 

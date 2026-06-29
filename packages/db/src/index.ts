@@ -110,4 +110,18 @@ export {
   FEAR_STRESS_RULES_PROSE,
   FEAR_STRESS_RULES_SECTION_SLUG,
 } from "./ingest/srd-toolbox-fear-stress";
+export {
+  seedExplorationHazards,
+  type SeedExplorationHazardsResult,
+} from "./ingest/seed-exploration-hazards";
+export {
+  EXPLORATION_HAZARDS_OVERVIEW_SLUG,
+  EXPLORATION_HAZARD_GLOSSARY_SLUGS,
+  EXPLORATION_HAZARD_GLOSSARY_SEEDS,
+  EXPLORATION_HAZARDS_OVERVIEW_PROSE,
+  PLAYING_THE_GAME_CHAPTER_SLUG,
+  RULES_GLOSSARY_CHAPTER_SLUG,
+  isExplorationHazardGlossarySlug,
+  isExplorationHazardsOverviewSlug,
+} from "./ingest/srd-exploration-hazards";
 export { traitDescription } from "./ingest/srd-trait-descriptions";

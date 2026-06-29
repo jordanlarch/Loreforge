@@ -1,8 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 
 import { CodexDetailActions } from "@/components/codex-detail-actions";
+import {
+  EXPLORATION_HAZARDS_OVERVIEW_SLUG,
+  isExplorationHazardGlossarySlug,
+} from "@/lib/codex-exploration-hazards";
+import { codexDetailPath } from "@/lib/codex-routes";
 import { trpc } from "@/lib/trpc/client";
 import { useRecordCodexView } from "@/lib/use-record-codex-view";
 
@@ -69,6 +75,16 @@ export function RuleDetail({
             <p className="text-sm text-lore-muted">Rule section not found.</p>
           ) : (
             <>
+              {isExplorationHazardGlossarySlug(slug) ? (
+                <p className="mb-4 text-sm">
+                  <Link
+                    href={codexDetailPath("Rules", EXPLORATION_HAZARDS_OVERVIEW_SLUG)}
+                    className="text-lore-accent hover:underline"
+                  >
+                    ← Exploration Hazards overview
+                  </Link>
+                </p>
+              ) : null}
               <CodexDetailActions
                 category="Rules"
                 slug={slug}

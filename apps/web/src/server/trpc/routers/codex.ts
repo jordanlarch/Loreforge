@@ -34,6 +34,8 @@ import {
   CURSES_RULES_SECTION_SLUG,
   ENVIRONMENTAL_EFFECTS_RULES_SECTION_SLUG,
   FEAR_STRESS_RULES_SECTION_SLUG,
+  EXPLORATION_HAZARDS_OVERVIEW_SLUG,
+  EXPLORATION_HAZARD_GLOSSARY_SLUGS,
 } from "@app/db";
 
 import { sortSizes } from "@/lib/codex-monster-filters";
@@ -919,6 +921,29 @@ export const codexRouter = createTRPCRouter({
         .limit(1);
       return row ?? null;
     }),
+
+  /** Exploration hazards two-tier page (GRILL-EXPLORATION Slice 1). */
+  getExplorationHazardsPage: protectedProcedure.query(async () => {
+    const db = getDb();
+    const [overview] = await db
+      .select()
+      .from(codexRuleSections)
+      .where(eq(codexRuleSections.slug, EXPLORATION_HAZARDS_OVERVIEW_SLUG))
+      .limit(1);
+
+    const glossary = await db
+      .select({
+        slug: codexRuleSections.slug,
+        name: codexRuleSections.name,
+        description: codexRuleSections.description,
+        sortIndex: codexRuleSections.sortIndex,
+      })
+      .from(codexRuleSections)
+      .where(inArray(codexRuleSections.slug, [...EXPLORATION_HAZARD_GLOSSARY_SLUGS]))
+      .orderBy(asc(codexRuleSections.sortIndex));
+
+    return { overview: overview ?? null, glossary };
+  }),
 
   /** Gameplay Toolbox sample entries (DATA-1b). */
   listToolboxEntries: protectedProcedure

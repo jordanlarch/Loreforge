@@ -7,7 +7,7 @@
  * from genesis deterministically (`docs/engine/architecture.md` §3.2).
  */
 import { freshActionEconomy, surprisedActionEconomy, type InitiativeEntry } from "../combat/initiative";
-import { distanceFeet } from "../combat/grid";
+import { cellIsDifficult, distanceFeet, movementCostFeet } from "../combat/grid";
 import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import {
   applyTimedEffectTick,
@@ -198,7 +198,13 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         // Debit the movement budget when on the clock (action economy present).
         let actionEconomy = entity.actionEconomy;
         if (actionEconomy && event.payload.from) {
-          const cost = distanceFeet(event.payload.from, event.payload.to);
+          const scene = entity.sceneId ? next.scenes[entity.sceneId] : undefined;
+          const map = scene?.map;
+          const cost = movementCostFeet(
+            event.payload.from,
+            event.payload.to,
+            (cell) => cellIsDifficult(map, cell),
+          );
           actionEconomy = {
             ...actionEconomy,
             movement: {

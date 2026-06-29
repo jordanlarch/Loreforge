@@ -278,6 +278,8 @@ export type SceneMap = {
   width: number;
   height: number;
   blockedCells: GridPosition[];
+  /** Squares that cost double movement (SRD difficult terrain). */
+  difficultCells?: GridPosition[];
 };
 
 /** Live Play map category — gates trap placement (GRILL-LIVE-TOOLBOX Q2b). */

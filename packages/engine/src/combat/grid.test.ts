@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import type { GridPosition } from "../entities/types";
 import {
+  cellIsDifficult,
   chebyshev,
   distanceFeet,
   hasLineOfSight,
   lineCells,
+  movementCostFeet,
   withinBurst,
   withinCone,
 } from "./grid";
@@ -30,6 +33,39 @@ describe("lineCells", () => {
       { x: 2, y: 0 },
       { x: 3, y: 0 },
     ]);
+  });
+});
+
+describe("movementCostFeet / cellIsDifficult", () => {
+  const difficultAt = (cells: GridPosition[]) => (cell: GridPosition) =>
+    cells.some((c) => c.x === cell.x && c.y === cell.y);
+
+  it("matches distanceFeet on clear terrain", () => {
+    const from = { x: 0, y: 0 };
+    const to = { x: 3, y: 3 };
+    expect(movementCostFeet(from, to)).toBe(distanceFeet(from, to));
+  });
+
+  it("doubles the cost of each entered difficult square", () => {
+    const from = { x: 0, y: 0 };
+    const to = { x: 2, y: 0 };
+    expect(
+      movementCostFeet(from, to, difficultAt([{ x: 1, y: 0 }])),
+    ).toBe(15); // 5 + 10
+    expect(
+      movementCostFeet(from, to, difficultAt([{ x: 2, y: 0 }])),
+    ).toBe(15); // 5 + 10
+  });
+
+  it("cellIsDifficult reads SceneMap difficultCells", () => {
+    const map = {
+      width: 5,
+      height: 5,
+      blockedCells: [],
+      difficultCells: [{ x: 2, y: 2 }],
+    };
+    expect(cellIsDifficult(map, { x: 2, y: 2 })).toBe(true);
+    expect(cellIsDifficult(map, { x: 1, y: 1 })).toBe(false);
   });
 });
 

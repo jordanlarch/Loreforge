@@ -24,6 +24,35 @@ export function distanceFeet(a: GridPosition, b: GridPosition): number {
   return chebyshev(a, b) * FEET_PER_CELL;
 }
 
+/** Whether a map cell is marked difficult terrain. */
+export function cellIsDifficult(
+  map: { difficultCells?: GridPosition[] } | undefined,
+  cell: GridPosition,
+): boolean {
+  return (
+    map?.difficultCells?.some((c) => c.x === cell.x && c.y === cell.y) ?? false
+  );
+}
+
+/**
+ * Movement cost in feet from `from` to `to`, counting each entered square.
+ * Difficult terrain squares cost double (SRD: each foot costs an extra foot).
+ */
+export function movementCostFeet(
+  from: GridPosition,
+  to: GridPosition,
+  isDifficult?: (cell: GridPosition) => boolean,
+): number {
+  if (from.x === to.x && from.y === to.y) return 0;
+  const cells = lineCells(from, to);
+  let cost = 0;
+  for (let i = 1; i < cells.length; i += 1) {
+    const step = FEET_PER_CELL;
+    cost += isDifficult?.(cells[i]!) ? step * 2 : step;
+  }
+  return cost;
+}
+
 /**
  * Cells touched by the straight line from `a` to `b` (inclusive of both
  * endpoints), via integer Bresenham.

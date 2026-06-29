@@ -129,6 +129,106 @@ describe("Combat: movement budget + occupancy", () => {
   });
 });
 
+describe("Combat: difficult terrain movement cost", () => {
+  let engine: Engine;
+
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 5 });
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: {
+        id: "s:mud",
+        name: "Mud",
+        map: {
+          width: 10,
+          height: 10,
+          blockedCells: [],
+          difficultCells: [{ x: 1, y: 0 }, { x: 2, y: 0 }],
+        },
+      },
+    });
+    await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:mud" });
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:scout",
+        kind: "character",
+        name: "Scout",
+        abilityScores: ABILITIES,
+        maxHp: 20,
+        baseAc: 13,
+        speed: 30,
+        sceneId: "s:mud",
+        position: { x: 0, y: 0 },
+      },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:scout"],
+    });
+    await engine.execute(CAMPAIGN, { type: "roll_initiative" });
+  });
+
+  it("debits double movement for difficult terrain squares", async () => {
+    const result = await engine.execute(CAMPAIGN, {
+      type: "move_entity",
+      entity: "pc:scout",
+      to: { x: 2, y: 0 },
+    });
+    expect(result.accepted).toBe(true);
+    const scout = (await engine.getState(CAMPAIGN)).entities["pc:scout"];
+    expect(scout?.position).toEqual({ x: 2, y: 0 });
+    // Two entered difficult squares: 10ft + 10ft = 20ft
+    expect(scout?.actionEconomy?.movement).toEqual({ used: 20, total: 30 });
+  });
+
+  it("rejects a move when difficult terrain pushes cost over remaining speed", async () => {
+    const swampCampaign = "c:swamp";
+    const swampEngine = new Engine({ now: () => 5 });
+    await swampEngine.execute(swampCampaign, {
+      type: "create_scene",
+      scene: {
+        id: "s:swamp",
+        name: "Swamp",
+        map: {
+          width: 10,
+          height: 10,
+          blockedCells: [],
+          difficultCells: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+        },
+      },
+    });
+    await swampEngine.execute(swampCampaign, { type: "change_scene", sceneId: "s:swamp" });
+    await swampEngine.execute(swampCampaign, {
+      type: "create_entity",
+      entity: {
+        id: "pc:slow",
+        kind: "character",
+        name: "Slow",
+        abilityScores: ABILITIES,
+        maxHp: 20,
+        baseAc: 13,
+        speed: 25,
+        sceneId: "s:swamp",
+        position: { x: 0, y: 0 },
+      },
+    });
+    await swampEngine.execute(swampCampaign, {
+      type: "start_encounter",
+      combatants: ["pc:slow"],
+    });
+    await swampEngine.execute(swampCampaign, { type: "roll_initiative" });
+
+    const r = await swampEngine.execute(swampCampaign, {
+      type: "move_entity",
+      entity: "pc:slow",
+      to: { x: 3, y: 0 },
+    });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason.code).toBe("INSUFFICIENT_MOVEMENT");
+  });
+});
+
 describe("Combat: movement outside an encounter", () => {
   it("allows unbudgeted movement when no action economy is in play", async () => {
     const engine = new Engine({ now: () => 5 });

@@ -423,7 +423,7 @@ tracer; the 5-ft-Sphere/Concentration gaps were fixed anyway). Engine suite gree
 | ID | Item | Tracking | Status | Notes |
 |---|---|---|---|---|
 | SRD-FID-1 | Exhaustion uses 2014 tiered model, not 2024 uniform (−2/level D20, −5ft/level, death at 6) | #310 | **Done** | `combat/conditions.ts` (`exhaustionD20Penalty`, `effectiveSpeed` −5/level) + penalty threaded into attack/check/save/spell-attack handlers. PDF p.181. |
-| SRD-FID-2 | Background ability bonuses (+2/+1) never applied; species ASI empty; UI copy contradicts behavior | #311 | Deferred | `srd-character-options.ts`, `creation-wizard.tsx`. PDF p.83. **Silent char-stat bug.** (web slice) |
+| SRD-FID-2 | Background ability bonuses (+2/+1) never applied; species ASI empty; UI copy contradicts behavior | #311 | **Done** | Abilities step: `BackgroundAsiPicker` (+2/+1 or three +1s); `applyBackgroundAsi` in `finalScores` → saved on create. Engine helpers in `character-build.ts`. PDF p.83. |
 | SRD-FID-3 | Frightened missing can't-approach / ability-check disadvantage | #312 | **Done** | `combat/conditions.ts` (`checkMode`, `frightenedSources`) + can't-approach in `handleMoveEntity`. LOS gate kept as documented always-on approximation. PDF p.182. |
 | SRD-FID-4 | Faerie Fire modeled as sphere; should be 20-ft cube | #313 | **Done** | spell registry → `cube`. |
 | SRD-FID-5 | Spirit Guardians sphere; should be 15-ft emanation (no Emanation shape in engine) | #314 | **Done** | Added `emanation` AoE shape (taxonomy + cast resolution, caster-centered, excludes caster). |

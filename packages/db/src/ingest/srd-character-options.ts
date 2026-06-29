@@ -12,8 +12,8 @@
  * source later won't touch the wizard.
  *
  * SRD 2024 species do not grant fixed ability score increases; those come from
- * the character's background (+2/+1 or three +1s). `abilityBonuses` is kept
- * empty on species rows until background ASI is wired in the wizard.
+ * the character's background (+2/+1 or three +1s) in the Creation Wizard.
+ * `abilityBonuses` is intentionally empty on species rows.
  *
  * @see docs/data-sources.md §1
  * @see docs/ui-flows/character-creation-wizard.md

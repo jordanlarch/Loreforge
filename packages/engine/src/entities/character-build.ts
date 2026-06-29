@@ -383,6 +383,76 @@ export function applyAsi(
 }
 
 /**
+ * SRD 2024 background ability score increase: +2/+1 to two abilities, or +1
+ * to three different abilities (Character Origins, p.83).
+ */
+export type BackgroundAsiChoice =
+  | { mode: "boost"; primary: Ability; secondary: Ability }
+  | { mode: "triple"; first: Ability; second: Ability; third: Ability };
+
+/** Whether a background ASI choice is legal (distinct abilities, cap 20). */
+export function isValidBackgroundAsiChoice(
+  scores: AbilityScores,
+  choice: BackgroundAsiChoice,
+): boolean {
+  if (choice.mode === "boost") {
+    if (choice.primary === choice.secondary) return false;
+    return (
+      scores[choice.primary] + 2 <= MAX_ABILITY_SCORE &&
+      scores[choice.secondary] + 1 <= MAX_ABILITY_SCORE
+    );
+  }
+  const { first, second, third } = choice;
+  if (first === second || first === third || second === third) return false;
+  return (
+    scores[first] + 1 <= MAX_ABILITY_SCORE &&
+    scores[second] + 1 <= MAX_ABILITY_SCORE &&
+    scores[third] + 1 <= MAX_ABILITY_SCORE
+  );
+}
+
+/** Per-ability bonus totals from a background ASI choice (for wizard display). */
+export function backgroundAsiBonuses(
+  choice: BackgroundAsiChoice,
+): Partial<AbilityScores> {
+  const bonuses: Partial<AbilityScores> = {};
+  if (choice.mode === "boost") {
+    bonuses[choice.primary] = (bonuses[choice.primary] ?? 0) + 2;
+    bonuses[choice.secondary] = (bonuses[choice.secondary] ?? 0) + 1;
+  } else {
+    bonuses[choice.first] = (bonuses[choice.first] ?? 0) + 1;
+    bonuses[choice.second] = (bonuses[choice.second] ?? 0) + 1;
+    bonuses[choice.third] = (bonuses[choice.third] ?? 0) + 1;
+  }
+  return bonuses;
+}
+
+export function formatBackgroundAsiLabel(choice: BackgroundAsiChoice): string {
+  if (choice.mode === "boost") {
+    return `+2 ${ABILITY_NAMES[choice.primary]}, +1 ${ABILITY_NAMES[choice.secondary]}`;
+  }
+  return `+1 ${ABILITY_NAMES[choice.first]}, +1 ${ABILITY_NAMES[choice.second]}, +1 ${ABILITY_NAMES[choice.third]}`;
+}
+
+/** Apply a background ASI to a spread; throws if the choice would exceed the cap. */
+export function applyBackgroundAsi(
+  scores: AbilityScores,
+  choice: BackgroundAsiChoice,
+): AbilityScores {
+  if (!isValidBackgroundAsiChoice(scores, choice)) {
+    throw new Error("Invalid background ASI choice for current ability scores.");
+  }
+  const next = { ...scores };
+  for (const [ability, amount] of Object.entries(backgroundAsiBonuses(choice)) as [
+    Ability,
+    number,
+  ][]) {
+    next[ability] += amount;
+  }
+  return next;
+}
+
+/**
  * Labels for features gained at a class level (real SRD names + ASI when applicable).
  */
 export function featureStubsForLevel(

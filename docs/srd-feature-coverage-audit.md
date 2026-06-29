@@ -84,8 +84,8 @@ The fastest wins toward a complete-feeling combat loop. Targeted as the slice im
 
 | ID | Feature | Gap | SRD 5.2.1 (PDF, glossary) | Status |
 |---|---|---|---|---|
-| **SRD-FID-14** | **Standard actions** Dash / Disengage / Dodge / Help / Hide | no engine commands exist (only Attack, Magic-via-spell, Ready) | Dash = extra move = Speed (p.180); Disengage = no OAs this turn (p.182); Dodge = attackers Disadvantage + Dex saves Advantage until next turn (p.182); Help = grant Advantage on a check or an ally's attack vs adjacent foe (p.182); Hide = DC 15 Stealth → Invisible while hidden (p.183) | ✅ **Done** — PR TBD |
-| **SRD-FID-15** | **Cover** | no AC/save modifiers; AoE blocking only uses Total Cover via LOS | Half cover **+2 AC & Dex saves**; Three-Quarters **+5**; Total = can't be targeted (ties into Hide & AoE origin rules) | ✅ **Done** — PR TBD; Sacred Flame `ignoreCover` |
+| **SRD-FID-14** | **Standard actions** Dash / Disengage / Dodge / Help / Hide | no engine commands exist (only Attack, Magic-via-spell, Ready) | Dash = extra move = Speed (p.180); Disengage = no OAs this turn (p.182); Dodge = attackers Disadvantage + Dex saves Advantage until next turn (p.182); Help = grant Advantage on a check or an ally's attack vs adjacent foe (p.182); Hide = DC 15 Stealth → Invisible while hidden (p.183) | ✅ **Done** — PR #327 |
+| **SRD-FID-15** | **Cover** | no AC/save modifiers; AoE blocking only uses Total Cover via LOS | Half cover **+2 AC & Dex saves**; Three-Quarters **+5**; Total = can't be targeted (ties into Hide & AoE origin rules) | ✅ **Done** — PR #327; Sacred Flame `ignoreCover` |
 
 *(SRD-FID-14/15 are also the gateway for several incongruence/condition fixes: Disengage is required for Frightened/grapple interplay; Hide produces the Invisible condition; Cover feeds Sacred Flame's "ignores cover" and AoE accuracy.)*
 

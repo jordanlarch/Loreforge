@@ -440,8 +440,8 @@ tracer; the 5-ft-Sphere/Concentration gaps were fixed anyway). Engine suite gree
 
 | ID | Item | Tracking | Status | Notes |
 |---|---|---|---|---|
-| SRD-FID-14 | Standard actions Dash / Disengage / Dodge / Help / Hide (only Attack/Magic/Ready exist) | #323 | **Done** | PR TBD — `standard-action-handlers.ts` + OA/dodge/save integration. PDF pp.180–183. |
-| SRD-FID-15 | Cover (half +2 / three-quarters +5 / total) for AC + Dex saves | #324 | **Done** | PR TBD — `combat/cover.ts`; weapon attacks + Dex saves + Sacred Flame `ignoreCover`. Total cover = wall-only LOS block. |
+| SRD-FID-14 | Standard actions Dash / Disengage / Dodge / Help / Hide (only Attack/Magic/Ready exist) | #323 | **Done** | PR #327 — `standard-action-handlers.ts` + OA/dodge/save integration. PDF pp.180–183. |
+| SRD-FID-15 | Cover (half +2 / three-quarters +5 / total) for AC + Dex saves | #324 | **Done** | PR #327 — `combat/cover.ts`; weapon attacks + Dex saves + Sacred Flame `ignoreCover`. Total cover = wall-only LOS block. |
 
 ### 12.3 Partial / missing fidelity gaps (depth backlog)
 

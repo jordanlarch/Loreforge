@@ -5,14 +5,17 @@ import type { AbilityScores } from "./types";
 import {
   applyAbilityBonuses,
   applyAsi,
+  applyBackgroundAsi,
   ASI_LEVELS,
   baseArmorClass,
   featureStubsForLevel,
   formatAsiLabel,
+  formatBackgroundAsiLabel,
   grantsAsiAtLevel,
   hpGainOnLevelUp,
   hpRollFromSeed,
   isValidAsiChoice,
+  isValidBackgroundAsiChoice,
   isValidPointBuy,
   levelForXp,
   levelUpSeed,
@@ -217,6 +220,61 @@ describe("asi", () => {
     expect(
       formatAsiLabel({ mode: "split", first: "dex", second: "wis" }),
     ).toBe("+1 Dexterity, +1 Wisdom");
+  });
+});
+
+describe("background asi", () => {
+  it("applies +2/+1 boost", () => {
+    const base = spread(10, 10, 10, 10, 10, 10);
+    expect(
+      applyBackgroundAsi(base, {
+        mode: "boost",
+        primary: "str",
+        secondary: "con",
+      }),
+    ).toEqual(spread(12, 10, 11, 10, 10, 10));
+  });
+
+  it("applies three +1s", () => {
+    const base = spread(10, 10, 10, 10, 10, 10);
+    expect(
+      applyBackgroundAsi(base, {
+        mode: "triple",
+        first: "dex",
+        second: "int",
+        third: "cha",
+      }),
+    ).toEqual(spread(10, 11, 10, 11, 10, 11));
+  });
+
+  it("rejects duplicate abilities in boost mode", () => {
+    expect(
+      isValidBackgroundAsiChoice(spread(10, 10, 10, 10, 10, 10), {
+        mode: "boost",
+        primary: "str",
+        secondary: "str",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects choices that exceed 20", () => {
+    expect(
+      isValidBackgroundAsiChoice(spread(19, 10, 10, 10, 10, 10), {
+        mode: "boost",
+        primary: "str",
+        secondary: "con",
+      }),
+    ).toBe(false);
+  });
+
+  it("formats background ASI labels", () => {
+    expect(
+      formatBackgroundAsiLabel({
+        mode: "boost",
+        primary: "str",
+        secondary: "con",
+      }),
+    ).toBe("+2 Strength, +1 Constitution");
   });
 });
 

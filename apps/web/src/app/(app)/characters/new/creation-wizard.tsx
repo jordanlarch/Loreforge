@@ -10,10 +10,13 @@ import {
   ABILITIES,
   abilityModifier,
   applyAbilityBonuses,
+  applyBackgroundAsi,
+  backgroundAsiBonuses,
   baseArmorClass,
   buildStartingCharacterStats,
   classFeaturesForLevel,
   featureStubsForLevel,
+  formatBackgroundAsiLabel,
   isValidPointBuy,
   MANUAL_MAX,
   MANUAL_MIN,
@@ -32,6 +35,7 @@ import {
   xpForLevel,
   type Ability,
   type AbilityScores,
+  type BackgroundAsiChoice,
   type LevelAdvanceChoice,
 } from "@app/engine";
 
@@ -40,6 +44,10 @@ import {
   advancementComplete,
 } from "./advancement-step";
 
+import {
+  BackgroundAsiPicker,
+  backgroundAsiComplete,
+} from "@/components/character-creation/background-asi-picker";
 import {
   featuresStepChoicesComplete,
   FightingStylePicker,
@@ -173,6 +181,9 @@ export function CreationWizard() {
   const [speciesSlug, setSpeciesSlug] = useState<string | null>(null);
   const [classSlug, setClassSlug] = useState<string | null>(null);
   const [backgroundSlug, setBackgroundSlug] = useState<string | null>(null);
+  const [backgroundAsi, setBackgroundAsi] = useState<BackgroundAsiChoice | null>(
+    null,
+  );
   const [method, setMethod] = useState<AbilityMethod>("point-buy");
   const [base, setBase] = useState<AbilityScores>(POINT_BUY_BASE);
   const [skills, setSkills] = useState<string[]>([]);
@@ -243,6 +254,7 @@ export function CreationWizard() {
         speciesSlug?: string | null;
         classSlug?: string | null;
         backgroundSlug?: string | null;
+        backgroundAsi?: BackgroundAsiChoice | null;
         method?: AbilityMethod;
         base?: AbilityScores;
         skills?: string[];
@@ -259,6 +271,7 @@ export function CreationWizard() {
       if (draft.speciesSlug) setSpeciesSlug(draft.speciesSlug);
       if (draft.classSlug) setClassSlug(draft.classSlug);
       if (draft.backgroundSlug) setBackgroundSlug(draft.backgroundSlug);
+      if (draft.backgroundAsi) setBackgroundAsi(draft.backgroundAsi);
       if (draft.method) setMethod(draft.method);
       if (draft.base) setBase(draft.base);
       if (draft.skills) setSkills(draft.skills);
@@ -287,6 +300,7 @@ export function CreationWizard() {
       speciesSlug,
       classSlug,
       backgroundSlug,
+      backgroundAsi,
       method,
       base,
       skills,
@@ -307,6 +321,7 @@ export function CreationWizard() {
     speciesSlug,
     classSlug,
     backgroundSlug,
+    backgroundAsi,
     method,
     base,
     skills,
@@ -331,6 +346,10 @@ export function CreationWizard() {
     setEquipment(pack.items);
   }, [classSlug]);
 
+  useEffect(() => {
+    setBackgroundAsi(null);
+  }, [backgroundSlug]);
+
   const selectedSpecies = useMemo(
     () => species.data?.find((s) => s.slug === speciesSlug) ?? null,
     [species.data, speciesSlug],
@@ -340,9 +359,19 @@ export function CreationWizard() {
     [classes.data, classSlug],
   );
 
-  const finalScores = useMemo(
+  const scoresBeforeBackgroundAsi = useMemo(
     () => applyAbilityBonuses(base, selectedSpecies?.abilityBonuses ?? {}),
     [base, selectedSpecies],
+  );
+
+  const finalScores = useMemo(() => {
+    if (!backgroundAsi) return scoresBeforeBackgroundAsi;
+    return applyBackgroundAsi(scoresBeforeBackgroundAsi, backgroundAsi);
+  }, [scoresBeforeBackgroundAsi, backgroundAsi]);
+
+  const backgroundAsiValid = backgroundAsiComplete(
+    scoresBeforeBackgroundAsi,
+    backgroundAsi,
   );
 
   const selectedBackground = useMemo(
@@ -489,7 +518,7 @@ export function CreationWizard() {
     selectedSpecies != null,
     selectedClass != null && classLevelsValid,
     selectedBackground != null && backgroundOriginValid,
-    abilitiesValid,
+    abilitiesValid && backgroundAsiValid,
     skillsValid,
     equipment.length > 0,
     featuresStepValid,
@@ -503,6 +532,7 @@ export function CreationWizard() {
     selectedClass != null &&
     classLevelsValid &&
     backgroundOriginValid &&
+    backgroundAsiValid &&
     abilitiesValid &&
     skillsValid &&
     equipment.length > 0 &&
@@ -714,15 +744,19 @@ export function CreationWizard() {
               onHumanOriginFeat={setHumanOriginFeat}
             />
           )}
-          {step === 4 && (
+          {step === 4 && selectedBackground && (
             <AbilitiesStep
               method={method}
               onMethod={switchMethod}
               base={base}
               setBase={setBase}
-              bonuses={selectedSpecies?.abilityBonuses ?? {}}
+              speciesBonuses={selectedSpecies?.abilityBonuses ?? {}}
+              scoresBeforeBackgroundAsi={scoresBeforeBackgroundAsi}
               finalScores={finalScores}
               standardArrayValid={standardArrayValid}
+              backgroundName={selectedBackground.name}
+              backgroundAsi={backgroundAsi}
+              onBackgroundAsi={setBackgroundAsi}
             />
           )}
           {step === 5 && (
@@ -820,7 +854,7 @@ export function CreationWizard() {
               }
               background={selectedBackground?.name ?? "—"}
               abilityMethod={method}
-              speciesBonuses={selectedSpecies?.abilityBonuses ?? {}}
+              backgroundAsi={backgroundAsi}
               finalScores={previewStats?.abilityScores ?? finalScores}
               skills={allSkillProficiencies}
               equipment={equipment}
@@ -1212,19 +1246,37 @@ function AbilitiesStep({
   onMethod,
   base,
   setBase,
-  bonuses,
+  speciesBonuses,
+  scoresBeforeBackgroundAsi,
   finalScores,
   standardArrayValid,
+  backgroundName,
+  backgroundAsi,
+  onBackgroundAsi,
 }: {
   method: AbilityMethod;
   onMethod: (m: AbilityMethod) => void;
   base: AbilityScores;
   setBase: React.Dispatch<React.SetStateAction<AbilityScores>>;
-  bonuses: Partial<AbilityScores>;
+  speciesBonuses: Partial<AbilityScores>;
+  scoresBeforeBackgroundAsi: AbilityScores;
   finalScores: AbilityScores;
   standardArrayValid: boolean;
+  backgroundName: string;
+  backgroundAsi: BackgroundAsiChoice | null;
+  onBackgroundAsi: (next: BackgroundAsiChoice | null) => void;
 }) {
   const remaining = pointBuyRemaining(base);
+  const displayBonuses = useMemo(() => {
+    const merged: Partial<AbilityScores> = { ...speciesBonuses };
+    if (backgroundAsi) {
+      const bg = backgroundAsiBonuses(backgroundAsi);
+      for (const a of ABILITIES) {
+        if (bg[a]) merged[a] = (merged[a] ?? 0) + bg[a]!;
+      }
+    }
+    return merged;
+  }, [speciesBonuses, backgroundAsi]);
   const methods: { id: AbilityMethod; label: string }[] = [
     { id: "point-buy", label: "Point Buy" },
     { id: "standard-array", label: "Standard Array" },
@@ -1235,6 +1287,10 @@ function AbilitiesStep({
   return (
     <section>
       <h2 className="font-display text-2xl">Determine Ability Scores</h2>
+      <p className="mt-1 text-sm text-lore-muted">
+        Set your base scores, then assign your background&apos;s +2/+1 or three
+        +1s below. SRD 2024 species do not grant ability increases.
+      </p>
       <div className="mt-4 flex gap-2">
         {methods.map((m) => (
           <button
@@ -1287,7 +1343,7 @@ function AbilitiesStep({
             Re-roll all
           </button>
           <span className="text-xs text-lore-muted">
-            4d6 drop lowest per ability; species bonuses apply after.
+            4d6 drop lowest per ability; background increases apply below.
           </span>
         </div>
       )}
@@ -1344,7 +1400,9 @@ function AbilitiesStep({
             </div>
 
             <span className="w-16 text-right text-xs text-lore-muted">
-              {bonuses[a] ? `${base[a]} ${signed(bonuses[a]!)}` : `${base[a]}`}
+              {displayBonuses[a]
+                ? `${base[a]} ${signed(displayBonuses[a]!)}`
+                : `${base[a]}`}
             </span>
             <span className="w-14 text-right font-display text-lg">
               {finalScores[a]}
@@ -1355,6 +1413,14 @@ function AbilitiesStep({
           </div>
         ))}
       </div>
+
+      <BackgroundAsiPicker
+        key={backgroundAsi ? JSON.stringify(backgroundAsi) : "unset"}
+        scores={scoresBeforeBackgroundAsi}
+        backgroundName={backgroundName}
+        value={backgroundAsi}
+        onChange={onBackgroundAsi}
+      />
     </section>
   );
 }
@@ -1648,7 +1714,7 @@ function ReviewStep({
   classLine,
   background,
   abilityMethod,
-  speciesBonuses,
+  backgroundAsi,
   finalScores,
   skills,
   equipment,
@@ -1673,7 +1739,7 @@ function ReviewStep({
   classLine: string;
   background: string;
   abilityMethod: AbilityMethod;
-  speciesBonuses: Partial<AbilityScores>;
+  backgroundAsi: BackgroundAsiChoice | null;
   finalScores: AbilityScores;
   skills: string[];
   equipment: EquipmentItem[];
@@ -1730,7 +1796,12 @@ function ReviewStep({
         <Row label="Class(es)" value={classLine} />
         <Row label="Background" value={background} />
         <Row label="Abilities" value={METHOD_LABELS[abilityMethod]} />
-        <Row label="Species bonuses" value={bonusLine(speciesBonuses)} />
+        <Row
+          label="Background ASI"
+          value={
+            backgroundAsi ? formatBackgroundAsiLabel(backgroundAsi) : "—"
+          }
+        />
         <Row label="Max HP" value={String(maxHp)} />
         <Row label="Base AC" value={String(baseAc)} />
         <Row label="Speed" value={`${speed} ft`} />
@@ -1998,8 +2069,8 @@ function BackgroundStep({
     <section>
       <h2 className="font-display text-2xl">Choose Your Background</h2>
       <p className="mt-1 text-sm text-lore-muted">
-        SRD backgrounds grant skill proficiencies and an Origin feat from the
-        Codex.
+        SRD backgrounds grant skill proficiencies, ability score increases
+        (chosen on the next step), and an Origin feat from the Codex.
       </p>
       {loading ? (
         <p className="mt-6 text-lore-muted">Loading backgrounds…</p>

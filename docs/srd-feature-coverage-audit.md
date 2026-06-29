@@ -33,11 +33,11 @@
 | Playing the Game — Movement/position | n/a | grid/LOS/OA ✅; **cover, difficult terrain** ✗ | 🟡 | **SRD-FID-15**, SRD-FID-18 |
 | Playing the Game — Damage/Healing | n/a | HP/crit/heal/death saves ✅; **resist/vuln/immunity** ✗; temp-HP grant ✗ | 🟡 | SRD-FID-19, ENG-8 |
 | Conditions (15) | declared ✅ | ~9 accurate, ~6 simplified | 🟡 | SRD-FID-3, SRD-FID-20 |
-| Character Creation / Advancement | ✅ | XP/HP/ASI/multiclass ✅; **background ASI** ✗ | 🟡 | **SRD-FID-2** |
+| Character Creation / Advancement | ✅ | XP/HP/ASI/multiclass ✅; **background ASI** ✅ | 🟢 | SRD-FID-2 **Done** |
 | Classes (12) | catalog ✅ | features mostly display-only (2 wired) | 🟡 | SRD-FID-21 |
 | Subclasses (12) | catalog ✅ | **0 mechanical** | 🔴 | SRD-FID-21 |
 | Species (9) | catalog ✅ | traits **0 mechanical** | 🔴 | SRD-FID-22 |
-| Backgrounds (4) | ingest ✅ | skills ✅; **ASI** ✗; origin feat partial | 🟡 | SRD-FID-2 |
+| Backgrounds (4) | ingest ✅ | skills ✅; **ASI** ✅; origin feat partial | 🟡 | SRD-FID-2 **Done** |
 | Feats | catalog ✅ | 8 of N mechanical | 🟡 | SRD-FID-23 |
 | Equipment — Weapons | catalog ✅ | finesse/reach/ranged ✅; most props ✗; **mastery display-only** | 🟡 | SRD-FID-24 |
 | Equipment — Armor | catalog ✅ | AC calc ✅; stealth/Str/Armor-Training ✗ | 🟡 | SRD-FID-25 |
@@ -61,7 +61,7 @@ These run today and produce **wrong results** vs the PDF. They are correctness b
 | ID | Feature | Engine behavior | SRD 5.2.1 (PDF) | Files | Status |
 |---|---|---|---|---|---|
 | **SRD-FID-1** | **Exhaustion** | 2014-style tiered effects at levels 2/3/5 | Uniform: **−2 × level on all D20 Tests, −5 ft × level Speed, death at 6**, Long Rest −1 (p.181) | `packages/engine/src/combat/conditions.ts` | ✅ **Fixed** — `exhaustionD20Penalty` (−2×lvl) threaded into attack/check/save/spell-attack; `effectiveSpeed` −5×lvl |
-| **SRD-FID-2** | **Background ability bonuses** | Wizard applies species bonuses only = `{}` → **PCs get no ASI from background**; UI copy claims otherwise | Backgrounds grant **+2/+1 or three +1s** (p.83, Character Origins) | `packages/db/src/ingest/srd-character-options.ts`, `apps/web/.../creation-wizard.tsx` | ⚠️ Open (web slice) |
+| **SRD-FID-2** | **Background ability bonuses** | Wizard applies species bonuses only = `{}` → **PCs get no ASI from background**; UI copy claims otherwise | Backgrounds grant **+2/+1 or three +1s** (p.83, Character Origins) | `creation-wizard.tsx`, `background-asi-picker.tsx`, `character-build.ts` | ✅ **Fixed** — Background ASI picker on Abilities step; `applyBackgroundAsi` folded into saved scores |
 | **SRD-FID-3** | **Frightened** | always-on attack disadvantage, no gating | Disadvantage on **ability checks AND attacks while source in LoS** + **can't willingly approach** (p.182) | `packages/engine/src/combat/conditions.ts` | ✅ **Fixed** — `checkMode` (check disadvantage) + `frightenedSources` can't-approach in `handleMoveEntity`; LoS gate kept as documented always-on approximation |
 | **SRD-FID-4** | **Faerie Fire shape** | 20-ft **Sphere** | 20-ft **Cube** | spell registry (`faerie-fire`) | ✅ **Fixed** — `cube` |
 | **SRD-FID-5** | **Spirit Guardians shape** | Sphere | 15-ft **Emanation** around caster (Emanation shape, p.181) | spell registry, `commands/handlers.ts` | ✅ **Fixed** — added `emanation` AoE shape (caster-centered, excludes caster) |

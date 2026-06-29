@@ -30,7 +30,7 @@
 | Playing the Game — D20 Tests | n/a | checks/attacks ✅; **save proficiency** ✅; skill prof on entity ✗ | 🟡 | SRD-FID-16 (saves done) |
 | Playing the Game — Actions (12 standard) | n/a | Dash/Disengage/Dodge/Help/Hide ✅; Grapple/Shove/Use Object etc. ✗ | 🟡 | SRD-FID-14 (done); two-weapon/unarmed/shove/grapple still open |
 | Playing the Game — Combat order | n/a | initiative/turns/rounds/surprise ✅ | 🟡 | SRD-FID-17 done |
-| Playing the Game — Movement/position | n/a | grid/LOS/OA/cover ✅; **difficult terrain** ✗ | 🟡 | SRD-FID-18 |
+| Playing the Game — Movement/position | n/a | grid/LOS/OA/cover ✅; **difficult terrain** ✅ | 🟢 | SRD-FID-18 done |
 | Playing the Game — Damage/Healing | n/a | HP/crit/heal/death saves ✅; **resist/vuln/immunity** ✗; temp-HP grant ✗ | 🟡 | SRD-FID-19, ENG-8 |
 | Conditions (15) | declared ✅ | ~9 accurate, ~6 simplified | 🟡 | SRD-FID-3, SRD-FID-20 |
 | Character Creation / Advancement | ✅ | XP/HP/ASI/multiclass ✅; **background ASI** ✅ | 🟢 | SRD-FID-2 **Done** |
@@ -135,7 +135,7 @@ Work end-to-end with deterministic math + tests:
 
 | ID | Item | Notes |
 |---|---|---|
-| SRD-FID-18 | **Difficult terrain** movement cost | |
+| SRD-FID-18 | **Difficult terrain** movement cost | PR TBD — `SceneMap.difficultCells`; `movementCostFeet` doubles entered squares in handler + projection. |
 | SRD-FID-19 | **Resistance / Vulnerability / Immunity** | damage types logged but never multiplied (explicitly deferred in `combat/conditions.ts`) |
 | ENG-8 | **Instant death / massive damage**, crit-doubles-death-failures, Stabilize action | partially overlaps SRD-FID-13 |
 | SRD-FID-30 | **Mounted combat**, **Underwater combat** | |

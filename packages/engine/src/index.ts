@@ -111,11 +111,13 @@ export {
 } from "./combat/effects";
 export {
   chebyshev,
+  cellIsDifficult,
   CONE_HALF_ANGLE_COS,
   distanceFeet,
   FEET_PER_CELL,
   hasLineOfSight,
   lineCells,
+  movementCostFeet,
   withinBurst,
   withinCone,
   withinCube,

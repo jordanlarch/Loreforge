@@ -15,8 +15,10 @@ import {
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
 import { criticalNotation, resolveHit } from "../combat/attack";
 import {
+  cellIsDifficult,
   distanceFeet,
   hasLineOfSight,
+  movementCostFeet,
   withinBurst,
   withinCone,
   withinCube,
@@ -523,7 +525,9 @@ function handleMoveEntity(
   // Debit movement only while it is this combatant's turn (action economy
   // present). Outside combat, movement is unbudgeted.
   if (entity.actionEconomy && entity.position) {
-    const cost = distanceFeet(entity.position, to);
+    const cost = movementCostFeet(entity.position, to, (cell) =>
+      cellIsDifficult(map, cell),
+    );
     const remaining =
       entity.actionEconomy.movement.total - entity.actionEconomy.movement.used;
     if (cost > remaining) {

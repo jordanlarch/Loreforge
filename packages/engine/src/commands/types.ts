@@ -101,6 +101,15 @@ export type RollInitiativeCommand = {
   bonuses?: Record<EntityRef, number>;
 };
 
+/**
+ * Mark which combatants are surprised before initiative. Surprised creatures
+ * can't move, take actions, or reactions on their first turn (SRD-FID-17).
+ */
+export type ResolveSurpriseCommand = {
+  type: "resolve_surprise";
+  surprised: EntityRef[];
+};
+
 /** Add a living entity to an in-progress encounter after initiative (#98). */
 export type AddCombatantCommand = {
   type: "add_combatant";
@@ -446,6 +455,7 @@ export type Command =
   | RelocateEntityCommand
   | StartEncounterCommand
   | EndEncounterCommand
+  | ResolveSurpriseCommand
   | RollInitiativeCommand
   | AddCombatantCommand
   | EndTurnCommand
@@ -506,6 +516,7 @@ export type ValidationCode =
   | "NOT_IN_ENCOUNTER"
   | "INITIATIVE_NOT_ROLLED"
   | "INITIATIVE_ALREADY_ROLLED"
+  | "SURPRISE_ALREADY_RESOLVED"
   | "COMBATANT_ALREADY_PRESENT"
   | "OUT_OF_BOUNDS"
   | "CELL_BLOCKED"

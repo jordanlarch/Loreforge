@@ -158,6 +158,11 @@ export type EntityState = {
    */
   dodging?: boolean;
   /**
+   * Surprise — until this combatant's first turn ends, they can't move, take
+   * actions, or reactions (SRD-FID-17).
+   */
+  surprised?: boolean;
+  /**
    * Melee reach in feet for opportunity-attack provoke detection (ENG-10).
    * Defaults to 5 ft when omitted. Set from equipped reach weapons at seed time.
    */

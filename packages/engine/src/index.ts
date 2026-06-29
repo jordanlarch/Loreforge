@@ -90,6 +90,7 @@ export {
 // Combat
 export {
   freshActionEconomy,
+  surprisedActionEconomy,
   sortInitiative,
   type InitiativeEntry,
   type InitiativeRollInput,
@@ -535,6 +536,7 @@ export {
   type TriggerTrapCommand,
   type RemoveConditionCommand,
   type RollDiceCommand,
+  type ResolveSurpriseCommand,
   type RollInitiativeCommand,
   type SavingThrowCommand,
   type StartEncounterCommand,

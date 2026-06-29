@@ -159,6 +159,7 @@ import {
   type OpportunityAttackCommand,
   type ReadyActionCommand,
   type RemoveConditionCommand,
+  type ResolveSurpriseCommand,
   type RollDiceCommand,
   type RollInitiativeCommand,
   type SavingThrowCommand,
@@ -669,6 +670,55 @@ function handleStartEncounter(
       },
     ],
     summary: { sceneId, combatants: cmd.combatants.length },
+  };
+}
+
+function handleResolveSurprise(
+  cmd: ResolveSurpriseCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const encounter = ctx.world.encounter;
+  if (!encounter) {
+    return reject("NO_ENCOUNTER", "No encounter is in progress.");
+  }
+  if (encounter.initiativeRolled) {
+    return reject(
+      "INITIATIVE_ALREADY_ROLLED",
+      "Surprise must be resolved before rolling initiative.",
+    );
+  }
+  if (encounter.surpriseResolved) {
+    return reject(
+      "SURPRISE_ALREADY_RESOLVED",
+      "Surprise has already been resolved for this encounter.",
+    );
+  }
+  const members = new Set(encounter.combatants);
+  const surprised = [...new Set(cmd.surprised)];
+  for (const ref of surprised) {
+    if (!members.has(ref)) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `${ref} is not a combatant in this encounter.`,
+        { entity: ref },
+      );
+    }
+    if (!ctx.world.entities[ref]) {
+      return reject("ACTOR_NOT_FOUND", `Entity ${ref} does not exist.`, {
+        entity: ref,
+      });
+    }
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "SurpriseResolved",
+        ...meta(ctx, "system"),
+        payload: { surprised },
+      },
+    ],
+    summary: { surprised: surprised.length },
   };
 }
 
@@ -3115,6 +3165,8 @@ export function handleCommand(
       return handleRelocateEntity(command, ctx);
     case "start_encounter":
       return handleStartEncounter(command, ctx);
+    case "resolve_surprise":
+      return handleResolveSurprise(command, ctx);
     case "roll_initiative":
       return handleRollInitiative(command, ctx);
     case "add_combatant":

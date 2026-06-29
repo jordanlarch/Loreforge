@@ -93,6 +93,11 @@ export type InitiativeRolledPayload = {
   order: InitiativeEntry[];
 };
 
+export type SurpriseResolvedPayload = {
+  /** Combatants surprised at the start of this encounter. */
+  surprised: EntityRef[];
+};
+
 export type CombatantAddedPayload = {
   entityId: EntityRef;
   side: string;
@@ -466,6 +471,7 @@ export type EngineEvent =
   | (EventMeta & { type: "EncounterStarted"; payload: EncounterStartedPayload })
   | (EventMeta & { type: "EncounterEnded"; payload: EncounterEndedPayload })
   | (EventMeta & { type: "InitiativeRolled"; payload: InitiativeRolledPayload })
+  | (EventMeta & { type: "SurpriseResolved"; payload: SurpriseResolvedPayload })
   | (EventMeta & { type: "CombatantAdded"; payload: CombatantAddedPayload })
   | (EventMeta & { type: "TurnStarted"; payload: TurnStartedPayload })
   | (EventMeta & { type: "TurnEnded"; payload: TurnEndedPayload })

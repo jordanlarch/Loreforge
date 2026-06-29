@@ -414,6 +414,19 @@ export type ActionSpentPayload = {
   attack?: boolean;
 };
 
+export type DashMovementGrantedPayload = {
+  entity: EntityRef;
+  bonusFeet: number;
+};
+
+export type DisengagedPayload = {
+  entity: EntityRef;
+};
+
+export type DodgingStartedPayload = {
+  entity: EntityRef;
+};
+
 export type SpellCastPayload = {
   caster: EntityRef;
   spellId: string;
@@ -477,6 +490,9 @@ export type EngineEvent =
   | (EventMeta & { type: "ReactionTaken"; payload: ReactionTakenPayload })
   | (EventMeta & { type: "ActionReadied"; payload: ActionReadiedPayload })
   | (EventMeta & { type: "ActionSpent"; payload: ActionSpentPayload })
+  | (EventMeta & { type: "DashMovementGranted"; payload: DashMovementGrantedPayload })
+  | (EventMeta & { type: "Disengaged"; payload: DisengagedPayload })
+  | (EventMeta & { type: "DodgingStarted"; payload: DodgingStartedPayload })
   | (EventMeta & {
       type: "ReadiedActionTriggered";
       payload: ReadiedActionTriggeredPayload;

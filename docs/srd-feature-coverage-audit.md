@@ -28,9 +28,9 @@
 | SRD chapter | Data/Catalog | Engine mechanics | Verdict | Tracking |
 |---|---|---|---|---|
 | Playing the Game — D20 Tests | n/a | checks/attacks ✅; **saves lack proficiency** | 🟡 | SRD-FID-16 |
-| Playing the Game — Actions (12 standard) | n/a | only Attack, Magic(spells), Ready | 🔴 | **SRD-FID-14** |
+| Playing the Game — Actions (12 standard) | n/a | Dash/Disengage/Dodge/Help/Hide ✅; Grapple/Shove/Use Object etc. ✗ | 🟡 | SRD-FID-14 (done); two-weapon/unarmed/shove/grapple still open |
 | Playing the Game — Combat order | n/a | initiative/turns/rounds ✅; **surprise** ✗ | 🟡 | SRD-FID-17 |
-| Playing the Game — Movement/position | n/a | grid/LOS/OA ✅; **cover, difficult terrain** ✗ | 🟡 | **SRD-FID-15**, SRD-FID-18 |
+| Playing the Game — Movement/position | n/a | grid/LOS/OA/cover ✅; **difficult terrain** ✗ | 🟡 | SRD-FID-18 |
 | Playing the Game — Damage/Healing | n/a | HP/crit/heal/death saves ✅; **resist/vuln/immunity** ✗; temp-HP grant ✗ | 🟡 | SRD-FID-19, ENG-8 |
 | Conditions (15) | declared ✅ | ~9 accurate, ~6 simplified | 🟡 | SRD-FID-3, SRD-FID-20 |
 | Character Creation / Advancement | ✅ | XP/HP/ASI/multiclass ✅; **background ASI** ✅ | 🟢 | SRD-FID-2 **Done** |
@@ -44,7 +44,7 @@
 | Equipment — Tools/gear/mounts/vehicles/lifestyle/hirelings | partial | none | 🔴 | SRD-FID-26 |
 | Spells (~360) | 339 catalog ✅ | 126 deep; ~165 lossy auto; ~172 no-effect | 🟡 | ENG-2, ENG-3, SRD-FID-6 |
 | Spellcasting rules | n/a | slots/DC/upcast/concentration ✅; **ritual, components, prepared-model** ✗ | 🟡 | SRD-FID-27 |
-| Rules Glossary terms | Codex ✅ | Bloodied/Heroic-Inspiration/Cover/Emanation not enforced | 🟡 | SRD-FID-15, SRD-FID-28 |
+| Rules Glossary terms | Codex ✅ | Bloodied/Heroic-Inspiration/Emanation not enforced; **Cover** ✅ | 🟡 | SRD-FID-28 |
 | Gameplay Toolbox | 44 hand-seeds | traps/poison/curse/env/fear handlers ✅ (sample depth) | 🟡 | DATA-1b |
 | Magic Items (A–Z) | ~203/440 catalog | no effect schema, **no attunement enforcement**, no charges | 🔴 | SRD-FID-29 |
 | Monsters (A–Z, ~300+) | 331 catalog ✅ | **8 combat templates (~2.4%)**; no legendary/lair | 🔴 | DATA-1c, PLAY-15 |
@@ -61,7 +61,7 @@ These run today and produce **wrong results** vs the PDF. They are correctness b
 | ID | Feature | Engine behavior | SRD 5.2.1 (PDF) | Files | Status |
 |---|---|---|---|---|---|
 | **SRD-FID-1** | **Exhaustion** | 2014-style tiered effects at levels 2/3/5 | Uniform: **−2 × level on all D20 Tests, −5 ft × level Speed, death at 6**, Long Rest −1 (p.181) | `packages/engine/src/combat/conditions.ts` | ✅ **Fixed** — `exhaustionD20Penalty` (−2×lvl) threaded into attack/check/save/spell-attack; `effectiveSpeed` −5×lvl |
-| **SRD-FID-2** | **Background ability bonuses** | Wizard applies species bonuses only = `{}` → **PCs get no ASI from background**; UI copy claims otherwise | Backgrounds grant **+2/+1 or three +1s** (p.83, Character Origins) | `creation-wizard.tsx`, `background-asi-picker.tsx`, `character-build.ts` | ✅ **Fixed** — Background ASI picker on Abilities step; `applyBackgroundAsi` folded into saved scores |
+| **SRD-FID-2** | **Background ability bonuses** | Wizard applies species bonuses only = `{}` → **PCs get no ASI from background**; UI copy claims otherwise | Backgrounds grant **+2/+1 or three +1s** (p.83, Character Origins) | `creation-wizard.tsx`, `background-asi-picker.tsx`, `character-build.ts` | ✅ **Fixed** — PR #326: Background ASI picker on Abilities step; `applyBackgroundAsi` folded into saved scores |
 | **SRD-FID-3** | **Frightened** | always-on attack disadvantage, no gating | Disadvantage on **ability checks AND attacks while source in LoS** + **can't willingly approach** (p.182) | `packages/engine/src/combat/conditions.ts` | ✅ **Fixed** — `checkMode` (check disadvantage) + `frightenedSources` can't-approach in `handleMoveEntity`; LoS gate kept as documented always-on approximation |
 | **SRD-FID-4** | **Faerie Fire shape** | 20-ft **Sphere** | 20-ft **Cube** | spell registry (`faerie-fire`) | ✅ **Fixed** — `cube` |
 | **SRD-FID-5** | **Spirit Guardians shape** | Sphere | 15-ft **Emanation** around caster (Emanation shape, p.181) | spell registry, `commands/handlers.ts` | ✅ **Fixed** — added `emanation` AoE shape (caster-centered, excludes caster) |
@@ -84,8 +84,8 @@ The fastest wins toward a complete-feeling combat loop. Targeted as the slice im
 
 | ID | Feature | Gap | SRD 5.2.1 (PDF, glossary) | Status |
 |---|---|---|---|---|
-| **SRD-FID-14** | **Standard actions** Dash / Disengage / Dodge / Help / Hide | no engine commands exist (only Attack, Magic-via-spell, Ready) | Dash = extra move = Speed (p.180); Disengage = no OAs this turn (p.182); Dodge = attackers Disadvantage + Dex saves Advantage until next turn (p.182); Help = grant Advantage on a check or an ally's attack vs adjacent foe (p.182); Hide = DC 15 Stealth → Invisible while hidden (p.183) | 🔴 Open |
-| **SRD-FID-15** | **Cover** | no AC/save modifiers; AoE blocking only uses Total Cover via LOS | Half cover **+2 AC & Dex saves**; Three-Quarters **+5**; Total = can't be targeted (ties into Hide & AoE origin rules) | 🔴 Open |
+| **SRD-FID-14** | **Standard actions** Dash / Disengage / Dodge / Help / Hide | no engine commands exist (only Attack, Magic-via-spell, Ready) | Dash = extra move = Speed (p.180); Disengage = no OAs this turn (p.182); Dodge = attackers Disadvantage + Dex saves Advantage until next turn (p.182); Help = grant Advantage on a check or an ally's attack vs adjacent foe (p.182); Hide = DC 15 Stealth → Invisible while hidden (p.183) | ✅ **Done** — PR TBD |
+| **SRD-FID-15** | **Cover** | no AC/save modifiers; AoE blocking only uses Total Cover via LOS | Half cover **+2 AC & Dex saves**; Three-Quarters **+5**; Total = can't be targeted (ties into Hide & AoE origin rules) | ✅ **Done** — PR TBD; Sacred Flame `ignoreCover` |
 
 *(SRD-FID-14/15 are also the gateway for several incongruence/condition fixes: Disengage is required for Frightened/grapple interplay; Hide produces the Invisible condition; Cover feeds Sacred Flame's "ignores cover" and AoE accuracy.)*
 
@@ -97,8 +97,8 @@ Work end-to-end with deterministic math + tests:
 
 - **D20 core:** ability checks (+proficiency flag), attack rolls, advantage/disadvantage with correct cancel-to-normal stacking.
 - **Progression:** proficiency bonus by level, HP at L1 + per level, XP thresholds & milestone, ASI at 4/8/12/16/19 + class extras, multiclassing prerequisites + spell-slot pooling math.
-- **Combat loop:** initiative (DEX tiebreak), turns/rounds, action economy for Attack + Extra Attack/Multiattack, opportunity attacks, Ready, reaction budget.
-- **Movement:** 5-5-5 grid, speed budget, Bresenham line-of-sight enforced on attacks/spells.
+- **Combat loop:** initiative (DEX tiebreak), turns/rounds, action economy for Attack + Extra Attack/Multiattack, **Dash/Disengage/Dodge/Help/Hide**, opportunity attacks (respects Disengage), Ready, reaction budget.
+- **Movement:** 5-5-5 grid, speed budget, Bresenham line-of-sight enforced on attacks/spells; **cover** (half +2 / three-quarters +5 AC & Dex saves; total cover = wall blocks targeting).
 - **Damage/Healing:** HP/temp-HP soak, critical hits (dice doubling, adjacent auto-crit on prone/unconscious), healing clamp, death saving throws, 0-HP downing clears concentration.
 - **Concentration:** start/replace/break, CON save DC `max(10, dmg/2)`, strips linked effects.
 - **Conditions (accurate):** Incapacitated, Invisible, Paralyzed, Poisoned, Prone, Restrained, Stunned, Unconscious.
@@ -136,7 +136,6 @@ Work end-to-end with deterministic math + tests:
 | ID | Item | Notes |
 |---|---|---|
 | SRD-FID-17 | **Surprise** | combat order |
-| SRD-FID-15 | **Cover** (half/three-quarters/total) | AC/save modifiers |
 | SRD-FID-18 | **Difficult terrain** movement cost | |
 | SRD-FID-19 | **Resistance / Vulnerability / Immunity** | damage types logged but never multiplied (explicitly deferred in `combat/conditions.ts`) |
 | ENG-8 | **Instant death / massive damage**, crit-doubles-death-failures, Stabilize action | partially overlaps SRD-FID-13 |

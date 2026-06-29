@@ -146,6 +146,16 @@ export type EntityState = {
   /** A queued Ready action awaiting its trigger; cleared on the owner's next turn. */
   readied?: ReadyState;
   /**
+   * Disengage action — until end of this turn, movement does not provoke
+   * opportunity attacks (SRD-FID-14).
+   */
+  disengaged?: boolean;
+  /**
+   * Dodge action — until the start of this entity's next turn, attacks against
+   * them have disadvantage and they have advantage on Dexterity saves.
+   */
+  dodging?: boolean;
+  /**
    * Melee reach in feet for opportunity-attack provoke detection (ENG-10).
    * Defaults to 5 ft when omitted. Set from equipped reach weapons at seed time.
    */

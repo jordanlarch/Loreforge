@@ -67,6 +67,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 **Recently shipped (Jun 2026, post-#246):** Roll20-style character sheet — 3-column layout, HP panel, Live Stats HUD, Inventory/About/Notes tabs, notes meta via `character-sheet-storage`.
 
+**Recently shipped (#309, Jun 2026):** GRILL-EXPLORATION Slice 3 — Live Play fall/burn WS hooks, burning HUD chip, chat resolution, demo Use Item items.
+
 **Recently shipped (#308, Jun 2026):** GRILL-EXPLORATION Slice 2 — engine `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start burning tick.
 
 **Recently shipped (#307, Jun 2026):** GRILL-EXPLORATION Slice 1 — Codex Rules two-tier UI for Exploration hazards (overview + five glossary entries).

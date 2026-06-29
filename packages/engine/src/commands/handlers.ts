@@ -81,6 +81,8 @@ import {
   handleApplyCurse,
   handleRemoveCurse,
   handleResolveCurseTick,
+  buildApplyCurseEvents,
+  buildClearAllCursesEvents,
 } from "./curse-handlers";
 import {
   reject,
@@ -2207,6 +2209,107 @@ function handleCastSpell(
       },
       ctx,
     );
+  }
+
+  if (spell.id === "srd-2024_remove-curse") {
+    const targetId = targets[0];
+    if (!targetId) {
+      return reject("INVALID_PAYLOAD", "Remove Curse requires a target creature.");
+    }
+    const target = ctx.world.entities[targetId];
+    if (!target) {
+      return reject("TARGET_NOT_FOUND", `Target ${targetId} does not exist.`);
+    }
+    const removed = target.activeCurses?.length ?? 0;
+    const events: DraftEvent[] = [
+      {
+        type: "SpellCast",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          caster: cmd.caster,
+          spellId: spell.id,
+          spellName: spell.name,
+          slotLevel,
+          targets: [targetId],
+        },
+      },
+      {
+        type: "SpellSlotExpended",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, slotLevel },
+      },
+    ];
+    if (usesAction && caster.actionEconomy) {
+      events.push({
+        type: "ActionSpent",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, action: true },
+      });
+    }
+    events.push(...buildClearAllCursesEvents(ctx, targetId, "cured"));
+    return {
+      accepted: true,
+      events,
+      summary: { caster: cmd.caster, target: targetId, cursesRemoved: removed },
+    };
+  }
+
+  if (spell.id === "srd-2024_bestow-curse") {
+    const targetId = targets[0];
+    if (!targetId) {
+      return reject("INVALID_PAYLOAD", "Bestow Curse requires a target creature.");
+    }
+    const target = ctx.world.entities[targetId];
+    if (!target) {
+      return reject("TARGET_NOT_FOUND", `Target ${targetId} does not exist.`);
+    }
+    const dc = spellSaveDC(caster)!;
+    const save = rollSpellSave(ctx, target, "wis", dc);
+    const events: DraftEvent[] = [
+      {
+        type: "SpellCast",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          caster: cmd.caster,
+          spellId: spell.id,
+          spellName: spell.name,
+          slotLevel,
+          targets: [targetId],
+        },
+      },
+      {
+        type: "SpellSlotExpended",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, slotLevel },
+      },
+      ...save.events,
+    ];
+    if (usesAction && caster.actionEconomy) {
+      events.push({
+        type: "ActionSpent",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, action: true },
+      });
+    }
+    if (!save.success) {
+      if (!target.activeCurses?.some((c) => c.curseSlug === "srd-spell_bestow-curse")) {
+        events.push(
+          ...buildApplyCurseEvents(ctx, targetId, "srd-spell_bestow-curse", {
+            skipSave: true,
+          }),
+        );
+      }
+    }
+    return {
+      accepted: true,
+      events,
+      summary: {
+        caster: cmd.caster,
+        target: targetId,
+        saveSuccess: save.success,
+        cursed: !save.success,
+      },
+    };
   }
 
   if (spell.id === "counterspell") {

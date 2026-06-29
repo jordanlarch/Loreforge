@@ -125,7 +125,7 @@ export function buildApplyCurseEvents(
   ctx: ExecutionContext,
   target: EntityRef,
   curseSlug: string,
-  opts?: { saveScope?: string },
+  opts?: { saveScope?: string; skipSave?: boolean },
 ): DraftEvent[] {
   const def = getCurseDefinition(curseSlug);
   if (!def) return [];
@@ -133,7 +133,7 @@ export function buildApplyCurseEvents(
   const events: DraftEvent[] = [];
   let saveSuccess: boolean | undefined;
 
-  if (def.save) {
+  if (def.save && !opts?.skipSave) {
     const save = rollCurseSave(
       ctx,
       target,
@@ -167,6 +167,44 @@ export function buildApplyCurseEvents(
   return events;
 }
 
+/** Remove every active curse on a target (Remove Curse spell). */
+export function buildClearAllCursesEvents(
+  ctx: ExecutionContext,
+  target: EntityRef,
+  reason: "saved" | "removed" | "cured",
+): DraftEvent[] {
+  const entity = ctx.world.entities[target];
+  if (!entity?.activeCurses?.length) return [];
+
+  const events: DraftEvent[] = [];
+  for (const instance of entity.activeCurses) {
+    const def = getCurseDefinition(instance.curseSlug);
+    events.push({
+      type: "CurseRemoved",
+      ...curseMeta(ctx, target),
+      payload: {
+        target,
+        instanceId: instance.instanceId,
+        curseSlug: instance.curseSlug,
+        reason,
+      },
+    });
+    if (def?.conditions?.length) {
+      for (const condition of def.conditions) {
+        events.push({
+          type: "ConditionRemoved",
+          ...curseMeta(ctx, target),
+          payload: {
+            target,
+            condition: condition as Condition,
+          },
+        });
+      }
+    }
+  }
+  return events;
+}
+
 export function handleApplyCurse(
   cmd: ApplyCurseCommand,
   ctx: ExecutionContext,
@@ -183,6 +221,12 @@ export function handleApplyCurse(
     return reject(
       "CURSE_DELIVERY_NOT_SUPPORTED",
       `${def.name} requires contagion spread — deferred to GRILL-EXPLORATION.`,
+    );
+  }
+  if (target.activeCurses?.some((c) => c.curseSlug === cmd.curseSlug)) {
+    return reject(
+      "CURSE_ALREADY_ACTIVE",
+      `${target.name} already has an active ${def.name} curse.`,
     );
   }
 

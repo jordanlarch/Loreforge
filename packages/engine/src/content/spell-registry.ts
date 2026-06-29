@@ -2563,6 +2563,42 @@ const POLYMORPH: SpellDefinition = {
     "Transform a willing creature or one that fails a Wisdom save into a new form (tracer: restrained until concentration ends).",
 };
 
+const REMOVE_CURSE: SpellDefinition = {
+  id: "srd-2024_remove-curse",
+  name: "Remove Curse",
+  level: 3,
+  school: "abjuration",
+  classes: ["Cleric", "Paladin", "Warlock", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch", amount: 0 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "instantaneous" },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  description:
+    "At your touch, all curses affecting one creature or object end (tracer: clears active curses on target).",
+};
+
+const BESTOW_CURSE: SpellDefinition = {
+  id: "srd-2024_bestow-curse",
+  name: "Bestow Curse",
+  level: 3,
+  school: "necromancy",
+  classes: ["Bard", "Cleric", "Wizard"],
+  castingTime: { unit: "action", amount: 1 },
+  range: { type: "touch", amount: 0 },
+  components: { verbal: true, somatic: true },
+  duration: { unit: "minute", amount: 1 },
+  concentration: false,
+  ritual: false,
+  targeting: "single",
+  saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
+  description:
+    "You touch a creature, which must succeed on a Wisdom saving throw or become cursed (tracer: applies srd-spell_bestow-curse).",
+};
+
 /** Hand-authored combat spells — override Open5e catalog entries by id. */
 const HAND_AUTHORED_SPELLS: Record<string, SpellDefinition> = {
   [MAGIC_MISSILE.id]: MAGIC_MISSILE,
@@ -2689,6 +2725,8 @@ const HAND_AUTHORED_SPELLS: Record<string, SpellDefinition> = {
   [DISPEL_MAGIC.id]: DISPEL_MAGIC,
   [COUNTERSPELL.id]: COUNTERSPELL,
   [POLYMORPH.id]: POLYMORPH,
+  [REMOVE_CURSE.id]: REMOVE_CURSE,
+  [BESTOW_CURSE.id]: BESTOW_CURSE,
 };
 
 export const HAND_AUTHORED_SPELL_IDS = new Set(Object.keys(HAND_AUTHORED_SPELLS));

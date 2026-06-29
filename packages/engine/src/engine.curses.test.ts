@@ -277,4 +277,167 @@ describe("Gameplay Toolbox curses (GRILL-LIVE-CURSE)", () => {
     if (result.accepted) return;
     expect(result.reason.code).toBe("CURSE_NOT_FOUND");
   });
+
+  it("rejects duplicate slug on apply_curse (Q2 dedupe)", async () => {
+    await createPair();
+    let campaign = CAMPAIGN;
+    let instanceId: string | undefined;
+
+    for (let seed = 0; seed < 200; seed += 1) {
+      const trial = new Engine({ now: () => 0 });
+      campaign = `${CAMPAIGN}:dup:${seed}`;
+      await trial.execute(campaign, {
+        type: "create_scene",
+        scene: { id: "s:arena", name: "Arena" },
+      });
+      await trial.execute(campaign, { type: "change_scene", sceneId: "s:arena" });
+      await trial.execute(campaign, {
+        type: "create_entity",
+        entity: {
+          id: "npc:victim",
+          kind: "npc",
+          name: "Victim",
+          abilityScores: LOW_CON,
+          maxHp: 40,
+          baseAc: 10,
+          sceneId: "s:arena",
+        },
+      });
+
+      const first = await trial.execute(campaign, {
+        type: "apply_curse",
+        target: "npc:victim",
+        curseSlug: "srd-2024_sight-rot",
+      });
+      if (!first.accepted) continue;
+      const applied = first.events.find((e) => e.type === "CurseApplied");
+      if (!applied || applied.type !== "CurseApplied") continue;
+
+      instanceId = (applied.payload as { instanceId: string }).instanceId;
+      engine = trial;
+      break;
+    }
+
+    expect(instanceId).toBeDefined();
+    if (!instanceId) return;
+
+    const duplicate = await engine.execute(campaign, {
+      type: "apply_curse",
+      target: "npc:victim",
+      curseSlug: "srd-2024_sight-rot",
+    });
+    expect(duplicate.accepted).toBe(false);
+    if (duplicate.accepted) return;
+    expect(duplicate.reason.code).toBe("CURSE_ALREADY_ACTIVE");
+  });
+
+  async function setupSpellCaster(trial: Engine, campaign: string) {
+    await trial.execute(campaign, {
+      type: "create_scene",
+      scene: { id: "s:arena", name: "Arena" },
+    });
+    await trial.execute(campaign, { type: "change_scene", sceneId: "s:arena" });
+    await trial.execute(campaign, {
+      type: "create_entity",
+      entity: {
+        id: "pc:cleric",
+        kind: "character",
+        name: "Cleric",
+        abilityScores: ABILITIES,
+        maxHp: 40,
+        baseAc: 10,
+        sceneId: "s:arena",
+        classes: [{ class: "Cleric", level: 5 }],
+        spellcasting: { ability: "wis" },
+      },
+    });
+    await trial.execute(campaign, {
+      type: "create_entity",
+      entity: {
+        id: "npc:victim",
+        kind: "npc",
+        name: "Victim",
+        abilityScores: LOW_CON,
+        maxHp: 40,
+        baseAc: 10,
+        sceneId: "s:arena",
+      },
+    });
+  }
+
+  it("Remove Curse spell clears all active curses on target", async () => {
+    let found = false;
+
+    for (let seed = 0; seed < 200 && !found; seed += 1) {
+      const trial = new Engine({ now: () => 0 });
+      const campaign = `${CAMPAIGN}:rc:${seed}`;
+      await setupSpellCaster(trial, campaign);
+
+      const apply = await trial.execute(campaign, {
+        type: "apply_curse",
+        target: "npc:victim",
+        curseSlug: "srd-2024_sight-rot",
+      });
+      if (!apply.accepted) continue;
+      if (!apply.events.some((e) => e.type === "CurseApplied")) continue;
+
+      const cast = await trial.execute(campaign, {
+        type: "cast_spell",
+        caster: "pc:cleric",
+        spellId: "srd-2024_remove-curse",
+        slotLevel: 3,
+        targets: ["npc:victim"],
+      });
+      if (!cast.accepted) continue;
+      expect(cast.events.some((e) => e.type === "CurseRemoved")).toBe(true);
+
+      const after = await trial.getState(campaign);
+      expect(after.entities["npc:victim"]?.activeCurses?.length ?? 0).toBe(0);
+      expect(
+        after.entities["npc:victim"]?.conditions?.some((c) => c.condition === "blinded"),
+      ).toBe(false);
+      found = true;
+    }
+
+    expect(found).toBe(true);
+  });
+
+  it("Bestow Curse spell applies srd-spell_bestow-curse on failed save", async () => {
+    let found = false;
+
+    for (let seed = 0; seed < 200 && !found; seed += 1) {
+      const trial = new Engine({ now: () => seed });
+      const campaign = `${CAMPAIGN}:bc:${seed}`;
+      await setupSpellCaster(trial, campaign);
+
+      const cast = await trial.execute(campaign, {
+        type: "cast_spell",
+        caster: "pc:cleric",
+        spellId: "srd-2024_bestow-curse",
+        slotLevel: 3,
+        targets: ["npc:victim"],
+      });
+      if (!cast.accepted) continue;
+      if (cast.summary && (cast.summary as { cursed?: boolean }).cursed !== true) {
+        continue;
+      }
+      expect(
+        cast.events.some(
+          (e) =>
+            e.type === "CurseApplied" &&
+            (e.payload as { curseSlug: string }).curseSlug === "srd-spell_bestow-curse",
+        ),
+      ).toBe(true);
+
+      const after = await trial.getState(campaign);
+      expect(
+        after.entities["npc:victim"]?.activeCurses?.some(
+          (c) => c.curseSlug === "srd-spell_bestow-curse",
+        ),
+      ).toBe(true);
+      found = true;
+    }
+
+    expect(found).toBe(true);
+  });
 });

@@ -100,6 +100,13 @@ import {
   handleResolveFearStressTick,
 } from "./fear-stress-handlers";
 import {
+  burningTickEventsAfterTurnStart,
+  handleApplyBurning,
+  handleApplyFallDamage,
+  handleExtinguishBurning,
+  handleResolveBurningTick,
+} from "./exploration-hazard-handlers";
+import {
   reject,
   type AbilityCheckCommand,
   type AddCombatantCommand,
@@ -663,6 +670,7 @@ function handleRollInitiative(
   events.push(...curseTickEventsAfterTurnStart(ctx, first.entity));
   events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, first.entity));
   events.push(...fearStressTickEventsAfterTurnStart(ctx, first.entity));
+  events.push(...burningTickEventsAfterTurnStart(ctx, first.entity));
 
   return {
     accepted: true,
@@ -838,6 +846,7 @@ function handleEndTurn(
   events.push(...curseTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...fearStressTickEventsAfterTurnStart(ctx, nextEntity));
+  events.push(...burningTickEventsAfterTurnStart(ctx, nextEntity));
 
   return {
     accepted: true,
@@ -3001,5 +3010,13 @@ export function handleCommand(
       return handleResolveFearStressTick(command, ctx);
     case "remove_fear_stress":
       return handleRemoveFearStress(command, ctx);
+    case "apply_fall_damage":
+      return handleApplyFallDamage(command, ctx);
+    case "apply_burning":
+      return handleApplyBurning(command, ctx);
+    case "extinguish_burning":
+      return handleExtinguishBurning(command, ctx);
+    case "resolve_burning_tick":
+      return handleResolveBurningTick(command, ctx);
   }
 }

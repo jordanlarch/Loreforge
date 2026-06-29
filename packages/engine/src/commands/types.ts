@@ -373,6 +373,31 @@ export type RemoveFearStressCommand = {
   instanceId: string;
 };
 
+export type ApplyFallDamageCommand = {
+  type: "apply_fall_damage";
+  target: EntityRef;
+  heightFt: number;
+};
+
+export type ApplyBurningCommand = {
+  type: "apply_burning";
+  target: EntityRef;
+  burningSlug?: string;
+};
+
+export type ExtinguishBurningCommand = {
+  type: "extinguish_burning";
+  target: EntityRef;
+  instanceId: string;
+  method: "action" | "dex_save";
+};
+
+export type ResolveBurningTickCommand = {
+  type: "resolve_burning_tick";
+  entity: EntityRef;
+  instanceId: string;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -417,7 +442,11 @@ export type Command =
   | RemoveEnvironmentalEffectCommand
   | ApplyFearStressCommand
   | ResolveFearStressTickCommand
-  | RemoveFearStressCommand;
+  | RemoveFearStressCommand
+  | ApplyFallDamageCommand
+  | ApplyBurningCommand
+  | ExtinguishBurningCommand
+  | ResolveBurningTickCommand;
 
 export type CommandType = Command["type"];
 
@@ -473,6 +502,9 @@ export type ValidationCode =
   | "FEAR_STRESS_ALREADY_ACTIVE"
   | "FEAR_STRESS_NOT_ACTIVE"
   | "FEAR_STRESS_DELIVERY_NOT_SUPPORTED"
+  | "BURNING_NOT_FOUND"
+  | "BURNING_ALREADY_ACTIVE"
+  | "BURNING_NOT_ACTIVE"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"

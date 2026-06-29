@@ -164,6 +164,8 @@ export type EntityState = {
   activeEnvironmentalEffects?: ActiveEnvironmentalEffectInstance[];
   /** Active fear instances after delivery (GRILL-LIVE-FEAR Q2). */
   activeFearStress?: ActiveFearStressInstance[];
+  /** Active burning instances (GRILL-EXPLORATION Q4). */
+  activeBurning?: ActiveBurningInstance[];
 };
 
 /** Ongoing poison tracked on an entity (injury or ingested after delivery). */
@@ -201,6 +203,14 @@ export type ActiveFearStressInstance = {
   pendingRepeat: boolean;
   /** Set when applied from scene enter — cleared on leave (Q4 C1). */
   boundSceneId?: SceneId;
+};
+
+/** Ongoing burning tracked on an entity (GRILL-EXPLORATION Q4). */
+export type ActiveBurningInstance = {
+  instanceId: string;
+  burningSlug: string;
+  /** Turn-start fire damage tick while active. */
+  pendingRepeat: boolean;
 };
 
 export type DeathSaveTally = { successes: number; failures: number };

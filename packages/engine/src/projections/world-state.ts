@@ -784,6 +784,31 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "BurningApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const activeBurning = [...(target.activeBurning ?? [])];
+        activeBurning.push({
+          instanceId: event.payload.instanceId,
+          burningSlug: event.payload.burningSlug,
+          pendingRepeat: event.payload.pendingRepeat,
+        });
+        next.entities[target.id] = { ...target, activeBurning };
+      }
+      break;
+    }
+    case "BurningRemoved": {
+      const target = next.entities[event.payload.target];
+      if (target?.activeBurning?.length) {
+        next.entities[target.id] = {
+          ...target,
+          activeBurning: target.activeBurning.filter(
+            (i) => i.instanceId !== event.payload.instanceId,
+          ),
+        };
+      }
+      break;
+    }
     case "Rested":
     case "AttackResolved":
     case "SaveRolled":

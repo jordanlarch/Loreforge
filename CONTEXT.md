@@ -69,6 +69,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 **Recently shipped (#307, Jun 2026):** GRILL-EXPLORATION Slice 1 — Codex Rules two-tier UI for Exploration hazards (overview + five glossary entries).
 
+**In progress (Jun 2026):** GRILL-EXPLORATION Slice 2 — engine commands `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start burning tick.
+
 **Recently shipped (#306, Jun 2026):** Smithy Gameplay Toolbox removed — Codex SRD 5.2 read-only for toolbox; GRILL-SMITHY-EDIT deferred.
 
 **Recently shipped (#303–#305, Jun 2026):** GRILL-LIVE-FEAR — engine registry + apply/tick/remove handlers; WS enter/leave hooks; Live Play amber scene + party-rail chips; dungeon demo Sarcophagus Apparition + Hallucinogenic Substance vial.

@@ -51,6 +51,7 @@ const SHAPE_MAP: Record<string, AreaShape> = {
   cone: "cone",
   line: "line",
   cylinder: "cylinder",
+  emanation: "emanation",
 };
 
 function slugToId(slug: string): string {
@@ -175,13 +176,35 @@ function parseTargeting(raw: Record<string, unknown>): TargetingType {
   return "single";
 }
 
+/**
+ * Most save spells do *nothing* on a success (Hold Person, Sacred Flame); only
+ * AoE/area damage spells grant half. Open5e carries no structured "save effect"
+ * field, so we infer from the rules text: a spell is save-for-half only when it
+ * explicitly says half damage on a success. Everything else is no-effect, which
+ * is the correct default for the ~165 single-target save spells that were
+ * previously (incorrectly) treated as save-for-half. (SRD-FID-6.)
+ */
+function inferSaveOutcome(
+  raw: Record<string, unknown>,
+): "half_damage" | "no_effect" {
+  const text = `${String(raw.desc ?? raw.description ?? "")} ${String(
+    raw.higher_level ?? "",
+  )}`.toLowerCase();
+  const halfOnSuccess =
+    /half as much/.test(text) ||
+    /half the damage/.test(text) ||
+    /half damage/.test(text) ||
+    /or half\b/.test(text);
+  return halfOnSuccess ? "half_damage" : "no_effect";
+}
+
 function parseSave(
   raw: Record<string, unknown>,
 ): SpellDefinition["saveAgainst"] {
   const abilityKey = String(raw.saving_throw_ability ?? "").toLowerCase();
   const ability = OPEN5E_ABILITY[abilityKey];
   if (!ability) return undefined;
-  return { ability, dc: "spellsave", onSuccess: "half_damage" };
+  return { ability, dc: "spellsave", onSuccess: inferSaveOutcome(raw) };
 }
 
 function parseDamage(

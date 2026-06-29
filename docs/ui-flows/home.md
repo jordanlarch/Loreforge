@@ -4,6 +4,8 @@
 
 > Note: top-nav scope evolved through the locked design — current canonical nav is **Home · Characters · Realms · Campaigns · Codex · The Smithy**. This document preserves the original Home page UX intent; nav labels reflect the final lock.
 
+> **⚠️ As-built status (Jun 2026) — this is an aspirational spec, not the shipped page.** Today `/` (`apps/web/src/app/(app)/page.tsx`) is a **logged-in dev/status launcher**: a "Welcome back" heading, a grid of six surface cards (some still tagged "soon"), and a System Status block. The **cinematic hero, 4-card feature grid, CTA banner, Featured Builds carousel, and logged-in personalization** below are **not built** (deferrals **HOME-1/3/4**), and the app shell has **no global search, notifications bell, or profile avatar** (**HOME-5**, shared across surfaces). Some surface-card copy here is also stale (e.g. "Characters: read-only sheets / creation in P2" — creation shipped). Treat this doc as the **target marketing/landing spec**; build status lives in `docs/deferrals.md`.
+
 ---
 
 ## Overall Page Layout

@@ -2,6 +2,8 @@
 
 *Full-screen guided 10-step wizard. Visual language, layout patterns, and polish match the Level Up Wizard and Inline Editing Mode for perfect muscle memory. Veterans can jump steps freely; new players follow the guided flow. Hex ability scores, live calculations in < 300ms, SRD tooltips, validation banners, randomizers, undo stack.*
 
+> **As-built (Jun 2026).** Step **count matches** (`creation-wizard.tsx`): 8 base steps (Concept · Species · Class · Background · Abilities · Skills · Equipment · Features) + Flavor + Review = **10**, plus an optional **Advancement** step when `startingLevel > 1`. Layout differs: it's a **2-column** layout (main + `SummaryCard` sidebar), **not** the 3-pane "left summary | main | right live-sheet preview" wireframe below. Drafts persist to **localStorage on change** (no 5s auto-save toast / "Suggest Fantasy Name" header / Skip-for-Now). Completion redirects to `/characters/{id}`.
+
 ---
 
 ## Persistent Wizard Layout (Identical Across All 10 Steps)

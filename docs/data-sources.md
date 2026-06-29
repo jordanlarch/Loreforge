@@ -2,7 +2,7 @@
 
 *External content, libraries, and services that Loreforge depends on at runtime. This document is the counterpart to [`./01-tech-stack.md`](./01-tech-stack.md), which covers the application stack itself. Six sections cover: SRD content ingest, procedural map libraries, the art generation pipeline, TTS providers, LLM providers, and the embeddings + RAG layer.*
 
-> **Versioning**: provider model names (e.g., `claude-sonnet-4-5`, `gpt-4o`) drift faster than this document. Treat any specific model name below as a snapshot of the **current pick at decision time** — the operational model registry lives in code (`@app/llm/providers.ts` or similar) and is the source of truth.
+> **Versioning**: provider model names (e.g., `claude-sonnet-4-5`, `gpt-4o`) drift faster than this document. Treat any specific model name below as a snapshot of the **current pick at decision time** — the operational model registry lives in code (`packages/llm/src/client.ts`, `DEFAULT_MODEL`; pricing in `cost.ts`) and is the source of truth.
 >
 > **Failure posture**: every external service has a documented fallback or graceful-degradation path. The product must remain usable when any single provider is down.
 >
@@ -36,7 +36,7 @@ Single community API for structured ingest:
 - **[Open5e](https://open5e.com/)** — REST v2 API; SRD 5.2 content under document key `srd-2024` (spells, monsters, items, backgrounds, feats, rules). Self-describing JSON; filterable by `document__key`.
 - **Nightly Trigger.dev jobs** upsert into `codex_*` Postgres tables (`packages/db/src/ingest/open5e-*.ts`). Spells and creatures prune legacy `srd-2014` rows on each run.
 - **Curated seeds** (same DB path as Codex tRPC): 9 PDF species, 12 classes, 12 SRD subclasses, class feature stubs — via `npm run seed:character-options`.
-- **Spell registry catalog:** `npm run generate:spell-registry` (from `packages/db`) builds `spell-registry-open5e.generated.ts` (**339** spells as of Jun 2026); **124** hand-authored combat definitions override by slug id.
+- **Spell registry catalog:** `npm run generate:spell-registry` (from `packages/db`) builds `spell-registry-open5e.generated.ts` (**339** spells as of Jun 2026); **126** hand-authored combat definitions override by slug id.
 
 The engine, Codex, and Smithy consume **Postgres only** — we never call Open5e from a hot user request path.
 
@@ -170,7 +170,7 @@ TTS is the most expensive recurring cost per active campaign. Mitigations:
 
 ## 5. LLM Providers
 
-**Status**: Locked — Anthropic Claude primary, OpenAI fallback. **Partially implemented (Jun 2026):** Anthropic is live for the Realms generators via the `@app/llm` package (see `01-tech-stack.md` §14 "LLM generation package"). The OpenAI fallback is a provider seam, not yet wired (`docs/deferrals.md` GEN-3). AI-GM in-play turns, dialogue, and recaps are not yet built (P4/P5).
+**Status**: Locked — Anthropic Claude primary, OpenAI fallback. **Implemented (Jun 2026):** Anthropic is live for the Realms generators via the `@app/llm` package (see `01-tech-stack.md` §14 "LLM generation package"). **AI-GM in-play narration is shipped** — the ws-server routes live GM turns through `@app/llm` (`services/ws-server/src/narration.ts`, #96) with a deterministic stub fallback when unconfigured; **session recaps are shipped** (`generate-recap` Trigger task + `apps/web/src/server/memory/recap.ts`, surfaced via `sessions.end`). The OpenAI fallback is still a provider seam, not yet wired (`docs/deferrals.md` GEN-3).
 
 The LLM is the single largest operational cost and the single largest quality lever in the product. Every AI-GM turn, every generator output, every NPC dialogue line, every session recap routes through an LLM call.
 

@@ -1,9 +1,16 @@
 # M5 "First Campaign" — Completion Plan
 
-*Sequencing plan to finish **P4 / M5**. Companion to `docs/02-implementation-roadmap.md`
-(phases + gates) and `docs/deferrals.md` (the canonical backlog — every row below cites a
-deferral ID and, where mirrored, a GitHub issue). Written Jun 2026 after a per-surface code
-review. This file sequences the **remaining** M5 work; it does not restate shipped slices.*
+> **⚠️ HISTORICAL SNAPSHOT (Jun 2026, pre–CAMP-UX).** M5 is complete and the campaign
+> workspace was since refactored to a **7-tab prep shell** (Overview / Map / Locations /
+> Party / Quests / Notes / Settings) + a unified Live Play shell — the "9 tabs / 4-of-9 /
+> Combat tab / Sessions tab" framing below is **superseded** and kept only for history.
+> For current status, **`docs/deferrals.md` is the single source of truth**; for the
+> canonical campaign IA see `docs/ui-flows/unified-campaign-ux.md`. Do not treat the
+> tables below as live.
+
+*Sequencing plan that finished **P4 / M5**. Companion to `docs/02-implementation-roadmap.md`
+(phases + gates) and `docs/deferrals.md` (the canonical backlog). Written Jun 2026 after a
+per-surface code review.*
 
 ---
 

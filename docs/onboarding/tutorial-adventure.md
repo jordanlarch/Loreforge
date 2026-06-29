@@ -2,6 +2,14 @@
 
 *The onboarding micro-campaign at `/tutorial` — a tightly-scripted, ~30-minute solo adventure that organically demonstrates every primary feature of the app. Per Q19d: tutorial adventure with first-time contextual tooltips. The player's first impression is the entire product, in miniature, on rails.*
 
+> **As-built (Jun 2026) — TUT-1 shipped E2E (#169–#178), with these spec divergences.** The implementation reuses the real engine + a per-user seeded `is_tutorial` campaign + a server-side `TutorialRoom` (ws-server) running a scripted driver; pre-built Mira (L3 Ranger) + Brennar (L2 Cleric) match (`tutorial-starter.ts`, `fixtures/tutorial.ts`). Known gaps vs the prose below:
+> - **No Realms-library seed.** The tutorial seeds a campaign + characters + plot hook only; the world lives in **engine fixtures** (scene maps/NPC tokens), not the Realms library. The graduation/wrap copy that says everything is "in your Realms library" is therefore **aspirational** (either seed Realms on complete, or soften the copy — a product decision, not changed here).
+> - **Scene mapping:** code has **6 engine scenes** (`TUTORIAL_SCENE_*`) + a chat/`TUTORIAL_WRAP` finale, not a separate Scene 7 map. Scene 5 combat happens on the **spiral stair** (`TUTORIAL_SCENE_SPIRE_STAIR`), not the upper chamber as written.
+> - **Cut/changed beats:** no Scene 0 pre-roll modal; **no Scene 2 Insight check** (Lily simply offers the hook); skip path **auto-seeds Mira → Home** (no keep/drop modal); Hunter subclass demo, concentration/action-economy/first-roll coachmarks, and the Adventure Recap social-share are **not implemented** (share deferred D8). ~13 coachmarks across Scenes 1–6.
+> - Mira's seeded equipment is a subset of the §2.1 list (no arrows/lantern/sealed-message/starting-gp on the row).
+>
+> Treat the script below as the **canonical design**; the seeds/driver/coachmarks in code are the source of truth for what currently runs.
+
 ---
 
 ## 1. Goals & Design Philosophy

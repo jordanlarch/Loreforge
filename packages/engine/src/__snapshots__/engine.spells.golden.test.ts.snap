@@ -1076,10 +1076,10 @@ exports[`Spells: golden resolution snapshots > resolves every authored spell to 
     "accepted": true,
     "attackHits": 0,
     "attacks": 0,
-    "damageDealt": 123,
-    "damagedTargets": 7,
+    "damageDealt": 104,
+    "damagedTargets": 6,
     "healingApplied": 0,
-    "saves": 7,
+    "saves": 6,
     "slotSpent": 3,
   },
   "spiritual-weapon": {

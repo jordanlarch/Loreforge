@@ -733,9 +733,9 @@ PDF section: **Fear and Mental Stress**.
 
 ---
 
-## GRILL-EXPLORATION — IN PROGRESS ⏳
+## GRILL-EXPLORATION — DECISIONS (Q1–Q9 locked) ✅
 
-**Playing the Game → Exploration hazards** + **Rules Glossary** cross-links. **Separate program** from Gameplay Toolbox (GRILL-TRAP Q5 lock). Grill started Jun 2026.
+**Playing the Game → Exploration hazards** + **Rules Glossary** cross-links. **Separate program** from Gameplay Toolbox (GRILL-TRAP Q5 lock). Grill complete Jun 2026; all three implementation slices shipped (see checklist below).
 
 ### PDF taxonomy lock (Jordan, Jun 2026)
 
@@ -854,19 +854,19 @@ Engine seed modules reference the same slugs for Live Play hooks (Burning / Fall
 
 ---
 
-## GRILL-EXPLORATION — COMPLETE ✅
+## GRILL-EXPLORATION — IMPLEMENTATION COMPLETE ✅
 
-All nine decisions locked. **Slice 1 (Codex)** is unblocked.
+All nine decisions locked; all three slices shipped (#307–#309).
 
 ### Implementation checklist
 
 | Slice | Deliverable | Status |
 |---|---|---|
 | **1 — Codex** | `seed-exploration-hazards.ts`; six `srd-2024_*` rule sections; Rules two-tier UI (overview ↔ glossary links) | ✅ Shipped (#307) |
-| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, shared seed module, tests | ✅ (#308) |
-| **3 — Live Play** | WS hooks; burning HUD chip; fall/burn chat events | ✅ |
+| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, shared seed module, tests | ✅ Shipped (#308) |
+| **3 — Live Play** | WS hooks; burning HUD chip; fall/burn chat events | ✅ Shipped (#309) |
 
-**Next step:** Slice 1 — Codex hand-seed + Rules browser two-tier UI.
+**Deferred:** GM trap placement UI (prep-side `SceneState.traps` placement) — see `deferrals.md` DATA-1b.
 
 ---
 

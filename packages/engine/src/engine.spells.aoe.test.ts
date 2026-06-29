@@ -394,6 +394,90 @@ describe("Spells: Sacred Flame (single-target Dex save cantrip)", () => {
   });
 });
 
+describe("Spells: Spirit Guardians (15-ft emanation centered on the caster)", () => {
+  it("catches creatures within 15 ft, excludes the caster, needs no origin", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setup(engine, {
+      casterPos: { x: 0, y: 0 },
+      dummies: [
+        { id: "npc:near", pos: { x: 2, y: 0 }, stunned: true }, // 10 ft — in
+        { id: "npc:edge", pos: { x: 3, y: 0 }, stunned: true }, // 15 ft — in
+        { id: "npc:far", pos: { x: 4, y: 0 }, stunned: true }, // 20 ft — out
+      ],
+    });
+    const result = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "spirit-guardians",
+      slotLevel: 3,
+      // No origin: an emanation is centered on the caster.
+    });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const cast = result.events.find((e) => e.type === "SpellCast") as {
+      payload: SpellCastPayload;
+    };
+    expect(new Set(cast.payload.targets)).toEqual(
+      new Set(["npc:near", "npc:edge"]),
+    );
+    // The caster's own square is never inside its emanation.
+    expect(cast.payload.targets).not.toContain("pc:mage");
+  });
+});
+
+describe("Spells: Faerie Fire (20-ft cube)", () => {
+  it("catches creatures inside the cube and excludes those outside", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setup(engine, {
+      casterPos: { x: 0, y: 0 },
+      dummies: [
+        { id: "npc:in", pos: { x: 11, y: 10 }, stunned: true }, // 5 ft from origin
+        { id: "npc:corner", pos: { x: 12, y: 12 }, stunned: true }, // 10 ft — edge
+        { id: "npc:out", pos: { x: 13, y: 10 }, stunned: true }, // 15 ft — outside
+      ],
+    });
+    const result = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "faerie-fire",
+      slotLevel: 1,
+      origin: { x: 10, y: 10 },
+    });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const cast = result.events.find((e) => e.type === "SpellCast") as {
+      payload: SpellCastPayload;
+    };
+    expect(new Set(cast.payload.targets)).toEqual(
+      new Set(["npc:in", "npc:corner"]),
+    );
+  });
+});
+
+describe("Spells: Flame Strike (fire + radiant cylinder)", () => {
+  it("deals both fire and radiant damage on a failed save", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setup(engine, {
+      casterLevel: 9, // 5th-level slot needed for Flame Strike
+      dummies: [{ id: "npc:a", pos: { x: 10, y: 10 }, stunned: true }],
+    });
+    const result = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "flame-strike",
+      slotLevel: 5,
+      origin: { x: 10, y: 10 },
+    });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const dealt = damageEvents(result.events).filter(
+      (e) => e.payload.target === "npc:a",
+    );
+    const types = dealt.map((e) => e.payload.damageType);
+    expect(new Set(types)).toEqual(new Set(["fire", "radiant"]));
+  });
+});
+
 describe("Spells: AoE determinism & replay", () => {
   const run = async () => {
     const engine = new Engine({ now: () => 7 });

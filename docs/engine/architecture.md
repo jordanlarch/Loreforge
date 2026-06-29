@@ -2,6 +2,22 @@
 
 *The mechanical heart of the AI-GM. A code-side 5E rules engine that owns ALL mechanical state; the LLM proposes actions via structured tool calls and owns prose; the engine validates, executes, and emits events. This document covers data model, event-sourcing, tool surface, effect system, spell automation, concurrency, retcon, and a phased implementation plan.*
 
+> **As-built vs proposed (Jun 2026).** This doc mixes the **shipped** engine with **design proposals** that were scoped down for v1.0 (per §16, which is locked). Quick map so readers don't mistake aspiration for reality:
+>
+> | Section | Status | As-built location |
+> |---|---|---|
+> | §2 architecture, §4 command/event API | **Built** | `packages/engine/src/commands/handlers.ts`, typed `Command` union, `CommandResult` |
+> | Event-sourcing + projection | **Built** | `EventStore` / `InMemoryEventStore` / `PgEventStore` (`packages/db/src/engine/pg-event-store.ts`); `engine_events`; `projections/world-state.ts` |
+> | §3.2 `WorldState` shape | **Partial** — slimmer than doc | built projection = `entities` + `scenes` + optional `encounter`; per-entity `effects[]` (no global `characters`/`npcs`/`fogOfWar`/`partyTime`) |
+> | §6 full effect/modifier pipeline | **Proposal** — tracer subset only | `combat/effects.ts` `ActiveEffect` (Bless/Shield/Hunter's Mark/Blur/Faerie Fire); no full `Modifier[]`/auras/stacking engine |
+> | §7.1–7.4 `onCast` handler registry + per-file `engine/spells/srd/*.ts` | **Proposal — not built** | declarative `SpellDefinition` in `content/spells.ts` + merged `spell-registry.ts` (Open5e catalog + **126** hand-authored overrides); special cases are **inline branches** in `handlers.ts`, not a registry |
+> | §1 "~360 spells automated" goal vs §16 top-120 | **Reconcile** | v1.0 = **top-120 declarative curation done**; full ~360 is the product target (catalog has 339 lookup entries, 126 combat-authored) |
+> | §3.3 snapshots, §11 retcon UI, §13 QuickJS homebrew sandbox | **Proposal — not built** | tables may exist but no hydrate/retcon/sandbox path; retcon truncate is test-only |
+> | §5.3 declarative reaction registry | **Partial** | `ReactionWindowOpened` + OA/Counterspell paths shipped (`engine.reactions.test.ts`); not the full declarative `ReactionTrigger` registry |
+> | §14 test targets / §16 calendar | **Superseded** | shipped ahead of the calendar; live status in `docs/deferrals.md` |
+>
+> When a section conflicts with the table above, the table (and the cited code) wins.
+
 ---
 
 ## 1. Goals & Non-Goals

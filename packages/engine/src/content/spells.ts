@@ -72,13 +72,20 @@ export const RANGE_TYPES = [
 ] as const;
 export type RangeType = (typeof RANGE_TYPES)[number];
 
-/** Area-of-effect shapes. Each carries a `size` in feet. */
+/**
+ * Area-of-effect shapes. Each carries a `size` in feet. An `emanation`
+ * (SRD 5.2.1) extends from a creature/object in all directions and is centered
+ * on the caster (its origin is excluded); on the square grid it resolves like a
+ * sphere centered on the caster. A `cylinder` resolves like a sphere of its
+ * radius on the 2-D grid (height is not modeled).
+ */
 export const AREA_SHAPES = [
   "sphere",
   "cube",
   "cone",
   "line",
   "cylinder",
+  "emanation",
 ] as const;
 export type AreaShape = (typeof AREA_SHAPES)[number];
 

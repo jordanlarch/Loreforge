@@ -2,6 +2,8 @@
 
 *Large modal launched from the Character View page header's prominent "Level Up" button. Same dark-fantasy theme and exact layout patterns as the 10-step Creation Wizard for instant familiarity. Underlying Character Sheet + Live Stats HUD remain faintly visible behind the modal. Progress stepper shows "Leveling to X".*
 
+> **As-built (Jun 2026).** `level-up-dialog.tsx` is a modal with **dynamic steps — Class → Hit Points → Features → (optional) Spells & Magic → Review** (entered from `sheet-header.tsx`'s Level Up button). It uses a **compact preview aside**, not the full 3-pane Creation-Wizard chrome (no right live-sheet pane). Celebration state exists, but there's **no confetti/sound or version-history entry**. Step topics below are otherwise accurate.
+
 ---
 
 ## Entry Point

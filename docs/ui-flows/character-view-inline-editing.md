@@ -2,6 +2,8 @@
 
 *The full character view at `/characters/[id]`. Tabbed main layout, persistent right-side Live Stats HUD, Species terminology (modern 5E SRD), live calculations, SRD tooltips, "Use" buttons for resources, drag-and-drop. Editing is the default state; no separate view-only toggle unless sharing permissions require it. Green glow + floating toolbar + real-time validation banners.*
 
+> **As-built (Jun 2026).** The sheet (`apps/web/src/app/(app)/characters/[id]/`, `character-sheet.tsx`) renders a **3-column Roll20-style layout** (left skills rail · center tabs · right rail + **Live Stats HUD**) with an `AbilitiesPanel` and `SheetHpPanel` above the grid. As-built tab set is **6 tabs — Combat · Spells · Inventory · Features & Traits · Notes · About** (abilities/skills are the rail/panel, not tabs; Personality is merged into **About**), not the 8-tab set described below. Editing **auto-saves on blur/mutation** — there's no floating "Save All / Cancel / Undo" toolbar (the bottom `SheetToolbar` shows a save timestamp + "Full Builder" link); conditions/inspiration live in `SheetRightRail`, not a drag-drop HUD. Route is `/characters/[id]` (no separate `/sheet` page).
+
 ---
 
 ## How to Enter / Exit

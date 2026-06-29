@@ -2,6 +2,8 @@
 
 *Central hub at `/characters` — polished to match the visual language, components, and delight of the Refined 10-Step Creation Wizard, Level Up Modal, and tabbed Character View / Inline Editing experience. Dark fantasy theme, clean sans-serif typography, mobile-first responsive. Every element uses hex ability previews, live SRD tooltips, green validation/confirmation accents, and instant feedback patterns.*
 
+> **As-built (Jun 2026).** Shipped (`characters-browser.tsx`): Grid/List toggle, search, **XP progress bars**, optional **group-by-campaign**, **Play · {campaign}** links → `/campaigns/{id}/play`, and a **⋯ menu** (Duplicate · Export JSON · Copy share link) plus a separate delete (trash) action. **Not built** (treat the wireframes below as target): per-card hex ability previews, a **Level Up** button on cards, **filters** (Species/Class/Campaign), **bulk actions**, "Show Archived"/"Recently Leveled Up" badges, the hero banner, global search, and the rich right sidebar (the aside is "Quick tips" only). Empty state is a minimal "create your first" link, not quick-start templates/import.
+
 ---
 
 ## Purpose

@@ -938,7 +938,7 @@ const SPIRIT_GUARDIANS: SpellDefinition = {
   school: "conjuration",
   classes: ["Cleric"],
   castingTime: { unit: "action", amount: 1 },
-  range: { type: "self", area: { shape: "sphere", size: 15 } },
+  range: { type: "self", area: { shape: "emanation", size: 15 } },
   components: {
     verbal: true,
     somatic: true,
@@ -952,7 +952,7 @@ const SPIRIT_GUARDIANS: SpellDefinition = {
   damage: [{ dice: "3d8", type: "radiant" }],
   upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
   description:
-    "Each creature in a 15-foot-radius aura makes a Wisdom saving throw, taking 3d8 radiant damage on a failed save, or half as much on a success (ongoing turns narrated).",
+    "Protective spirits flit around you in a 15-foot Emanation. A creature in the Emanation has its Speed halved and makes a Wisdom saving throw, taking 3d8 radiant damage on a failed save or half as much on a success (once per turn; ongoing turns narrated).",
 };
 
 /** Hunger of Hadar — 20-ft sphere, Dex save or 2d6 cold on cast. */
@@ -1354,7 +1354,7 @@ const FAERIE_FIRE: SpellDefinition = {
   school: "evocation",
   classes: ["Bard", "Druid"],
   castingTime: { unit: "action", amount: 1 },
-  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 20 } },
+  range: { type: "feet", amount: 60, area: { shape: "cube", size: 20 } },
   components: { verbal: true, somatic: false },
   duration: { unit: "minute", amount: 1 },
   concentration: true,
@@ -1637,16 +1637,19 @@ const FLAME_STRIKE: SpellDefinition = {
   school: "evocation",
   classes: ["Cleric"],
   castingTime: { unit: "action", amount: 1 },
-  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 10 } },
+  range: { type: "feet", amount: 60, area: { shape: "cylinder", size: 10 } },
   components: { verbal: true, somatic: true, material: "pinch of sulfur" },
   duration: { unit: "instantaneous" },
   concentration: false,
   ritual: false,
   targeting: "area",
   saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
-  damage: [{ dice: "8d6", type: "fire" }],
+  damage: [
+    { dice: "5d6", type: "fire" },
+    { dice: "5d6", type: "radiant" },
+  ],
   description:
-    "A vertical column of divine flame roars down in a 10-foot-radius, 40-foot-high cylinder (tracer: 10-ft sphere). Each creature in the area makes a Dexterity save, taking 8d6 fire damage on a failure or half on a success (4d6 fire + 4d6 radiant combined as 8d6 fire at tracer depth).",
+    "A vertical column of divine flame roars down in a 10-foot-radius, 40-foot-high cylinder. Each creature in the area makes a Dexterity save, taking 5d6 fire damage plus 5d6 radiant damage on a failure or half as much on a success.",
 };
 
 const PHANTASMAL_KILLER: SpellDefinition = {
@@ -2112,16 +2115,16 @@ const SLEEP: SpellDefinition = {
   school: "enchantment",
   classes: ["Bard", "Sorcerer", "Wizard"],
   castingTime: { unit: "action", amount: 1 },
-  range: { type: "feet", amount: 90, area: { shape: "sphere", size: 20 } },
+  range: { type: "feet", amount: 60, area: { shape: "sphere", size: 5 } },
   components: { verbal: true, somatic: true, material: "a pinch of fine sand, rose petals, or a cricket" },
   duration: { unit: "minute", amount: 1 },
-  concentration: false,
+  concentration: true,
   ritual: false,
   targeting: "area",
   saveAgainst: { ability: "wis", dc: "spellsave", onSuccess: "no_effect" },
   failedSaveCondition: "unconscious",
   description:
-    "Roll 5d8; the spell affects creatures in a 20-foot-radius sphere in ascending order of current hit points (tracer: Wisdom save or unconscious in the area).",
+    "Each creature of your choice in a 5-foot-radius Sphere makes a Wisdom saving throw or has the Incapacitated condition until the end of its next turn, repeating the save then; a second failure leaves it Unconscious for the duration (tracer: Wisdom save or Unconscious in the area).",
 };
 
 const GREATER_RESTORATION: SpellDefinition = {

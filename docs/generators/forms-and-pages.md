@@ -2,6 +2,8 @@
 
 *Per-generator drill-down. Each generator follows the locked pattern (Q6): single-page form for input + Character-View-style inline-editable detail page for output + per-section Regenerate. The Realms doc (option #1) covered the **shared** patterns; this document covers what's **unique** per generator — the fields, the cascade graph, the section layouts, the special widgets, the inter-generator interactions. Ordered by world-scale (largest first).*
 
+> **As-built (Jun 2026).** The **shared pipeline is shipped for all 7 descriptive types** (region, settlement, building, tavern, shop, dungeon, faction) + NPC: `realms.generate` / `expandStub` / `regenerate` (full **and per-section**) + cascade child stubs (`generator.ts`, `cascade-wiring.ts`). But the **UI is leaner than the wireframes here**: generation is a concept-first **"Generate with AI" modal** (+ a simpler advanced form at `/realms/generate/[type]`), not the Quick-Generate-Bar / preset / art-style wireframes; detail pages are **header + descriptor-driven sections + relationship panel** (no left sidebar / right map rail / floating toolbar); there is **no "Reset to Generated"** and **no auto-art**. Per-generator **tab counts are smaller than the aspirational lists below** (e.g. Region ~5 sections not 12+, Settlement ~11 tabs not 19) and maps/rooms-as-entities/crest-art/shop-transactions are **deferred** — see `docs/deferrals.md` **GENR-1–7** and **GEN-1**. Dungeon **room→live-foe promotion** shipped (RUNG-4 / #218). Treat the field/tab lists below as design intent; `REALM_FIELDS` in `apps/web/src/lib/realms.ts` is the source of truth for section names.
+
 ## Shared Patterns (Recap)
 
 Before per-generator details, the consistent shell every generator inherits:

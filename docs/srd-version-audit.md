@@ -21,9 +21,9 @@ This document is the canonical inventory of where Loreforge still runs **SRD 5.1
 
 ## Executive summary (post-audit, Jun 2026)
 
-The **SRD 5.1 → 5.2 migration slices (AUDIT-0–9) are complete.** Prod Codex spells/monsters run on Open5e `srd-2024` (**339** / **331** rows). Species seed is **9 PDF species**. Class features, fighting styles, and origin feats align to 5.2. Engine `SPELL_REGISTRY` lists **339** catalog entries (**124** hand-authored combat overrides). Legacy characters purged; third-caster (EK/AT) removed; docs state **PDF-first + Open5e-only** ingest.
+The **SRD 5.1 → 5.2 migration slices (AUDIT-0–9) are complete.** Prod Codex spells/monsters run on Open5e `srd-2024` (**339** / **331** rows). Species seed is **9 PDF species**. Class features, fighting styles, and origin feats align to 5.2. Engine `SPELL_REGISTRY` lists **339** catalog entries (**126** hand-authored combat overrides). Legacy characters purged; third-caster (EK/AT) removed; docs state **PDF-first + Open5e-only** ingest.
 
-**Remaining v1 work outside this audit:** deepen combat handlers for catalog-only spells (ENG-2), custom PDF ingest at GA (INFRA-6), background ASI wiring in creation wizard, **prod spell doc_key regression** (see SRD-AUDIT-10-R1), full PDF toolbox entry coverage (sample seeds only), **GRILL-EXPLORATION** (Playing the Game hazards — separate from Gameplay Toolbox).
+**Remaining v1 work outside this audit:** deepen combat handlers for catalog-only spells (ENG-2), custom PDF ingest at GA (INFRA-6), background ASI wiring in creation wizard, **prod spell doc_key regression** (see SRD-AUDIT-10-R1), full PDF toolbox entry coverage (sample seeds only). **GRILL-EXPLORATION done** (Playing the Game hazards — Slices 1–3 shipped #307–#309).
 
 ---
 
@@ -43,7 +43,7 @@ The **SRD 5.1 → 5.2 migration slices (AUDIT-0–9) are complete.** Prod Codex 
 
 | Entity | Ingest / seed source | Document key / version | DB rows (prod audit) | Engine | Primary UI surfaces | Status |
 |---|---|---|---:|---|---|---|
-| **Spells** | `open5e-spells.ts` nightly job | `srd-2024` | 339 × `srd-2024` | `SPELL_REGISTRY` **339** catalog (**124** combat-authored) | Codex, Creation spell picker, Live Play cast, Smithy copy | ✅ AUDIT-2/6 |
+| **Spells** | `open5e-spells.ts` nightly job | `srd-2024` | 339 × `srd-2024` | `SPELL_REGISTRY` **339** catalog (**126** combat-authored) | Codex, Creation spell picker, Live Play cast, Smithy copy | ✅ AUDIT-2/6 |
 | **Creatures / monsters** | `open5e-creatures.ts` | `srd-2024` | 331 × `srd-2024` | `MONSTER_TEMPLATES` (subset) | Codex Animals/Monsters | ✅ AUDIT-3 |
 | **Items** | `open5e-items.ts` | `srd-2024` | 203 × `srd-2024` *(partial — API has 440)* | `open5eRawToItemDefinition`, weapon mastery | Codex, equipment, combat weapons | ⚠️ 5.2 key, incomplete count |
 | **Backgrounds** | `open5e-backgrounds.ts` | `srd-2024` | 4 × `srd-2024` | — | Codex, Creation wizard | ✅ |
@@ -174,7 +174,7 @@ Run locally: `cd packages/db && npm run srd-audit:db`
 |---|---:|---|
 | Open5e `srd-2024` / prod `codex_spells` | **339** | Matches Open5e API |
 | `SPELL_REGISTRY` catalog entries | **339** | Generated via `npm run generate:spell-registry` |
-| Hand-authored combat overrides | **124** | Golden tests on authored set |
+| Hand-authored combat overrides | **126** | Golden tests on authored set |
 | Catalog-only stubs (no full combat resolution) | **~215** | ENG-2 backlog — deepen handlers individually |
 
 Product lock remains **~360** spells; gap vs PDF is tracked via Open5e ↔ PDF diff (INFRA-6 at GA).
@@ -237,7 +237,7 @@ Post–DATA-1b audit after all five GRILL sessions shipped (traps → fear/stres
 | PDF chapter | Codex nav | Storage | Status |
 |---|---|---|---|
 | **Gameplay Toolbox** (Traps, Poisons, Curses and Magical Contagions, Environmental Effects, Fear and Mental Stress) | **Gameplay Toolbox** (replaced **Advanced**) | `codex_toolbox_entries` + `codex_rule_sections` per topic | ✅ two-tier UI + rules slugs `srd-2024_*-rules` |
-| **Playing the Game → Exploration** (frigid water, thin ice, … overlap) | *(not in toolbox)* | — | ⏳ **GRILL-EXPLORATION** — separate entity model; do not merge into toolbox |
+| **Playing the Game → Exploration** (frigid water, thin ice, … overlap) | *(not in toolbox)* | — | ✅ **GRILL-EXPLORATION done** (#307–#309) — separate entity model; not merged into toolbox |
 | Open5e `/v2/rules/` legacy keys (`srd_traps_*`, `srd_diseases_*`, …) | *(removed)* | `codex_advanced_rules` orphan | ✅ nightly ingest stopped; dead tRPC removed |
 
 ### Terminology locks
@@ -276,7 +276,7 @@ Hand-seeds are **PDF samples**, not exhaustive. Full PDF trap/poison/etc. lists 
 |---|---|---|
 | **SRD-AUDIT-10-R1** | Prod spell `doc_key` regression | ✅ Done 2026-06-27 |
 | **SRD-AUDIT-12** | Runtime/UI congruence sweep (no PHB / 2014 / non-SRD refs) | ✅ Done 2026-06-27 — see below |
-| **GRILL-EXPLORATION** | Playing the Game exploration hazards + glossary | Separate from toolbox — blocked until Jordan schedules grill |
+| **GRILL-EXPLORATION** | Playing the Game exploration hazards + glossary | ✅ Done — Slices 1–3 shipped (#307–#309); separate entity model from toolbox |
 | **INFRA-6** | Full PDF-normalized ingest at GA | Custom SRD 5.2 pipeline |
 | **GA migration** | Drop `codex_advanced_rules` table + migration | After orphan row audit / Smithy copy backfill |
 | **GRILL-LIVE-TOOLBOX** | Live Play detect/disable/trigger toolbox entries | Deferred from GRILL-TRAP Q7 — needs new grill session |

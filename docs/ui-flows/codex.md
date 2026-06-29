@@ -18,7 +18,7 @@
 ## Persistent Page Layout
 
 - **Hero Banner** (subtle, fixed height): "The Codex – Official 5E SRD 5.2 Reference"
-  - Quick-jump pill navigation: Rules • Species • Backgrounds • Classes • Animals • Monsters • Items • Spells • Feats • Advanced
+  - Quick-jump pill navigation: Rules • Species • Backgrounds • Classes • Animals • Monsters • Items • Spells • Feats • Gameplay Toolbox *(as-built: `/codex` lands on **Spells**; nav is horizontal pills, not a left sidebar; "Gameplay Toolbox" was labeled "Advanced" in this draft)*
   - **Prominent pill**: "Forge in The Smithy →" (direct link to `/smithy`)
 - **Left Sidebar** (desktop: sticky, collapsible; mobile: top horizontal scrollable tabs) — lists all 10 categories.
 - **Main Content Area**: Dynamic grid / list / table view that updates instantly on search/filter.
@@ -115,7 +115,7 @@ Most-used tab. Grid of spell cards with level badge + school. Filters: Level 0�
 
 Grid with prerequisite highlights. Modal includes full benefit text + **"Add Feat during Level Up"** and **"Copy to The Smithy"**.
 
-### 10. Advanced Rules (expandable accordion in sidebar)
+### 10. Gameplay Toolbox (was "Advanced Rules")
 
 - Curses & Magical Contagions
 - Environmental Effects
@@ -123,7 +123,7 @@ Grid with prerequisite highlights. Modal includes full benefit text + **"Add Fea
 - Poisons
 - Traps
 
-Each has its own filterable grid + detail modals with **"Copy to The Smithy"**.
+> **As-built (#306, Jun 2026).** This category is the **Gameplay Toolbox** (route `/codex/toolbox`; `/codex/advanced` aliases to it) and is **read-only SRD 5.2** — toolbox detail modals **do not** show "Copy to The Smithy" (Smithy toolbox forging was removed; server blocks the copy). Each topic has its own filterable grid + detail modals. The other Codex categories below keep their "Copy to The Smithy" action.
 
 ---
 

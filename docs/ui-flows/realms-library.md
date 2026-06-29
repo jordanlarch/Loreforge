@@ -2,6 +2,8 @@
 
 *The dedicated worldbuilding library at `/realms` — the third pillar alongside Codex and Smithy. Houses every worldbuilding entity (Regions, Settlements, Buildings, Taverns, Shops, Dungeons, Factions, NPCs) as first-class, cross-linked, reusable assets. Mirrors the visual language and component patterns of Codex/Smithy for instant muscle memory, with two original layers: a relationship Graph view and rich detail pages that reuse the Character View / Inline Editing patterns. Dark-fantasy theme, anvil/forge motif extended with cartography accents (compass roses, map seals, faction crests).*
 
+> **As-built (Jun 2026).** Shipped core (`realms-browser.tsx`, `realms.ts`): 8 entity types, **flat-by-type sidebar with counts**, **Grid / List / Graph** view toggle (`graph-view.tsx`), **stub indicators**, relationship panel on detail (`relationship-panel.tsx`), and the **7 AI generators** (inline "Generate with AI" + advanced `/realms/generate/[type]`) — generators are **live** (the old "generators arrive in a later slice" page copy has been corrected). **Not built** (target only): hero banner, quick-jump pills, stats strip, right pane (Recently Forged / Used in Campaigns / Bulk Forge), bulk ops, saved searches, full-screen graph explorer, and the live map-preview rail on detail pages (deferrals **REALM-2/3/5/6/7/8**). The Quick-Jump nav line below also still lists global search / 🔔 / avatar — not built (**HOME-5**).
+
 ## Entry Points
 
 - **Top nav** (site-wide): `[Logo] 5E SRD Adventure  Home  Characters  Campaigns  Codex  Smithy  Realms (active, glowing compass icon)  [Global Search]  [🔔]  [Avatar]`

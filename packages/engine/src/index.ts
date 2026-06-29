@@ -322,6 +322,12 @@ export {
   type SrdCurseSeed,
 } from "./content/srd-curse-seeds";
 export {
+  getEnvironmentalEffectDefinition,
+  ENVIRONMENTAL_EFFECT_REGISTRY,
+  SRD_ENVIRONMENTAL_EFFECT_SEEDS,
+  type SrdEnvironmentalEffectSeed,
+} from "./content/srd-environmental-effect-seeds";
+export {
   isTrapEligibleSceneKind,
   normalizeSceneTraps,
   TRAP_ELIGIBLE_SCENE_KINDS,

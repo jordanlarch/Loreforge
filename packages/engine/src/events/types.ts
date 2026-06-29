@@ -307,6 +307,32 @@ export type CurseTickResolvedPayload = {
   success: boolean;
 };
 
+export type SceneEnvironmentalEffectsSetPayload = {
+  sceneId: SceneId;
+  slugs: string[];
+};
+
+export type EnvironmentalEffectAppliedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  effectSlug: string;
+  pendingRepeat: boolean;
+};
+
+export type EnvironmentalEffectRemovedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  effectSlug: string;
+  reason: "saved" | "removed";
+};
+
+export type EnvironmentalEffectTickResolvedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  effectSlug: string;
+  success: boolean;
+};
+
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
   /** The creature whose movement opened the window. */
@@ -442,7 +468,23 @@ export type EngineEvent =
   | (EventMeta & { type: "MaxHpReduced"; payload: MaxHpReducedPayload })
   | (EventMeta & { type: "CurseApplied"; payload: CurseAppliedPayload })
   | (EventMeta & { type: "CurseRemoved"; payload: CurseRemovedPayload })
-  | (EventMeta & { type: "CurseTickResolved"; payload: CurseTickResolvedPayload });
+  | (EventMeta & { type: "CurseTickResolved"; payload: CurseTickResolvedPayload })
+  | (EventMeta & {
+      type: "SceneEnvironmentalEffectsSet";
+      payload: SceneEnvironmentalEffectsSetPayload;
+    })
+  | (EventMeta & {
+      type: "EnvironmentalEffectApplied";
+      payload: EnvironmentalEffectAppliedPayload;
+    })
+  | (EventMeta & {
+      type: "EnvironmentalEffectRemoved";
+      payload: EnvironmentalEffectRemovedPayload;
+    })
+  | (EventMeta & {
+      type: "EnvironmentalEffectTickResolved";
+      payload: EnvironmentalEffectTickResolvedPayload;
+    });
 
 export type EngineEventType = EngineEvent["type"];
 

@@ -160,6 +160,8 @@ export type EntityState = {
   coatedPoisonSlug?: string;
   /** Active curse instances after delivery (GRILL-LIVE-CURSE Q2). */
   activeCurses?: ActiveCurseInstance[];
+  /** Active environmental effect instances (GRILL-LIVE-ENV-EFFECT Q2). */
+  activeEnvironmentalEffects?: ActiveEnvironmentalEffectInstance[];
 };
 
 /** Ongoing poison tracked on an entity (injury or ingested after delivery). */
@@ -179,6 +181,14 @@ export type ActiveCurseInstance = {
   /** Turn-start recovery save (Demonic Possession v1). */
   pendingRecovery: boolean;
   recoverySuccesses?: number;
+};
+
+/** Ongoing environmental effect exposure on an entity (GRILL-LIVE-ENV-EFFECT Q2). */
+export type ActiveEnvironmentalEffectInstance = {
+  instanceId: string;
+  effectSlug: string;
+  /** Turn-start repeat save (Slippery Ice v1). */
+  pendingRepeat: boolean;
 };
 
 export type DeathSaveTally = { successes: number; failures: number };
@@ -262,6 +272,8 @@ export type SceneState = {
   sceneKind?: SceneKind;
   /** Traps placed on this scene's grid (Live Play toolbox resolution). */
   traps?: SceneTrapInstance[];
+  /** Ambient environmental effects active in this scene (GRILL-LIVE-ENV-EFFECT Q2). */
+  environmentalEffectSlugs?: string[];
 };
 
 /**

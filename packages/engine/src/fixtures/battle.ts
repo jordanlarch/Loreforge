@@ -20,6 +20,9 @@ import type {
   ApplyPoisonCommand,
   ApplyCurseCommand,
   ApplyFearStressCommand,
+  ApplyFallDamageCommand,
+  ApplyBurningCommand,
+  ExtinguishBurningCommand,
   CoatWeaponCommand,
   DetectTrapCommand,
   DisableTrapCommand,
@@ -376,7 +379,10 @@ export type BattleAction =
   | ApplyCurseCommand
   | ApplyFearStressCommand
   | ResolveCurseTickCommand
-  | RemoveCurseCommand;
+  | RemoveCurseCommand
+  | ApplyFallDamageCommand
+  | ApplyBurningCommand
+  | ExtinguishBurningCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {

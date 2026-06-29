@@ -75,6 +75,7 @@ export function LivePlayTopBar({
   sceneName,
   sceneEnvironmentalEffects,
   sceneFearStressEffects,
+  sceneExplorationHazards,
   peers,
   round,
   activeName,
@@ -98,6 +99,8 @@ export function LivePlayTopBar({
   sceneEnvironmentalEffects?: string[];
   /** Scene-attached fear/stress labels (GRILL-LIVE-FEAR Q5). */
   sceneFearStressEffects?: string[];
+  /** Scene-attached exploration hazard labels (GRILL-EXPLORATION Q3). */
+  sceneExplorationHazards?: string[];
   peers: number;
   round?: number;
   activeName?: string;
@@ -174,6 +177,14 @@ export function LivePlayTopBar({
             <span
               key={label}
               className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-200"
+            >
+              {label}
+            </span>
+          ))}
+          {sceneExplorationHazards?.map((label) => (
+            <span
+              key={label}
+              className="rounded border border-orange-500/40 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-200"
             >
               {label}
             </span>

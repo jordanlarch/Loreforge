@@ -21,6 +21,7 @@ import {
 } from "@/lib/scene-transition-chat";
 import { formatSceneEnvironmentalEffects } from "@/lib/live-environmental-effects";
 import { formatSceneFearStress } from "@/lib/live-fear-stress";
+import { formatSceneExplorationHazards } from "@/lib/live-exploration-hazards";
 
 /** A real scene change: both ids known and different (ignores initial load). */
 export function isSceneChange(
@@ -50,6 +51,7 @@ export function useSceneTransition(
   sceneDescription?: string | null,
   environmentalEffectSlugs?: readonly string[],
   fearStressSlugs?: readonly string[],
+  explorationHazardSlugs?: readonly string[],
 ): SceneTransition {
   const prev = useRef<string | undefined>(sceneId);
   const [banner, setBanner] = useState<SceneBannerInfo | null>(null);
@@ -59,7 +61,8 @@ export function useSceneTransition(
   const descriptionSubtitle = sceneSubtitle(sceneDescription);
   const envSubtitle = formatSceneEnvironmentalEffects(environmentalEffectSlugs);
   const fearSubtitle = formatSceneFearStress(fearStressSlugs);
-  const subtitle = [descriptionSubtitle, envSubtitle, fearSubtitle]
+  const hazardSubtitle = formatSceneExplorationHazards(explorationHazardSlugs);
+  const subtitle = [descriptionSubtitle, envSubtitle, fearSubtitle, hazardSubtitle]
     .filter(Boolean)
     .join(" · ");
 

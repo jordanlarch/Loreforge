@@ -84,6 +84,10 @@ export type ItemDefinition = {
   toolboxCurseSlug?: string;
   /** Links a consumable to a Gameplay Toolbox fear/stress entry (GRILL-LIVE-FEAR). */
   toolboxFearStressSlug?: string;
+  /** Links a consumable to an exploration burning hazard (GRILL-EXPLORATION). */
+  explorationBurningSlug?: string;
+  /** Use Item applies fall damage at this height in feet (GRILL-EXPLORATION demo). */
+  explorationFallHeightFt?: number;
   description: string;
 };
 

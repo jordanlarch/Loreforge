@@ -312,6 +312,38 @@ describe("resolutionEntry (#99)", () => {
     expect(entry.text).toContain("19 vs AC 13");
   });
 
+  it("renders fall and burning resolution lines (GRILL-EXPLORATION)", () => {
+    const fall = resolutionEntry(
+      { type: "apply_fall_damage", target: "thorin", heightFt: 30 },
+      { target: "thorin", heightFt: 30, damage: 12 },
+      nameOf,
+      deps(),
+    );
+    expect(fall.text).toContain("Thorin falls 30 ft");
+    expect(fall.text).toContain("12 bludgeoning");
+
+    const burn = resolutionEntry(
+      { type: "apply_burning", target: "thorin", burningSlug: "srd-2024_burning" },
+      { target: "thorin", instanceId: "burn:1", burningSlug: "srd-2024_burning" },
+      nameOf,
+      deps(),
+    );
+    expect(burn.text).toContain("Thorin catches fire");
+
+    const out = resolutionEntry(
+      {
+        type: "extinguish_burning",
+        target: "thorin",
+        instanceId: "burn:1",
+        method: "action",
+      },
+      { target: "thorin", instanceId: "burn:1", extinguished: true },
+      nameOf,
+      deps(),
+    );
+    expect(out.text).toContain("Thorin extinguishes the flames");
+  });
+
   it("falls back to the terse description when the summary lacks detail", () => {
     const entry = resolutionEntry(
       { type: "end_turn" },

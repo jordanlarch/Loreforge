@@ -13,6 +13,7 @@ import type { SceneTrapInstance } from "@app/engine";
 
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
 import { PoisonTurnControls } from "./poison-turn-controls";
+import { BurningTurnControls } from "./burning-turn-controls";
 import { ReactionPrompt } from "./reaction-prompt";
 import { TrapTurnControls } from "./trap-action-bar";
 
@@ -88,6 +89,8 @@ export function CombatTurnBar({
   injuryPoisons,
   coatedPoisonSlug,
   onCoatWeapon,
+  activeBurning,
+  onExtinguishBurning,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -111,8 +114,23 @@ export function CombatTurnBar({
   castTargetCount?: number;
   castTargetMax?: number;
   onConfirmMultiCast?: () => void;
-  items?: { name: string; quantity: number; poisonSlug?: string }[];
-  onQuickUse?: (item: { name: string; poisonSlug?: string }) => void;
+  items?: {
+    name: string;
+    quantity: number;
+    poisonSlug?: string;
+    curseSlug?: string;
+    fearStressSlug?: string;
+    burningSlug?: string;
+    fallHeightFt?: number;
+  }[];
+  onQuickUse?: (item: {
+    name: string;
+    poisonSlug?: string;
+    curseSlug?: string;
+    fearStressSlug?: string;
+    burningSlug?: string;
+    fallHeightFt?: number;
+  }) => void;
   showReaction: boolean;
   reaction?: { reactor: EntityState; mover: EntityState };
   reactorReactionSpells: CastableSpell[];
@@ -127,6 +145,8 @@ export function CombatTurnBar({
   injuryPoisons?: readonly { slug: string; label: string; quantity: number }[];
   coatedPoisonSlug?: string;
   onCoatWeapon?: (poisonSlug: string) => void;
+  activeBurning?: EntityState["activeBurning"];
+  onExtinguishBurning?: (instanceId: string) => void;
 }) {
   const armedMode = armed !== null;
 
@@ -258,6 +278,14 @@ export function CombatTurnBar({
                     disabled={isBusy}
                     canAct={canAct}
                     onCoat={onCoatWeapon}
+                  />
+                ) : null}
+                {activeBurning?.length && onExtinguishBurning ? (
+                  <BurningTurnControls
+                    instances={activeBurning}
+                    disabled={isBusy}
+                    canAct={canAct}
+                    onExtinguish={onExtinguishBurning}
                   />
                 ) : null}
                 {nearbyTraps?.length && onDetectTrap && onDisableTrap ? (

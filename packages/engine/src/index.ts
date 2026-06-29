@@ -58,6 +58,7 @@ export {
   type ActionEconomyState,
   type ActivePoisonInstance,
   type ActiveCurseInstance,
+  type ActiveEnvironmentalEffectInstance,
   type ClassLevel,
   type ConcentrationState,
   type DeathSaveTally,
@@ -564,6 +565,11 @@ export {
   type LocationNpcSpec,
   type OpeningHookOptions,
 } from "./fixtures/exploration";
+export {
+  buildEnvironmentalEffectEnterCommands,
+  DEMO_DUNGEON_ENVIRONMENTAL_EFFECT_SLUGS,
+  resolveLocationEnvironmentalEffectSlugs,
+} from "./fixtures/environmental-effects";
 export {
   formatQuestTeaseLine,
   enrichEntityDataWithQuests,

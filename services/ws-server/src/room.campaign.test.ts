@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_STARTING_LOCATION,
+  DEMO_DUNGEON_ENVIRONMENTAL_EFFECT_SLUGS,
   FIXTURE_BATTLE_SCENE_ID,
   InMemoryEventStore,
   resolveEncounterMap,
@@ -395,6 +396,19 @@ describe("CampaignRoom", () => {
     expect(Object.keys(state.entities).some((id) => id.startsWith("npc:dungeon:"))).toBe(
       true,
     );
+
+    const sceneId = sceneIdForRealmEntity(dungeon.entityId);
+    expect(state.scenes[sceneId]?.environmentalEffectSlugs).toEqual([
+      ...DEMO_DUNGEON_ENVIRONMENTAL_EFFECT_SLUGS,
+    ]);
+    const pc = Object.values(state.entities).find(
+      (e) => e.kind === "character" && !e.id.startsWith("npc:"),
+    );
+    expect(
+      pc?.activeEnvironmentalEffects?.some(
+        (i) => i.effectSlug === "srd-2024_extreme-cold",
+      ),
+    ).toBe(true);
   });
 
   it("rejects an illegal move (into a wall) and leaves state unchanged", async () => {

@@ -19,6 +19,7 @@ import {
   makeSceneDividerEntry,
   sceneSubtitle,
 } from "@/lib/scene-transition-chat";
+import { formatSceneEnvironmentalEffects } from "@/lib/live-environmental-effects";
 
 /** A real scene change: both ids known and different (ignores initial load). */
 export function isSceneChange(
@@ -46,13 +47,16 @@ export function useSceneTransition(
   sceneId: string | undefined,
   sceneName: string | undefined,
   sceneDescription?: string | null,
+  environmentalEffectSlugs?: readonly string[],
 ): SceneTransition {
   const prev = useRef<string | undefined>(sceneId);
   const [banner, setBanner] = useState<SceneBannerInfo | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const [dividers, setDividers] = useState<ChatEntry[]>([]);
 
-  const subtitle = sceneSubtitle(sceneDescription);
+  const descriptionSubtitle = sceneSubtitle(sceneDescription);
+  const envSubtitle = formatSceneEnvironmentalEffects(environmentalEffectSlugs);
+  const subtitle = [descriptionSubtitle, envSubtitle].filter(Boolean).join(" · ");
 
   useEffect(() => {
     const changed = isSceneChange(prev.current, sceneId);
@@ -61,10 +65,13 @@ export function useSceneTransition(
 
     const name = sceneName ?? "New location";
     setTransitioning(true);
-    setBanner({ name, subtitle });
+    setBanner({ name, subtitle: subtitle || undefined });
     setDividers((prevDividers) => [
       ...prevDividers,
-      makeSceneDividerEntry(sceneId, formatSceneDividerLabel(name, subtitle)),
+      makeSceneDividerEntry(
+        sceneId,
+        formatSceneDividerLabel(name, subtitle || undefined),
+      ),
     ]);
     const fade = setTimeout(() => setTransitioning(false), FADE_MS);
     const clear = setTimeout(() => setBanner(null), BANNER_MS);

@@ -3,11 +3,13 @@
 import {
   abilityModifier,
   type ActiveCurseInstance,
+  type ActiveEnvironmentalEffectInstance,
   type ActivePoisonInstance,
   type EntityState,
 } from "@app/engine";
 
 import { activeCurseHudLabel } from "@/lib/live-curses";
+import { activeEnvironmentalEffectHudLabel } from "@/lib/live-environmental-effects";
 import { activePoisonHudLabel } from "@/lib/live-poisons";
 
 const ABILITIES: { key: keyof EntityState["abilityScores"]; label: string }[] = [
@@ -102,6 +104,22 @@ export function PartyMemberDetail({ member }: { member: EntityState }) {
               {activeCurseHudLabel(c)}
             </span>
           ))}
+        </div>
+      ) : null}
+
+      {member.activeEnvironmentalEffects &&
+      member.activeEnvironmentalEffects.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {member.activeEnvironmentalEffects.map(
+            (e: ActiveEnvironmentalEffectInstance) => (
+              <span
+                key={e.instanceId}
+                className="rounded border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] text-cyan-200"
+              >
+                {activeEnvironmentalEffectHudLabel(e)}
+              </span>
+            ),
+          )}
         </div>
       ) : null}
 
@@ -215,6 +233,10 @@ export function PartyMemberRow({
       ) : member.activeCurses?.[0] ? (
         <span className="text-[10px] text-violet-200 line-clamp-1">
           {activeCurseHudLabel(member.activeCurses[0])}
+        </span>
+      ) : member.activeEnvironmentalEffects?.[0] ? (
+        <span className="text-[10px] text-cyan-200 line-clamp-1">
+          {activeEnvironmentalEffectHudLabel(member.activeEnvironmentalEffects[0])}
         </span>
       ) : null}
     </>

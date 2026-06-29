@@ -355,6 +355,27 @@ export type FearStressTickResolvedPayload = {
   success: boolean;
 };
 
+export type BurningAppliedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  burningSlug: string;
+  pendingRepeat: boolean;
+};
+
+export type BurningRemovedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  burningSlug: string;
+  reason: "action" | "saved";
+};
+
+export type BurningTickResolvedPayload = {
+  target: EntityRef;
+  instanceId: string;
+  burningSlug: string;
+  damage: number;
+};
+
 export type ReactionWindowOpenedPayload = {
   trigger: "leave_reach";
   /** The creature whose movement opened the window. */
@@ -512,6 +533,12 @@ export type EngineEvent =
   | (EventMeta & {
       type: "FearStressTickResolved";
       payload: FearStressTickResolvedPayload;
+    })
+  | (EventMeta & { type: "BurningApplied"; payload: BurningAppliedPayload })
+  | (EventMeta & { type: "BurningRemoved"; payload: BurningRemovedPayload })
+  | (EventMeta & {
+      type: "BurningTickResolved";
+      payload: BurningTickResolvedPayload;
     });
 
 export type EngineEventType = EngineEvent["type"];

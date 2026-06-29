@@ -826,7 +826,7 @@ Engine seed modules reference the same slugs for Live Play hooks (Burning / Fall
 | Slice | Ships | Verify |
 |---|---|---|
 | **1 — Codex** | Hand-seed six `codex_rule_sections` rows; Rules browser two-tier UI (overview ↔ glossary cross-links) | Prod: Rules → Exploration hazards overview + glossary detail |
-| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, unit tests | CI / engine tests |
+| **2 — Engine** | `apply_fall_damage`, `apply_burning`, `extinguish_burning`, `activeBurning[]`, turn-start tick, unit tests | CI / engine tests ✅ |
 | **3 — Live Play** | WS hooks + burning HUD chip + fall/burn events in chat | Prod dogfood in campaign |
 
 ### Q8 — Rules prose source ✅ (2026-06-29)

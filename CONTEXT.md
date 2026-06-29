@@ -67,6 +67,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 **Recently shipped (Jun 2026, post-#246):** Roll20-style character sheet — 3-column layout, HP panel, Live Stats HUD, Inventory/About/Notes tabs, notes meta via `character-sheet-storage`.
 
+**Recently shipped (#306, Jun 2026):** Smithy Gameplay Toolbox removed — Codex SRD 5.2 read-only for toolbox; GRILL-SMITHY-EDIT deferred.
+
 **Recently shipped (#303–#305, Jun 2026):** GRILL-LIVE-FEAR — engine registry + apply/tick/remove handlers; WS enter/leave hooks; Live Play amber scene + party-rail chips; dungeon demo Sarcophagus Apparition + Hallucinogenic Substance vial.
 
 **Recently shipped (#301–#302, Jun 2026):** GRILL-LIVE-ENV-EFFECT — engine registry + apply/tick/remove handlers; WS enter/leave hooks; Live Play scene chips + frost/cyan exposure HUD; dungeon demo Extreme Cold + Slippery Ice.

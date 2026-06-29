@@ -149,7 +149,7 @@ After GRILL-TRAP (and sibling grill sessions), the project audit against SRD 5.2
 | **GRILL-CURSE** | Gameplay Toolbox → Curses and Magical Contagions | **COMPLETE** (inherits TRAP; Q3 locked) |
 | **GRILL-ENV-EFFECT** | Gameplay Toolbox → Environmental Effects | **COMPLETE** (inherits TRAP; Q3 locked) |
 | **GRILL-FEAR** | Gameplay Toolbox → Fear and Mental Stress | **COMPLETE** (inherits TRAP; Q3 locked) |
-| **GRILL-EXPLORATION** | Playing the Game → Exploration hazards + Glossary | Pending — **separate from toolbox** |
+| **GRILL-EXPLORATION** | Playing the Game → Exploration hazards + Glossary | **Active** — grill started Jun 2026 |
 
 ---
 
@@ -730,6 +730,25 @@ PDF section: **Fear and Mental Stress**.
 
 **Q8 rules slug:** `srd-2024_fear-stress-rules`.  
 **Q9 entry slugs:** `srd-2024_<kebab-name>`.
+
+---
+
+## GRILL-EXPLORATION — IN PROGRESS ⏳
+
+**Playing the Game → Exploration hazards** + **Rules Glossary** cross-links. **Separate program** from Gameplay Toolbox (GRILL-TRAP Q5 lock). Grill started Jun 2026.
+
+### Deferred into this session (from sibling Live Play grills)
+
+| Source grill | Deferred mechanic |
+|---|---|
+| GRILL-LIVE-POISON | Contact + inhaled poison delivery |
+| GRILL-LIVE-CURSE | Contagion spread; long-rest recovery ticks (Cackle Fever, Sewer Plague) |
+| GRILL-LIVE-ENV-EFFECT | Hourly/travel repeat ticks (Extreme Cold hourly, High Altitude pace); overland-only hazards |
+| SRD-AUDIT-10 | Taxonomy cleanup — e.g. **Frigid Water** / **Thin Ice** currently seeded under toolbox `environmental_effect` but PDF places them under **Playing the Game → Exploration** |
+
+### Q1 — *(pending)*
+
+*(Grill session in progress — see chat.)*
 
 ---
 

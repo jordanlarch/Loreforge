@@ -2,8 +2,9 @@
  * Pure 5E ability/derivation helpers. No state, no randomness — safe to call
  * anywhere in the resolution pipeline.
  */
+import { exhaustionD20Penalty } from "../combat/conditions";
 import { fullCasterSlots } from "../content/spell-slots";
-import type { ClassLevel, EntityInit, EntityState } from "./types";
+import type { Ability, ClassLevel, EntityInit, EntityState } from "./types";
 
 /**
  * Classes that gain the Extra Attack feature at level 5 (two attacks per Attack
@@ -60,6 +61,43 @@ export function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
 }
 
+/** Whether an entity is proficient in a saving throw (command override wins). */
+export function isSaveProficient(
+  entity: Pick<EntityState, "saveProficiencies" | "proficiencyBonus">,
+  ability: Ability,
+  override?: boolean,
+): boolean {
+  if (override !== undefined) return override;
+  return entity.saveProficiencies.includes(ability);
+}
+
+/** Proficiency bonus added to a save when proficient. */
+export function saveProficiencyBonus(
+  entity: Pick<EntityState, "saveProficiencies" | "proficiencyBonus">,
+  ability: Ability,
+  override?: boolean,
+): number {
+  return isSaveProficient(entity, ability, override)
+    ? entity.proficiencyBonus
+    : 0;
+}
+
+/** d20 + ability mod + save proficiency + cover − exhaustion. */
+export function saveRollTotal(
+  entity: EntityState,
+  ability: Ability,
+  natural: number,
+  opts?: { coverSave?: number; proficient?: boolean },
+): number {
+  return (
+    natural +
+    abilityModifier(entity.abilityScores[ability]) +
+    saveProficiencyBonus(entity, ability, opts?.proficient) +
+    (opts?.coverSave ?? 0) -
+    exhaustionD20Penalty(entity.conditions)
+  );
+}
+
 /** Total character level across all classes. */
 export function totalLevel(classes: ClassLevel[]): number {
   return classes.reduce((sum, c) => sum + c.level, 0);
@@ -88,6 +126,7 @@ export function createEntityState(init: EntityInit): EntityState {
     speed: init.speed ?? 30,
     classes,
     proficiencyBonus: proficiencyBonusForLevel(level),
+    saveProficiencies: init.saveProficiencies ? [...init.saveProficiencies] : [],
     ...(init.attacksPerAction !== undefined
       ? { attacksPerAction: init.attacksPerAction }
       : {}),

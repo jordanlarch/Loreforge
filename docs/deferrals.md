@@ -449,7 +449,7 @@ Tracked here; several alias to existing engine rows (don't mint duplicates — f
 
 | ID | Item | Tracking | Status | Notes |
 |---|---|---|---|---|
-| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | Partial | High-impact: every save is currently mathematically wrong. |
+| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | **Partial** | **Save proficiencies done** — `saveProficiencies` on `EntityState`; threaded from DB → ws-server → live entities; applied in all save roll paths. Skill/tool proficiency on entity still open. |
 | SRD-FID-17 | Surprise (combat order) | doc-only | Missing | |
 | SRD-FID-18 | Difficult terrain movement cost | doc-only | Missing | |
 | SRD-FID-19 | Resistance / Vulnerability / Immunity + temp-HP **grant** command | doc-only | Missing | damage types logged, never multiplied; no temp-HP event. |

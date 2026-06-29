@@ -153,6 +153,8 @@ export type SaveRolledPayload = {
   total?: number;
   success: boolean;
   autoFail: boolean;
+  /** Whether the entity's proficiency bonus was added. */
+  proficient?: boolean;
 };
 
 export type CheckRolledPayload = {

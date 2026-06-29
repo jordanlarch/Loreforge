@@ -3,7 +3,7 @@
  * apply_fall_damage / apply_burning / extinguish_burning / resolve_burning_tick
  */
 import type { Condition } from "../combat/conditions";
-import { abilityModifier } from "../entities/abilities";
+import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import {
   BURNING_EXTINGUISH_DC,
   BURNING_SLUG,
@@ -216,8 +216,9 @@ export function handleExtinguishBurning(
   if (cmd.method === "dex_save") {
     const saveRoll = ctx.roll("1d20", `burn-extinguish:${cmd.target}`, "normal");
     const natural = saveRoll.total;
-    const total = natural + abilityModifier(target.abilityScores.dex);
+    const total = saveRollTotal(target, "dex", natural);
     const success = total >= BURNING_EXTINGUISH_DC;
+    const proficient = isSaveProficient(target, "dex");
     events.push(
       {
         type: "DiceRolled",
@@ -242,6 +243,8 @@ export function handleExtinguishBurning(
           natural,
           total,
           success,
+          autoFail: false,
+          proficient,
         },
       },
     );

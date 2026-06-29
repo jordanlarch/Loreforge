@@ -6,7 +6,12 @@
  * append plus a compact summary (the summary is what gets fed back to the LLM
  * for narration — it never sees raw events). See `architecture.md` §4.4.
  */
-import { abilityModifier, totalLevel } from "../entities/abilities";
+import {
+  abilityModifier,
+  isSaveProficient,
+  saveRollTotal,
+  totalLevel,
+} from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
 import { criticalNotation, resolveHit } from "../combat/attack";
 import {
@@ -317,7 +322,8 @@ function concentrationCheckEvents(
     ];
   }
   const roll = ctx.roll("1d20", `concentration:${target.id}`, mode);
-  const total = roll.total + abilityModifier(target.abilityScores.con);
+  const proficient = isSaveProficient(target, "con");
+  const total = saveRollTotal(target, "con", roll.total);
   const success = total >= dc;
   const events: DraftEvent[] = [
     rollDiceEvent(ctx, roll),
@@ -333,6 +339,7 @@ function concentrationCheckEvents(
         total,
         success,
         autoFail: false,
+        proficient,
       },
     },
   ];
@@ -1264,12 +1271,12 @@ function handleSavingThrow(
       cellProvidesCover(ctx.world, entity.sceneId, exclude),
     );
   }
-  const total =
-    natural +
-    abilityModifier(entity.abilityScores[cmd.ability]) +
-    coverSave -
-    exhaustionD20Penalty(entity.conditions);
+  const total = saveRollTotal(entity, cmd.ability, natural, {
+    coverSave,
+    proficient: cmd.proficient,
+  });
   const success = total >= cmd.dc;
+  const proficient = isSaveProficient(entity, cmd.ability, cmd.proficient);
 
   return {
     accepted: true,
@@ -1287,6 +1294,7 @@ function handleSavingThrow(
           total,
           success,
           autoFail: false,
+          proficient,
         },
       },
     ],
@@ -2075,12 +2083,9 @@ function rollSpellSave(
       cellProvidesCover(ctx.world, target.sceneId, exclude),
     );
   }
-  const total =
-    natural +
-    abilityModifier(target.abilityScores[ability]) +
-    coverSave -
-    exhaustionD20Penalty(target.conditions);
+  const total = saveRollTotal(target, ability, natural, { coverSave });
   const success = total >= dc;
+  const proficient = isSaveProficient(target, ability);
   return {
     success,
     events: [
@@ -2097,6 +2102,7 @@ function rollSpellSave(
           total,
           success,
           autoFail: false,
+          proficient,
         },
       },
     ],

@@ -3,7 +3,7 @@
  * apply_environmental_effect / resolve_environmental_effect_tick / remove_environmental_effect
  */
 import { CONDITIONS, type Condition } from "../combat/conditions";
-import { abilityModifier } from "../entities/abilities";
+import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { EnvironmentalEffectDefinition } from "../content/toolbox-definitions";
 import { getEnvironmentalEffectDefinition } from "../content/srd-environmental-effect-seeds";
 import type {
@@ -151,8 +151,9 @@ function rollEnvironmentalSave(
 
   const saveRoll = ctx.roll("1d20", scope, "normal");
   const natural = saveRoll.total;
-  const total = natural + abilityModifier(entity.abilityScores[def.save.ability]);
+  const total = saveRollTotal(entity, def.save.ability, natural);
   const success = total >= def.save.dc;
+  const proficient = isSaveProficient(entity, def.save.ability);
   const events: DraftEvent[] = [
     {
       type: "DiceRolled",
@@ -177,6 +178,8 @@ function rollEnvironmentalSave(
         natural,
         total,
         success,
+        autoFail: false,
+        proficient,
       },
     },
   ];

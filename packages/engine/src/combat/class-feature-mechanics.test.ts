@@ -4,8 +4,10 @@ import {
   agonizingBlastBonus,
   bardicInspirationDie,
   classLevel,
+  discipleOfLifeBonus,
   distantSpellRange,
   focusPointMaximum,
+  hasClassSubclass,
   hasEldritchInvocation,
   METAMAGIC_OPTIONS,
   rageDamageBonus,
@@ -145,6 +147,19 @@ describe("class feature mechanics", () => {
   it("computes Distant Spell range (touch → 30 ft, else doubled)", () => {
     expect(distantSpellRange(5, true)).toBe(30);
     expect(distantSpellRange(120, false)).toBe(240);
+  });
+
+  it("detects a class subclass and Disciple of Life healing bonus", () => {
+    const classes = [{ class: "Cleric", level: 5, subclass: "Life Domain" }];
+    expect(hasClassSubclass(classes, "Cleric", "Life Domain")).toBe(true);
+    expect(hasClassSubclass(classes, "Cleric", "Light Domain")).toBe(false);
+    expect(hasClassSubclass(classes, "Druid", "Life Domain")).toBe(false);
+    expect(hasClassSubclass([{ class: "Cleric", level: 5 }], "Cleric", "Life Domain")).toBe(
+      false,
+    );
+    expect(discipleOfLifeBonus(0)).toBe(0);
+    expect(discipleOfLifeBonus(1)).toBe(3);
+    expect(discipleOfLifeBonus(3)).toBe(5);
   });
 
   it("reads the expanded Eldritch Invocation catalog", () => {

@@ -18,6 +18,31 @@ export function classLevel(
     .reduce((sum, c) => sum + c.level, 0);
 }
 
+/** True when an entity holds the given subclass for a class (SRD-FID-21b). */
+export function hasClassSubclass(
+  classes: readonly ClassLevel[] | undefined,
+  className: string,
+  subclass: string,
+): boolean {
+  if (!classes?.length) return false;
+  const cn = className.trim().toLowerCase();
+  const sc = subclass.trim().toLowerCase();
+  return classes.some(
+    (c) =>
+      c.class.trim().toLowerCase() === cn &&
+      (c.subclass?.trim().toLowerCase() ?? "") === sc,
+  );
+}
+
+/**
+ * Life Domain — Disciple of Life: when a spell of level 1+ restores Hit Points
+ * to a creature, it regains an extra 2 + the spell slot's level HP (SRD 5.2.1).
+ * Cantrips (slot level 0) do not qualify.
+ */
+export function discipleOfLifeBonus(slotLevel: number): number {
+  return slotLevel >= 1 ? 2 + slotLevel : 0;
+}
+
 /** Sneak Attack dice count by rogue level (SRD 5.2.1). */
 export function sneakAttackDiceCount(rogueLevel: number): number {
   if (rogueLevel < 1) return 0;

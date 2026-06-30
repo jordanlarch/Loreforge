@@ -479,6 +479,76 @@ describe("SRD-FID-21: Eldritch Invocation expansion", () => {
   });
 });
 
+describe("SRD-FID-21b: Life Domain — Disciple of Life", () => {
+  async function castCureWounds(engine: Engine, subclass?: string) {
+    await setupScene(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:cleric",
+        kind: "character",
+        name: "Cleric",
+        abilityScores: { ...ABILITIES, wis: 16 },
+        maxHp: 40,
+        baseAc: 14,
+        classes: [{ class: "Cleric", level: 5, ...(subclass ? { subclass } : {}) }],
+        sceneId: "s:arena",
+        position: { x: 0, y: 0 },
+        spellcasting: { ability: "wis" },
+      },
+    });
+    await place(engine, "pc:ally", { x: 1, y: 0 }, [], { maxHp: 40 });
+    // Drop the ally so the heal does not overheal.
+    await engine.execute(CAMPAIGN, {
+      type: "apply_damage",
+      target: "pc:ally",
+      damageType: "necrotic",
+      source: { amount: 30 },
+    });
+    return engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:cleric",
+      spellId: "cure-wounds",
+      slotLevel: 1,
+      targets: ["pc:ally"],
+    });
+  }
+
+  function healAmount(events: { type: string; payload: unknown }[]): {
+    base: number;
+    healed: number;
+  } {
+    const baseRoll = events.find(
+      (e) =>
+        e.type === "DiceRolled" &&
+        String((e.payload as { scope: string }).scope).startsWith("spell-heal"),
+    ) as { payload: { total: number } };
+    const heal = events.find((e) => e.type === "HealingApplied") as {
+      payload: { amount: number };
+    };
+    return { base: baseRoll.payload.total, healed: heal.payload.amount };
+  }
+
+  it("adds 2 + slot level when the Cleric is Life Domain", async () => {
+    const engine = new Engine({ now: () => 1 });
+    const cast = await castCureWounds(engine, "Life Domain");
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    const { base, healed } = healAmount(cast.events);
+    // 1d8 + WIS mod (+3) + Disciple of Life (2 + slot level 1 = 3).
+    expect(healed).toBe(base + 3 + 3);
+  });
+
+  it("does not add the bonus without the Life Domain subclass", async () => {
+    const engine = new Engine({ now: () => 1 });
+    const cast = await castCureWounds(engine);
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    const { base, healed } = healAmount(cast.events);
+    expect(healed).toBe(base + 3);
+  });
+});
+
 describe("SRD-FID-21: Paladin — Lay on Hands, Channel Divinity, Divine Smite", () => {
   it("Lay on Hands spends HP from the pool to heal", () => {
     const key = featureResourceKey("Paladin", 1, "lay-on-hands");

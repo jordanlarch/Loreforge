@@ -210,6 +210,20 @@ export {
   type ClassFeature,
 } from "./entities/class-features";
 export {
+  classFeatureChoicesForLevel,
+  featureChoiceStorageKey,
+  featureChoicesCompleteForLevels,
+  formatFeatureChoiceValues,
+  isFeatureChoiceComplete,
+  needsFightingStyleForLevel,
+  parseFeatureChoiceValues,
+  readFeatureChoice,
+  writeFeatureChoice,
+  SRD_LANGUAGES,
+  type ClassFeatureChoiceDef,
+  type FeatureChoiceKind,
+} from "./entities/class-feature-choices";
+export {
   FIGHTING_STYLE_DESCRIPTIONS,
   FIGHTING_STYLES,
   fightingStyleDescription,

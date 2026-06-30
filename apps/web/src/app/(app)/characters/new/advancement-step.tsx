@@ -8,7 +8,9 @@ import {
   fightingStylePickLevel,
   grantsAsiAtLevel,
   isSpellcastingClasses,
+  needsFightingStyleForLevel,
   subclassPickLevel,
+  featureChoicesCompleteForLevels,
   type AbilityScores,
   type ClassLevel,
   type HpMethod,
@@ -24,6 +26,7 @@ import {
   FightingStylePicker,
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
+import { ClassFeatureChoicePanel } from "@/components/character-creation/class-feature-choices";
 import {
   CodexSpellAddPicker,
 } from "@/components/character-library-pickers";
@@ -41,6 +44,9 @@ export function AdvancementStep({
   abilityScores,
   advances,
   onChange,
+  featureChoices,
+  onFeatureChoices,
+  startingSubclass = "",
   spells,
   onAddSpell,
   onFinished,
@@ -51,6 +57,9 @@ export function AdvancementStep({
   abilityScores: AbilityScores;
   advances: LevelAdvanceChoice[];
   onChange: (advances: LevelAdvanceChoice[]) => void;
+  featureChoices: Record<string, string>;
+  onFeatureChoices: (choices: Record<string, string>) => void;
+  startingSubclass?: string;
   spells?: CharacterSpell[];
   onAddSpell?: (spell: CharacterSpell) => void;
   /** Called when the user completes the final level in this step. */
@@ -66,8 +75,15 @@ export function AdvancementStep({
   const needsAsi = grantsAsiAtLevel(className, currentLevel);
   const needsSubclass = subclassPickLevel(className) === currentLevel;
   const needsFightingStyle =
-    fightingStylePickLevel(className) === currentLevel;
+    fightingStylePickLevel(className) === currentLevel &&
+    needsFightingStyleForLevel(className, currentLevel, featureChoices);
   const features = classFeaturesForLevel(className, currentLevel);
+  const subclassForLevel = (level: number): string | undefined => {
+    const pick = subclassPickLevel(className);
+    if (pick == null || level < pick) return undefined;
+    if (pick === 1) return startingSubclass;
+    return advances.find((a) => a.level === pick)?.subclass;
+  };
 
   const characterClasses: ClassLevel[] = useMemo(
     () => [{ class: className, level: currentLevel }],
@@ -101,8 +117,17 @@ export function AdvancementStep({
     needsSubclass && !(current?.subclass?.trim().length ?? 0);
   const fightingStyleInvalid =
     needsFightingStyle && !(current?.fightingStyle?.trim().length ?? 0);
+  const featureChoicesInvalid = !featureChoicesCompleteForLevels(
+    className,
+    [currentLevel],
+    featureChoices,
+    subclassForLevel,
+  );
   const stepBlocked =
-    asiFeatInvalid || subclassInvalid || fightingStyleInvalid;
+    asiFeatInvalid ||
+    subclassInvalid ||
+    fightingStyleInvalid ||
+    featureChoicesInvalid;
 
   const hpPreview =
     hpMethod === "average"
@@ -210,6 +235,14 @@ export function AdvancementStep({
         />
       )}
 
+      <ClassFeatureChoicePanel
+        className={className}
+        level={currentLevel}
+        subclass={subclassForLevel(currentLevel)}
+        choices={featureChoices}
+        onChange={onFeatureChoices}
+      />
+
       {needsFightingStyle && (
         <FightingStylePicker
           className={className}
@@ -276,8 +309,16 @@ export function advancementComplete(
   className: string,
   startingLevel: number,
   advances: LevelAdvanceChoice[],
+  featureChoices: Record<string, string> = {},
+  startingSubclass = "",
 ): boolean {
   if (startingLevel <= 1) return true;
+  const subclassForLevel = (level: number): string | undefined => {
+    const pick = subclassPickLevel(className);
+    if (pick == null || level < pick) return undefined;
+    if (pick === 1) return startingSubclass;
+    return advances.find((a) => a.level === pick)?.subclass;
+  };
   for (let l = 2; l <= startingLevel; l += 1) {
     const row = advances.find((a) => a.level === l);
     if (!row) return false;
@@ -289,7 +330,21 @@ export function advancementComplete(
     if (subclassPickLevel(className) === l && !row.subclass?.trim()) {
       return false;
     }
-    if (fightingStylePickLevel(className) === l && !row.fightingStyle?.trim()) {
+    if (
+      fightingStylePickLevel(className) === l &&
+      needsFightingStyleForLevel(className, l, featureChoices) &&
+      !row.fightingStyle?.trim()
+    ) {
+      return false;
+    }
+    if (
+      !featureChoicesCompleteForLevels(
+        className,
+        [l],
+        featureChoices,
+        subclassForLevel,
+      )
+    ) {
       return false;
     }
   }

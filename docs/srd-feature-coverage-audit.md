@@ -31,7 +31,7 @@
 | Playing the Game — Actions (12 standard) | n/a | Dash/Disengage/Dodge/Help/Hide ✅; Grapple/Shove/Use Object etc. ✗ | 🟡 | SRD-FID-14 (done); two-weapon/unarmed/shove/grapple still open |
 | Playing the Game — Combat order | n/a | initiative/turns/rounds/surprise ✅ | 🟡 | SRD-FID-17 done |
 | Playing the Game — Movement/position | n/a | grid/LOS/OA/cover ✅; **difficult terrain** ✅ | 🟢 | SRD-FID-18 done |
-| Playing the Game — Damage/Healing | n/a | HP/crit/heal/death saves ✅; **resist/vuln/immunity** ✗; temp-HP grant ✗ | 🟡 | SRD-FID-19, ENG-8 |
+| Playing the Game — Damage/Healing | n/a | HP/crit/heal/death saves ✅; **resist/vuln/immunity** ✅; temp-HP grant ✅ | 🟢 | SRD-FID-19 done |
 | Conditions (15) | declared ✅ | ~9 accurate, ~6 simplified | 🟡 | SRD-FID-3, SRD-FID-20 |
 | Character Creation / Advancement | ✅ | XP/HP/ASI/multiclass ✅; **background ASI** ✅ | 🟢 | SRD-FID-2 **Done** |
 | Classes (12) | catalog ✅ | features mostly display-only (2 wired) | 🟡 | SRD-FID-21 |
@@ -115,7 +115,7 @@ Work end-to-end with deterministic math + tests:
 |---|---|---|---|
 | SRD-FID-16 | Saving throws | d20 + ability mod + **class save proficiency**, condition auto-fail/adv | skill proficiency not on entity yet |
 | SRD-FID-16 | Skill/tool/weapon proficiency | added when caller passes `proficient:true` | not stored on `EntityState`; engine can't self-derive |
-| SRD-FID-19 | Temp HP | soaks damage first | **no command/event to grant it** (False Life heals current HP) |
+| SRD-FID-19 | Temp HP | soaks damage first | **`grant_temp_hp` command + False Life** (SRD-FID-19) |
 | ENG-9 | Short rest / Hit Dice | emits `Rested`, optional heal | **no Hit Dice pool tracked** |
 | SRD-FID-20 | Grappled / Frightened / Blinded / Deafened / Petrified / Charmed | declared + core effect | escape contest, LOS gates, sight/hearing auto-fail, petrified resistances, etc. |
 | SRD-FID-21 | Class & subclass features | text + resource counters | only **2 of ~12** signature mechanics resolve (Sneak Attack, Rage damage/resist, Bardic Inspiration, Ki, Metamagic, Invocations = display-only); subclasses **0 mechanical** |
@@ -136,7 +136,7 @@ Work end-to-end with deterministic math + tests:
 | ID | Item | Notes |
 |---|---|---|
 | SRD-FID-18 | **Difficult terrain** movement cost | PR #330 — `SceneMap.difficultCells`; `movementCostFeet` doubles entered squares in handler + projection. |
-| SRD-FID-19 | **Resistance / Vulnerability / Immunity** | damage types logged but never multiplied (explicitly deferred in `combat/conditions.ts`) |
+| SRD-FID-19 | **Resistance / Vulnerability / Immunity** | PR TBD — `adjustDamageAmount` on entity damage lists across damage paths |
 | ENG-8 | **Instant death / massive damage**, crit-doubles-death-failures, Stabilize action | partially overlaps SRD-FID-13 |
 | SRD-FID-30 | **Mounted combat**, **Underwater combat** | |
 | SRD-FID-14 | **Two-weapon fighting**, **unarmed strike** rules, **Shove**, **Grapple action** | conditions exist; actions don't |

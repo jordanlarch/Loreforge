@@ -155,5 +155,14 @@ export function createEntityState(init: EntityInit): EntityState {
         }
       : {}),
     ...(init.coatedPoisonSlug ? { coatedPoisonSlug: init.coatedPoisonSlug } : {}),
+    ...(init.damageResistances?.length
+      ? { damageResistances: [...init.damageResistances] }
+      : {}),
+    ...(init.damageVulnerabilities?.length
+      ? { damageVulnerabilities: [...init.damageVulnerabilities] }
+      : {}),
+    ...(init.damageImmunities?.length
+      ? { damageImmunities: [...init.damageImmunities] }
+      : {}),
   };
 }

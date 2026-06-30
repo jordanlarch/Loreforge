@@ -66,6 +66,7 @@ import {
   spellDurationRounds,
 } from "../combat/effects";
 import { coverAcBonusFromLine } from "../combat/cover";
+import { adjustDamageAmount } from "../combat/damage";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
   Ability,
@@ -133,6 +134,7 @@ import {
   type ApplyConditionCommand,
   type ApplyDamageCommand,
   type ApplyHealingCommand,
+  type GrantTempHpCommand,
   type AttackCommand,
   type CastSpellCommand,
   type DispelMagicCommand,
@@ -365,7 +367,8 @@ function handleApplyDamage(
     return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
   }
   const scope = cmd.scope ?? `damage:${cmd.target}`;
-  const { amount, rollEvent } = resolveAmount(cmd.source, scope, ctx);
+  const { amount: rawAmount, rollEvent } = resolveAmount(cmd.source, scope, ctx);
+  const amount = adjustDamageAmount(rawAmount, cmd.damageType, target);
 
   const fromTemp = Math.min(target.hp.temp, amount);
   const toCurrent = amount - fromTemp;
@@ -433,6 +436,42 @@ function handleApplyHealing(
     accepted: true,
     events,
     summary: { target: cmd.target, amount, hpAfter },
+  };
+}
+
+function handleGrantTempHp(
+  cmd: GrantTempHpCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const target = ctx.world.entities[cmd.target];
+  if (!target) {
+    return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
+  }
+  if (target.dead) {
+    return reject("TARGET_DEAD", `${target.name} is dead and cannot gain temp HP.`);
+  }
+  const scope = cmd.scope ?? `temp-hp:${cmd.target}`;
+  const { amount, rollEvent } = resolveAmount(cmd.source, scope, ctx);
+  const tempAfter = Math.max(target.hp.temp, amount);
+
+  const events = [
+    ...(rollEvent ? [rollEvent] : []),
+    {
+      type: "TempHpGranted" as const,
+      ...meta(ctx),
+      payload: {
+        target: cmd.target,
+        amount,
+        tempBefore: target.hp.temp,
+        tempAfter,
+      },
+    },
+  ];
+
+  return {
+    accepted: true,
+    events,
+    summary: { target: cmd.target, amount, tempAfter },
   };
 }
 
@@ -1143,6 +1182,7 @@ function handleAttack(
       events.push(rollDiceEvent(ctx, extra));
       damage += Math.max(0, extra.total);
     }
+    damage = adjustDamageAmount(damage, cmd.damage.type, target);
     const fromTemp = Math.min(target.hp.temp, damage);
     hpAfter = Math.max(0, target.hp.current - (damage - fromTemp));
   }
@@ -2038,10 +2078,11 @@ function rollSpellHealing(
 function applyLedgerDamage(
   ctx: ExecutionContext,
   target: EntityState,
-  amount: number,
+  rawAmount: number,
   damageType: string,
   ledger: HpLedger,
 ): DraftEvent[] {
+  const amount = adjustDamageAmount(rawAmount, damageType, target);
   const entry = ledgerEntry(ctx.world, target.id, ledger);
   const hpBefore = entry.current;
   const fromTemp = Math.min(entry.temp, amount);
@@ -3013,33 +3054,61 @@ function handleCastSpell(
     }
     Object.assign(summary, { targets: targets.length, damage: totalDamage });
   } else if (spell.healing) {
-    // Healing (Cure Wounds, Healing Word): restore HP up to max, no overheal.
-    // Targets are validated above (a downed-but-not-dead ally is allowed).
-    let totalHealing = 0;
-    for (const targetId of targets) {
-      const target = ctx.world.entities[targetId]!;
-      const rolled = rollSpellHealing(
-        ctx,
-        spell,
-        caster,
-        extraLevels,
-        `spell-heal:${caster.id}:${targetId}`,
-      );
-      events.push(...rolled.events);
-      const hpAfter = Math.min(target.hp.max, target.hp.current + rolled.amount);
-      events.push({
-        type: "HealingApplied",
-        ...meta(ctx, caster.id),
-        payload: {
-          target: target.id,
-          amount: rolled.amount,
-          hpBefore: target.hp.current,
-          hpAfter,
-        },
-      });
-      totalHealing += rolled.amount;
+    if (spell.healing.temp) {
+      let totalTemp = 0;
+      for (const targetId of targets) {
+        const target = ctx.world.entities[targetId]!;
+        const rolled = rollSpellHealing(
+          ctx,
+          spell,
+          caster,
+          extraLevels,
+          `spell-temp-hp:${caster.id}:${targetId}`,
+        );
+        events.push(...rolled.events);
+        const tempAfter = Math.max(target.hp.temp, rolled.amount);
+        events.push({
+          type: "TempHpGranted",
+          ...meta(ctx, caster.id),
+          payload: {
+            target: target.id,
+            amount: rolled.amount,
+            tempBefore: target.hp.temp,
+            tempAfter,
+          },
+        });
+        totalTemp += rolled.amount;
+      }
+      Object.assign(summary, { targets: targets.length, tempHp: totalTemp });
+    } else {
+      // Healing (Cure Wounds, Healing Word): restore HP up to max, no overheal.
+      // Targets are validated above (a downed-but-not-dead ally is allowed).
+      let totalHealing = 0;
+      for (const targetId of targets) {
+        const target = ctx.world.entities[targetId]!;
+        const rolled = rollSpellHealing(
+          ctx,
+          spell,
+          caster,
+          extraLevels,
+          `spell-heal:${caster.id}:${targetId}`,
+        );
+        events.push(...rolled.events);
+        const hpAfter = Math.min(target.hp.max, target.hp.current + rolled.amount);
+        events.push({
+          type: "HealingApplied",
+          ...meta(ctx, caster.id),
+          payload: {
+            target: target.id,
+            amount: rolled.amount,
+            hpBefore: target.hp.current,
+            hpAfter,
+          },
+        });
+        totalHealing += rolled.amount;
+      }
+      Object.assign(summary, { targets: targets.length, healing: totalHealing });
     }
-    Object.assign(summary, { targets: targets.length, healing: totalHealing });
   } else if (spell.saveAgainst && !spell.damage) {
     const affected =
       spell.targeting === "area"
@@ -3163,6 +3232,8 @@ export function handleCommand(
       return handleApplyDamage(command, ctx);
     case "apply_healing":
       return handleApplyHealing(command, ctx);
+    case "grant_temp_hp":
+      return handleGrantTempHp(command, ctx);
     case "move_entity":
       return handleMoveEntity(command, ctx);
     case "relocate_entity":

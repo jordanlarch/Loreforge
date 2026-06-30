@@ -125,6 +125,8 @@ export type HealingComponent = {
    * (Cure Wounds, Healing Word). The modifier is added once, not per die.
    */
   addSpellMod?: boolean;
+  /** When true, grants temporary HP instead of restoring current HP (False Life). */
+  temp?: boolean;
 };
 
 export type CastingTime = {

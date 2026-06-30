@@ -3,6 +3,7 @@
  * coat_weapon / apply_poison / resolve_poison_tick — deterministic saves and effects.
  */
 import type { Condition } from "../combat/conditions";
+import { adjustDamageAmount } from "../combat/damage";
 import { isSaveProficient, saveRollTotal } from "../entities/abilities";
 import type { PoisonDefinition } from "../content/toolbox-definitions";
 import { getPoisonDefinition } from "../content/srd-poison-seeds";
@@ -90,7 +91,11 @@ function applyPoisonDamageAndConditions(
           mode: "normal",
         },
       });
-      const amount = Math.floor(dmgRoll.total * damageMultiplier);
+      const amount = adjustDamageAmount(
+        Math.floor(dmgRoll.total * damageMultiplier),
+        chunk.type,
+        entity,
+      );
       if (amount > 0) {
         const fromTemp = Math.min(entity.hp.temp, amount);
         const toCurrent = amount - fromTemp;
@@ -501,8 +506,9 @@ function resolveBurntOthurTick(
       mode: "normal",
     },
   });
-  const amount = dmgRoll.total;
-  const hpAfter = Math.max(0, entity.hp.current - amount);
+  const amount = adjustDamageAmount(dmgRoll.total, "poison", entity);
+  const fromTemp = Math.min(entity.hp.temp, amount);
+  const hpAfter = Math.max(0, entity.hp.current - (amount - fromTemp));
   events.push({
     type: "DamageDealt",
     ...poisonMeta(ctx, "system"),

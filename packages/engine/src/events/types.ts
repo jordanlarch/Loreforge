@@ -64,6 +64,13 @@ export type HealingAppliedPayload = {
   hpAfter: number;
 };
 
+export type TempHpGrantedPayload = {
+  target: EntityRef;
+  amount: number;
+  tempBefore: number;
+  tempAfter: number;
+};
+
 export type EntityMovedPayload = {
   entity: EntityRef;
   from?: GridPosition;
@@ -463,6 +470,7 @@ export type EngineEvent =
   | (EventMeta & { type: "DiceRolled"; payload: DiceRolledPayload })
   | (EventMeta & { type: "DamageDealt"; payload: DamageDealtPayload })
   | (EventMeta & { type: "HealingApplied"; payload: HealingAppliedPayload })
+  | (EventMeta & { type: "TempHpGranted"; payload: TempHpGrantedPayload })
   | (EventMeta & { type: "EntityMoved"; payload: EntityMovedPayload })
   | (EventMeta & {
       type: "EntityRelocated";

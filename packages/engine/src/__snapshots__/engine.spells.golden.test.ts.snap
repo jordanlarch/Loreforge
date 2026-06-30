@@ -378,7 +378,7 @@ exports[`Spells: golden resolution snapshots > resolves every authored spell to 
     "attacks": 0,
     "damageDealt": 0,
     "damagedTargets": 0,
-    "healingApplied": 7,
+    "healingApplied": 0,
     "saves": 0,
     "slotSpent": 1,
   },

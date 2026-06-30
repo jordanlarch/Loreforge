@@ -195,6 +195,8 @@ export type AbilityCheckCommand = {
   entity: EntityRef;
   ability: Ability;
   skill?: string;
+  /** When true, deafened creatures auto-fail (hearing-based checks). */
+  requiresHearing?: boolean;
   dc?: number;
   proficient?: boolean;
   mode?: RollMode;
@@ -451,6 +453,14 @@ export type HideCommand = {
   mode?: RollMode;
 };
 
+/** Spend your action to escape a grapple (Athletics or Acrobatics vs grappler). */
+export type EscapeGrappleCommand = {
+  type: "escape_grapple";
+  entity: EntityRef;
+  useAcrobatics?: boolean;
+  mode?: RollMode;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -506,7 +516,8 @@ export type Command =
   | DisengageCommand
   | DodgeCommand
   | HelpCommand
-  | HideCommand;
+  | HideCommand
+  | EscapeGrappleCommand;
 
 export type CommandType = Command["type"];
 
@@ -567,6 +578,7 @@ export type ValidationCode =
   | "BURNING_NOT_FOUND"
   | "BURNING_ALREADY_ACTIVE"
   | "BURNING_NOT_ACTIVE"
+  | "NOT_GRAPPLED"
   | "NOT_A_SPELLCASTER"
   | "NO_SPELL_SLOT"
   | "NO_MAGIC_TO_DISPEL"

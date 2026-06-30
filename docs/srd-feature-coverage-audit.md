@@ -117,7 +117,7 @@ Work end-to-end with deterministic math + tests:
 | SRD-FID-16 | Skill/tool/weapon proficiency | added when caller passes `proficient:true` | not stored on `EntityState`; engine can't self-derive |
 | SRD-FID-19 | Temp HP | soaks damage first | **`grant_temp_hp` command + False Life** (SRD-FID-19) |
 | ENG-9 | Short rest / Hit Dice | emits `Rested`, optional heal | **no Hit Dice pool tracked** |
-| SRD-FID-20 | Grappled / Frightened / Blinded / Deafened / Petrified / Charmed | declared + core effect | escape contest, LOS gates, sight/hearing auto-fail, petrified resistances, etc. |
+| SRD-FID-20 | Grappled / Frightened / Blinded / Deafened / Petrified / Charmed | declared + core effect | **Done** — `escape_grapple`; frightened LOS gates; blinded/deafened auto-fail; petrified resistances. Charmed social-only facets still deferred. |
 | SRD-FID-21 | Class & subclass features | text + resource counters | only **2 of ~12** signature mechanics resolve (Sneak Attack, Rage damage/resist, Bardic Inspiration, Ki, Metamagic, Invocations = display-only); subclasses **0 mechanical** |
 | SRD-FID-22 | Species traits | full trait text | **0 mechanical** (Darkvision, Breath Weapon, Lucky, Powerful Build, lineage spells…) |
 | SRD-FID-23 | Feats | full Codex catalog | **8 mechanical**; rest recorded but inert |

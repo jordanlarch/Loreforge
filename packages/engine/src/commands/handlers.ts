@@ -38,7 +38,9 @@ import { parseDice } from "../rng/dice";
 import {
   attackedMode,
   charmedSources,
+  checkAutoFail,
   checkMode,
+  checkModeForEntity,
   combineMode,
   critsWhenAdjacent,
   effectiveSpeed,
@@ -48,6 +50,7 @@ import {
   isIncapacitated,
   isProne,
   ownAttackMode,
+  ownAttackModeForEntity,
   saveResolution,
   type RollAdjust,
 } from "../combat/conditions";
@@ -124,6 +127,7 @@ import {
   handleDash,
   handleDisengage,
   handleDodge,
+  handleEscapeGrapple,
   handleHelp,
   handleHide,
 } from "./standard-action-handlers";
@@ -1112,7 +1116,7 @@ function handleAttack(
   // from attacking this target's conditions + prone positioning.
   const mode = combineMode(
     (cmd.mode ?? "normal") as RollAdjust,
-    ownAttackMode(attacker.conditions),
+    ownAttackModeForEntity(attacker, ctx.world),
     attackedMode(target.conditions),
     helpAttackMode(attacker, cmd.target),
     attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
@@ -1405,9 +1409,44 @@ function handleAbilityCheck(
     return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
   }
 
+  if (checkAutoFail(entity.conditions, cmd.skill, {
+    requiresHearing: cmd.requiresHearing,
+  })) {
+    return {
+      accepted: true,
+      events: [
+        {
+          type: "CheckRolled",
+          ...meta(ctx, cmd.entity),
+          payload: {
+            entity: cmd.entity,
+            ability: cmd.ability,
+            ...(cmd.skill ? { skill: cmd.skill } : {}),
+            ...(cmd.dc !== undefined ? { dc: cmd.dc } : {}),
+            mode: "normal",
+            natural: 1,
+            total: 0,
+            proficient: cmd.proficient ?? false,
+            autoFail: true,
+            ...(cmd.dc !== undefined ? { success: false } : {}),
+          },
+        },
+      ],
+      summary: {
+        entity: cmd.entity,
+        ability: cmd.ability,
+        ...(cmd.skill ? { skill: cmd.skill } : {}),
+        total: 0,
+        autoFail: true,
+        ...(cmd.dc !== undefined ? { dc: cmd.dc, success: false } : {}),
+        proficient: cmd.proficient ?? false,
+      },
+    };
+  }
+
   const mode = combineMode(
     (cmd.mode ?? "normal") as RollAdjust,
-    checkMode(entity.conditions),
+    checkModeForEntity(entity, ctx.world),
     helpCheckMode(entity),
   ) as RollMode;
   const roll = ctx.roll("1d20", `check:${cmd.entity}:${cmd.ability}`, mode);
@@ -2834,7 +2873,7 @@ function handleCastSpell(
     }
     const mode = combineMode(
       (cmd.mode ?? "normal") as RollAdjust,
-      ownAttackMode(caster.conditions),
+      ownAttackModeForEntity(caster, ctx.world),
       attackedMode(target.conditions),
       helpAttackMode(caster, target.id),
       attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
@@ -3330,5 +3369,7 @@ export function handleCommand(
       return handleHelp(command, ctx);
     case "hide":
       return handleHide(command, ctx);
+    case "escape_grapple":
+      return handleEscapeGrapple(command, ctx);
   }
 }

@@ -86,6 +86,8 @@ export type ActionEconomyState = {
   freeInteractionUsed: boolean;
   /** Rogue Sneak Attack — once per turn. */
   sneakAttackUsed?: boolean;
+  /** Monk Stunning Strike — once per turn. */
+  stunningStrikeUsed?: boolean;
 };
 
 /** Canonical entity record held in the WorldState projection. */
@@ -190,6 +192,10 @@ export type EntityState = {
   damageResistances?: DamageType[];
   damageVulnerabilities?: DamageType[];
   damageImmunities?: DamageType[];
+  /** Class-feature picks (Metamagic, Invocations, …) for combat resolution. */
+  featureChoices?: Record<string, string>;
+  /** Spent class-feature pools (Focus Points, Sorcery Points, Rage uses, …). */
+  resourceUses?: Record<string, boolean[]>;
 };
 
 /** Ongoing poison tracked on an entity (injury or ingested after delivery). */
@@ -365,4 +371,6 @@ export type EntityInit = {
   damageResistances?: DamageType[];
   damageVulnerabilities?: DamageType[];
   damageImmunities?: DamageType[];
+  featureChoices?: Record<string, string>;
+  resourceUses?: Record<string, boolean[]>;
 };

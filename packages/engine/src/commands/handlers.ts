@@ -71,12 +71,20 @@ import {
   stripOneBardicInspiration,
 } from "../combat/effects";
 import {
+  agonizingBlastBonus,
   classLevel,
+  empoweredRerollCount,
+  hasEldritchInvocation,
+  METAMAGIC_OPTIONS,
+  selectedMetamagicOptions,
   sneakAttackEligible,
   sneakAttackNotation,
+  stunningStrikeSaveDc,
+  type MetamagicOptionId,
 } from "../combat/class-feature-mechanics";
 import { coverAcBonusFromLine } from "../combat/cover";
 import { adjustDamageAmount } from "../combat/damage";
+import { featureResourceKey, spendEntityFeaturePool } from "../entities/feature-resources";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
   Ability,
@@ -1220,6 +1228,38 @@ function handleAttack(
     hpAfter = Math.max(0, target.hp.current - (damage - fromTemp));
   }
 
+  let stunningStrikeAttempted = false;
+  let targetStunned = false;
+  const focusKey = featureResourceKey("Monk", 2, "monk-s-focus");
+  if (
+    hit &&
+    cmd.stunningStrike &&
+    cmd.monkWeaponOrUnarmed &&
+    classLevel(attacker.classes, "Monk") >= 5 &&
+    !econ?.stunningStrikeUsed
+  ) {
+    const spent = spendEntityPoolPoints(ctx, attacker, focusKey, 2, 1);
+    if (spent.ok) {
+      stunningStrikeAttempted = true;
+      events.push(...spent.events);
+      const dc = stunningStrikeSaveDc(attacker);
+      const save = rollSpellSave(ctx, target, "con", dc);
+      events.push(...save.events);
+      if (!save.success) {
+        targetStunned = true;
+        events.push({
+          type: "ConditionApplied",
+          ...meta(ctx, cmd.attacker),
+          payload: {
+            target: cmd.target,
+            condition: "stunned",
+            source: cmd.attacker,
+          },
+        });
+      }
+    }
+  }
+
   events.push({
     type: "AttackResolved",
     ...meta(ctx, cmd.attacker),
@@ -1234,6 +1274,7 @@ function handleAttack(
       ...(damage !== undefined ? { damage } : {}),
       ...(sneakAttackDamage !== undefined ? { sneakAttackDamage } : {}),
       ...(hadBardicInspiration ? { bardicInspirationUsed: true } : {}),
+      ...(stunningStrikeAttempted ? { stunningStrike: true, targetStunned } : {}),
     },
   });
 
@@ -1269,6 +1310,7 @@ function handleAttack(
         ...(sneakAttackDamage !== undefined && sneakAttackDamage > 0
           ? { sneakAttack: true }
           : {}),
+        ...(stunningStrikeAttempted ? { stunningStrike: true } : {}),
       },
     });
     attacksLeft = Math.max(0, econ.attacks.total - (econ.attacks.used + 1));
@@ -2210,7 +2252,11 @@ function rollSpellSave(
   target: EntityState,
   ability: Ability,
   dc: number,
-  opts?: { coverOrigin?: GridPosition; ignoreCover?: boolean },
+  opts?: {
+    coverOrigin?: GridPosition;
+    ignoreCover?: boolean;
+    modeOverride?: RollAdjust;
+  },
 ): { success: boolean; events: DraftEvent[] } {
   const { autoFail, mode: condMode } = saveResolution(
     ability,
@@ -2237,7 +2283,11 @@ function rollSpellSave(
       ],
     };
   }
-  const mode = combineMode(condMode, dodgeMode);
+  const mode = combineMode(
+    opts?.modeOverride ?? "normal",
+    condMode,
+    dodgeMode,
+  );
   const roll = ctx.roll("1d20", `save:${target.id}:${ability}`, mode);
   const natural = roll.total;
   let coverSave = 0;
@@ -2279,6 +2329,42 @@ function rollSpellSave(
       },
     ],
   };
+}
+
+function featurePoolSpentEvent(
+  ctx: ExecutionContext,
+  entityId: EntityRef,
+  featureKey: string,
+  resourceUses: boolean[],
+): DraftEvent {
+  return {
+    type: "FeaturePoolSpent",
+    ...meta(ctx, entityId),
+    payload: { entity: entityId, featureKey, resourceUses },
+  };
+}
+
+function spendEntityPoolPoints(
+  ctx: ExecutionContext,
+  entity: EntityState,
+  featureKey: string,
+  catalogUses: number,
+  count: number,
+): { ok: true; events: DraftEvent[] } | { ok: false; message: string } {
+  let resourceUses = entity.resourceUses ?? {};
+  const events: DraftEvent[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const working: EntityState = { ...entity, resourceUses };
+    const spent = spendEntityFeaturePool(working, featureKey, catalogUses);
+    if (!spent.ok) {
+      return { ok: false, message: spent.message };
+    }
+    resourceUses = spent.resourceUses;
+    events.push(
+      featurePoolSpentEvent(ctx, entity.id, featureKey, spent.resourceUses[featureKey]!),
+    );
+  }
+  return { ok: true, events };
 }
 
 function handleCastSpell(
@@ -2378,6 +2464,28 @@ function handleCastSpell(
     }
   }
   const extraLevels = slotLevel - spell.level;
+
+  let metamagicId: MetamagicOptionId | undefined;
+  let metamagicCost = 0;
+  let heightenedFirstSave = false;
+  const sorceryKey = featureResourceKey("Sorcerer", 2, "font-of-magic");
+  if (cmd.metamagic) {
+    if (!(cmd.metamagic in METAMAGIC_OPTIONS)) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `Unknown Metamagic option "${cmd.metamagic}".`,
+      );
+    }
+    metamagicId = cmd.metamagic as MetamagicOptionId;
+    if (!selectedMetamagicOptions(caster.featureChoices).includes(metamagicId)) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        `${caster.name} does not know ${METAMAGIC_OPTIONS[metamagicId].name}.`,
+      );
+    }
+    metamagicCost = METAMAGIC_OPTIONS[metamagicId].cost;
+    heightenedFirstSave = metamagicId === "heightened";
+  }
 
   // Resolve the affected-target list. Projectile spells (Magic Missile) take one
   // target entry per dart; single/multi spells take one entry per target.
@@ -2844,9 +2952,25 @@ function handleCastSpell(
           ? areaAffected.map((e) => e.id)
           : [...targets],
         ...(usesBonusAction ? { bonusAction: true } : {}),
+        ...(metamagicId
+          ? { metamagic: metamagicId, sorceryPointsSpent: metamagicCost }
+          : {}),
       },
     },
   ];
+  if (metamagicCost > 0) {
+    const spent = spendEntityPoolPoints(
+      ctx,
+      caster,
+      sorceryKey,
+      2,
+      metamagicCost,
+    );
+    if (!spent.ok) {
+      return reject("ACTION_UNAVAILABLE", spent.message);
+    }
+    events.push(...spent.events);
+  }
   if (!isCantrip) {
     events.push({
       type: "SpellSlotExpended",
@@ -2987,6 +3111,32 @@ function handleCastSpell(
       events.push(...rolled.events);
       damage = rolled.amount;
       damageRolls = rolled.rolls;
+      if (metamagicId === "empowered" && spell.damage?.[0]) {
+        const rerolls = empoweredRerollCount(caster.abilityScores);
+        for (let i = 0; i < rerolls; i += 1) {
+          const reroll = ctx.roll(
+            spell.damage[0].dice,
+            `metamagic-empowered:${caster.id}:${i}`,
+          );
+          events.push(rollDiceEvent(ctx, reroll));
+          damage += Math.max(0, reroll.total);
+        }
+      }
+      if (
+        spell.id === "eldritch-blast" &&
+        hasEldritchInvocation(caster.featureChoices, "agonizing-blast")
+      ) {
+        const bonus = agonizingBlastBonus(caster.abilityScores);
+        if (bonus > 0) {
+          damage += bonus;
+          if (damageRolls[0]) {
+            damageRolls = [
+              { ...damageRolls[0], amount: damageRolls[0].amount + bonus },
+              ...damageRolls.slice(1),
+            ];
+          }
+        }
+      }
     }
     events.push({
       type: "AttackResolved",
@@ -3039,7 +3189,7 @@ function handleCastSpell(
     events.push(...rolled.events);
     let totalDamage = 0;
     let failures = 0;
-    for (const target of affected) {
+    for (const [index, target] of affected.entries()) {
       const saveOrigin =
         spell.targeting === "area" && cmd.origin
           ? cmd.origin
@@ -3047,6 +3197,9 @@ function handleCastSpell(
       const save = rollSpellSave(ctx, target, ability, dc, {
         coverOrigin: saveOrigin,
         ignoreCover: spell.saveAgainst.ignoreCover,
+        ...(heightenedFirstSave && index === 0
+          ? { modeOverride: "disadvantage" as RollAdjust }
+          : {}),
       });
       events.push(...save.events);
       if (!save.success) {

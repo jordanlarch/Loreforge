@@ -2,9 +2,15 @@
  * Class-feature resource tracking — spend uses and refresh on rest.
  * Sheet meta stores `resourceUses[featureKey]` as boolean[] (true = spent).
  */
+import {
+  focusPointMaximum,
+  sorceryPointMaximum,
+  classLevel,
+} from "../combat/class-feature-mechanics";
 import type { ClassFeature } from "./class-features";
 import { classFeaturesForLevel } from "./class-features";
 import type { ClassLevel } from "./types";
+import type { EntityState } from "./types";
 
 /** Stable key for a class feature row on the character sheet. */
 export function featureResourceKey(
@@ -52,8 +58,74 @@ export function remainingFeatureUses(
   used: boolean[] | undefined,
   total: number,
 ): number {
-  const slots = used ?? Array.from({ length: total }, () => false);
+  const slots = normalizeUseSlots(used, total);
   return slots.filter((s) => !s).length;
+}
+
+/** Normalize a slot array to the expected pool size. */
+export function normalizeUseSlots(
+  used: boolean[] | undefined,
+  total: number,
+): boolean[] {
+  const slots = [...(used ?? [])];
+  while (slots.length < total) slots.push(false);
+  if (slots.length > total) return slots.slice(0, total);
+  return slots;
+}
+
+/** Dynamic pool size for Focus Points / Sorcery Points; falls back to catalog `uses`. */
+export function featurePoolSize(
+  featureKey: string,
+  classes: ClassLevel[],
+): number | undefined {
+  const parsed = parseFeatureResourceKey(featureKey);
+  if (!parsed) return undefined;
+  if (parsed.featureId === "monk-s-focus") {
+    return focusPointMaximum(classLevel(classes, "Monk"));
+  }
+  if (parsed.featureId === "font-of-magic") {
+    return sorceryPointMaximum(classLevel(classes, "Sorcerer"));
+  }
+  return undefined;
+}
+
+export function effectiveFeaturePoolSize(
+  featureKey: string,
+  classes: ClassLevel[],
+  catalogUses: number | undefined,
+): number {
+  return featurePoolSize(featureKey, classes) ?? catalogUses ?? 0;
+}
+
+/** Spend one use from an entity's feature pool; returns updated resourceUses map. */
+export function spendEntityFeaturePool(
+  entity: EntityState,
+  featureKey: string,
+  catalogUses: number,
+): { ok: true; resourceUses: Record<string, boolean[]> } | { ok: false; message: string } {
+  const poolSize = effectiveFeaturePoolSize(
+    featureKey,
+    entity.classes,
+    catalogUses,
+  );
+  const remaining = remainingFeatureUses(
+    entity.resourceUses?.[featureKey],
+    poolSize,
+  );
+  if (remaining <= 0) {
+    return { ok: false, message: "No uses remaining." };
+  }
+  const spent = spendFeatureUse(entity.resourceUses?.[featureKey], poolSize);
+  if (!spent) {
+    return { ok: false, message: "No uses remaining." };
+  }
+  return {
+    ok: true,
+    resourceUses: {
+      ...(entity.resourceUses ?? {}),
+      [featureKey]: spent,
+    },
+  };
 }
 
 /**
@@ -63,7 +135,7 @@ export function spendFeatureUse(
   used: boolean[] | undefined,
   total: number,
 ): boolean[] | null {
-  const slots = [...(used ?? Array.from({ length: total }, () => false))];
+  const slots = normalizeUseSlots(used, total);
   const idx = slots.findIndex((s) => !s);
   if (idx < 0) return null;
   slots[idx] = true;

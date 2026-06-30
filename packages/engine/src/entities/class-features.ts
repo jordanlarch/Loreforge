@@ -382,6 +382,7 @@ const SORCERER: LevelMap = {
     feat(
       "Font of Magic",
       "Sorcery Points fuel Metamagic and flexible slots; regain all on Long Rest.",
+      { uses: 2, recharge: "long_rest" },
     ),
     feat("Metamagic", "Choose two Metamagic options (more at 10 and 17)."),
   ],

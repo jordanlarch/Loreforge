@@ -562,7 +562,23 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         if (event.payload.sneakAttack) {
           ae = { ...ae, sneakAttackUsed: true };
         }
+        if (event.payload.stunningStrike) {
+          ae = { ...ae, stunningStrikeUsed: true };
+        }
         next.entities[entity.id] = { ...entity, actionEconomy: ae };
+      }
+      break;
+    }
+    case "FeaturePoolSpent": {
+      const entity = next.entities[event.payload.entity];
+      if (entity) {
+        next.entities[entity.id] = {
+          ...entity,
+          resourceUses: {
+            ...(entity.resourceUses ?? {}),
+            [event.payload.featureKey]: [...event.payload.resourceUses],
+          },
+        };
       }
       break;
     }

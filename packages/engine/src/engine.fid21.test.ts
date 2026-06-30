@@ -34,6 +34,7 @@ async function place(
   id: string,
   position: GridPosition,
   classes: { class: string; level: number }[],
+  extra: Record<string, unknown> = {},
 ) {
   await engine.execute(CAMPAIGN, {
     type: "create_entity",
@@ -48,6 +49,7 @@ async function place(
       classes,
       sceneId: "s:arena",
       position,
+      ...extra,
     },
   });
 }
@@ -123,5 +125,140 @@ describe("SRD-FID-21: Bardic Inspiration", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.allyEffect?.effect.modifier.type).toBe("bardic_inspiration");
+  });
+});
+
+describe("SRD-FID-21: Monk Focus & Stunning Strike", () => {
+  it("Patient Defense spends a Focus Point", () => {
+    const key = featureResourceKey("Monk", 2, "monk-s-focus");
+    const result = useClassFeature({
+      characterId: "pc:monk",
+      classes: [{ class: "Monk", level: 5 }],
+      featureKey: key,
+      resourceUses: {},
+      currentHp: 20,
+      maxHp: 30,
+      rng: createSeededRng("focus-pd"),
+      monkFocusSpend: "patient_defense",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.startDodging).toBe(true);
+  });
+
+  it("Stunning Strike spends Focus and can Stun on failed save", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:monk", { x: 0, y: 0 }, [{ class: "Monk", level: 5 }], {
+      abilityScores: { ...ABILITIES, wis: 16 },
+      resourceUses: {},
+    });
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], {
+      abilityScores: { ...ABILITIES, con: 8 },
+    });
+    const attack = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:monk",
+      target: "npc:foe",
+      attackBonus: 20,
+      damage: { notation: "1d4", type: "bludgeoning" },
+      stunningStrike: true,
+      monkWeaponOrUnarmed: true,
+    });
+    expect(attack.accepted).toBe(true);
+    if (!attack.accepted) return;
+    const resolved = attack.events.find((e) => e.type === "AttackResolved") as {
+      payload: { stunningStrike?: boolean; hit: boolean };
+    };
+    expect(resolved.payload.hit).toBe(true);
+    expect(resolved.payload.stunningStrike).toBe(true);
+    const poolSpent = attack.events.some((e) => e.type === "FeaturePoolSpent");
+    expect(poolSpent).toBe(true);
+  });
+});
+
+describe("SRD-FID-21: Metamagic & Invocations", () => {
+  it("Agonizing Blast adds Charisma modifier to Eldritch Blast", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    const CHA_SCORES = { ...ABILITIES, cha: 18 };
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:lock",
+        kind: "character",
+        name: "Warlock",
+        abilityScores: CHA_SCORES,
+        maxHp: 30,
+        baseAc: 12,
+        classes: [{ class: "Warlock", level: 5 }],
+        sceneId: "s:arena",
+        position: { x: 0, y: 0 },
+        spellcasting: { ability: "cha" },
+        featureChoices: {
+          "Warlock:1:eldritch-invocations": "Agonizing Blast",
+        },
+      },
+    });
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 1, maxHp: 100 });
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:lock",
+      spellId: "eldritch-blast",
+      slotLevel: 0,
+      targets: ["npc:foe"],
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    const resolved = cast.events.find((e) => e.type === "AttackResolved") as {
+      payload: { damage?: number; hit: boolean };
+    };
+    expect(resolved.payload.hit).toBe(true);
+    expect(resolved.payload.damage).toBeGreaterThanOrEqual(11);
+  });
+
+  it("Heightened Spell spends Sorcery Points and imposes save disadvantage", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:sorc",
+        kind: "character",
+        name: "Sorcerer",
+        abilityScores: { ...ABILITIES, cha: 16 },
+        maxHp: 30,
+        baseAc: 12,
+        classes: [{ class: "Sorcerer", level: 5 }],
+        sceneId: "s:arena",
+        position: { x: 0, y: 0 },
+        spellcasting: { ability: "cha" },
+        featureChoices: {
+          "Sorcerer:2:metamagic": "Heightened Spell, Empowered Spell",
+        },
+        resourceUses: {},
+      },
+    });
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 10, maxHp: 100 });
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:sorc",
+      spellId: "shatter",
+      slotLevel: 2,
+      targets: [],
+      origin: { x: 1, y: 0 },
+      metamagic: "heightened",
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    const spellCast = cast.events.find((e) => e.type === "SpellCast") as {
+      payload: { metamagic?: string; sorceryPointsSpent?: number };
+    };
+    expect(spellCast.payload.metamagic).toBe("heightened");
+    expect(spellCast.payload.sorceryPointsSpent).toBe(2);
+    const save = cast.events.find((e) => e.type === "SaveRolled") as {
+      payload: { mode: string };
+    };
+    expect(save.payload.mode).toBe("disadvantage");
   });
 });

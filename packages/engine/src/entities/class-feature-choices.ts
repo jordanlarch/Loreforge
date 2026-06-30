@@ -160,6 +160,24 @@ const CHOICE_DEFS: ClassFeatureChoiceDef[] = [
     choose: 3,
     options: SKILLS,
   },
+  {
+    id: "metamagic",
+    featureName: "Metamagic",
+    label: "Metamagic options",
+    hint: "Choose two Metamagic options (Empowered, Heightened, …).",
+    kind: "multi",
+    choose: 2,
+    options: ["Empowered Spell", "Heightened Spell"],
+  },
+  {
+    id: "eldritch-invocations",
+    featureName: "Eldritch Invocations",
+    label: "Eldritch Invocations",
+    hint: "Choose invocations such as Agonizing Blast or Devil's Sight.",
+    kind: "multi",
+    choose: 1,
+    options: ["Agonizing Blast", "Devil's Sight"],
+  },
 ];
 
 /** Registry keyed by `${ClassName}:${level}:${choiceId}`. */
@@ -171,6 +189,8 @@ const CHOICES_BY_LEVEL: Record<string, ClassFeatureChoiceDef[]> = {
   "Barbarian:3": [CHOICE_DEFS[6]!],
   "Cleric:7": [CHOICE_DEFS[7]!],
   "Druid:7": [CHOICE_DEFS[8]!],
+  "Sorcerer:2": [CHOICE_DEFS[11]!],
+  "Warlock:1": [CHOICE_DEFS[12]!],
   "Any:3": [CHOICE_DEFS[9]!, CHOICE_DEFS[10]!],
 };
 

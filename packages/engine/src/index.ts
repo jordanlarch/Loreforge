@@ -132,12 +132,23 @@ export {
 } from "./combat/cover";
 export { adjustDamageAmount } from "./combat/damage";
 export {
+  agonizingBlastBonus,
   bardicInspirationDie,
   classLevel,
+  empoweredRerollCount,
+  focusPointMaximum,
+  hasEldritchInvocation,
+  martialArtsDie,
+  METAMAGIC_OPTIONS,
   rageDamageBonus,
+  selectedMetamagicOptions,
   sneakAttackDiceCount,
   sneakAttackEligible,
   sneakAttackNotation,
+  sorceryPointMaximum,
+  stunningStrikeSaveDc,
+  type EldritchInvocationId,
+  type MetamagicOptionId,
 } from "./combat/class-feature-mechanics";
 export {
   charmedSources,
@@ -261,11 +272,15 @@ export {
   type FightingStyleModifiers,
 } from "./entities/character-modifiers";
 export {
+  effectiveFeaturePoolSize,
+  featurePoolSize,
   featureRechargeMap,
   featureResourceKey,
+  normalizeUseSlots,
   parseFeatureResourceKey,
   refreshResourceUsesOnRest,
   remainingFeatureUses,
+  spendEntityFeaturePool,
   spendFeatureUse,
 } from "./entities/feature-resources";
 
@@ -499,6 +514,7 @@ export {
   useClassFeature,
   type ClassFeatureActionKind,
   type FeatureUseResult,
+  type MonkFocusSpend,
 } from "./content/class-feature-actions";
 export { masteryFromOpen5eItemRaw, type Open5eMastery } from "./content/weapon-mastery-open5e";
 export {

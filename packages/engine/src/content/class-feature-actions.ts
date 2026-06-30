@@ -4,11 +4,13 @@
 import {
   bardicInspirationDie,
   classLevel,
+  martialArtsDie,
   rageDamageBonus,
 } from "../combat/class-feature-mechanics";
 import type { ActiveEffect } from "../combat/effects";
 import { classFeaturesForLevel } from "../entities/class-features";
 import {
+  effectiveFeaturePoolSize,
   parseFeatureResourceKey,
   remainingFeatureUses,
   spendFeatureUse,
@@ -21,7 +23,12 @@ export type ClassFeatureActionKind =
   | "heal"
   | "extra_action"
   | "rage"
-  | "bardic_inspiration";
+  | "bardic_inspiration"
+  | "monk_flurry"
+  | "monk_patient_defense"
+  | "monk_step_of_wind";
+
+export type MonkFocusSpend = "flurry" | "patient_defense" | "step_of_wind";
 
 export type ClassFeatureActionDef = {
   kind: ClassFeatureActionKind;
@@ -36,6 +43,13 @@ export const CLASS_FEATURE_ACTIONS: Record<string, ClassFeatureActionDef> = {
   "action-surge": { kind: "extra_action" },
   rage: { kind: "rage" },
   "bardic-inspiration": { kind: "bardic_inspiration" },
+  "monk-s-focus": { kind: "monk_flurry" },
+};
+
+const MONK_FOCUS_KIND: Record<MonkFocusSpend, ClassFeatureActionKind> = {
+  flurry: "monk_flurry",
+  patient_defense: "monk_patient_defense",
+  step_of_wind: "monk_step_of_wind",
 };
 
 export function classFeatureAction(
@@ -123,6 +137,14 @@ export type FeatureUseResult = {
   selfEffects?: ActiveEffect[];
   /** Effect to apply to an ally (Bardic Inspiration). */
   allyEffect?: { target: EntityRef; effect: ActiveEffect };
+  /** Bonus unarmed strikes granted (Flurry of Blows). */
+  bonusUnarmedAttacks?: number;
+  /** Unarmed damage die for Flurry strikes. */
+  unarmedDamageDie?: string;
+  /** Sheet/combat flags to apply after spend. */
+  startDodging?: boolean;
+  startDisengage?: boolean;
+  bonusMovementFeet?: number;
   message: string;
 };
 
@@ -140,6 +162,8 @@ export function useClassFeature(
     useIndex?: number;
     /** Ally receiving Bardic Inspiration. */
     beneficiaryId?: EntityRef;
+    /** Monk's Focus spend — Flurry, Patient Defense, or Step of the Wind. */
+    monkFocusSpend?: MonkFocusSpend;
   },
 ): FeatureUseResult | FeatureUseError {
   const parsed = parseFeatureResourceKey(input.featureKey);
@@ -160,14 +184,32 @@ export function useClassFeature(
     return { ok: false, message: "This feature cannot be used from the sheet." };
   }
 
-  const action = classFeatureAction(featureId);
-  if (!action) {
-    return { ok: false, message: "No mechanical effect wired for this feature yet." };
+  const poolSize = effectiveFeaturePoolSize(
+    input.featureKey,
+    input.classes,
+    feature.uses,
+  );
+
+  if (featureId === "monk-s-focus") {
+    if (!input.monkFocusSpend) {
+      return {
+        ok: false,
+        message: "Choose a Focus ability: Flurry, Patient Defense, or Step of the Wind.",
+      };
+    }
+  } else {
+    const action = classFeatureAction(featureId);
+    if (!action) {
+      return {
+        ok: false,
+        message: "No mechanical effect wired for this feature yet.",
+      };
+    }
   }
 
   const remaining = remainingFeatureUses(
     input.resourceUses?.[input.featureKey],
-    feature.uses,
+    poolSize,
   );
   if (remaining <= 0) {
     return { ok: false, message: "No uses remaining." };
@@ -175,7 +217,7 @@ export function useClassFeature(
 
   const spent = spendFeatureUse(
     input.resourceUses?.[input.featureKey],
-    feature.uses,
+    poolSize,
   );
   if (!spent) {
     return { ok: false, message: "No uses remaining." };
@@ -185,6 +227,46 @@ export function useClassFeature(
     ...(input.resourceUses ?? {}),
     [input.featureKey]: spent,
   };
+
+  if (featureId === "monk-s-focus" && input.monkFocusSpend) {
+    const monkLevel = classLevel(input.classes, "Monk");
+    const kind = MONK_FOCUS_KIND[input.monkFocusSpend];
+    if (input.monkFocusSpend === "flurry") {
+      return {
+        ok: true,
+        featureKey: input.featureKey,
+        featureId,
+        kind,
+        resourceUses: nextUses,
+        bonusUnarmedAttacks: 2,
+        unarmedDamageDie: martialArtsDie(monkLevel),
+        message: `Flurry of Blows — two bonus unarmed strikes (${martialArtsDie(monkLevel)} each).`,
+      };
+    }
+    if (input.monkFocusSpend === "patient_defense") {
+      return {
+        ok: true,
+        featureKey: input.featureKey,
+        featureId,
+        kind,
+        resourceUses: nextUses,
+        startDodging: true,
+        message: "Patient Defense — attacks against you have Disadvantage until your next turn.",
+      };
+    }
+    return {
+      ok: true,
+      featureKey: input.featureKey,
+      featureId,
+      kind,
+      resourceUses: nextUses,
+      startDisengage: true,
+      bonusMovementFeet: monkLevel * 5,
+      message: `Step of the Wind — Disengage and +${monkLevel * 5} ft movement this turn.`,
+    };
+  }
+
+  const action = classFeatureAction(featureId)!;
 
   if (action.kind === "heal") {
     const { amount } = resolveFeatureHeal(action, cl.level, input.rng);

@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  agonizingBlastBonus,
   bardicInspirationDie,
   classLevel,
+  focusPointMaximum,
+  hasEldritchInvocation,
   rageDamageBonus,
+  selectedMetamagicOptions,
   sneakAttackDiceCount,
   sneakAttackEligible,
   sneakAttackNotation,
+  sorceryPointMaximum,
+  stunningStrikeSaveDc,
 } from "./class-feature-mechanics";
 import type { EntityState } from "../entities/types";
 
@@ -89,5 +95,35 @@ describe("class feature mechanics", () => {
         "Rogue",
       ),
     ).toBe(3);
+  });
+
+  it("scales Focus Points and Sorcery Points by class level", () => {
+    expect(focusPointMaximum(1)).toBe(0);
+    expect(focusPointMaximum(2)).toBe(2);
+    expect(focusPointMaximum(5)).toBe(5);
+    expect(sorceryPointMaximum(1)).toBe(0);
+    expect(sorceryPointMaximum(5)).toBe(5);
+  });
+
+  it("computes Stunning Strike save DC from WIS and proficiency", () => {
+    const monk = baseEntity("pc:monk", { x: 0, y: 0 });
+    monk.proficiencyBonus = 3;
+    monk.abilityScores.wis = 16;
+    expect(stunningStrikeSaveDc(monk)).toBe(14);
+  });
+
+  it("reads Metamagic and Invocations from featureChoices", () => {
+    expect(
+      selectedMetamagicOptions({
+        "Sorcerer:2:metamagic": "Empowered Spell, Heightened Spell",
+      }),
+    ).toEqual(["empowered", "heightened"]);
+    expect(
+      hasEldritchInvocation(
+        { "Warlock:1:eldritch-invocations": "Agonizing Blast" },
+        "agonizing-blast",
+      ),
+    ).toBe(true);
+    expect(agonizingBlastBonus({ ...baseEntity("x", { x: 0, y: 0 }).abilityScores, cha: 18 })).toBe(4);
   });
 });

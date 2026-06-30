@@ -74,10 +74,12 @@ import {
 import {
   agonizingBlastBonus,
   classLevel,
+  discipleOfLifeBonus,
   distantSpellRange,
   divineSmiteNotation,
   ELDRITCH_SPEAR_RANGE_FEET,
   empoweredRerollCount,
+  hasClassSubclass,
   hasEldritchInvocation,
   isFiendOrUndead,
   METAMAGIC_OPTIONS,
@@ -3449,6 +3451,14 @@ function handleCastSpell(
     } else {
       // Healing (Cure Wounds, Healing Word): restore HP up to max, no overheal.
       // Targets are validated above (a downed-but-not-dead ally is allowed).
+      // Life Domain — Disciple of Life adds 2 + slot level to each leveled heal.
+      const discipleBonus = hasClassSubclass(
+        caster.classes,
+        "Cleric",
+        "Life Domain",
+      )
+        ? discipleOfLifeBonus(slotLevel)
+        : 0;
       let totalHealing = 0;
       for (const targetId of targets) {
         const target = ctx.world.entities[targetId]!;
@@ -3460,18 +3470,19 @@ function handleCastSpell(
           `spell-heal:${caster.id}:${targetId}`,
         );
         events.push(...rolled.events);
-        const hpAfter = Math.min(target.hp.max, target.hp.current + rolled.amount);
+        const healAmount = rolled.amount + discipleBonus;
+        const hpAfter = Math.min(target.hp.max, target.hp.current + healAmount);
         events.push({
           type: "HealingApplied",
           ...meta(ctx, caster.id),
           payload: {
             target: target.id,
-            amount: rolled.amount,
+            amount: healAmount,
             hpBefore: target.hp.current,
             hpAfter,
           },
         });
-        totalHealing += rolled.amount;
+        totalHealing += healAmount;
       }
       Object.assign(summary, { targets: targets.length, healing: totalHealing });
     }

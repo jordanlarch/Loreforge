@@ -106,6 +106,7 @@ export {
   helpAttackMode,
   helpCheckMode,
   huntersMarkOn,
+  entityIsFrenzied,
   type ActiveEffect,
   type EffectModifier,
 } from "./combat/effects";
@@ -137,6 +138,7 @@ export {
   classLevel,
   empoweredRerollCount,
   focusPointMaximum,
+  hasClassSubclass,
   hasEldritchInvocation,
   martialArtsDie,
   METAMAGIC_OPTIONS,

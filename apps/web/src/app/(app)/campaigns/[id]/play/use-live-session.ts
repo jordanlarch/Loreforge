@@ -352,6 +352,9 @@ export function useLiveSession({
         monkWeaponOrUnarmed?: boolean;
         finesseOrRanged?: boolean;
         usesStrength?: boolean;
+        frenzyBonusAttack?: boolean;
+        flurryBonusAttack?: boolean;
+        openHandTechnique?: "prone" | "push" | "no_reactions";
       },
     ) =>
       send({
@@ -367,6 +370,11 @@ export function useLiveSession({
           ...(opts?.monkWeaponOrUnarmed ? { monkWeaponOrUnarmed: true } : {}),
           ...(opts?.finesseOrRanged ? { finesseOrRanged: true } : {}),
           ...(opts?.usesStrength ? { usesStrength: true } : {}),
+          ...(opts?.frenzyBonusAttack ? { frenzyBonusAttack: true } : {}),
+          ...(opts?.flurryBonusAttack ? { flurryBonusAttack: true } : {}),
+          ...(opts?.openHandTechnique
+            ? { openHandTechnique: opts.openHandTechnique }
+            : {}),
         },
       }),
     castSpell: (
@@ -395,6 +403,8 @@ export function useLiveSession({
       opts?: {
         monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
         beneficiaryId?: string;
+        rageFrenzy?: boolean;
+        channelDivinitySpend?: "divine_sense" | "sacred_weapon" | "turn_undead";
       },
     ) =>
       send({
@@ -407,6 +417,37 @@ export function useLiveSession({
             ? { monkFocusSpend: opts.monkFocusSpend }
             : {}),
           ...(opts?.beneficiaryId ? { beneficiaryId: opts.beneficiaryId } : {}),
+          ...(opts?.rageFrenzy ? { rageFrenzy: true } : {}),
+          ...(opts?.channelDivinitySpend
+            ? { channelDivinitySpend: opts.channelDivinitySpend }
+            : {}),
+        },
+      }),
+    fastHands: (
+      entity: string,
+      fastAction: "sleight_of_hand" | "thieves_tools" | "use_object",
+    ) =>
+      send({
+        t: "cmd",
+        action: { type: "fast_hands", entity, action: fastAction },
+      }),
+    cuttingWords: (
+      reactor: string,
+      against: string,
+      mode: "attack" | "damage" | "check",
+      originalTotal: number,
+      opts?: { natural?: number; targetAc?: number },
+    ) =>
+      send({
+        t: "cmd",
+        action: {
+          type: "cutting_words",
+          reactor,
+          against,
+          mode,
+          originalTotal,
+          ...(opts?.natural !== undefined ? { natural: opts.natural } : {}),
+          ...(opts?.targetAc !== undefined ? { targetAc: opts.targetAc } : {}),
         },
       }),
     opportunityAttack: (

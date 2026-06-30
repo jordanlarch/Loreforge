@@ -12,7 +12,7 @@ import type { WeaponAttack } from "@/lib/sheet-loadout";
 import type { SceneTrapInstance } from "@app/engine";
 
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
-import { ClassFeatureControls } from "./class-feature-controls";
+import { ClassFeatureControls, type ClassFeatureUseOpts } from "./class-feature-controls";
 import { PoisonTurnControls } from "./poison-turn-controls";
 import { BurningTurnControls } from "./burning-turn-controls";
 import { ReactionPrompt } from "./reaction-prompt";
@@ -96,7 +96,14 @@ export function CombatTurnBar({
   onStunningStrikeChange,
   selectedMetamagic,
   onMetamagicChange,
+  flurryStrike,
+  onFlurryStrikeChange,
+  frenzyStrike,
+  onFrenzyStrikeChange,
+  openHandTechnique,
+  onOpenHandTechniqueChange,
   onUseClassFeature,
+  onFastHands,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -157,12 +164,17 @@ export function CombatTurnBar({
   onStunningStrikeChange?: (value: boolean) => void;
   selectedMetamagic?: string;
   onMetamagicChange?: (value: string | undefined) => void;
-  onUseClassFeature?: (
-    featureKey: string,
-    opts?: {
-      monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
-      beneficiaryId?: string;
-    },
+  flurryStrike?: boolean;
+  onFlurryStrikeChange?: (value: boolean) => void;
+  frenzyStrike?: boolean;
+  onFrenzyStrikeChange?: (value: boolean) => void;
+  openHandTechnique?: "prone" | "push" | "no_reactions";
+  onOpenHandTechniqueChange?: (
+    value: "prone" | "push" | "no_reactions" | undefined,
+  ) => void;
+  onUseClassFeature?: (featureKey: string, opts?: ClassFeatureUseOpts) => void;
+  onFastHands?: (
+    action: "sleight_of_hand" | "thieves_tools" | "use_object",
   ) => void;
 }) {
   const armedMode = armed !== null;
@@ -313,7 +325,14 @@ export function CombatTurnBar({
                     onStunningStrikeChange={onStunningStrikeChange ?? (() => {})}
                     selectedMetamagic={selectedMetamagic}
                     onMetamagicChange={onMetamagicChange ?? (() => {})}
+                    flurryStrike={flurryStrike}
+                    onFlurryStrikeChange={onFlurryStrikeChange}
+                    frenzyStrike={frenzyStrike}
+                    onFrenzyStrikeChange={onFrenzyStrikeChange}
+                    openHandTechnique={openHandTechnique}
+                    onOpenHandTechniqueChange={onOpenHandTechniqueChange}
                     onUseClassFeature={onUseClassFeature}
+                    onFastHands={onFastHands}
                   />
                 ) : null}
                 {nearbyTraps?.length && onDetectTrap && onDisableTrap ? (

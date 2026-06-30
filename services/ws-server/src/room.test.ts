@@ -262,4 +262,63 @@ describe("isBattleAction", () => {
       false,
     );
   });
+
+  it("accepts subclass feature attack flags and commands", () => {
+    const attackBase = {
+      type: "attack" as const,
+      attacker: "pc:1",
+      target: "foe:1",
+      attackBonus: 5,
+      damage: { notation: "1d8+3", type: "slashing" },
+    };
+    expect(
+      isBattleAction({ ...attackBase, frenzyBonusAttack: true }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        ...attackBase,
+        flurryBonusAttack: true,
+        openHandTechnique: "prone",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({ ...attackBase, openHandTechnique: "invalid" }),
+    ).toBe(false);
+
+    expect(
+      isBattleAction({
+        type: "use_class_feature",
+        entity: "pc:1",
+        featureKey: "barbarian:1:rage",
+        rageFrenzy: true,
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "use_class_feature",
+        entity: "pc:1",
+        featureKey: "paladin:3:channel-divinity",
+        channelDivinitySpend: "sacred_weapon",
+      }),
+    ).toBe(true);
+
+    expect(
+      isBattleAction({
+        type: "fast_hands",
+        entity: "pc:1",
+        action: "sleight_of_hand",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "cutting_words",
+        reactor: "pc:1",
+        against: "foe:1",
+        mode: "attack",
+        originalTotal: 18,
+        natural: 15,
+        targetAc: 14,
+      }),
+    ).toBe(true);
+  });
 });

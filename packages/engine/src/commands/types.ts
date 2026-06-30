@@ -53,6 +53,8 @@ export type ApplyDamageCommand = {
   damageType: string;
   source: DamageSource;
   scope?: string;
+  /** When true, damage at 0 HP counts as two death-save failures. */
+  critical?: boolean;
 };
 
 export type ApplyHealingCommand = {
@@ -329,6 +331,14 @@ export type CastSpellCommand = {
    * subtle, or extended. Validated against the caster's known options.
    */
   metamagic?: string;
+  /**
+   * Hex only: ability the target has disadvantage on while cursed.
+   */
+  hexAbility?: import("../entities/types").Ability;
+  /**
+   * Counterspell only: slot level of the spell being interrupted.
+   */
+  counteredSpellSlotLevel?: number;
 };
 
 export type DetectTrapCommand = {

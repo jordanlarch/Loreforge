@@ -5,6 +5,7 @@
  * reads them for AC, attack, speed, and on-hit damage modifiers.
  */
 import type { EntityRef, EntityState } from "../entities/types";
+import type { Ability } from "../entities/types";
 import type { SpellAppliedEffect, SpellDefinition } from "../content/spells";
 import { effectiveSpeed } from "./conditions";
 import {
@@ -18,6 +19,7 @@ export type EffectModifier =
   | { type: "attack_roll_bonus"; dice: string }
   | { type: "attack_roll_penalty"; dice: string }
   | { type: "hunters_mark"; dice: string; markedBy: EntityRef }
+  | { type: "hex"; dice: string; markedBy: EntityRef; ability: Ability }
   | { type: "attacks_against_advantage" }
   | { type: "attacks_against_disadvantage" }
   | { type: "help_attack"; foe: EntityRef; helper: EntityRef }
@@ -35,7 +37,7 @@ export type ActiveEffect = {
   source: EntityRef;
   modifier: EffectModifier;
   /** When the concentration holder loses this spell, the effect ends. */
-  concentration?: { holder: EntityRef; spell: string };
+  concentration?: { holder: EntityRef; spell: string; spellLevel?: number };
   /** Removed at the start of this entity's next turn (Shield). */
   expiresStartOfTurn?: EntityRef;
   /** Combat rounds remaining (non-concentration timed effects). */
@@ -202,6 +204,30 @@ export function huntersMarkOn(
   );
 }
 
+/** Active Hex on `target` placed by `attacker`, if any. */
+export function hexOn(
+  target: EntityState,
+  attacker: EntityRef,
+): ActiveEffect | undefined {
+  return (target.effects ?? []).find(
+    (fx) =>
+      fx.modifier.type === "hex" && fx.modifier.markedBy === attacker,
+  );
+}
+
+/** Disadvantage on ability checks for the Hexed ability, if any. */
+export function hexCheckDisadvantage(
+  entity: EntityState,
+  ability: Ability,
+): "disadvantage" | "normal" {
+  for (const fx of entity.effects ?? []) {
+    if (fx.modifier.type === "hex" && fx.modifier.ability === ability) {
+      return "disadvantage";
+    }
+  }
+  return "normal";
+}
+
 export function effectFromSpec(
   spec: SpellAppliedEffect,
   opts: {
@@ -210,6 +236,8 @@ export function effectFromSpec(
     concentrationHolder?: EntityRef;
     concentrationSpell?: string;
     markedBy?: EntityRef;
+    hexAbility?: Ability;
+    spellLevel?: number;
     expiresStartOfTurn?: EntityRef;
     remainingRounds?: number;
   },
@@ -227,6 +255,13 @@ export function effectFromSpec(
     modifier = { type: "attacks_against_disadvantage" };
   } else if (spec.modifier.type === "speed_bonus") {
     modifier = { type: "speed_bonus", amount: spec.modifier.amount };
+  } else if (spec.modifier.type === "hex") {
+    modifier = {
+      type: "hex",
+      dice: spec.modifier.dice,
+      markedBy: opts.markedBy ?? opts.source,
+      ability: opts.hexAbility ?? spec.modifier.ability,
+    };
   } else {
     modifier = {
       type: "hunters_mark",
@@ -244,6 +279,9 @@ export function effectFromSpec(
           concentration: {
             holder: opts.concentrationHolder,
             spell: opts.concentrationSpell,
+            ...(opts.spellLevel !== undefined
+              ? { spellLevel: opts.spellLevel }
+              : {}),
           },
         }
       : {}),

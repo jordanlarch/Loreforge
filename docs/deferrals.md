@@ -428,13 +428,13 @@ tracer; the 5-ft-Sphere/Concentration gaps were fixed anyway). Engine suite gree
 | SRD-FID-4 | Faerie Fire modeled as sphere; should be 20-ft cube | #313 | **Done** | spell registry → `cube`. |
 | SRD-FID-5 | Spirit Guardians sphere; should be 15-ft emanation (no Emanation shape in engine) | #314 | **Done** | Added `emanation` AoE shape (taxonomy + cast resolution, caster-centered, excludes caster). |
 | SRD-FID-6 | Open5e converter defaults every save spell to `half_damage` (~165 spells wrong) | #315 | **Done** | `open5e-spell.ts` infers `no_effect` unless text says "half"; **registry regenerated — 68 spells corrected** (e.g. Sacred Flame, Hold Person). |
-| SRD-FID-7 | Hex reuses Hunter's Mark machinery (wrong damage type, weapon-only) | #316 | Deferred | Meaningful fix (necrotic typing) needs the resistance engine (SRD-FID-19); "any-attack" scope + chosen-ability check-disadvantage need new effect plumbing. |
-| SRD-FID-8 | Scorching Ray auto-hits; should be separate ranged spell attacks | #317 | Deferred | Needs a per-ray spell-attack resolution mode (schema addition); `projectiles` (auto-hit) is correct only for Magic Missile. |
+| SRD-FID-7 | Hex reuses Hunter's Mark machinery (wrong damage type, weapon-only) | #316 | **Done** | Dedicated `hex` effect modifier: necrotic bonus on any attack by caster, `hexAbility` on cast, check disadvantage via `hexCheckDisadvantage`. |
+| SRD-FID-8 | Scorching Ray auto-hits; should be separate ranged spell attacks | #317 | **Done** | `SpellProjectiles.spellAttack`; per-ray `resolveSpellAttackRay` + `AttackResolved` per dart. Magic Missile unchanged (auto-hit). |
 | SRD-FID-9 | Revivify heals a living ally; should raise the recently dead | #318 | Deferred | Needs a revive/raise-dead path (clear `dead`/`deathSaves`); overlaps a missing "Dead" lifecycle. |
 | SRD-FID-10 | ~~Sleep flat save; should be 5d8 HP-total budget~~ — **RETRACTED** (2014 claim) | #319 | **Done/retracted** | 2024 Sleep *is* a Wisdom save → engine was already a valid tracer. Fixed remaining gaps: 5-ft Sphere + Concentration. |
-| SRD-FID-11 | Counterspell / Dispel Magic lack interrupt + spell-level contest | #320 | Deferred | `handlers.ts`, `effects.ts`. Counterspell interrupt needs a reaction-during-cast window. |
+| SRD-FID-11 | Counterspell / Dispel Magic lack interrupt + spell-level contest | #320 | **Partial** | **Done (engine):** Counterspell level contest via `counteredSpellSlotLevel`; Dispel removes all ≤3rd-level effects + ability check per 4th+. **Still deferred:** reaction-during-cast interrupt window (Live Play staging). |
 | SRD-FID-12 | Tracer spells simplified | #321 | **Partial** | **Flame Strike done** (cylinder + 5d6 fire/5d6 radiant). Wall of Fire (persistent zone) / Polymorph (stat-swap) / Spiritual Weapon (recurring bonus-action) still need subsystems (overlap ENG-3). |
-| SRD-FID-13 | Damage at 0 HP: no crit=2 failures, no instant death | #322 | Deferred | overlaps **ENG-8** (needs a `critical` flag on `DamageDealt`). Instant-death is projection-local; crit-doubles-failures needs payload plumbing. PDF p.17. |
+| SRD-FID-13 | Damage at 0 HP: no crit=2 failures, no instant death | #322 | **Done** | `DamageDealt.critical` flag; projection instant-death overflow (SRD p.17); crit doubles death-save failures at 0 HP. |
 
 ### 12.2 Next-up — cheap, high-visibility combat completeness
 

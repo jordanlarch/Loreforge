@@ -67,6 +67,8 @@ import {
   entityReactionsSuppressed,
   helpAttackMode,
   helpCheckMode,
+  hexCheckDisadvantage,
+  hexOn,
   huntersMarkOn,
   entityIsFrenzied,
   rageDamageBonusFromEffects,
@@ -466,6 +468,7 @@ function handleApplyDamage(
         damageType: cmd.damageType,
         hpBefore: target.hp.current,
         hpAfter,
+        ...(cmd.critical ? { critical: true } : {}),
       },
     },
     ...concentrationCheckEvents(ctx, target, amount, hpAfter),
@@ -1711,9 +1714,19 @@ function handleAttack(
         damageType: cmd.damage.type,
         hpBefore: target.hp.current,
         hpAfter,
+        ...(critical ? { critical: true } : {}),
       },
     });
     events.push(...concentrationCheckEvents(ctx, target, damage, hpAfter));
+    events.push(
+      ...hexBonusDamageEvents(
+        ctx,
+        target,
+        cmd.attacker,
+        `hex:${cmd.attacker}->${cmd.target}`,
+        { hpBefore: hpAfter },
+      ),
+    );
     events.push(
       ...darkOnesBlessingEvents(
         ctx,
@@ -1981,6 +1994,7 @@ function handleAbilityCheck(
     (cmd.mode ?? "normal") as RollAdjust,
     checkModeForEntity(entity, ctx.world),
     helpCheckMode(entity),
+    hexCheckDisadvantage(entity, cmd.ability),
   ) as RollMode;
   const roll = ctx.roll("1d20", `check:${cmd.entity}:${cmd.ability}`, mode);
   const natural = roll.total;
@@ -2304,6 +2318,10 @@ function handleEndConcentration(
   };
 }
 
+function dispelEffectLevel(effect: import("../combat/effects").ActiveEffect): number {
+  return effect.concentration?.spellLevel ?? 3;
+}
+
 function handleDispelMagic(
   cmd: DispelMagicCommand,
   ctx: ExecutionContext,
@@ -2343,38 +2361,52 @@ function handleDispelMagic(
     },
   ];
 
-  const effects = target.effects ?? [];
-  if (effects.length > 0) {
-    events.push({
-      type: "EffectRemoved",
-      ...meta(ctx, cmd.caster),
-      payload: { target: cmd.target, effectId: effects[0]!.id },
-    });
-    return {
-      accepted: true,
-      events,
-      summary: { target: cmd.target, dispelled: "effect" },
-    };
+  const ability = caster.spellcasting.ability;
+  const abilityMod = abilityModifier(caster.abilityScores[ability]);
+  let dispelled = 0;
+
+  for (const effect of target.effects ?? []) {
+    const effectLevel = dispelEffectLevel(effect);
+    if (effectLevel <= 3) {
+      events.push({
+        type: "EffectRemoved",
+        ...meta(ctx, cmd.caster),
+        payload: { target: cmd.target, effectId: effect.id },
+      });
+      dispelled += 1;
+      continue;
+    }
+    const roll = ctx.roll(
+      "1d20",
+      `dispel-magic:${cmd.caster}->${cmd.target}:${effect.id}`,
+    );
+    events.push(rollDiceEvent(ctx, roll));
+    if (roll.total + abilityMod >= 10 + effectLevel) {
+      events.push({
+        type: "EffectRemoved",
+        ...meta(ctx, cmd.caster),
+        payload: { target: cmd.target, effectId: effect.id },
+      });
+      dispelled += 1;
+    }
   }
 
-  const linked = target.conditions.find((c) => c.concentrationSpell);
-  if (linked) {
-    events.push({
-      type: "ConditionRemoved",
-      ...meta(ctx, cmd.caster),
-      payload: { target: cmd.target, condition: linked.condition },
-    });
-    return {
-      accepted: true,
-      events,
-      summary: { target: cmd.target, dispelled: "condition" },
-    };
+  for (const linked of target.conditions.filter((c) => c.concentrationSpell)) {
+    const effectLevel = 3;
+    if (effectLevel <= 3) {
+      events.push({
+        type: "ConditionRemoved",
+        ...meta(ctx, cmd.caster),
+        payload: { target: cmd.target, condition: linked.condition },
+      });
+      dispelled += 1;
+    }
   }
 
   return {
     accepted: true,
     events,
-    summary: { target: cmd.target, dispelled: "none" },
+    summary: { target: cmd.target, dispelled },
   };
 }
 
@@ -2400,6 +2432,7 @@ function effectOptsFromSpell(
   casterId: EntityRef,
   targetId: EntityRef,
   spec: import("../content/spells").SpellAppliedEffect,
+  castOpts?: { hexAbility?: import("../entities/types").Ability },
 ) {
   const timed =
     !spec.concentration && !spec.expiresStartOfNextTurn
@@ -2410,7 +2443,13 @@ function effectOptsFromSpell(
     source: casterId,
     concentrationHolder: spec.concentration ? casterId : undefined,
     concentrationSpell: spec.concentration ? spell.name : undefined,
-    markedBy: spec.modifier.type === "hunters_mark" ? casterId : undefined,
+    markedBy:
+      spec.modifier.type === "hunters_mark" || spec.modifier.type === "hex"
+        ? casterId
+        : undefined,
+    hexAbility:
+      spec.modifier.type === "hex" ? castOpts?.hexAbility : undefined,
+    spellLevel: spec.concentration ? spell.level : undefined,
     expiresStartOfTurn: spec.expiresStartOfNextTurn ? targetId : undefined,
     remainingRounds: timed,
   };
@@ -2687,6 +2726,129 @@ function rollSpellDamage(
   return { amount: total, events, rolls };
 }
 
+/** One ranged spell-attack projectile (Scorching Ray ray). */
+function resolveSpellAttackRay(
+  ctx: ExecutionContext,
+  caster: EntityState,
+  target: EntityState,
+  spell: SpellDefinition,
+  casterLevel: number,
+  extraLevels: number,
+  cmdMode: RollMode | undefined,
+  ledger: HpLedger,
+  rayIndex: number,
+): { events: DraftEvent[]; hit: boolean; damage: number } {
+  const events: DraftEvent[] = [];
+  const bonus = spellAttackBonus(caster)!;
+  const mode = combineMode(
+    (cmdMode ?? "normal") as RollAdjust,
+    ownAttackModeForEntity(caster, ctx.world),
+    attackedMode(target.conditions),
+    helpAttackMode(caster, target.id),
+    attacksAgainstHaveAdvantage(target) ? "advantage" : "normal",
+    attacksAgainstHaveDisadvantage(target) ? "disadvantage" : "normal",
+  );
+  const d20 = ctx.roll(
+    "1d20",
+    `spell-attack:${caster.id}->${target.id}:${rayIndex}`,
+    mode as RollMode,
+  );
+  let blessBonus = 0;
+  for (const dice of attackRollBonusDice(caster)) {
+    const roll = ctx.roll(
+      dice,
+      `spell-attack-bless:${caster.id}:${rayIndex}`,
+    );
+    events.push(rollDiceEvent(ctx, roll));
+    blessBonus += roll.total;
+  }
+  let banePenalty = 0;
+  for (const dice of attackRollPenaltyDice(caster)) {
+    const roll = ctx.roll(
+      dice,
+      `spell-attack-bane:${caster.id}:${rayIndex}`,
+    );
+    events.push(rollDiceEvent(ctx, roll));
+    banePenalty += roll.total;
+  }
+  const natural = d20.total;
+  const total =
+    natural +
+    bonus +
+    blessBonus -
+    banePenalty -
+    exhaustionD20Penalty(caster.conditions);
+  let coverAc = 0;
+  if (
+    caster.position &&
+    target.position &&
+    caster.sceneId === target.sceneId
+  ) {
+    const exclude = new Set([caster.id, target.id]);
+    coverAc = coverAcBonusFromLine(
+      caster.position,
+      target.position,
+      cellProvidesCover(ctx.world, caster.sceneId, exclude),
+    );
+  }
+  const targetAc = effectiveAc(target) + coverAc;
+  const { hit, critical } = resolveHit(natural, total, targetAc, {});
+  events.push(rollDiceEvent(ctx, d20));
+
+  let damage = 0;
+  if (hit) {
+    const rolled = rollSpellDamage(
+      ctx,
+      spell,
+      casterLevel,
+      extraLevels,
+      critical,
+      `spell-projectile-damage:${caster.id}:${rayIndex}`,
+    );
+    events.push(...rolled.events);
+    damage = rolled.amount;
+    for (const comp of rolled.rolls) {
+      events.push(
+        ...applyLedgerDamage(
+          ctx,
+          target,
+          comp.amount,
+          comp.type,
+          ledger,
+          caster.id,
+          critical,
+        ),
+      );
+    }
+    events.push(
+      ...hexBonusDamageEvents(
+        ctx,
+        target,
+        caster.id,
+        `hex:${caster.id}->${target.id}:${rayIndex}`,
+        { ledger },
+      ),
+    );
+  }
+
+  events.push({
+    type: "AttackResolved",
+    ...meta(ctx, caster.id),
+    payload: {
+      attacker: caster.id,
+      target: target.id,
+      attackRoll: { natural, total, mode: mode as RollMode },
+      targetAc: effectiveAc(target),
+      hit,
+      critical,
+      damageType: spell.damage![0]!.type,
+      ...(hit ? { damage } : {}),
+    },
+  });
+
+  return { events, hit, damage };
+}
+
 /** Roll a spell's healing: base dice (+ the caster's spellcasting modifier when
  * the component opts in) plus upcast dice for slot levels above base. */
 function rollSpellHealing(
@@ -2714,6 +2876,50 @@ function rollSpellHealing(
   return { amount: Math.max(0, amount), events };
 }
 
+/** Extra 1d6 necrotic from Hex on a hit by the marking caster. */
+function hexBonusDamageEvents(
+  ctx: ExecutionContext,
+  target: EntityState,
+  attackerId: EntityRef,
+  scope: string,
+  opts?: { ledger?: HpLedger; hpBefore?: number },
+): DraftEvent[] {
+  const hex = hexOn(target, attackerId);
+  if (!hex || hex.modifier.type !== "hex") return [];
+  const extra = ctx.roll(hex.modifier.dice, scope);
+  const amount = Math.max(0, extra.total);
+  const events: DraftEvent[] = [rollDiceEvent(ctx, extra)];
+  if (opts?.ledger) {
+    events.push(
+      ...applyLedgerDamage(
+        ctx,
+        target,
+        amount,
+        "necrotic",
+        opts.ledger,
+        attackerId,
+      ),
+    );
+  } else {
+    const hpBefore = opts?.hpBefore ?? target.hp.current;
+    const fromTemp = Math.min(target.hp.temp, amount);
+    const hpAfter = Math.max(0, hpBefore - (amount - fromTemp));
+    events.push({
+      type: "DamageDealt",
+      ...meta(ctx),
+      payload: {
+        target: target.id,
+        amount,
+        damageType: "necrotic",
+        hpBefore,
+        hpAfter,
+      },
+    });
+    events.push(...concentrationCheckEvents(ctx, target, amount, hpAfter));
+  }
+  return events;
+}
+
 /** Apply already-rolled damage to a target through the ledger, emitting the
  * DamageDealt event plus any concentration check. */
 function applyLedgerDamage(
@@ -2723,6 +2929,7 @@ function applyLedgerDamage(
   damageType: string,
   ledger: HpLedger,
   sourceId?: EntityRef,
+  critical?: boolean,
 ): DraftEvent[] {
   const amount = adjustDamageAmount(rawAmount, damageType, target);
   const entry = ledgerEntry(ctx.world, target.id, ledger);
@@ -2735,7 +2942,14 @@ function applyLedgerDamage(
     {
       type: "DamageDealt",
       ...meta(ctx),
-      payload: { target: target.id, amount, damageType, hpBefore, hpAfter },
+      payload: {
+        target: target.id,
+        amount,
+        damageType,
+        hpBefore,
+        hpAfter,
+        ...(critical ? { critical: true } : {}),
+      },
     },
     ...concentrationCheckEvents(ctx, target, amount, hpAfter),
     ...darkOnesBlessingEvents(ctx, sourceId, target, hpBefore, hpAfter),
@@ -3325,6 +3539,13 @@ function handleCastSpell(
         "Counterspell requires the opposing caster as its target.",
       );
     }
+    const targetSlot = cmd.counteredSpellSlotLevel;
+    if (targetSlot === undefined) {
+      return reject(
+        "INVALID_PAYLOAD",
+        "Counterspell requires counteredSpellSlotLevel for the spell being interrupted.",
+      );
+    }
     const events: DraftEvent[] = [
       {
         type: "SpellCast",
@@ -3350,10 +3571,26 @@ function handleCastSpell(
         payload: { reactor: cmd.caster, trigger: "spell" },
       });
     }
+    let countered = slotLevel >= targetSlot;
+    if (!countered) {
+      const ability = caster.spellcasting!.ability;
+      const mod = abilityModifier(caster.abilityScores[ability]);
+      const roll = ctx.roll(
+        "1d20",
+        `counterspell:${cmd.caster}->${targetId}`,
+      );
+      events.push(rollDiceEvent(ctx, roll));
+      countered = roll.total + mod >= 10 + targetSlot;
+    }
     return {
       accepted: true,
       events,
-      summary: { caster: cmd.caster, countered: targetId },
+      summary: {
+        caster: cmd.caster,
+        target: targetId,
+        countered,
+        counteredSpellSlotLevel: targetSlot,
+      },
     };
   }
 
@@ -3571,6 +3808,8 @@ function handleCastSpell(
     spellName: spell.name,
     slotLevel,
   };
+  const effectCastOpts =
+    spell.id === "hex" ? { hexAbility: cmd.hexAbility ?? "wis" } : undefined;
 
   if (spell.damage && spell.attackAgainst) {
     // Single-target spell attack (Guiding Bolt).
@@ -3725,9 +3964,19 @@ function handleCastSpell(
             comp.type,
             ledger,
             caster.id,
+            critical,
           ),
         );
       }
+      events.push(
+        ...hexBonusDamageEvents(
+          ctx,
+          target,
+          caster.id,
+          `hex:${caster.id}->${target.id}`,
+          { ledger },
+        ),
+      );
     }
     // Repelling Blast (Eldritch Invocation): push the target on an EB hit.
     if (
@@ -3826,6 +4075,34 @@ function handleCastSpell(
       damage: totalDamage,
       save: ability,
       dc,
+    });
+  } else if (spell.damage && spell.projectiles?.spellAttack) {
+    const damageType = spell.damage[0]!.type;
+    let totalDamage = 0;
+    let hits = 0;
+    for (let index = 0; index < targets.length; index++) {
+      const targetId = targets[index]!;
+      const target = ctx.world.entities[targetId]!;
+      const ray = resolveSpellAttackRay(
+        ctx,
+        caster,
+        target,
+        spell,
+        casterLevel,
+        extraLevels,
+        cmd.mode,
+        ledger,
+        index,
+      );
+      events.push(...ray.events);
+      if (ray.hit) hits += 1;
+      totalDamage += ray.damage;
+    }
+    Object.assign(summary, {
+      rays: dartCount,
+      hits,
+      damage: totalDamage,
+      damageType,
     });
   } else if (spell.damage && spell.projectiles) {
     // Auto-hit darts (Magic Missile): one damage roll per dart→target.
@@ -3979,7 +4256,14 @@ function handleCastSpell(
             for (const targetId of recipients) {
               const effect = effectFromSpec(
                 spec,
-                effectOptsFromSpell(spell, ctx, caster.id, targetId, spec),
+                effectOptsFromSpell(
+                  spell,
+                  ctx,
+                  caster.id,
+                  targetId,
+                  spec,
+                  effectCastOpts,
+                ),
               );
               events.push({
                 type: "EffectApplied",
@@ -4012,7 +4296,14 @@ function handleCastSpell(
       for (const targetId of recipients) {
         const effect = effectFromSpec(
           spec,
-          effectOptsFromSpell(spell, ctx, caster.id, targetId, spec),
+          effectOptsFromSpell(
+            spell,
+            ctx,
+            caster.id,
+            targetId,
+            spec,
+            effectCastOpts,
+          ),
         );
         events.push({
           type: "EffectApplied",

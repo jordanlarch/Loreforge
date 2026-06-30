@@ -52,3 +52,36 @@ export function resolveDeathSave(
 export function concentrationDC(damage: number): number {
   return Math.max(10, Math.floor(damage / 2));
 }
+
+/**
+ * Death-save failures from damage taken while at 0 HP (SRD p.17).
+ * A critical hit inflicts two failures; otherwise one.
+ */
+export function failuresFromDamageAtZeroHp(critical: boolean): number {
+  return critical ? 2 : 1;
+}
+
+/**
+ * Instant death when a single effect drops a creature to 0 HP and overflow
+ * damage equals or exceeds its HP maximum (SRD p.17).
+ */
+export function overflowDamageWhenDropped(
+  amount: number,
+  hpBefore: number,
+  tempHp: number,
+): number {
+  const fromTemp = Math.min(tempHp, amount);
+  const toCurrent = amount - fromTemp;
+  return Math.max(0, toCurrent - hpBefore);
+}
+
+export function isInstantDeathFromDamage(
+  amount: number,
+  maxHp: number,
+  hpBefore: number,
+  tempHp: number,
+  hpAfter: number,
+): boolean {
+  if (hpBefore === 0 || hpAfter > 0) return false;
+  return overflowDamageWhenDropped(amount, hpBefore, tempHp) >= maxHp;
+}

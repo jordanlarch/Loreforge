@@ -49,6 +49,16 @@ function channelDivinityKey(entity: EntityState): string | undefined {
   return featureResourceKey("Paladin", 3, feat.id);
 }
 
+function actionSurgeKey(entity: EntityState): string | undefined {
+  const level = classLevel(entity.classes ?? [], "Fighter");
+  if (level < 2) return undefined;
+  const feat = classFeaturesForLevel("Fighter", 2).find(
+    (f) => f.id === "action-surge",
+  );
+  if (!feat) return undefined;
+  return featureResourceKey("Fighter", 2, feat.id);
+}
+
 export function ClassFeatureControls({
   entity,
   disabled,
@@ -134,6 +144,18 @@ export function ClassFeatureControls({
     cdRemaining > 0 &&
     hasClassSubclass(entity.classes, "Paladin", "Oath of Devotion");
 
+  const surgeKey = actionSurgeKey(entity);
+  const surgeFeat = surgeKey
+    ? classFeaturesForLevel("Fighter", 2).find((f) => f.id === "action-surge")
+    : undefined;
+  const surgeRemaining =
+    surgeKey && surgeFeat?.uses && entity.classes
+      ? remainingFeatureUses(
+          entity.resourceUses?.[surgeKey],
+          effectiveFeaturePoolSize(surgeKey, entity.classes, surgeFeat.uses),
+        )
+      : 0;
+
   const showFastHands =
     onFastHands &&
     hasClassSubclass(entity.classes, "Rogue", "Thief") &&
@@ -150,6 +172,7 @@ export function ClassFeatureControls({
     !showMetamagic &&
     !rageKey &&
     !showSacredWeapon &&
+    !surgeKey &&
     !showFastHands &&
     flurryAttacksLeft < 1 &&
     !frenzied
@@ -240,6 +263,17 @@ export function ClassFeatureControls({
           className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
         >
           Sacred Weapon
+        </button>
+      ) : null}
+
+      {surgeKey && surgeRemaining > 0 ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onUseClassFeature(surgeKey)}
+          className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
+        >
+          Action Surge
         </button>
       ) : null}
 

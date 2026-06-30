@@ -80,7 +80,9 @@ import {
   castableSpellsFor,
   controllableReactors,
   controllableCuttingWords,
+  controllableCounterspell,
   cuttingWordsWindowKey,
+  counterspellWindowKey,
   hostilesInScene,
   reactionWindowKey,
   targetsInRange,
@@ -300,6 +302,7 @@ function LiveBattle({
   const [aimCell, setAimCell] = useState<Cell | null>(null);
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
   const [dismissedCuttingWords, setDismissedCuttingWords] = useState<string | null>(null);
+  const [dismissedCounterspell, setDismissedCounterspell] = useState<string | null>(null);
   const [stunningStrike, setStunningStrike] = useState(false);
   const [selectedMetamagic, setSelectedMetamagic] = useState<string | undefined>();
   const [flurryStrike, setFlurryStrike] = useState(false);
@@ -710,6 +713,16 @@ function LiveBattle({
     !!cuttingWordsKey &&
     cuttingWordsKey !== dismissedCuttingWords &&
     !showReaction;
+  const counterspell = state
+    ? controllableCounterspell(state, FIXTURE_BATTLE_PARTY_SIDE)
+    : undefined;
+  const counterspellKey = state ? counterspellWindowKey(state) : null;
+  const showCounterspell =
+    !!counterspell &&
+    !!counterspellKey &&
+    counterspellKey !== dismissedCounterspell &&
+    !showReaction &&
+    !showCuttingWords;
   const reactorSheet = reaction ? loadouts?.[reaction.reactor.id] : undefined;
   const reactorReactionSpells = reaction
     ? reactorSheet
@@ -791,6 +804,23 @@ function LiveBattle({
     if (!cuttingWords) return;
     session.passCuttingWords(cuttingWords.reactor.id);
     if (cuttingWordsKey) setDismissedCuttingWords(cuttingWordsKey);
+  }
+
+  function onCounterspellUse() {
+    if (!counterspell) return;
+    session.castSpell(
+      counterspell.reactor.id,
+      "counterspell",
+      counterspell.counterspellSlotLevel,
+      [counterspell.casting.id],
+    );
+    if (counterspellKey) setDismissedCounterspell(counterspellKey);
+  }
+
+  function onCounterspellPass() {
+    if (!counterspell) return;
+    session.passCounterspell(counterspell.reactor.id);
+    if (counterspellKey) setDismissedCounterspell(counterspellKey);
   }
 
   function onCastShieldReaction() {
@@ -1244,6 +1274,10 @@ function LiveBattle({
             cuttingWords={cuttingWords}
             onCuttingWordsUse={onCuttingWordsUse}
             onCuttingWordsPass={onCuttingWordsPass}
+            showCounterspell={showCounterspell}
+            counterspell={counterspell}
+            onCounterspellUse={onCounterspellUse}
+            onCounterspellPass={onCounterspellPass}
             reactorReactionSpells={reactorReactionSpells}
             onReactionAttack={onReactionAttack}
             onReactionPass={onReactionPassHandler}

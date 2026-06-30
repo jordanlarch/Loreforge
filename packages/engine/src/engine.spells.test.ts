@@ -662,3 +662,99 @@ describe("Spells: Dispel Magic (level-based removal)", () => {
     ).toBe(0);
   });
 });
+
+describe("Spells: Counterspell reaction window", () => {
+  let engine: Engine;
+
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 1 });
+    await setup(engine, { targetAc: 10, targetHp: 200, mapped: true });
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:defender",
+        kind: "character",
+        name: "Defender",
+        abilityScores: SCORES,
+        maxHp: 30,
+        baseAc: 13,
+        sceneId: "s:1",
+        position: { x: 2, y: 0 },
+        classes: [{ class: "Wizard", level: 5 }],
+        spellcasting: {
+          ability: "int",
+          preparedSpellIds: ["counterspell"],
+        },
+      },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:mage", "pc:defender", "npc:dummy"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:mage": 20, "pc:defender": 10, "npc:dummy": 0 },
+    });
+  });
+
+  it("stages a cast when a reactor can Counterspell", async () => {
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "guiding-bolt",
+      slotLevel: 1,
+      targets: ["npc:dummy"],
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    expect(cast.summary).toMatchObject({ pendingCounterspell: true });
+    const pending = (await engine.getState(CAMPAIGN)).encounter?.pendingSpellCast;
+    expect(pending?.cmd.spellId).toBe("guiding-bolt");
+    expect(pending?.eligible).toContain("pc:defender");
+  });
+
+  it("completes the cast after all reactors pass", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "guiding-bolt",
+      slotLevel: 1,
+      targets: ["npc:dummy"],
+    });
+    const pass = await engine.execute(CAMPAIGN, {
+      type: "pass_counterspell",
+      reactor: "pc:defender",
+    });
+    expect(pass.accepted).toBe(true);
+    if (!pass.accepted) return;
+    expect(
+      (await engine.getState(CAMPAIGN)).encounter?.pendingSpellCast,
+    ).toBeUndefined();
+    expect(pass.events.some((e) => e.type === "SpellCast")).toBe(true);
+  });
+
+  it("cancels the pending cast when Counterspell succeeds", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "guiding-bolt",
+      slotLevel: 1,
+      targets: ["npc:dummy"],
+    });
+    const cs = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:defender",
+      spellId: "counterspell",
+      slotLevel: 3,
+      targets: ["pc:mage"],
+    });
+    expect(cs.accepted).toBe(true);
+    if (!cs.accepted) return;
+    expect(cs.summary).toMatchObject({ countered: true });
+    expect(
+      (await engine.getState(CAMPAIGN)).encounter?.pendingSpellCast,
+    ).toBeUndefined();
+    expect(cs.events.some((e) => e.type === "SpellCastCancelled")).toBe(true);
+    expect(cs.events.some((e) => e.type === "AttackResolved")).toBe(false);
+  });
+});

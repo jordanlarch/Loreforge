@@ -455,6 +455,11 @@ export function useLiveSession({
         t: "cmd",
         action: { type: "pass_cutting_words", reactor },
       }),
+    passCounterspell: (reactor: string) =>
+      send({
+        t: "cmd",
+        action: { type: "pass_counterspell", reactor },
+      }),
     shortRest: (
       entity: string,
       opts?: {

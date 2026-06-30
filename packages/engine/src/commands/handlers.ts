@@ -82,6 +82,7 @@ import {
   COLOSSUS_SLAYER_DICE,
   colossusSlayerEligible,
   cuttingWordsEligibleReactors,
+  counterspellEligibleReactors,
   darkOnesBlessingTempHp,
   discipleOfLifeBonus,
   distantSpellRange,
@@ -120,7 +121,7 @@ import type {
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
-import type { PendingAttackState } from "../projections/world-state";
+import type { PendingAttackState, PendingSpellCastState } from "../projections/world-state";
 import {
   handleDetectTrap,
   handleDisableTrap,
@@ -210,6 +211,7 @@ import {
   type RelocateEntityCommand,
   type OpportunityAttackCommand,
   type PassCuttingWordsCommand,
+  type PassCounterspellCommand,
   type ReadyActionCommand,
   type RemoveConditionCommand,
   type ResolveSurpriseCommand,
@@ -1309,6 +1311,65 @@ function handlePassCuttingWords(
     pending,
     resumeRollFromPending(pending, pending.total, pending.hit),
   );
+}
+
+function completePendingSpellCast(
+  ctx: ExecutionContext,
+  pending: PendingSpellCastState,
+): CommandResult {
+  return handleCastSpell(
+    { ...pending.cmd, _skipCounterspellStage: true },
+    ctx,
+  );
+}
+
+function handlePassCounterspell(
+  cmd: PassCounterspellCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const pending = ctx.world.encounter?.pendingSpellCast;
+  if (!pending) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      "No spell cast is waiting for Counterspell.",
+    );
+  }
+  const reactor = ctx.world.entities[cmd.reactor];
+  if (!reactor) {
+    return reject("ACTOR_NOT_FOUND", `Reactor ${cmd.reactor} does not exist.`);
+  }
+  if (!pending.eligible.includes(cmd.reactor)) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${reactor.name} cannot pass on this Counterspell window.`,
+    );
+  }
+  if (pending.declined.includes(cmd.reactor)) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${reactor.name} already passed on this cast.`,
+    );
+  }
+  const declined = [...pending.declined, cmd.reactor];
+  const updateEvent: DraftEvent = {
+    type: "PendingSpellCastUpdated",
+    ...meta(ctx, cmd.reactor),
+    payload: { declined },
+  };
+  if (declined.length < pending.eligible.length) {
+    return {
+      accepted: true,
+      events: [updateEvent],
+      summary: { passed: cmd.reactor },
+    };
+  }
+  const complete = completePendingSpellCast(ctx, pending);
+  if (!complete.accepted) return complete;
+  return {
+    accepted: true,
+    events: [updateEvent, ...complete.events],
+    summary: complete.summary,
+  };
 }
 
 function handleAttack(
@@ -3532,14 +3593,15 @@ function handleCastSpell(
   }
 
   if (spell.id === "counterspell") {
-    const targetId = targets[0];
+    const pending = ctx.world.encounter?.pendingSpellCast;
+    const targetId = pending?.cmd.caster ?? targets[0];
     if (!targetId) {
       return reject(
         "INVALID_PAYLOAD",
         "Counterspell requires the opposing caster as its target.",
       );
     }
-    const targetSlot = cmd.counteredSpellSlotLevel;
+    const targetSlot = pending?.slotLevel ?? cmd.counteredSpellSlotLevel;
     if (targetSlot === undefined) {
       return reject(
         "INVALID_PAYLOAD",
@@ -3581,6 +3643,44 @@ function handleCastSpell(
       );
       events.push(rollDiceEvent(ctx, roll));
       countered = roll.total + mod >= 10 + targetSlot;
+    }
+    if (pending) {
+      const pendingSpell = getSpell(pending.cmd.spellId);
+      if (countered) {
+        events.push({
+          type: "SpellCastCancelled",
+          ...meta(ctx, cmd.caster),
+          payload: {
+            caster: pending.cmd.caster,
+            spellId: pending.cmd.spellId,
+            spellName: pendingSpell?.name ?? pending.cmd.spellId,
+            counteredBy: cmd.caster,
+          },
+        });
+        return {
+          accepted: true,
+          events,
+          summary: {
+            caster: cmd.caster,
+            target: targetId,
+            countered: true,
+            counteredSpellSlotLevel: targetSlot,
+          },
+        };
+      }
+      const complete = completePendingSpellCast(ctx, pending);
+      if (!complete.accepted) return complete;
+      return {
+        accepted: true,
+        events: [...events, ...complete.events],
+        summary: {
+          caster: cmd.caster,
+          target: targetId,
+          countered: false,
+          counteredSpellSlotLevel: targetSlot,
+          ...complete.summary,
+        },
+      };
     }
     return {
       accepted: true,
@@ -3731,6 +3831,38 @@ function handleCastSpell(
   }
 
   // --- Accepted: build events. ---
+  if (
+    !cmd._skipCounterspellStage &&
+    spell.id !== "counterspell" &&
+    spell.castingTime.unit !== "reaction"
+  ) {
+    const csEligible = counterspellEligibleReactors(ctx.world, cmd.caster);
+    if (csEligible.length > 0) {
+      const strippedCmd = { ...cmd };
+      delete strippedCmd._skipCounterspellStage;
+      return {
+        accepted: true,
+        events: [
+          {
+            type: "PendingSpellCastStaged",
+            ...meta(ctx, cmd.caster),
+            payload: {
+              cmd: strippedCmd,
+              slotLevel,
+              eligible: csEligible,
+              declined: [],
+            },
+          },
+        ],
+        summary: {
+          pendingCounterspell: true,
+          caster: cmd.caster,
+          spellId: spell.id,
+        },
+      };
+    }
+  }
+
   const events: DraftEvent[] = [
     {
       type: "SpellCast",
@@ -4464,6 +4596,8 @@ export function handleCommand(
       );
     case "pass_cutting_words":
       return handlePassCuttingWords(command, ctx);
+    case "pass_counterspell":
+      return handlePassCounterspell(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

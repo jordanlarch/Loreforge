@@ -142,6 +142,7 @@ export {
   NATURAL_RECOVERY_RESOURCE_KEY,
   naturalRecoveryMaximum,
   cuttingWordsEligibleReactors,
+  counterspellEligibleReactors,
   hasEldritchInvocation,
   martialArtsDie,
   METAMAGIC_OPTIONS,

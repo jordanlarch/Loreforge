@@ -664,3 +664,70 @@ describe("SRD-FID-21: Paladin — Lay on Hands, Channel Divinity, Divine Smite",
     expect(frightened).toBe(true);
   });
 });
+
+describe("SRD-FID-21: Action Surge", () => {
+  let engine: Engine;
+
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:fighter",
+      { x: 0, y: 0 },
+      [{ class: "Fighter", level: 5 }],
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, []);
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:fighter", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:fighter": 20, "npc:foe": 0 },
+    });
+  });
+
+  it("grants a fresh action and Extra Attack budget", async () => {
+    const key = featureResourceKey("Fighter", 2, "action-surge");
+    for (let i = 0; i < 2; i += 1) {
+      const atk = await engine.execute(CAMPAIGN, {
+        type: "attack",
+        attacker: "pc:fighter",
+        target: "npc:foe",
+        attackBonus: 10,
+        damage: { notation: "1d1", type: "slashing" },
+      });
+      expect(atk.accepted).toBe(true);
+    }
+    const blocked = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:fighter",
+      target: "npc:foe",
+      attackBonus: 10,
+      damage: { notation: "1d1", type: "slashing" },
+    });
+    expect(blocked.accepted).toBe(false);
+
+    const surge = await engine.execute(CAMPAIGN, {
+      type: "use_class_feature",
+      entity: "pc:fighter",
+      featureKey: key,
+    });
+    expect(surge.accepted).toBe(true);
+
+    const fighter = (await engine.getState(CAMPAIGN)).entities["pc:fighter"]!;
+    expect(fighter.actionEconomy?.action).toBe("available");
+    expect(fighter.actionEconomy?.attacks.used).toBe(0);
+    expect(fighter.actionEconomy?.attacks.total).toBe(2);
+
+    const again = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:fighter",
+      target: "npc:foe",
+      attackBonus: 10,
+      damage: { notation: "1d1", type: "slashing" },
+    });
+    expect(again.accepted).toBe(true);
+  });
+});

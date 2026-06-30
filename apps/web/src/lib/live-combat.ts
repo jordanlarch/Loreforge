@@ -12,6 +12,7 @@ import {
   abilityModifier,
   areHostile,
   FEET_PER_CELL,
+  getSpell,
   withinBurst,
   withinCone,
   withinCube,
@@ -66,6 +67,14 @@ export const CASTABLE_SPELLS: readonly CastableSpell[] = [
   { id: "bless", name: "Bless", level: 1, rangeFt: 30, targetKind: "ally", maxTargets: 3 },
   { id: "hunters-mark", name: "Hunter's Mark", level: 1, rangeFt: 90 },
   { id: "shield", name: "Shield", level: 1, rangeFt: 0, targetKind: "self", reaction: true },
+  {
+    id: "counterspell",
+    name: "Counterspell",
+    level: 3,
+    rangeFt: 60,
+    targetKind: "enemy",
+    reaction: true,
+  },
   {
     id: "burning-hands",
     name: "Burning Hands",
@@ -295,6 +304,68 @@ export function cuttingWordsWindowKey(state: WorldState): string | null {
   const pending = state.encounter?.pendingAttack;
   if (!pending) return null;
   return `${pending.cmd.attacker}:${pending.cmd.target}:${pending.total}:${pending.natural}`;
+}
+
+/** Lowest spell slot the reactor can spend to Counterspell a pending cast. */
+function counterspellSlotFor(
+  entity: EntityState,
+  pendingSlotLevel: number,
+): number | undefined {
+  const slots = entity.spellcasting?.slots ?? {};
+  const minAuto = Math.max(3, pendingSlotLevel);
+  for (let level = minAuto; level <= 9; level += 1) {
+    if ((slots[level]?.current ?? 0) > 0) return level;
+  }
+  for (let level = 3; level < minAuto; level += 1) {
+    if ((slots[level]?.current ?? 0) > 0) return level;
+  }
+  return undefined;
+}
+
+/** Party-controlled caster who may Counterspell a staged spell cast. */
+export function controllableCounterspell(
+  state: WorldState,
+  controlledSide: string,
+):
+  | {
+      reactor: EntityState;
+      casting: EntityState;
+      spellId: string;
+      spellName: string;
+      slotLevel: number;
+      counterspellSlotLevel: number;
+    }
+  | undefined {
+  const pending = state.encounter?.pendingSpellCast;
+  if (!pending || !state.encounter) return undefined;
+  const casting = state.entities[pending.cmd.caster];
+  if (!casting) return undefined;
+  const spellName =
+    getSpell(pending.cmd.spellId)?.name ?? pending.cmd.spellId;
+  for (const id of pending.eligible) {
+    if (pending.declined.includes(id)) continue;
+    if (state.encounter.sides[id] !== controlledSide) continue;
+    const reactor = state.entities[id];
+    if (!reactor?.alive) continue;
+    const counterspellSlotLevel = counterspellSlotFor(reactor, pending.slotLevel);
+    if (counterspellSlotLevel === undefined) continue;
+    return {
+      reactor,
+      casting,
+      spellId: pending.cmd.spellId,
+      spellName,
+      slotLevel: pending.slotLevel,
+      counterspellSlotLevel,
+    };
+  }
+  return undefined;
+}
+
+/** Stable key for a staged Counterspell window. */
+export function counterspellWindowKey(state: WorldState): string | null {
+  const pending = state.encounter?.pendingSpellCast;
+  if (!pending) return null;
+  return `${pending.cmd.caster}:${pending.cmd.spellId}:${pending.slotLevel}`;
 }
 
 /**

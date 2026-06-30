@@ -572,7 +572,7 @@ describe("SRD-FID-21: Paladin — Lay on Hands, Channel Divinity, Divine Smite",
     const key = featureResourceKey("Paladin", 3, "channel-divinity");
     const result = useClassFeature({
       characterId: "pc:pal",
-      classes: [{ class: "Paladin", level: 5 }],
+      classes: [{ class: "Paladin", level: 5, subclass: "Oath of Devotion" }],
       featureKey: key,
       resourceUses: {},
       currentHp: 20,

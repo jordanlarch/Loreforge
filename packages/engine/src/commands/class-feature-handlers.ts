@@ -268,6 +268,18 @@ export function handleUseClassFeature(
     });
   }
 
+  if (result.bonusUnarmedAttacks != null && result.bonusUnarmedAttacks > 0) {
+    events.push({
+      type: "ActionSpent",
+      ...meta(ctx, entity.id),
+      payload: {
+        entity: entity.id,
+        bonusAction: true,
+        flurryAttacksGranted: result.bonusUnarmedAttacks,
+      },
+    });
+  }
+
   return {
     accepted: true,
     events,

@@ -443,6 +443,10 @@ export type ActionSpentPayload = {
   sneakAttack?: boolean;
   /** Hunter Colossus Slayer consumed for this turn. */
   colossusSlayer?: boolean;
+  /** Monk Flurry of Blows — grant bonus unarmed strikes (activation). */
+  flurryAttacksGranted?: number;
+  /** Monk Flurry of Blows — consume one granted strike. */
+  flurryAttack?: boolean;
   /** Monk Stunning Strike consumed for this turn. */
   stunningStrike?: boolean;
 };
@@ -506,6 +510,17 @@ export type CuttingWordsAppliedPayload = {
   adjustedTotal: number;
   /** Present when mode is attack. */
   hit?: boolean;
+};
+
+export type FastHandsUsedPayload = {
+  entity: EntityRef;
+  action: "sleight_of_hand" | "thieves_tools" | "use_object";
+};
+
+export type OpenHandTechniqueAppliedPayload = {
+  attacker: EntityRef;
+  target: EntityRef;
+  technique: "prone" | "push" | "no_reactions";
 };
 
 /** Discriminated union of all engine events. */
@@ -579,6 +594,11 @@ export type EngineEvent =
   | (EventMeta & {
       type: "CuttingWordsApplied";
       payload: CuttingWordsAppliedPayload;
+    })
+  | (EventMeta & { type: "FastHandsUsed"; payload: FastHandsUsedPayload })
+  | (EventMeta & {
+      type: "OpenHandTechniqueApplied";
+      payload: OpenHandTechniqueAppliedPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
   | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })

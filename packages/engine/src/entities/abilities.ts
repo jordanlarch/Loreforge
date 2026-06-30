@@ -123,6 +123,7 @@ export function createEntityState(init: EntityInit): EntityState {
     abilityScores: { ...init.abilityScores },
     hp: { current: init.maxHp, max: init.maxHp, temp: 0 },
     baseAc: init.baseAc,
+    ...(init.wearingArmor ? { wearingArmor: init.wearingArmor } : {}),
     speed: init.speed ?? 30,
     classes,
     proficiencyBonus: proficiencyBonusForLevel(level),

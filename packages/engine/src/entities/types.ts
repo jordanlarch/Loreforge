@@ -88,6 +88,8 @@ export type ActionEconomyState = {
   sneakAttackUsed?: boolean;
   /** Hunter Colossus Slayer — once per turn. */
   colossusSlayerUsed?: boolean;
+  /** Monk Flurry of Blows — bonus unarmed strikes remaining this turn. */
+  flurryAttacksRemaining?: number;
   /** Monk Stunning Strike — once per turn. */
   stunningStrikeUsed?: boolean;
 };
@@ -101,6 +103,8 @@ export type EntityState = {
   hp: HitPoints;
   /** Base armor class before situational modifiers. */
   baseAc: number;
+  /** When true, Draconic Resilience unarmored AC does not apply. */
+  wearingArmor?: boolean;
   speed: number;
   /** Class levels (PCs/NPCs). Monsters may leave this empty. */
   classes: ClassLevel[];
@@ -354,6 +358,8 @@ export type EntityInit = {
   abilityScores: AbilityScores;
   maxHp: number;
   baseAc: number;
+  /** When true, unarmored AC features (Draconic Resilience) do not apply. */
+  wearingArmor?: boolean;
   speed?: number;
   classes?: ClassLevel[];
   /** Class saving-throw proficiencies; defaults to none. */

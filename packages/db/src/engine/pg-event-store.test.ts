@@ -63,9 +63,9 @@ describe("PgEventStore", () => {
 
   it("assigns contiguous per-campaign sequence numbers and reads them back", async () => {
     const events = await store.read(CAMPAIGN);
-    // Fixture campaign emits: create_scene, change_scene, 2× create_entity.
-    expect(events.map((e) => e.sequence)).toEqual([1, 2, 3, 4]);
-    expect(await store.lastSequence(CAMPAIGN)).toBe(4);
+    // Fixture campaign emits: create_scene, change_scene, 3× create_entity.
+    expect(events.map((e) => e.sequence)).toEqual([1, 2, 3, 4, 5]);
+    expect(await store.lastSequence(CAMPAIGN)).toBe(5);
     expect(events[0]?.type).toBe("SceneCreated");
     // Envelope metadata round-trips through the meta column.
     expect(events[0]?.causedByCommandId).toBeTruthy();
@@ -74,10 +74,10 @@ describe("PgEventStore", () => {
 
   it("readAfter returns only later events; truncate removes them", async () => {
     const tail = await store.readAfter(CAMPAIGN, 2);
-    expect(tail.map((e) => e.sequence)).toEqual([3, 4]);
+    expect(tail.map((e) => e.sequence)).toEqual([3, 4, 5]);
 
     const removed = await store.truncate(CAMPAIGN, 2);
-    expect(removed.map((e) => e.sequence)).toEqual([3, 4]);
+    expect(removed.map((e) => e.sequence)).toEqual([3, 4, 5]);
     expect(await store.lastSequence(CAMPAIGN)).toBe(2);
   });
 });

@@ -63,7 +63,7 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 > Live status/IDs for every track item live in `docs/deferrals.md`; the rows above are orientation only.
 
-**Recent ships + full backlog:** see **`docs/deferrals.md`** — the single source of truth for every shipped/`Done`/`Partial`/deferred item (PR-numbered). Do not maintain a duplicate shipped-list here. Most recent frontier (Jun 2026): GRILL-EXPLORATION exploration hazards (#307–#309, Falling + Burning); Smithy Gameplay Toolbox removed (#306); TUT-1 tutorial E2E shipped (#169–#178).
+**Recent ships + full backlog:** see **`docs/deferrals.md`** — the single source of truth for every shipped/`Done`/`Partial`/deferred item (PR-numbered). Do not maintain a duplicate shipped-list here. Most recent frontier (Jun 2026): **FID-21** product wiring (#336 — Live Play class-feature controls + WS seed); GRILL-EXPLORATION exploration hazards (#307–#309); TUT-1 tutorial E2E (#169–#178).
 
 **Parked until polish pass done:** CAMP-14 multiplayer depth · PLAY-9 multi-client reaction sync · INFRA-4 billing · M8 closed beta.
 

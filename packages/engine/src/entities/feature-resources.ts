@@ -4,6 +4,7 @@
  */
 import {
   focusPointMaximum,
+  layOnHandsMaximum,
   sorceryPointMaximum,
   classLevel,
 } from "../combat/class-feature-mechanics";
@@ -86,6 +87,9 @@ export function featurePoolSize(
   if (parsed.featureId === "font-of-magic") {
     return sorceryPointMaximum(classLevel(classes, "Sorcerer"));
   }
+  if (parsed.featureId === "lay-on-hands") {
+    return layOnHandsMaximum(classLevel(classes, "Paladin"));
+  }
   return undefined;
 }
 
@@ -126,6 +130,28 @@ export function spendEntityFeaturePool(
       [featureKey]: spent,
     },
   };
+}
+
+/**
+ * Spend multiple pool points (Lay on Hands HP, etc.). Returns updated slots or null.
+ */
+export function spendFeaturePoolPoints(
+  used: boolean[] | undefined,
+  poolSize: number,
+  points: number,
+): boolean[] | null {
+  if (points <= 0) return null;
+  const slots = normalizeUseSlots(used, poolSize);
+  const remaining = slots.filter((s) => !s).length;
+  if (points > remaining) return null;
+  let spent = 0;
+  for (let i = 0; i < slots.length && spent < points; i++) {
+    if (!slots[i]) {
+      slots[i] = true;
+      spent += 1;
+    }
+  }
+  return spent === points ? slots : null;
 }
 
 /**

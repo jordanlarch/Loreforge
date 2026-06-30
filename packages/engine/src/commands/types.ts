@@ -156,6 +156,9 @@ export type AttackCommand = {
   /** Monk Stunning Strike — spend 1 Focus Point on hit (requires monkWeaponOrUnarmed). */
   stunningStrike?: boolean;
   monkWeaponOrUnarmed?: boolean;
+  /** Paladin Divine Smite — expend a spell slot on hit for radiant damage. */
+  divineSmite?: boolean;
+  divineSmiteSlotLevel?: number;
 };
 
 /** Apply an SRD condition to a target (exhaustion carries a 1-6 level). */
@@ -479,6 +482,12 @@ export type UseClassFeatureCommand = {
   beneficiaryId?: EntityRef;
   /** Monk's Focus spend variant. */
   monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
+  /** Channel Divinity option (Paladin). */
+  channelDivinitySpend?: "divine_sense" | "sacred_weapon" | "turn_undead";
+  /** Lay on Hands HP to spend on a touch heal. */
+  layOnHandsHealAmount?: number;
+  /** Lay on Hands — spend 5 HP from the pool to end Poisoned. */
+  layOnHandsPurify?: boolean;
 };
 
 export type Command =

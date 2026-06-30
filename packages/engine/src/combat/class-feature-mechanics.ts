@@ -95,6 +95,39 @@ export function sorceryPointMaximum(sorcererLevel: number): number {
   return sorcererLevel >= 2 ? sorcererLevel : 0;
 }
 
+/** Lay on Hands pool maximum — 5 HP per Paladin level (SRD 5.2.1). */
+export function layOnHandsMaximum(paladinLevel: number): number {
+  return paladinLevel >= 1 ? paladinLevel * 5 : 0;
+}
+
+/** Channel Divinity save DC: 8 + proficiency + Charisma modifier. */
+export function channelDivinitySaveDc(
+  paladin: Pick<EntityState, "proficiencyBonus" | "abilityScores">,
+): number {
+  return (
+    8 +
+    paladin.proficiencyBonus +
+    abilityModifier(paladin.abilityScores.cha)
+  );
+}
+
+/** Divine Smite radiant dice notation for a spell slot level. */
+export function divineSmiteNotation(
+  slotLevel: number,
+  fiendOrUndead: boolean,
+): string {
+  const dice = 2 + Math.max(0, slotLevel - 1) + (fiendOrUndead ? 1 : 0);
+  return dice > 0 ? `${dice}d8` : "0";
+}
+
+export function isFiendOrUndead(
+  creatureTypes: readonly string[] | undefined,
+): boolean {
+  if (!creatureTypes?.length) return false;
+  const normalized = creatureTypes.map((t) => t.trim().toLowerCase());
+  return normalized.includes("fiend") || normalized.includes("undead");
+}
+
 /** Martial Arts die by Monk level. */
 export function martialArtsDie(monkLevel: number): string {
   if (monkLevel >= 17) return "1d10";

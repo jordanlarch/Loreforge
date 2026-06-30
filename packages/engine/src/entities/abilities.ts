@@ -174,5 +174,8 @@ export function createEntityState(init: EntityInit): EntityState {
           ),
         }
       : {}),
+    ...(init.creatureTypes?.length
+      ? { creatureTypes: [...init.creatureTypes] }
+      : {}),
   };
 }

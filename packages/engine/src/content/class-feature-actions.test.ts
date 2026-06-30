@@ -130,3 +130,39 @@ describe("Monk Focus (SRD-FID-21)", () => {
     expect(result.unarmedDamageDie).toBe("1d6");
   });
 });
+
+describe("Paladin features (SRD-FID-21)", () => {
+  const lohKey = featureResourceKey("Paladin", 1, "lay-on-hands");
+
+  it("spends Lay on Hands pool points for healing", () => {
+    const result = useClassFeature({
+      characterId: "pc:pal",
+      classes: [{ class: "Paladin", level: 5 }],
+      featureKey: lohKey,
+      resourceUses: {},
+      currentHp: 5,
+      maxHp: 40,
+      rng: createSeededRng("loh-unit"),
+      layOnHandsHealAmount: 10,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.healAmount).toBe(10);
+    expect(result.resourceUses[lohKey]?.filter(Boolean)).toHaveLength(10);
+  });
+
+  it("rejects Lay on Hands when the pool is insufficient", () => {
+    const spent = Array.from({ length: 24 }, () => true);
+    const result = useClassFeature({
+      characterId: "pc:pal",
+      classes: [{ class: "Paladin", level: 5 }],
+      featureKey: lohKey,
+      resourceUses: { [lohKey]: spent },
+      currentHp: 5,
+      maxHp: 40,
+      rng: createSeededRng("loh-fail"),
+      layOnHandsHealAmount: 5,
+    });
+    expect(result.ok).toBe(false);
+  });
+});

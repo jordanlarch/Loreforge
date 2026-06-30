@@ -2,7 +2,12 @@
  * Live-play class feature spend — mirrors sheet `useClassFeature` on entity state.
  */
 import { useClassFeature } from "../content/class-feature-actions";
-import type { MonkFocusSpend } from "../content/class-feature-actions";
+import type {
+  ChannelDivinitySpend,
+  MonkFocusSpend,
+} from "../content/class-feature-actions";
+import { abilityModifier } from "../entities/abilities";
+import type { EntityState } from "../entities/types";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import type { CommandResult, UseClassFeatureCommand } from "./types";
@@ -48,6 +53,47 @@ function requireOwnTurn(
   return null;
 }
 
+function rollWisdomSave(
+  ctx: ExecutionContext,
+  target: EntityState,
+  dc: number,
+  scope: string,
+): { success: boolean; events: DraftEvent[] } {
+  const d20 = ctx.roll("1d20", scope);
+  const mod = abilityModifier(target.abilityScores.wis);
+  const total = d20.total + mod;
+  return {
+    success: total >= dc,
+    events: [
+      {
+        type: "DiceRolled",
+        ...meta(ctx, target.id),
+        payload: {
+          notation: d20.notation,
+          rolls: d20.rolls,
+          total: d20.total,
+          scope: d20.scope,
+          drawIndex: d20.drawIndex,
+        },
+      },
+      {
+        type: "SaveRolled",
+        ...meta(ctx, target.id),
+        payload: {
+          entity: target.id,
+          ability: "wis",
+          dc,
+          mode: "normal",
+          natural: d20.total,
+          total,
+          success: total >= dc,
+          autoFail: false,
+        },
+      },
+    ],
+  };
+}
+
 export function handleUseClassFeature(
   cmd: UseClassFeatureCommand,
   ctx: ExecutionContext,
@@ -65,6 +111,10 @@ export function handleUseClassFeature(
   if (!entity.classes?.length) {
     return reject("INVALID_PAYLOAD", "Entity has no class levels.");
   }
+
+  const beneficiary = cmd.beneficiaryId
+    ? ctx.world.entities[cmd.beneficiaryId]
+    : undefined;
 
   let draw = 0;
   const result = useClassFeature({
@@ -84,6 +134,15 @@ export function handleUseClassFeature(
     },
     beneficiaryId: cmd.beneficiaryId,
     monkFocusSpend: cmd.monkFocusSpend as MonkFocusSpend | undefined,
+    channelDivinitySpend: cmd.channelDivinitySpend as
+      | ChannelDivinitySpend
+      | undefined,
+    layOnHandsHealAmount: cmd.layOnHandsHealAmount,
+    layOnHandsPurify: cmd.layOnHandsPurify,
+    beneficiaryMaxHp: beneficiary?.hp.max,
+    beneficiaryCurrentHp: beneficiary?.hp.current,
+    proficiencyBonus: entity.proficiencyBonus,
+    abilityScores: entity.abilityScores,
   });
 
   if (!result.ok) {
@@ -99,16 +158,38 @@ export function handleUseClassFeature(
     ),
   ];
 
-  if (result.kind === "heal" && result.healAmount != null && result.healAmount > 0) {
-    const hpAfter = Math.min(entity.hp.max, entity.hp.current + result.healAmount);
+  const healTargetId = result.healTarget ?? entity.id;
+  const healTarget = ctx.world.entities[healTargetId];
+
+  if (
+    (result.kind === "heal" || result.kind === "lay_on_hands") &&
+    result.healAmount != null &&
+    result.healAmount > 0 &&
+    healTarget
+  ) {
+    const hpAfter = Math.min(
+      healTarget.hp.max,
+      healTarget.hp.current + result.healAmount,
+    );
     events.push({
       type: "HealingApplied",
       ...meta(ctx, entity.id),
       payload: {
-        target: entity.id,
+        target: healTargetId,
         amount: result.healAmount,
-        hpBefore: entity.hp.current,
+        hpBefore: healTarget.hp.current,
         hpAfter,
+      },
+    });
+  }
+
+  if (result.removeCondition && healTarget) {
+    events.push({
+      type: "ConditionRemoved",
+      ...meta(ctx, entity.id),
+      payload: {
+        target: healTargetId,
+        condition: result.removeCondition,
       },
     });
   }
@@ -132,6 +213,34 @@ export function handleUseClassFeature(
         effect: result.allyEffect.effect,
       },
     });
+  }
+
+  if (
+    result.kind === "channel_divinity_turn_undead" &&
+    result.healTarget &&
+    result.channelDivinityDc != null
+  ) {
+    const undead = ctx.world.entities[result.healTarget];
+    if (undead) {
+      const save = rollWisdomSave(
+        ctx,
+        undead,
+        result.channelDivinityDc,
+        `turn-undead:${entity.id}->${undead.id}`,
+      );
+      events.push(...save.events);
+      if (!save.success) {
+        events.push({
+          type: "ConditionApplied",
+          ...meta(ctx, entity.id),
+          payload: {
+            target: undead.id,
+            condition: "frightened",
+            source: entity.id,
+          },
+        });
+      }
+    }
   }
 
   if (result.startDodging) {

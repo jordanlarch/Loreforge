@@ -3,19 +3,22 @@
  */
 import {
   bardicInspirationDie,
+  channelDivinitySaveDc,
   classLevel,
   martialArtsDie,
   rageDamageBonus,
 } from "../combat/class-feature-mechanics";
 import type { ActiveEffect } from "../combat/effects";
+import { abilityModifier } from "../entities/abilities";
 import { classFeaturesForLevel } from "../entities/class-features";
 import {
   effectiveFeaturePoolSize,
   parseFeatureResourceKey,
   remainingFeatureUses,
+  spendFeaturePoolPoints,
   spendFeatureUse,
 } from "../entities/feature-resources";
-import type { ClassLevel, EntityRef } from "../entities/types";
+import type { ClassLevel, EntityRef, EntityState } from "../entities/types";
 import { rollDice, type DiceRoll } from "../rng/dice";
 import type { Rng } from "../rng/prng";
 
@@ -26,9 +29,18 @@ export type ClassFeatureActionKind =
   | "bardic_inspiration"
   | "monk_flurry"
   | "monk_patient_defense"
-  | "monk_step_of_wind";
+  | "monk_step_of_wind"
+  | "lay_on_hands"
+  | "channel_divinity_sense"
+  | "channel_divinity_sacred_weapon"
+  | "channel_divinity_turn_undead";
 
 export type MonkFocusSpend = "flurry" | "patient_defense" | "step_of_wind";
+
+export type ChannelDivinitySpend =
+  | "divine_sense"
+  | "sacred_weapon"
+  | "turn_undead";
 
 export type ClassFeatureActionDef = {
   kind: ClassFeatureActionKind;
@@ -44,12 +56,17 @@ export const CLASS_FEATURE_ACTIONS: Record<string, ClassFeatureActionDef> = {
   rage: { kind: "rage" },
   "bardic-inspiration": { kind: "bardic_inspiration" },
   "monk-s-focus": { kind: "monk_flurry" },
+  "lay-on-hands": { kind: "lay_on_hands" },
+  "channel-divinity": { kind: "channel_divinity_sense" },
 };
 
-const MONK_FOCUS_KIND: Record<MonkFocusSpend, ClassFeatureActionKind> = {
-  flurry: "monk_flurry",
-  patient_defense: "monk_patient_defense",
-  step_of_wind: "monk_step_of_wind",
+const CHANNEL_DIVINITY_KIND: Record<
+  ChannelDivinitySpend,
+  ClassFeatureActionKind
+> = {
+  divine_sense: "channel_divinity_sense",
+  sacred_weapon: "channel_divinity_sacred_weapon",
+  turn_undead: "channel_divinity_turn_undead",
 };
 
 export function classFeatureAction(
@@ -108,6 +125,26 @@ export function buildRageDamageEffect(
   };
 }
 
+const MONK_FOCUS_KIND: Record<MonkFocusSpend, ClassFeatureActionKind> = {
+  flurry: "monk_flurry",
+  patient_defense: "monk_patient_defense",
+  step_of_wind: "monk_step_of_wind",
+};
+
+export function buildSacredWeaponEffect(
+  entityId: EntityRef,
+  paladin: Pick<EntityState, "abilityScores">,
+): ActiveEffect {
+  const chaMod = Math.max(0, abilityModifier(paladin.abilityScores.cha));
+  const dice = chaMod > 0 ? `1d1+${chaMod - 1}` : "1d1-1";
+  return {
+    id: `sacred-weapon:${entityId}`,
+    name: "Sacred Weapon",
+    source: entityId,
+    modifier: { type: "attack_roll_bonus", dice },
+    remainingRounds: 10,
+  };
+}
 export function buildBardicInspirationEffect(
   beneficiaryId: EntityRef,
   granterId: EntityRef,
@@ -145,6 +182,12 @@ export type FeatureUseResult = {
   startDodging?: boolean;
   startDisengage?: boolean;
   bonusMovementFeet?: number;
+  /** Entity receiving Lay on Hands healing. */
+  healTarget?: EntityRef;
+  /** Condition removed by Lay on Hands purification. */
+  removeCondition?: "poisoned";
+  /** Save DC for Channel Divinity Turn Undead. */
+  channelDivinityDc?: number;
   message: string;
 };
 
@@ -160,10 +203,21 @@ export function useClassFeature(
     maxHp: number;
     rng: Rng;
     useIndex?: number;
-    /** Ally receiving Bardic Inspiration. */
+    /** Ally receiving Bardic Inspiration or Lay on Hands. */
     beneficiaryId?: EntityRef;
     /** Monk's Focus spend — Flurry, Patient Defense, or Step of the Wind. */
     monkFocusSpend?: MonkFocusSpend;
+    /** Channel Divinity option. */
+    channelDivinitySpend?: ChannelDivinitySpend;
+    /** Lay on Hands HP to spend on a touch heal. */
+    layOnHandsHealAmount?: number;
+    /** Lay on Hands — spend 5 HP from the pool to end Poisoned. */
+    layOnHandsPurify?: boolean;
+    /** Beneficiary max/current HP for Lay on Hands (defaults to self). */
+    beneficiaryMaxHp?: number;
+    beneficiaryCurrentHp?: number;
+    proficiencyBonus?: number;
+    abilityScores?: EntityState["abilityScores"];
   },
 ): FeatureUseResult | FeatureUseError {
   const parsed = parseFeatureResourceKey(input.featureKey);
@@ -197,7 +251,14 @@ export function useClassFeature(
         message: "Choose a Focus ability: Flurry, Patient Defense, or Step of the Wind.",
       };
     }
-  } else {
+  } else if (featureId === "channel-divinity") {
+    if (!input.channelDivinitySpend) {
+      return {
+        ok: false,
+        message: "Choose a Channel Divinity option: Divine Sense, Sacred Weapon, or Turn Undead.",
+      };
+    }
+  } else if (featureId !== "lay-on-hands") {
     const action = classFeatureAction(featureId);
     if (!action) {
       return {
@@ -205,6 +266,57 @@ export function useClassFeature(
         message: "No mechanical effect wired for this feature yet.",
       };
     }
+  }
+
+  let nextUses: Record<string, boolean[]>;
+
+  if (featureId === "lay-on-hands") {
+    const points = input.layOnHandsPurify ? 5 : input.layOnHandsHealAmount ?? 0;
+    if (points <= 0) {
+      return {
+        ok: false,
+        message: "Specify how many Lay on Hands HP to spend, or purify Poisoned (5 HP).",
+      };
+    }
+    const spent = spendFeaturePoolPoints(
+      input.resourceUses?.[input.featureKey],
+      poolSize,
+      points,
+    );
+    if (!spent) {
+      return { ok: false, message: "Not enough Lay on Hands HP remaining." };
+    }
+    nextUses = {
+      ...(input.resourceUses ?? {}),
+      [input.featureKey]: spent,
+    };
+    const healTarget = input.beneficiaryId ?? input.characterId;
+    if (input.layOnHandsPurify) {
+      return {
+        ok: true,
+        featureKey: input.featureKey,
+        featureId,
+        kind: "lay_on_hands",
+        resourceUses: nextUses,
+        healTarget,
+        removeCondition: "poisoned",
+        message: "Lay on Hands — spent 5 HP to end Poisoned.",
+      };
+    }
+    const targetMax = input.beneficiaryMaxHp ?? input.maxHp;
+    const targetCurrent = input.beneficiaryCurrentHp ?? input.currentHp;
+    const capped = Math.min(targetMax, targetCurrent + points);
+    const healed = capped - targetCurrent;
+    return {
+      ok: true,
+      featureKey: input.featureKey,
+      featureId,
+      kind: "lay_on_hands",
+      resourceUses: nextUses,
+      healTarget,
+      healAmount: healed,
+      message: `Lay on Hands restores ${healed} HP (${points} spent from pool).`,
+    };
   }
 
   const remaining = remainingFeatureUses(
@@ -223,10 +335,62 @@ export function useClassFeature(
     return { ok: false, message: "No uses remaining." };
   }
 
-  const nextUses = {
+  nextUses = {
     ...(input.resourceUses ?? {}),
     [input.featureKey]: spent,
   };
+
+  if (featureId === "channel-divinity" && input.channelDivinitySpend) {
+    const kind = CHANNEL_DIVINITY_KIND[input.channelDivinitySpend];
+    if (input.channelDivinitySpend === "divine_sense") {
+      return {
+        ok: true,
+        featureKey: input.featureKey,
+        featureId,
+        kind,
+        resourceUses: nextUses,
+        message: "Divine Sense — sense Celestials, Fiends, and Undead within 60 feet for 10 minutes.",
+      };
+    }
+    if (input.channelDivinitySpend === "sacred_weapon") {
+      if (!input.abilityScores) {
+        return { ok: false, message: "Ability scores required for Sacred Weapon." };
+      }
+      return {
+        ok: true,
+        featureKey: input.featureKey,
+        featureId,
+        kind,
+        resourceUses: nextUses,
+        selfEffects: [
+          buildSacredWeaponEffect(input.characterId, {
+            abilityScores: input.abilityScores,
+          }),
+        ],
+        message: "Sacred Weapon — weapon attacks gain Charisma bonus and emit light.",
+      };
+    }
+    if (!input.beneficiaryId) {
+      return { ok: false, message: "Choose an Undead target for Turn Undead." };
+    }
+    const dc =
+      input.proficiencyBonus != null && input.abilityScores
+        ? channelDivinitySaveDc({
+            proficiencyBonus: input.proficiencyBonus,
+            abilityScores: input.abilityScores,
+          })
+        : 13;
+    return {
+      ok: true,
+      featureKey: input.featureKey,
+      featureId,
+      kind,
+      resourceUses: nextUses,
+      healTarget: input.beneficiaryId,
+      channelDivinityDc: dc,
+      message: `Turn Undead — ${input.beneficiaryId} must succeed on a DC ${dc} Wisdom save or be Frightened.`,
+    };
+  }
 
   if (featureId === "monk-s-focus" && input.monkFocusSpend) {
     const monkLevel = classLevel(input.classes, "Monk");

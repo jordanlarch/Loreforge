@@ -73,8 +73,10 @@ import {
 import {
   agonizingBlastBonus,
   classLevel,
+  divineSmiteNotation,
   empoweredRerollCount,
   hasEldritchInvocation,
+  isFiendOrUndead,
   METAMAGIC_OPTIONS,
   selectedMetamagicOptions,
   sneakAttackEligible,
@@ -1189,6 +1191,7 @@ function handleAttack(
 
   let damage: number | undefined;
   let sneakAttackDamage: number | undefined;
+  let divineSmiteDamage: number | undefined;
   let hpAfter = target.hp.current;
   if (hit) {
     const notation = critical
@@ -1224,7 +1227,39 @@ function handleAttack(
         damage += sneakAttackDamage;
       }
     }
-    damage = adjustDamageAmount(damage, cmd.damage.type, target);
+    if (
+      cmd.divineSmite &&
+      cmd.divineSmiteSlotLevel &&
+      classLevel(attacker.classes, "Paladin") >= 2 &&
+      attacker.spellcasting
+    ) {
+      const slotLevel = Math.floor(cmd.divineSmiteSlotLevel);
+      const slot = attacker.spellcasting.slots[slotLevel];
+      if (slot && slot.current > 0) {
+        const smiteNotation = divineSmiteNotation(
+          slotLevel,
+          isFiendOrUndead(target.creatureTypes),
+        );
+        if (smiteNotation !== "0") {
+          const smiteRoll = ctx.roll(
+            smiteNotation,
+            `divine-smite:${cmd.attacker}->${cmd.target}`,
+          );
+          events.push(rollDiceEvent(ctx, smiteRoll));
+          divineSmiteDamage = Math.max(0, smiteRoll.total);
+          events.push({
+            type: "SpellSlotExpended",
+            ...meta(ctx, cmd.attacker),
+            payload: { entity: cmd.attacker, slotLevel },
+          });
+        }
+      }
+    }
+    const weaponDamage = adjustDamageAmount(damage, cmd.damage.type, target);
+    const smiteApplied = divineSmiteDamage
+      ? adjustDamageAmount(divineSmiteDamage, "radiant", target)
+      : 0;
+    damage = weaponDamage + smiteApplied;
     const fromTemp = Math.min(target.hp.temp, damage);
     hpAfter = Math.max(0, target.hp.current - (damage - fromTemp));
   }
@@ -1274,6 +1309,7 @@ function handleAttack(
       damageType: cmd.damage.type,
       ...(damage !== undefined ? { damage } : {}),
       ...(sneakAttackDamage !== undefined ? { sneakAttackDamage } : {}),
+      ...(divineSmiteDamage !== undefined ? { divineSmiteDamage } : {}),
       ...(hadBardicInspiration ? { bardicInspirationUsed: true } : {}),
       ...(stunningStrikeAttempted ? { stunningStrike: true, targetStunned } : {}),
     },

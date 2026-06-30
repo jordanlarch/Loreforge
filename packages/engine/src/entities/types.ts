@@ -196,6 +196,8 @@ export type EntityState = {
   featureChoices?: Record<string, string>;
   /** Spent class-feature pools (Focus Points, Sorcery Points, Rage uses, …). */
   resourceUses?: Record<string, boolean[]>;
+  /** SRD creature types (e.g. undead, fiend) for type-gated effects. */
+  creatureTypes?: string[];
 };
 
 /** Ongoing poison tracked on an entity (injury or ingested after delivery). */
@@ -373,4 +375,5 @@ export type EntityInit = {
   damageImmunities?: DamageType[];
   featureChoices?: Record<string, string>;
   resourceUses?: Record<string, boolean[]>;
+  creatureTypes?: string[];
 };

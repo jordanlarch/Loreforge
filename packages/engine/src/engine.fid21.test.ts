@@ -262,3 +262,119 @@ describe("SRD-FID-21: Metamagic & Invocations", () => {
     expect(save.payload.mode).toBe("disadvantage");
   });
 });
+
+describe("SRD-FID-21: Paladin — Lay on Hands, Channel Divinity, Divine Smite", () => {
+  it("Lay on Hands spends HP from the pool to heal", () => {
+    const key = featureResourceKey("Paladin", 1, "lay-on-hands");
+    const result = useClassFeature({
+      characterId: "pc:pal",
+      classes: [{ class: "Paladin", level: 5 }],
+      featureKey: key,
+      resourceUses: {},
+      currentHp: 10,
+      maxHp: 40,
+      rng: createSeededRng("loh"),
+      layOnHandsHealAmount: 8,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.healAmount).toBe(8);
+    expect(result.resourceUses[key]?.filter(Boolean)).toHaveLength(8);
+  });
+
+  it("Sacred Weapon applies an attack-roll bonus effect", () => {
+    const key = featureResourceKey("Paladin", 3, "channel-divinity");
+    const result = useClassFeature({
+      characterId: "pc:pal",
+      classes: [{ class: "Paladin", level: 5 }],
+      featureKey: key,
+      resourceUses: {},
+      currentHp: 20,
+      maxHp: 40,
+      rng: createSeededRng("cd-sw"),
+      channelDivinitySpend: "sacred_weapon",
+      abilityScores: { ...ABILITIES, cha: 16 },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.selfEffects?.[0]?.modifier.type).toBe("attack_roll_bonus");
+  });
+
+  it("Divine Smite adds radiant damage and expends a spell slot on hit", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:pal",
+        kind: "character",
+        name: "Paladin",
+        abilityScores: ABILITIES,
+        maxHp: 40,
+        baseAc: 16,
+        classes: [{ class: "Paladin", level: 5 }],
+        sceneId: "s:arena",
+        position: { x: 0, y: 0 },
+        spellcasting: { ability: "cha", casterLevel: 2 },
+      },
+    });
+    await place(engine, "npc:undead", { x: 1, y: 0 }, [], {
+      creatureTypes: ["undead"],
+      maxHp: 100,
+    });
+    const attack = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:pal",
+      target: "npc:undead",
+      attackBonus: 20,
+      damage: { notation: "1d8", type: "slashing" },
+      divineSmite: true,
+      divineSmiteSlotLevel: 1,
+    });
+    expect(attack.accepted).toBe(true);
+    if (!attack.accepted) return;
+    const resolved = attack.events.find((e) => e.type === "AttackResolved") as {
+      payload: { divineSmiteDamage?: number; damage?: number; hit: boolean };
+    };
+    expect(resolved.payload.hit).toBe(true);
+    expect(resolved.payload.divineSmiteDamage).toBeGreaterThanOrEqual(3);
+    expect(attack.events.some((e) => e.type === "SpellSlotExpended")).toBe(true);
+  });
+
+  it("Turn Undead frightens on a failed Wisdom save", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:pal", { x: 0, y: 0 }, [{ class: "Paladin", level: 5 }], {
+      abilityScores: { ...ABILITIES, cha: 18 },
+      resourceUses: {},
+    });
+    await place(engine, "npc:zombie", { x: 1, y: 0 }, [], {
+      creatureTypes: ["undead"],
+      abilityScores: { ...ABILITIES, wis: 8 },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:pal", "npc:zombie"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:pal": 20, "npc:zombie": 0 },
+    });
+    const key = featureResourceKey("Paladin", 3, "channel-divinity");
+    const use = await engine.execute(CAMPAIGN, {
+      type: "use_class_feature",
+      entity: "pc:pal",
+      featureKey: key,
+      channelDivinitySpend: "turn_undead",
+      beneficiaryId: "npc:zombie",
+    });
+    expect(use.accepted).toBe(true);
+    if (!use.accepted) return;
+    const frightened = use.events.some(
+      (e) =>
+        e.type === "ConditionApplied" &&
+        (e.payload as { condition: string }).condition === "frightened",
+    );
+    expect(frightened).toBe(true);
+  });
+});

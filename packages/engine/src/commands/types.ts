@@ -153,6 +153,9 @@ export type AttackCommand = {
   finesseOrRanged?: boolean;
   /** Strength-based weapon attack — adds Rage damage bonus while raging. */
   usesStrength?: boolean;
+  /** Monk Stunning Strike — spend 1 Focus Point on hit (requires monkWeaponOrUnarmed). */
+  stunningStrike?: boolean;
+  monkWeaponOrUnarmed?: boolean;
 };
 
 /** Apply an SRD condition to a target (exhaustion carries a 1-6 level). */
@@ -295,6 +298,8 @@ export type CastSpellCommand = {
   targets?: EntityRef[];
   origin?: GridPosition;
   mode?: RollMode;
+  /** Metamagic option id (empowered, heightened). */
+  metamagic?: string;
 };
 
 export type DetectTrapCommand = {

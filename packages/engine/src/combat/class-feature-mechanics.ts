@@ -1,9 +1,11 @@
 /**
  * SRD class-feature combat math (SRD-FID-21).
  */
+import { abilityModifier } from "../entities/abilities";
+import { parseFeatureChoiceValues } from "../entities/class-feature-choices";
 import { distanceFeet } from "./grid";
 import type { RollAdjust } from "./conditions";
-import type { ClassLevel, EntityState } from "../entities/types";
+import type { AbilityScores, ClassLevel, EntityState } from "../entities/types";
 
 export function classLevel(
   classes: readonly ClassLevel[] | undefined,
@@ -79,4 +81,109 @@ export function allyWithinFiveFeet(
     return false;
   }
   return distanceFeet(target.position, ally.position) <= 5;
+}
+
+/** Focus Point pool maximum by Monk level (SRD 5.2.1). */
+export function focusPointMaximum(monkLevel: number): number {
+  if (monkLevel < 2) return 0;
+  if (monkLevel === 2) return 2;
+  return monkLevel;
+}
+
+/** Sorcery Point pool maximum by Sorcerer level. */
+export function sorceryPointMaximum(sorcererLevel: number): number {
+  return sorcererLevel >= 2 ? sorcererLevel : 0;
+}
+
+/** Martial Arts die by Monk level. */
+export function martialArtsDie(monkLevel: number): string {
+  if (monkLevel >= 17) return "1d10";
+  if (monkLevel >= 11) return "1d8";
+  if (monkLevel >= 5) return "1d6";
+  return "1d4";
+}
+
+/** Stunning Strike save DC: 8 + proficiency + Wisdom modifier. */
+export function stunningStrikeSaveDc(
+  monk: Pick<EntityState, "proficiencyBonus" | "abilityScores">,
+): number {
+  return (
+    8 +
+    monk.proficiencyBonus +
+    abilityModifier(monk.abilityScores.wis)
+  );
+}
+
+export type MetamagicOptionId = "empowered" | "heightened";
+
+export type MetamagicOption = {
+  id: MetamagicOptionId;
+  name: string;
+  cost: number;
+};
+
+export const METAMAGIC_OPTIONS: Record<MetamagicOptionId, MetamagicOption> = {
+  empowered: { id: "empowered", name: "Empowered Spell", cost: 1 },
+  heightened: { id: "heightened", name: "Heightened Spell", cost: 2 },
+};
+
+export type EldritchInvocationId = "agonizing-blast" | "devils-sight";
+
+export type EldritchInvocation = {
+  id: EldritchInvocationId;
+  name: string;
+};
+
+export const ELDRITCH_INVOCATIONS: Record<
+  EldritchInvocationId,
+  EldritchInvocation
+> = {
+  "agonizing-blast": { id: "agonizing-blast", name: "Agonizing Blast" },
+  "devils-sight": { id: "devils-sight", name: "Devil's Sight" },
+};
+
+const METAMAGIC_CHOICE_KEY = "Sorcerer:2:metamagic";
+const INVOCATION_CHOICE_KEY = "Warlock:1:eldritch-invocations";
+
+function normalizeMetamagicId(raw: string): MetamagicOptionId | undefined {
+  const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  if (slug in METAMAGIC_OPTIONS) return slug as MetamagicOptionId;
+  if (slug.startsWith("empowered")) return "empowered";
+  if (slug.startsWith("heightened")) return "heightened";
+  return undefined;
+}
+
+export function selectedMetamagicOptions(
+  featureChoices: Record<string, string> | undefined,
+): MetamagicOptionId[] {
+  const raw = parseFeatureChoiceValues(featureChoices?.[METAMAGIC_CHOICE_KEY]);
+  return raw
+    .map(normalizeMetamagicId)
+    .filter((v): v is MetamagicOptionId => v !== undefined);
+}
+
+export function hasEldritchInvocation(
+  featureChoices: Record<string, string> | undefined,
+  invocation: EldritchInvocationId,
+): boolean {
+  const raw = parseFeatureChoiceValues(
+    featureChoices?.[INVOCATION_CHOICE_KEY],
+  );
+  const name = ELDRITCH_INVOCATIONS[invocation].name;
+  return raw.some(
+    (v) =>
+      v === invocation ||
+      v.toLowerCase() === name.toLowerCase() ||
+      v.toLowerCase().replace(/[^a-z0-9]+/g, "-") === invocation,
+  );
+}
+
+/** Agonizing Blast — add Charisma modifier to Eldritch Blast damage. */
+export function agonizingBlastBonus(scores: AbilityScores): number {
+  return Math.max(0, abilityModifier(scores.cha));
+}
+
+/** Empowered Spell — reroll up to this many damage dice (Charisma modifier, min 1). */
+export function empoweredRerollCount(scores: AbilityScores): number {
+  return Math.max(1, abilityModifier(scores.cha));
 }

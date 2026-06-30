@@ -33,7 +33,7 @@ describe("useClassFeature", () => {
       characterId: "pc-1",
       classes: [{ class: "Fighter", level: 5 }],
       featureKey: key,
-      resourceUses: { [key]: [true] },
+      resourceUses: { [key]: [true, true] },
       currentHp: 10,
       maxHp: 44,
       rng: createSeededRng("x"),
@@ -89,5 +89,44 @@ describe("Rage and Bardic Inspiration (SRD-FID-21)", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.allyEffect?.target).toBe("pc:ally");
+  });
+});
+
+describe("Monk Focus (SRD-FID-21)", () => {
+  const focusKey = featureResourceKey("Monk", 2, "monk-s-focus");
+
+  it("spends Focus Point for Patient Defense", () => {
+    const result = useClassFeature({
+      characterId: "pc:monk",
+      classes: [{ class: "Monk", level: 5 }],
+      featureKey: focusKey,
+      resourceUses: {},
+      currentHp: 20,
+      maxHp: 30,
+      rng: createSeededRng("monk-pd"),
+      monkFocusSpend: "patient_defense",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.kind).toBe("monk_patient_defense");
+    expect(result.startDodging).toBe(true);
+    expect(result.resourceUses[focusKey]?.filter(Boolean)).toHaveLength(1);
+  });
+
+  it("grants Flurry bonus unarmed strikes", () => {
+    const result = useClassFeature({
+      characterId: "pc:monk",
+      classes: [{ class: "Monk", level: 5 }],
+      featureKey: focusKey,
+      resourceUses: {},
+      currentHp: 20,
+      maxHp: 30,
+      rng: createSeededRng("monk-flurry"),
+      monkFocusSpend: "flurry",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.bonusUnarmedAttacks).toBe(2);
+    expect(result.unarmedDamageDie).toBe("1d6");
   });
 });

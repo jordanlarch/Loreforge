@@ -164,5 +164,15 @@ export function createEntityState(init: EntityInit): EntityState {
     ...(init.damageImmunities?.length
       ? { damageImmunities: [...init.damageImmunities] }
       : {}),
+    ...(init.featureChoices
+      ? { featureChoices: { ...init.featureChoices } }
+      : {}),
+    ...(init.resourceUses
+      ? {
+          resourceUses: Object.fromEntries(
+            Object.entries(init.resourceUses).map(([k, v]) => [k, [...v]]),
+          ),
+        }
+      : {}),
   };
 }

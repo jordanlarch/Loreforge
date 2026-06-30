@@ -142,6 +142,10 @@ export type AttackResolvedPayload = {
   sneakAttackDamage?: number;
   /** Whether a Bardic Inspiration die was added to the attack roll. */
   bardicInspirationUsed?: boolean;
+  /** Stunning Strike attempted on this hit. */
+  stunningStrike?: boolean;
+  /** Target failed Stunning Strike save and is Stunned. */
+  targetStunned?: boolean;
 };
 
 export type ConditionAppliedPayload = {
@@ -434,6 +438,14 @@ export type ActionSpentPayload = {
   attack?: boolean;
   /** Rogue Sneak Attack consumed for this turn. */
   sneakAttack?: boolean;
+  /** Monk Stunning Strike consumed for this turn. */
+  stunningStrike?: boolean;
+};
+
+export type FeaturePoolSpentPayload = {
+  entity: EntityRef;
+  featureKey: string;
+  resourceUses: boolean[];
 };
 
 export type DashMovementGrantedPayload = {
@@ -459,6 +471,10 @@ export type SpellCastPayload = {
   targets: EntityRef[];
   /** True when the cast used the caster's bonus action (consumed in combat). */
   bonusAction?: boolean;
+  /** Metamagic option applied (Empowered, Heightened, …). */
+  metamagic?: string;
+  /** Extra Sorcery Points spent on Metamagic. */
+  sorceryPointsSpent?: number;
 };
 
 export type SpellSlotExpendedPayload = {
@@ -514,6 +530,10 @@ export type EngineEvent =
   | (EventMeta & { type: "ReactionTaken"; payload: ReactionTakenPayload })
   | (EventMeta & { type: "ActionReadied"; payload: ActionReadiedPayload })
   | (EventMeta & { type: "ActionSpent"; payload: ActionSpentPayload })
+  | (EventMeta & {
+      type: "FeaturePoolSpent";
+      payload: FeaturePoolSpentPayload;
+    })
   | (EventMeta & { type: "DashMovementGranted"; payload: DashMovementGrantedPayload })
   | (EventMeta & { type: "Disengaged"; payload: DisengagedPayload })
   | (EventMeta & { type: "DodgingStarted"; payload: DodgingStartedPayload })

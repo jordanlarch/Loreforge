@@ -176,6 +176,15 @@ import {
   handleHide,
 } from "./standard-action-handlers";
 import { handleUseClassFeature } from "./class-feature-handlers";
+import {
+  buildPolymorphCastEvents,
+  enumerateBurstCells,
+  handleStrikeSpiritualWeapon,
+  spellZoneTurnStartEvents,
+  spiritualWeaponRoundTickEvents,
+  spiritualWeaponSummonedEvent,
+  wallOfFireZoneCreatedEvent,
+} from "../spells/fid12-spells";
 import { handleCuttingWords, handleFastHands } from "./subclass-handlers";
 import {
   reject,
@@ -215,6 +224,7 @@ import {
   type PassCuttingWordsCommand,
   type PassCounterspellCommand,
   type PassIndomitableCommand,
+  type StrikeSpiritualWeaponCommand,
   type ReadyActionCommand,
   type RemoveConditionCommand,
   type ResolveSurpriseCommand,
@@ -1181,12 +1191,14 @@ function handleEndTurn(
       ...meta(ctx, "system"),
       payload: {},
     });
+    events.push(...spiritualWeaponRoundTickEvents(ctx));
   }
   events.push({
     type: "TurnStarted",
     ...meta(ctx, nextEntity),
     payload: { entity: nextEntity, index: nextIndex },
   });
+  events.push(...spellZoneTurnStartEvents(ctx, nextEntity));
   events.push(...poisonTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...curseTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, nextEntity));
@@ -3805,6 +3817,27 @@ function handleCastSpell(
     if (!target) {
       return reject("TARGET_NOT_FOUND", `Target ${targetId} does not exist.`);
     }
+    const morph = buildPolymorphCastEvents(ctx, caster, target);
+    if (morph.blocked) {
+      return {
+        accepted: true,
+        events: [
+          {
+            type: "SpellCast",
+            ...meta(ctx, cmd.caster),
+            payload: {
+              caster: cmd.caster,
+              spellId: spell.id,
+              spellName: spell.name,
+              slotLevel,
+              targets: [targetId],
+            },
+          },
+          ...morph.events,
+        ],
+        summary: { caster: cmd.caster, target: targetId, blocked: morph.blocked },
+      };
+    }
     const events: DraftEvent[] = [
       {
         type: "SpellCast",
@@ -3822,17 +3855,15 @@ function handleCastSpell(
         ...meta(ctx, cmd.caster),
         payload: { entity: cmd.caster, slotLevel },
       },
-      {
-        type: "ConditionApplied",
-        ...meta(ctx, cmd.caster),
-        payload: spellConditionPayload(
-          spell,
-          cmd.caster,
-          targetId,
-          "restrained",
-        ),
-      },
     ];
+    if (usesAction && caster.actionEconomy) {
+      events.push({
+        type: "ActionSpent",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, action: true },
+      });
+    }
+    events.push(...morph.events);
     if (spell.concentration) {
       if (caster.concentration) {
         events.push({
@@ -4567,6 +4598,31 @@ function handleCastSpell(
     Object.assign(summary, { conditionApplied: spell.appliedCondition });
   }
 
+  if (spell.id === "spiritual-weapon") {
+    events.push(
+      spiritualWeaponSummonedEvent(
+        ctx,
+        caster.id,
+        slotLevel,
+        `sw:${caster.id}:${ctx.timestamp}`,
+      ),
+    );
+  }
+  if (spell.id === "wall-of-fire" && cmd.origin && caster.sceneId) {
+    const map = ctx.world.scenes[caster.sceneId]?.map;
+    events.push(
+      wallOfFireZoneCreatedEvent(
+        ctx,
+        caster.id,
+        caster.sceneId,
+        cmd.origin,
+        slotLevel,
+        `wof:${caster.id}:${ctx.timestamp}`,
+        enumerateBurstCells(cmd.origin, 20, map),
+      ),
+    );
+  }
+
   return { accepted: true, events, summary };
 }
 
@@ -4702,6 +4758,8 @@ export function handleCommand(
       return handlePassCounterspell(command, ctx);
     case "pass_indomitable":
       return handlePassIndomitable(command, ctx);
+    case "strike_spiritual_weapon":
+      return handleStrikeSpiritualWeapon(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

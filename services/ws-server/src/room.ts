@@ -591,6 +591,11 @@ export function isBattleAction(value: unknown): value is BattleAction {
   if (action.type === "pass_indomitable") {
     return typeof action.entity === "string";
   }
+  if (action.type === "strike_spiritual_weapon") {
+    return (
+      typeof action.caster === "string" && typeof action.target === "string"
+    );
+  }
   if (action.type === "fast_hands") {
     return (
       typeof action.entity === "string" &&

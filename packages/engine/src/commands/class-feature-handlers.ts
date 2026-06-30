@@ -139,6 +139,7 @@ export function handleUseClassFeature(
       | undefined,
     layOnHandsHealAmount: cmd.layOnHandsHealAmount,
     layOnHandsPurify: cmd.layOnHandsPurify,
+    rageFrenzy: cmd.rageFrenzy,
     beneficiaryMaxHp: beneficiary?.hp.max,
     beneficiaryCurrentHp: beneficiary?.hp.current,
     proficiencyBonus: entity.proficiencyBonus,

@@ -159,6 +159,8 @@ export type AttackCommand = {
   /** Paladin Divine Smite — expend a spell slot on hit for radiant damage. */
   divineSmite?: boolean;
   divineSmiteSlotLevel?: number;
+  /** Berserker Frenzy — bonus-action melee attack while frenzied. */
+  frenzyBonusAttack?: boolean;
 };
 
 /** Apply an SRD condition to a target (exhaustion carries a 1-6 level). */
@@ -228,6 +230,11 @@ export type ShortRestCommand = {
   entity: EntityRef;
   hitDice?: number;
   dieSize?: number;
+  /**
+   * Circle of the Land — Natural Recovery: restore these expended slot levels
+   * during the Short Rest (combined total ≤ half Druid level, rounded up).
+   */
+  naturalRecoverySlotLevels?: number[];
 };
 
 /** Long rest: restore HP to full, clear dying state, reduce exhaustion by one. */
@@ -491,6 +498,25 @@ export type UseClassFeatureCommand = {
   layOnHandsHealAmount?: number;
   /** Lay on Hands — spend 5 HP from the pool to end Poisoned. */
   layOnHandsPurify?: boolean;
+  /** Path of the Berserker — enter Frenzy when activating Rage. */
+  rageFrenzy?: boolean;
+};
+
+/**
+ * College of Lore — Cutting Words: reaction to subtract a Bardic Inspiration die
+ * from a creature's attack, damage, or ability-check total within 60 feet.
+ */
+export type CuttingWordsCommand = {
+  type: "cutting_words";
+  reactor: EntityRef;
+  /** Creature that made the roll (must be within 60 ft). */
+  against: EntityRef;
+  mode: "attack" | "damage" | "check";
+  /** Total before Cutting Words. */
+  originalTotal: number;
+  /** Required when mode is attack — for hit recalculation. */
+  natural?: number;
+  targetAc?: number;
 };
 
 export type Command =
@@ -550,7 +576,8 @@ export type Command =
   | HelpCommand
   | HideCommand
   | EscapeGrappleCommand
-  | UseClassFeatureCommand;
+  | UseClassFeatureCommand
+  | CuttingWordsCommand;
 
 export type CommandType = Command["type"];
 

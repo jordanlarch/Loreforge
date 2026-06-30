@@ -5,6 +5,7 @@ import {
   bardicInspirationDie,
   channelDivinitySaveDc,
   classLevel,
+  hasClassSubclass,
   martialArtsDie,
   rageDamageBonus,
 } from "../combat/class-feature-mechanics";
@@ -125,6 +126,16 @@ export function buildRageDamageEffect(
   };
 }
 
+export function buildFrenzyEffect(entityId: EntityRef): ActiveEffect {
+  return {
+    id: `frenzy:${entityId}`,
+    name: "Frenzy",
+    source: entityId,
+    modifier: { type: "frenzy_active" },
+    remainingRounds: 10,
+  };
+}
+
 const MONK_FOCUS_KIND: Record<MonkFocusSpend, ClassFeatureActionKind> = {
   flurry: "monk_flurry",
   patient_defense: "monk_patient_defense",
@@ -213,6 +224,8 @@ export function useClassFeature(
     layOnHandsHealAmount?: number;
     /** Lay on Hands — spend 5 HP from the pool to end Poisoned. */
     layOnHandsPurify?: boolean;
+    /** Path of the Berserker — enter Frenzy when Raging. */
+    rageFrenzy?: boolean;
     /** Beneficiary max/current HP for Lay on Hands (defaults to self). */
     beneficiaryMaxHp?: number;
     beneficiaryCurrentHp?: number;
@@ -449,17 +462,26 @@ export function useClassFeature(
 
   if (action.kind === "rage") {
     const barLevel = classLevel(input.classes, "Barbarian");
+    const selfEffects = [
+      buildRageEffect(input.characterId, barLevel),
+      buildRageDamageEffect(input.characterId, barLevel),
+    ];
+    if (
+      input.rageFrenzy &&
+      hasClassSubclass(input.classes, "Barbarian", "Path of the Berserker")
+    ) {
+      selfEffects.push(buildFrenzyEffect(input.characterId));
+    }
     return {
       ok: true,
       featureKey: input.featureKey,
       featureId,
       kind: "rage",
       resourceUses: nextUses,
-      selfEffects: [
-        buildRageEffect(input.characterId, barLevel),
-        buildRageDamageEffect(input.characterId, barLevel),
-      ],
-      message: `Rage activated (+${rageDamageBonus(barLevel)} damage, B/P/S resistance).`,
+      selfEffects,
+      message: input.rageFrenzy
+        ? `Frenzy activated (+${rageDamageBonus(barLevel)} damage, bonus-action melee attacks while raging).`
+        : `Rage activated (+${rageDamageBonus(barLevel)} damage, B/P/S resistance).`,
     };
   }
 

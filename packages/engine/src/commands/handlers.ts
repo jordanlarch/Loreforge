@@ -67,12 +67,14 @@ import {
   helpAttackMode,
   helpCheckMode,
   huntersMarkOn,
+  entityIsFrenzied,
   rageDamageBonusFromEffects,
   spellDurationRounds,
   stripOneBardicInspiration,
 } from "../combat/effects";
 import {
   agonizingBlastBonus,
+  championCritThreshold,
   classLevel,
   discipleOfLifeBonus,
   distantSpellRange,
@@ -83,6 +85,8 @@ import {
   hasEldritchInvocation,
   isFiendOrUndead,
   METAMAGIC_OPTIONS,
+  NATURAL_RECOVERY_RESOURCE_KEY,
+  naturalRecoveryMaximum,
   REPELLING_BLAST_PUSH_FEET,
   selectedMetamagicOptions,
   sneakAttackEligible,
@@ -92,7 +96,11 @@ import {
 } from "../combat/class-feature-mechanics";
 import { coverAcBonusFromLine } from "../combat/cover";
 import { adjustDamageAmount } from "../combat/damage";
-import { featureResourceKey, spendEntityFeaturePool } from "../entities/feature-resources";
+import {
+  featureResourceKey,
+  remainingFeatureUses,
+  spendEntityFeaturePool,
+} from "../entities/feature-resources";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
 import type {
   Ability,
@@ -155,6 +163,7 @@ import {
   handleHide,
 } from "./standard-action-handlers";
 import { handleUseClassFeature } from "./class-feature-handlers";
+import { handleCuttingWords } from "./subclass-handlers";
 import {
   reject,
   type AbilityCheckCommand,
@@ -165,6 +174,7 @@ import {
   type GrantTempHpCommand,
   type AttackCommand,
   type CastSpellCommand,
+  type CuttingWordsCommand,
   type DispelMagicCommand,
   type ChangeSceneCommand,
   type Command,
@@ -1126,9 +1136,26 @@ function handleAttack(
   // the turn spends the single action; further attacks ride the Attack action's
   // budget (Extra Attack / Multiattack). Only enforced on the owner's turn
   // (economy present); outside combat attacks are unbudgeted.
+  // Berserker Frenzy — a bonus-action melee attack while frenzied.
+  const frenzyBonus = cmd.frenzyBonusAttack === true;
+  if (frenzyBonus && !entityIsFrenzied(attacker)) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${attacker.name} must be in a Frenzy to make a Frenzy bonus attack.`,
+    );
+  }
   const econ = opts?.viaReaction ? undefined : attacker.actionEconomy;
   let spendsAction = false;
-  if (econ) {
+  let spendsBonusAction = false;
+  if (frenzyBonus && econ) {
+    if (econ.bonusAction !== "available") {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        `${attacker.name} has already used its bonus action this turn.`,
+      );
+    }
+    spendsBonusAction = true;
+  } else if (econ) {
     const startingAttack = econ.action === "available";
     const continuingAttack =
       !startingAttack &&
@@ -1242,8 +1269,10 @@ function handleAttack(
   const targetAc = effectiveAc(target) + coverAc;
   const forceCrit =
     adjacent === true && critsWhenAdjacent(target.conditions);
+  const critThreshold = championCritThreshold(attacker.classes) ?? 20;
   const { hit, critical } = resolveHit(natural, total, targetAc, {
     forceCrit,
+    critThreshold,
   });
 
   let damage: number | undefined;
@@ -1401,6 +1430,7 @@ function handleAttack(
         entity: cmd.attacker,
         action: spendsAction,
         attack: true,
+        ...(spendsBonusAction ? { bonusAction: true } : {}),
         ...(sneakAttackDamage !== undefined && sneakAttackDamage > 0
           ? { sneakAttack: true }
           : {}),
@@ -1749,6 +1779,64 @@ function handleShortRest(
       },
     });
   }
+
+  const recoveryLevels = cmd.naturalRecoverySlotLevels ?? [];
+  if (recoveryLevels.length > 0) {
+    if (!hasClassSubclass(entity.classes, "Druid", "Circle of the Land")) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        `${entity.name} does not have Natural Recovery.`,
+      );
+    }
+    const druidLevel = classLevel(entity.classes, "Druid");
+    const budget = naturalRecoveryMaximum(druidLevel);
+    const totalLevels = recoveryLevels.reduce((sum, level) => sum + level, 0);
+    if (totalLevels > budget) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `Natural Recovery can restore at most ${budget} combined slot levels.`,
+      );
+    }
+    const used = entity.resourceUses?.[NATURAL_RECOVERY_RESOURCE_KEY];
+    if (remainingFeatureUses(used, 1) < 1) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        "Natural Recovery has already been used since the last Long Rest.",
+      );
+    }
+    if (!entity.spellcasting) {
+      return reject("NOT_A_SPELLCASTER", `${entity.name} cannot recover spell slots.`);
+    }
+    for (const slotLevel of recoveryLevels) {
+      if (slotLevel < 1 || slotLevel > 9) {
+        return reject("INVALID_PAYLOAD", `Slot level ${slotLevel} is invalid.`);
+      }
+      const slot = entity.spellcasting.slots[slotLevel];
+      if (!slot || slot.current >= slot.max) {
+        return reject(
+          "INVALID_PAYLOAD",
+          `${entity.name} has no expended level-${slotLevel} slot to recover.`,
+        );
+      }
+    }
+    for (const slotLevel of recoveryLevels) {
+      events.push({
+        type: "SpellSlotRecovered",
+        ...meta(ctx, cmd.entity),
+        payload: { entity: cmd.entity, slotLevel },
+      });
+    }
+    events.push({
+      type: "FeaturePoolSpent",
+      ...meta(ctx, cmd.entity),
+      payload: {
+        entity: cmd.entity,
+        featureKey: NATURAL_RECOVERY_RESOURCE_KEY,
+        resourceUses: [true],
+      },
+    });
+  }
+
   events.push({
     type: "Rested",
     ...meta(ctx, cmd.entity),
@@ -1808,6 +1896,17 @@ function handleLongRest(
       type: "SpellSlotsRestored",
       ...meta(ctx, cmd.entity),
       payload: { entity: cmd.entity },
+    });
+  }
+  if (hasClassSubclass(entity.classes, "Druid", "Circle of the Land")) {
+    events.push({
+      type: "FeaturePoolSpent",
+      ...meta(ctx, cmd.entity),
+      payload: {
+        entity: cmd.entity,
+        featureKey: NATURAL_RECOVERY_RESOURCE_KEY,
+        resourceUses: [false],
+      },
     });
   }
   events.push({
@@ -3711,5 +3810,7 @@ export function handleCommand(
       return handleEscapeGrapple(command, ctx);
     case "use_class_feature":
       return handleUseClassFeature(command, ctx);
+    case "cutting_words":
+      return handleCuttingWords(command, ctx);
   }
 }

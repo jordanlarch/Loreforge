@@ -20,7 +20,8 @@ export type EffectModifier =
   | { type: "speed_bonus"; amount: number }
   | { type: "damage_resistance"; types: string[] }
   | { type: "rage_damage_bonus"; amount: number }
-  | { type: "bardic_inspiration"; die: string };
+  | { type: "bardic_inspiration"; die: string }
+  | { type: "frenzy_active" };
 
 export type ActiveEffect = {
   id: string;
@@ -88,6 +89,17 @@ export function rageDamageBonusFromEffects(entity: EntityState): number {
     }
   }
   return 0;
+}
+
+/** True when the entity is in a Berserker Frenzy (Rage + Frenzy effect active). */
+export function entityIsFrenzied(entity: EntityState): boolean {
+  const effects = entity.effects ?? [];
+  const raging = effects.some(
+    (fx) =>
+      fx.modifier.type === "rage_damage_bonus" || fx.name === "Rage",
+  );
+  const frenzied = effects.some((fx) => fx.modifier.type === "frenzy_active");
+  return raging && frenzied;
 }
 
 export function effectDamageResistances(entity: EntityState): string[] {

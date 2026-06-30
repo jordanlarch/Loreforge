@@ -3,6 +3,7 @@
  */
 import { abilityModifier } from "../entities/abilities";
 import { parseFeatureChoiceValues } from "../entities/class-feature-choices";
+import { featureResourceKey } from "../entities/feature-resources";
 import { distanceFeet } from "./grid";
 import type { RollAdjust } from "./conditions";
 import type { AbilityScores, ClassLevel, EntityState } from "../entities/types";
@@ -42,6 +43,27 @@ export function hasClassSubclass(
 export function discipleOfLifeBonus(slotLevel: number): number {
   return slotLevel >= 1 ? 2 + slotLevel : 0;
 }
+
+/** Champion — Improved Critical / Superior Critical natural-d20 crit range. */
+export function championCritThreshold(
+  classes: readonly ClassLevel[] | undefined,
+): number | undefined {
+  if (!hasClassSubclass(classes, "Fighter", "Champion")) return undefined;
+  const fighterLevel = classLevel(classes, "Fighter");
+  if (fighterLevel < 3) return undefined;
+  return fighterLevel >= 15 ? 18 : 19;
+}
+
+/** Circle of the Land — Natural Recovery slot budget on a Short Rest. */
+export function naturalRecoveryMaximum(druidLevel: number): number {
+  return druidLevel >= 2 ? Math.ceil(druidLevel / 2) : 0;
+}
+
+export const NATURAL_RECOVERY_RESOURCE_KEY = featureResourceKey(
+  "Druid",
+  3,
+  "natural-recovery",
+);
 
 /** Sneak Attack dice count by rogue level (SRD 5.2.1). */
 export function sneakAttackDiceCount(rogueLevel: number): number {

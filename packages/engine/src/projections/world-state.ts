@@ -565,6 +565,9 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         if (event.payload.stunningStrike) {
           ae = { ...ae, stunningStrikeUsed: true };
         }
+        if (event.payload.bonusAction) {
+          ae = { ...ae, bonusAction: "used" };
+        }
         next.entities[entity.id] = { ...entity, actionEconomy: ae };
       }
       break;
@@ -653,6 +656,28 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           ...caster,
           spellcasting: { ...caster.spellcasting, slots },
         };
+      }
+      break;
+    }
+    case "SpellSlotRecovered": {
+      const caster = next.entities[event.payload.entity];
+      if (caster?.spellcasting) {
+        const slot = caster.spellcasting.slots[event.payload.slotLevel];
+        if (slot) {
+          next.entities[caster.id] = {
+            ...caster,
+            spellcasting: {
+              ...caster.spellcasting,
+              slots: {
+                ...caster.spellcasting.slots,
+                [event.payload.slotLevel]: {
+                  ...slot,
+                  current: Math.min(slot.max, slot.current + 1),
+                },
+              },
+            },
+          };
+        }
       }
       break;
     }

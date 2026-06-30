@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   agonizingBlastBonus,
   bardicInspirationDie,
+  championCritThreshold,
   classLevel,
   discipleOfLifeBonus,
   distantSpellRange,
@@ -10,6 +11,7 @@ import {
   hasClassSubclass,
   hasEldritchInvocation,
   METAMAGIC_OPTIONS,
+  naturalRecoveryMaximum,
   rageDamageBonus,
   selectedMetamagicOptions,
   sneakAttackDiceCount,
@@ -147,6 +149,18 @@ describe("class feature mechanics", () => {
   it("computes Distant Spell range (touch → 30 ft, else doubled)", () => {
     expect(distantSpellRange(5, true)).toBe(30);
     expect(distantSpellRange(120, false)).toBe(240);
+  });
+
+  it("Champion crit threshold and Natural Recovery budget", () => {
+    expect(
+      championCritThreshold([{ class: "Fighter", level: 5, subclass: "Champion" }]),
+    ).toBe(19);
+    expect(
+      championCritThreshold([{ class: "Fighter", level: 15, subclass: "Champion" }]),
+    ).toBe(18);
+    expect(championCritThreshold([{ class: "Fighter", level: 5 }])).toBeUndefined();
+    expect(naturalRecoveryMaximum(5)).toBe(3);
+    expect(naturalRecoveryMaximum(1)).toBe(0);
   });
 
   it("detects a class subclass and Disciple of Life healing bonus", () => {

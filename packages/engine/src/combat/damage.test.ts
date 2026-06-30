@@ -54,6 +54,24 @@ describe("adjustDamageAmount", () => {
     ).toBe(5);
   });
 
+  it("halves damage from rage effect resistance", () => {
+    expect(
+      adjustDamageAmount(10, "slashing", {
+        effects: [
+          {
+            id: "rage:1",
+            name: "Rage",
+            source: "pc:1",
+            modifier: {
+              type: "damage_resistance",
+              types: ["bludgeoning", "piercing", "slashing"],
+            },
+          },
+        ],
+      } as EntityState),
+    ).toBe(5);
+  });
+
   it("halves damage while petrified", () => {
     expect(
       adjustDamageAmount(11, "slashing", {

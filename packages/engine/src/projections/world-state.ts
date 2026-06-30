@@ -17,6 +17,7 @@ import {
   stripConcentrationEffects,
   stripHelpAttackEffect,
   stripHelpCheckEffects,
+  stripOneBardicInspiration,
 } from "../combat/effects";
 import { attacksPerAction, createEntityState } from "../entities/abilities";
 import type {
@@ -558,6 +559,9 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         if (event.payload.attack) {
           ae = { ...ae, attacks: { ...ae.attacks, used: ae.attacks.used + 1 } };
         }
+        if (event.payload.sneakAttack) {
+          ae = { ...ae, sneakAttackUsed: true };
+        }
         next.entities[entity.id] = { ...entity, actionEconomy: ae };
       }
       break;
@@ -895,11 +899,17 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       break;
     case "AttackResolved": {
       const attacker = next.entities[event.payload.attacker];
-      if (attacker?.effects?.some((fx) => fx.modifier.type === "help_attack")) {
-        next.entities[attacker.id] = {
-          ...attacker,
-          effects: stripHelpAttackEffect(attacker, event.payload.target),
-        };
+      if (attacker) {
+        let effects = attacker.effects;
+        if (attacker.effects?.some((fx) => fx.modifier.type === "help_attack")) {
+          effects = stripHelpAttackEffect(attacker, event.payload.target);
+        }
+        if (event.payload.bardicInspirationUsed) {
+          effects = stripOneBardicInspiration({ ...attacker, effects });
+        }
+        if (effects !== attacker.effects) {
+          next.entities[attacker.id] = { ...attacker, effects };
+        }
       }
       break;
     }

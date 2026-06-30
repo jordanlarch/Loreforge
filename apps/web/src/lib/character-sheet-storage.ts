@@ -104,6 +104,12 @@ export type CharacterSheetMeta = {
   levelHistory?: LevelHistoryEntry[];
   /** Action Surge spent — ready for an extra action this turn (sheet/Live Play). */
   actionSurgeReady?: boolean;
+  /** Patient Defense — attacks against you have disadvantage (sheet combat flag). */
+  dodging?: boolean;
+  /** Step of the Wind — movement does not provoke OAs this turn (sheet combat flag). */
+  disengaged?: boolean;
+  /** Bonus movement feet granted this turn (Step of the Wind, etc.). */
+  bonusMovementFeet?: number;
   /** Active combat feat toggles (Sharpshooter, GWM). */
   combatToggles?: {
     sharpshooter?: boolean;

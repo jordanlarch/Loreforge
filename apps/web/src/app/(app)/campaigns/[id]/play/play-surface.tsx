@@ -297,6 +297,8 @@ function LiveBattle({
   const [castTargets, setCastTargets] = useState<string[]>([]);
   const [aimCell, setAimCell] = useState<Cell | null>(null);
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
+  const [stunningStrike, setStunningStrike] = useState(false);
+  const [selectedMetamagic, setSelectedMetamagic] = useState<string | undefined>();
   // Client-side session pause (#101): freezes the local turn UI + clock. The
   // server-authoritative engine freeze is a deferred follow-up.
   const [paused, setPaused] = useState(false);
@@ -574,9 +576,30 @@ function LiveBattle({
       armed.spell.id,
       armed.spell.level,
       castTargets,
+      undefined,
+      selectedMetamagic,
     );
     setArmed(null);
     setCastTargets([]);
+    setSelectedMetamagic(undefined);
+  }
+
+  function castWithMetamagic(
+    casterId: string,
+    spellId: string,
+    slotLevel: number,
+    targets: string[],
+    origin?: { x: number; y: number },
+  ) {
+    session.castSpell(
+      casterId,
+      spellId,
+      slotLevel,
+      targets,
+      origin,
+      selectedMetamagic,
+    );
+    setSelectedMetamagic(undefined);
   }
 
   function onPickTarget(targetId: string) {
@@ -588,7 +611,18 @@ function LiveBattle({
         armed.attack.attackBonus,
         armed.attack.damage,
         armed.attack.rangeFt,
+        {
+          ...(stunningStrike ? { stunningStrike: true } : {}),
+          ...(armed.attack.monkWeaponOrUnarmed
+            ? { monkWeaponOrUnarmed: true }
+            : {}),
+          ...(armed.attack.finesseOrRanged
+            ? { finesseOrRanged: true }
+            : {}),
+          ...(armed.attack.usesStrength ? { usesStrength: true } : {}),
+        },
       );
+      setStunningStrike(false);
     } else if (armed.kind === "ready") {
       // Hold the strike; the server fires it when the foe enters this range.
       session.readyAction(
@@ -614,7 +648,8 @@ function LiveBattle({
       // Single-target spell (AoE casts confirm via the aim picker, not here).
       session.castSpell(activeEntity.id, armed.spell.id, armed.spell.level, [
         targetId,
-      ]);
+      ], undefined, selectedMetamagic);
+      setSelectedMetamagic(undefined);
     }
     setArmed(null);
   }
@@ -623,11 +658,11 @@ function LiveBattle({
     if (!isAreaCast || armed?.kind !== "cast" || !activeEntity || !aimCell) {
       return;
     }
-    session.castSpell(
+    castWithMetamagic(
       activeEntity.id,
       armed.spell.id,
       armed.spell.level,
-      undefined,
+      [],
       aimCell,
     );
     setArmed(null);
@@ -671,7 +706,10 @@ function LiveBattle({
         spell.id,
         spell.level,
         [activeEntity.id],
+        undefined,
+        selectedMetamagic,
       );
+      setSelectedMetamagic(undefined);
       return;
     }
     setArmed({ kind: "cast", spell });
@@ -1166,6 +1204,14 @@ function LiveBattle({
             onCoatWeapon={onCoatWeapon}
             activeBurning={activeEntity?.activeBurning}
             onExtinguishBurning={onExtinguishBurning}
+            stunningStrike={stunningStrike}
+            onStunningStrikeChange={setStunningStrike}
+            selectedMetamagic={selectedMetamagic}
+            onMetamagicChange={setSelectedMetamagic}
+            onUseClassFeature={(featureKey, opts) => {
+              if (!activeEntity) return;
+              session.useClassFeature(activeEntity.id, featureKey, opts);
+            }}
           />
         }
         chat={

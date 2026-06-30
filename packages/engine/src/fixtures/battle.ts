@@ -33,6 +33,7 @@ import type {
   RemoveCurseCommand,
   ResolveCurseTickCommand,
   TriggerReadiedCommand,
+  UseClassFeatureCommand,
 } from "../commands/types";
 import type {
   Ability,
@@ -77,6 +78,10 @@ export type PartyMember = {
   classes: ClassLevel[];
   /** Class saving-throw proficiencies (SRD-FID-16). */
   saveProficiencies?: Ability[];
+  /** Class-feature picks (Metamagic, Invocations, …) from character sheet meta. */
+  featureChoices?: Record<string, string>;
+  /** Spent class-feature pools synced from sheet meta. */
+  resourceUses?: Record<string, boolean[]>;
   /** Present for casters so the live cast loop is exercisable. */
   spellcasting?: SpellcastingInit;
   /** Melee reach from equipped weapons (OA provoke detection, ENG-10). */
@@ -247,6 +252,16 @@ export function buildPartyBattleCommands(
         position: PARTY_POSITIONS[i]!,
         ...(m.spellcasting ? { spellcasting: m.spellcasting } : {}),
         ...(m.meleeReachFt !== undefined ? { meleeReachFt: m.meleeReachFt } : {}),
+        ...(m.featureChoices
+          ? { featureChoices: { ...m.featureChoices } }
+          : {}),
+        ...(m.resourceUses
+          ? {
+              resourceUses: Object.fromEntries(
+                Object.entries(m.resourceUses).map(([k, v]) => [k, [...v]]),
+              ),
+            }
+          : {}),
       },
     })),
     ...foes.map((f, i): Command => ({
@@ -389,7 +404,8 @@ export type BattleAction =
   | RemoveCurseCommand
   | ApplyFallDamageCommand
   | ApplyBurningCommand
-  | ExtinguishBurningCommand;
+  | ExtinguishBurningCommand
+  | UseClassFeatureCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {

@@ -463,6 +463,14 @@ export function isBattleAction(value: unknown): value is BattleAction {
     burningSlug?: unknown;
     method?: unknown;
     instanceId?: unknown;
+    stunningStrike?: unknown;
+    monkWeaponOrUnarmed?: unknown;
+    finesseOrRanged?: unknown;
+    usesStrength?: unknown;
+    metamagic?: unknown;
+    featureKey?: unknown;
+    monkFocusSpend?: unknown;
+    beneficiaryId?: unknown;
   };
   if (action.type === "end_turn") return true;
   if (action.type === "ready_action") {
@@ -498,7 +506,15 @@ export function isBattleAction(value: unknown): value is BattleAction {
       typeof action.target === "string" &&
       typeof action.attackBonus === "number" &&
       isDamage(action.damage) &&
-      (action.rangeFt === undefined || typeof action.rangeFt === "number")
+      (action.rangeFt === undefined || typeof action.rangeFt === "number") &&
+      (action.stunningStrike === undefined ||
+        typeof action.stunningStrike === "boolean") &&
+      (action.monkWeaponOrUnarmed === undefined ||
+        typeof action.monkWeaponOrUnarmed === "boolean") &&
+      (action.finesseOrRanged === undefined ||
+        typeof action.finesseOrRanged === "boolean") &&
+      (action.usesStrength === undefined ||
+        typeof action.usesStrength === "boolean")
     );
   }
   if (action.type === "opportunity_attack") {
@@ -518,8 +534,23 @@ export function isBattleAction(value: unknown): value is BattleAction {
       (action.targets === undefined ||
         (Array.isArray(action.targets) &&
           action.targets.every((t) => typeof t === "string"))) &&
-      // Area spells (#99) carry an aim/origin cell the engine resolves from.
-      (action.origin === undefined || isGridPosition(action.origin))
+      (action.origin === undefined || isGridPosition(action.origin)) &&
+      (action.metamagic === undefined || typeof action.metamagic === "string")
+    );
+  }
+  if (action.type === "use_class_feature") {
+    const focusOk =
+      action.monkFocusSpend === undefined ||
+      action.monkFocusSpend === "flurry" ||
+      action.monkFocusSpend === "patient_defense" ||
+      action.monkFocusSpend === "step_of_wind";
+    return (
+      typeof action.entity === "string" &&
+      typeof action.featureKey === "string" &&
+      action.featureKey.trim().length >= 3 &&
+      focusOk &&
+      (action.beneficiaryId === undefined ||
+        typeof action.beneficiaryId === "string")
     );
   }
   if (action.type === "detect_trap" || action.type === "disable_trap") {

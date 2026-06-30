@@ -60,6 +60,42 @@ import {
 
 import type { ChatEntry, ChatEntryKind } from "./chat.js";
 
+const SHEET_META_MARKER = "\n\n---loreforge-sheet-meta-v1---\n";
+
+/** Extract featureChoices + resourceUses from character notes JSON tail. */
+function sheetMetaFromNotes(notes: string | null | undefined): {
+  featureChoices?: Record<string, string>;
+  resourceUses?: Record<string, boolean[]>;
+} {
+  if (!notes?.includes(SHEET_META_MARKER)) return {};
+  const metaIdx = notes.indexOf(SHEET_META_MARKER);
+  try {
+    const parsed = JSON.parse(
+      notes.slice(metaIdx + SHEET_META_MARKER.length),
+    ) as {
+      featureChoices?: Record<string, string>;
+      resourceUses?: Record<string, boolean[]>;
+    };
+    return {
+      ...(parsed.featureChoices
+        ? { featureChoices: { ...parsed.featureChoices } }
+        : {}),
+      ...(parsed.resourceUses
+        ? {
+            resourceUses: Object.fromEntries(
+              Object.entries(parsed.resourceUses).map(([k, v]) => [
+                k,
+                [...v],
+              ]),
+            ),
+          }
+        : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
 let store: EventStore | undefined;
 
 /** The process-wide Postgres-backed event store (built on first use). */
@@ -143,6 +179,7 @@ export async function getCampaignParty(
       saveProficiencies: characters.saveProficiencies,
       spells: characters.spells,
       equipment: characters.equipment,
+      notes: characters.notes,
     })
     .from(campaignCharacters)
     .innerJoin(characters, eq(characters.id, campaignCharacters.characterId))
@@ -163,6 +200,7 @@ export async function getCampaignParty(
     const preparedSpellIds = isCaster
       ? preparedSpellIdsFromSheet(row.spells)
       : undefined;
+    const sheetMeta = sheetMetaFromNotes(row.notes);
     return {
       id: row.id,
       name: row.name,
@@ -180,9 +218,15 @@ export async function getCampaignParty(
             spellcasting: {
               ability: castingAbilityFor(row.classes),
               casterLevel: totalLevel(row.classes),
-              ...(preparedSpellIds ? { preparedSpellIds } : {}),
-            },
-          }
+            ...(preparedSpellIds ? { preparedSpellIds } : {}),
+          },
+        }
+        : {}),
+      ...(sheetMeta.featureChoices
+        ? { featureChoices: sheetMeta.featureChoices }
+        : {}),
+      ...(sheetMeta.resourceUses
+        ? { resourceUses: sheetMeta.resourceUses }
         : {}),
     };
   });

@@ -12,6 +12,7 @@ import type { WeaponAttack } from "@/lib/sheet-loadout";
 import type { SceneTrapInstance } from "@app/engine";
 
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
+import { ClassFeatureControls } from "./class-feature-controls";
 import { PoisonTurnControls } from "./poison-turn-controls";
 import { BurningTurnControls } from "./burning-turn-controls";
 import { ReactionPrompt } from "./reaction-prompt";
@@ -91,6 +92,11 @@ export function CombatTurnBar({
   onCoatWeapon,
   activeBurning,
   onExtinguishBurning,
+  stunningStrike,
+  onStunningStrikeChange,
+  selectedMetamagic,
+  onMetamagicChange,
+  onUseClassFeature,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -147,6 +153,17 @@ export function CombatTurnBar({
   onCoatWeapon?: (poisonSlug: string) => void;
   activeBurning?: EntityState["activeBurning"];
   onExtinguishBurning?: (instanceId: string) => void;
+  stunningStrike?: boolean;
+  onStunningStrikeChange?: (value: boolean) => void;
+  selectedMetamagic?: string;
+  onMetamagicChange?: (value: string | undefined) => void;
+  onUseClassFeature?: (
+    featureKey: string,
+    opts?: {
+      monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
+      beneficiaryId?: string;
+    },
+  ) => void;
 }) {
   const armedMode = armed !== null;
 
@@ -286,6 +303,17 @@ export function CombatTurnBar({
                     disabled={isBusy}
                     canAct={canAct}
                     onExtinguish={onExtinguishBurning}
+                  />
+                ) : null}
+                {activeEntity && onUseClassFeature ? (
+                  <ClassFeatureControls
+                    entity={activeEntity}
+                    disabled={isBusy}
+                    stunningStrike={stunningStrike ?? false}
+                    onStunningStrikeChange={onStunningStrikeChange ?? (() => {})}
+                    selectedMetamagic={selectedMetamagic}
+                    onMetamagicChange={onMetamagicChange ?? (() => {})}
+                    onUseClassFeature={onUseClassFeature}
                   />
                 ) : null}
                 {nearbyTraps?.length && onDetectTrap && onDisableTrap ? (

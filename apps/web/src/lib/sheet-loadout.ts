@@ -43,6 +43,12 @@ export type WeaponAttack = {
   damage: Damage;
   /** Effective reach/range in feet (drives the map target picker). */
   rangeFt: number;
+  /** Finesse or ranged — Sneak Attack eligibility. */
+  finesseOrRanged?: boolean;
+  /** Strength-based melee — Rage damage bonus. */
+  usesStrength?: boolean;
+  /** Monk weapon or unarmed — Stunning Strike eligibility. */
+  monkWeaponOrUnarmed?: boolean;
 };
 
 type WeaponSpec = {
@@ -139,6 +145,32 @@ function weaponAbilityMod(entity: EntityState, spec: WeaponSpec): number {
   return str;
 }
 
+const MONK_WEAPON_IDS = new Set([
+  "club",
+  "dagger",
+  "handaxe",
+  "javelin",
+  "light hammer",
+  "mace",
+  "quarterstaff",
+  "sickle",
+  "spear",
+  "shortsword",
+  "scimitar",
+  "strike",
+]);
+
+function attackMechanicsFlags(
+  attackId: string,
+  spec: WeaponSpec,
+): Pick<WeaponAttack, "finesseOrRanged" | "usesStrength" | "monkWeaponOrUnarmed"> {
+  return {
+    finesseOrRanged: Boolean(spec.finesse || spec.ranged),
+    usesStrength: !spec.ranged,
+    monkWeaponOrUnarmed: MONK_WEAPON_IDS.has(attackId),
+  };
+}
+
 /** Resolve one equipped weapon into a fireable {@link WeaponAttack}. */
 function resolveWeapon(
   entity: EntityState,
@@ -158,6 +190,7 @@ function resolveWeapon(
     attackBonus,
     damage: { notation, type: spec.damageType },
     rangeFt,
+    ...attackMechanicsFlags(normalize(name) || "weapon", spec),
   };
 }
 
@@ -338,6 +371,8 @@ export function genericStrike(entity: EntityState): WeaponAttack {
     attackBonus: strike.attackBonus,
     damage: strike.damage,
     rangeFt: MELEE_REACH_FT,
+    monkWeaponOrUnarmed: true,
+    usesStrength: true,
   };
 }
 

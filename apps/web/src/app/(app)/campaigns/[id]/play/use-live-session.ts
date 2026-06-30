@@ -347,6 +347,12 @@ export function useLiveSession({
       attackBonus: number,
       damage: { notation: string; type: string },
       rangeFt?: number,
+      opts?: {
+        stunningStrike?: boolean;
+        monkWeaponOrUnarmed?: boolean;
+        finesseOrRanged?: boolean;
+        usesStrength?: boolean;
+      },
     ) =>
       send({
         t: "cmd",
@@ -357,6 +363,10 @@ export function useLiveSession({
           attackBonus,
           damage,
           ...(rangeFt !== undefined ? { rangeFt } : {}),
+          ...(opts?.stunningStrike ? { stunningStrike: true } : {}),
+          ...(opts?.monkWeaponOrUnarmed ? { monkWeaponOrUnarmed: true } : {}),
+          ...(opts?.finesseOrRanged ? { finesseOrRanged: true } : {}),
+          ...(opts?.usesStrength ? { usesStrength: true } : {}),
         },
       }),
     castSpell: (
@@ -365,6 +375,7 @@ export function useLiveSession({
       slotLevel: number,
       targets?: string[],
       origin?: { x: number; y: number },
+      metamagic?: string,
     ) =>
       send({
         t: "cmd",
@@ -375,6 +386,27 @@ export function useLiveSession({
           slotLevel,
           targets: targets ?? [],
           ...(origin ? { origin } : {}),
+          ...(metamagic ? { metamagic } : {}),
+        },
+      }),
+    useClassFeature: (
+      entity: string,
+      featureKey: string,
+      opts?: {
+        monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
+        beneficiaryId?: string;
+      },
+    ) =>
+      send({
+        t: "cmd",
+        action: {
+          type: "use_class_feature",
+          entity,
+          featureKey,
+          ...(opts?.monkFocusSpend
+            ? { monkFocusSpend: opts.monkFocusSpend }
+            : {}),
+          ...(opts?.beneficiaryId ? { beneficiaryId: opts.beneficiaryId } : {}),
         },
       }),
     opportunityAttack: (

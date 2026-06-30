@@ -35,7 +35,7 @@
 | Conditions (15) | declared ✅ | ~9 accurate, ~6 simplified | 🟡 | SRD-FID-3, SRD-FID-20 |
 | Character Creation / Advancement | ✅ | XP/HP/ASI/multiclass ✅; **background ASI** ✅ | 🟢 | SRD-FID-2 **Done** |
 | Classes (12) | catalog ✅ | features mostly display-only (2 wired) | 🟡 | SRD-FID-21 |
-| Subclasses (12) | catalog ✅ | **5 of 12 wired** (Life Domain, Champion, Berserker, College of Lore, Circle of the Land) | 🟡 | SRD-FID-21b |
+| Subclasses (12) | catalog ✅ | **8 of 12 wired** (Life Domain, Champion, Berserker, College of Lore, Circle of the Land, Hunter, Evoker, Fiend Patron) | 🟡 | SRD-FID-21b |
 | Species (9) | catalog ✅ | traits **0 mechanical** | 🔴 | SRD-FID-22 |
 | Backgrounds (4) | ingest ✅ | skills ✅; **ASI** ✅; origin feat partial | 🟡 | SRD-FID-2 **Done** |
 | Feats | catalog ✅ | 8 of N mechanical | 🟡 | SRD-FID-23 |

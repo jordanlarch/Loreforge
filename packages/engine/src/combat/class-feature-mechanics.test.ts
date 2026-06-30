@@ -5,6 +5,9 @@ import {
   bardicInspirationDie,
   championCritThreshold,
   classLevel,
+  colossusSlayerEligible,
+  COLOSSUS_SLAYER_DICE,
+  darkOnesBlessingTempHp,
   discipleOfLifeBonus,
   distantSpellRange,
   focusPointMaximum,
@@ -12,6 +15,7 @@ import {
   hasEldritchInvocation,
   METAMAGIC_OPTIONS,
   naturalRecoveryMaximum,
+  potentCantripSaveOutcome,
   rageDamageBonus,
   selectedMetamagicOptions,
   sneakAttackDiceCount,
@@ -185,5 +189,45 @@ describe("class feature mechanics", () => {
     expect(hasEldritchInvocation(choices, "eldritch-spear")).toBe(true);
     expect(hasEldritchInvocation(choices, "eldritch-mind")).toBe(true);
     expect(hasEldritchInvocation(choices, "devils-sight")).toBe(false);
+  });
+
+  it("evaluates Hunter Colossus Slayer eligibility", () => {
+    const hunter = baseEntity("pc:hunter", { x: 0, y: 0 });
+    hunter.classes = [{ class: "Ranger", level: 5, subclass: "Hunter" }];
+    const injured = baseEntity("npc:foe", { x: 1, y: 0 });
+    injured.hp = { current: 15, max: 20, temp: 0 };
+    expect(COLOSSUS_SLAYER_DICE).toBe("1d8");
+    expect(colossusSlayerEligible(hunter, injured, false)).toBe(true);
+    expect(colossusSlayerEligible(hunter, injured, true)).toBe(false);
+    const full = baseEntity("npc:full", { x: 1, y: 0 });
+    expect(colossusSlayerEligible(hunter, full, false)).toBe(false);
+  });
+
+  it("upgrades cantrip save outcomes for Evoker Potent Cantrip", () => {
+    const evoker = baseEntity("pc:wiz", { x: 0, y: 0 });
+    evoker.classes = [{ class: "Wizard", level: 5, subclass: "Evoker" }];
+    const cantrip = { level: 0, damage: [{ dice: "1d12", type: "poison" }] };
+    expect(potentCantripSaveOutcome(cantrip, evoker, "no_effect")).toBe(
+      "half_damage",
+    );
+    expect(potentCantripSaveOutcome(cantrip, evoker, "half_damage")).toBe(
+      "half_damage",
+    );
+    evoker.classes = [{ class: "Wizard", level: 5, subclass: "Abjurer" }];
+    expect(potentCantripSaveOutcome(cantrip, evoker, "no_effect")).toBe(
+      "no_effect",
+    );
+  });
+
+  it("computes Fiend Patron Dark One's Blessing temp HP", () => {
+    const classes = [{ class: "Warlock", level: 5, subclass: "Fiend Patron" }];
+    const scores = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 14 };
+    expect(darkOnesBlessingTempHp(classes, scores)).toBe(7);
+    expect(
+      darkOnesBlessingTempHp(
+        [{ class: "Warlock", level: 5, subclass: "Archfey Patron" }],
+        scores,
+      ),
+    ).toBe(0);
   });
 });

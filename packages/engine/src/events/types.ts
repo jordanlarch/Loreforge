@@ -140,6 +140,8 @@ export type AttackResolvedPayload = {
   damage?: number;
   /** Extra Sneak Attack damage included in `damage`. */
   sneakAttackDamage?: number;
+  /** Extra Colossus Slayer damage included in `damage`. */
+  colossusSlayerDamage?: number;
   /** Whether a Bardic Inspiration die was added to the attack roll. */
   bardicInspirationUsed?: boolean;
   /** Stunning Strike attempted on this hit. */
@@ -439,6 +441,8 @@ export type ActionSpentPayload = {
   bonusAction?: boolean;
   /** Rogue Sneak Attack consumed for this turn. */
   sneakAttack?: boolean;
+  /** Hunter Colossus Slayer consumed for this turn. */
+  colossusSlayer?: boolean;
   /** Monk Stunning Strike consumed for this turn. */
   stunningStrike?: boolean;
 };

@@ -76,6 +76,9 @@ import {
   agonizingBlastBonus,
   championCritThreshold,
   classLevel,
+  COLOSSUS_SLAYER_DICE,
+  colossusSlayerEligible,
+  darkOnesBlessingTempHp,
   discipleOfLifeBonus,
   distantSpellRange,
   divineSmiteNotation,
@@ -87,6 +90,7 @@ import {
   METAMAGIC_OPTIONS,
   NATURAL_RECOVERY_RESOURCE_KEY,
   naturalRecoveryMaximum,
+  potentCantripSaveOutcome,
   REPELLING_BLAST_PUSH_FEET,
   selectedMetamagicOptions,
   sneakAttackEligible,
@@ -398,6 +402,36 @@ function concentrationCheckEvents(
     });
   }
   return events;
+}
+
+/** Fiend Patron — Dark One's Blessing temp HP when a kill drops a hostile to 0 HP. */
+function darkOnesBlessingEvents(
+  ctx: ExecutionContext,
+  killerId: EntityRef | undefined,
+  victim: EntityState,
+  hpBefore: number,
+  hpAfter: number,
+): DraftEvent[] {
+  if (!killerId || hpBefore <= 0 || hpAfter > 0) return [];
+  const killer = ctx.world.entities[killerId];
+  if (!killer) return [];
+  const amount = darkOnesBlessingTempHp(killer.classes, killer.abilityScores);
+  if (amount <= 0) return [];
+  const sides = ctx.world.encounter?.sides;
+  if (!sides || !areHostile(sides[killerId], sides[victim.id])) return [];
+  const tempAfter = Math.max(killer.hp.temp, amount);
+  return [
+    {
+      type: "TempHpGranted" as const,
+      ...meta(ctx, killerId),
+      payload: {
+        target: killerId,
+        amount,
+        tempBefore: killer.hp.temp,
+        tempAfter,
+      },
+    },
+  ];
 }
 
 function handleApplyDamage(
@@ -1277,6 +1311,7 @@ function handleAttack(
 
   let damage: number | undefined;
   let sneakAttackDamage: number | undefined;
+  let colossusSlayerDamage: number | undefined;
   let divineSmiteDamage: number | undefined;
   let hpAfter = target.hp.current;
   if (hit) {
@@ -1312,6 +1347,17 @@ function handleAttack(
         sneakAttackDamage = Math.max(0, saRoll.total);
         damage += sneakAttackDamage;
       }
+    }
+    if (
+      colossusSlayerEligible(attacker, target, econ?.colossusSlayerUsed)
+    ) {
+      const csRoll = ctx.roll(
+        COLOSSUS_SLAYER_DICE,
+        `colossus-slayer:${cmd.attacker}->${cmd.target}`,
+      );
+      events.push(rollDiceEvent(ctx, csRoll));
+      colossusSlayerDamage = Math.max(0, csRoll.total);
+      damage += colossusSlayerDamage;
     }
     if (
       cmd.divineSmite &&
@@ -1395,6 +1441,7 @@ function handleAttack(
       damageType: cmd.damage.type,
       ...(damage !== undefined ? { damage } : {}),
       ...(sneakAttackDamage !== undefined ? { sneakAttackDamage } : {}),
+      ...(colossusSlayerDamage !== undefined ? { colossusSlayerDamage } : {}),
       ...(divineSmiteDamage !== undefined ? { divineSmiteDamage } : {}),
       ...(hadBardicInspiration ? { bardicInspirationUsed: true } : {}),
       ...(stunningStrikeAttempted ? { stunningStrike: true, targetStunned } : {}),
@@ -1415,6 +1462,15 @@ function handleAttack(
     });
     events.push(...concentrationCheckEvents(ctx, target, damage, hpAfter));
     events.push(
+      ...darkOnesBlessingEvents(
+        ctx,
+        cmd.attacker,
+        target,
+        target.hp.current,
+        hpAfter,
+      ),
+    );
+    events.push(
       ...poisonDeliveryEventsAfterHit(ctx, cmd.attacker, cmd.target, cmd.damage.type),
     );
   }
@@ -1433,6 +1489,9 @@ function handleAttack(
         ...(spendsBonusAction ? { bonusAction: true } : {}),
         ...(sneakAttackDamage !== undefined && sneakAttackDamage > 0
           ? { sneakAttack: true }
+          : {}),
+        ...(colossusSlayerDamage !== undefined && colossusSlayerDamage > 0
+          ? { colossusSlayer: true }
           : {}),
         ...(stunningStrikeAttempted ? { stunningStrike: true } : {}),
       },
@@ -2393,6 +2452,7 @@ function applyLedgerDamage(
   rawAmount: number,
   damageType: string,
   ledger: HpLedger,
+  sourceId?: EntityRef,
 ): DraftEvent[] {
   const amount = adjustDamageAmount(rawAmount, damageType, target);
   const entry = ledgerEntry(ctx.world, target.id, ledger);
@@ -2408,6 +2468,7 @@ function applyLedgerDamage(
       payload: { target: target.id, amount, damageType, hpBefore, hpAfter },
     },
     ...concentrationCheckEvents(ctx, target, amount, hpAfter),
+    ...darkOnesBlessingEvents(ctx, sourceId, target, hpBefore, hpAfter),
   ];
 }
 
@@ -2419,6 +2480,7 @@ function applySpellRollsToTarget(
   ledger: HpLedger,
   saveSuccess: boolean,
   onSuccess: import("../content/spells").SaveOutcome | undefined,
+  sourceId?: EntityRef,
 ): DraftEvent[] {
   const events: DraftEvent[] = [];
   for (const roll of rolls) {
@@ -2428,7 +2490,9 @@ function applySpellRollsToTarget(
         onSuccess === "half_damage" ? Math.floor(amount / 2) : 0;
     }
     if (amount > 0) {
-      events.push(...applyLedgerDamage(ctx, target, amount, roll.type, ledger));
+      events.push(
+        ...applyLedgerDamage(ctx, target, amount, roll.type, ledger, sourceId),
+      );
     }
   }
   return events;
@@ -3384,7 +3448,14 @@ function handleCastSpell(
     if (hit && damageRolls.length > 0) {
       for (const comp of damageRolls) {
         events.push(
-          ...applyLedgerDamage(ctx, target, comp.amount, comp.type, ledger),
+          ...applyLedgerDamage(
+            ctx,
+            target,
+            comp.amount,
+            comp.type,
+            ledger,
+            caster.id,
+          ),
         );
       }
     }
@@ -3413,7 +3484,11 @@ function handleCastSpell(
         : targets.map((id) => ctx.world.entities[id]!);
     const dc = spellSaveDC(caster)!;
     const ability = spell.saveAgainst.ability;
-    const onSuccess = spell.saveAgainst.onSuccess;
+    const onSuccess = potentCantripSaveOutcome(
+      spell,
+      caster,
+      spell.saveAgainst.onSuccess,
+    );
     const damageType = spell.damage[0]!.type;
     const rolled = rollSpellDamage(
       ctx,
@@ -3462,6 +3537,7 @@ function handleCastSpell(
           ledger,
           save.success,
           onSuccess,
+          caster.id,
         ),
       );
       totalDamage += rolled.rolls.reduce((sum, comp) => {
@@ -3494,7 +3570,9 @@ function handleCastSpell(
       events.push(rollDiceEvent(ctx, roll));
       const amount = Math.max(0, roll.total);
       totalDamage += amount;
-      events.push(...applyLedgerDamage(ctx, target, amount, damageType, ledger));
+      events.push(
+        ...applyLedgerDamage(ctx, target, amount, damageType, ledger, caster.id),
+      );
     });
     Object.assign(summary, { darts: dartCount, damage: totalDamage });
   } else if (spell.damage) {
@@ -3515,7 +3593,14 @@ function handleCastSpell(
       for (const comp of rolled.rolls) {
         totalDamage += comp.amount;
         events.push(
-          ...applyLedgerDamage(ctx, target, comp.amount, comp.type, ledger),
+          ...applyLedgerDamage(
+            ctx,
+            target,
+            comp.amount,
+            comp.type,
+            ledger,
+            caster.id,
+          ),
         );
       }
     }

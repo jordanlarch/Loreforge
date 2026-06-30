@@ -70,6 +70,19 @@ export const FIXTURE_CHARACTERS: FixtureCharacter[] = [
     saveProficiencies: ["dex", "cha"],
     skillProficiencies: ["Performance", "Persuasion", "Perception", "Deception"],
   },
+  {
+    id: "pc:aldric",
+    name: "Aldric Spellwright",
+    species: "Human",
+    background: "Sage",
+    classes: [{ class: "Wizard", level: 5, subclass: "Evoker" }],
+    abilityScores: { str: 8, dex: 14, con: 14, int: 18, wis: 12, cha: 10 },
+    maxHp: 32,
+    baseAc: 13,
+    speed: 30,
+    saveProficiencies: ["int", "wis"],
+    skillProficiencies: ["Arcana", "History", "Investigation"],
+  },
 ];
 
 export type SavingThrow = {

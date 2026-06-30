@@ -31,7 +31,7 @@ describe("buildFixtureBattle", () => {
     expect(encounter).toBeDefined();
     expect(encounter?.initiativeRolled).toBe(true);
     expect(encounter?.round).toBe(1);
-    expect(encounter?.order).toHaveLength(4);
+    expect(encounter?.order).toHaveLength(5);
   });
 
   it("places every combatant on the grid", async () => {
@@ -77,6 +77,16 @@ describe("buildFixtureBattle", () => {
     for (const pc of characters) {
       expect(state.encounter?.sides[pc.id]).toBe(FIXTURE_BATTLE_PARTY_SIDE);
     }
+  });
+
+  it("seeds Aldric with Counterspell prepared for sandbox prod-verify", async () => {
+    const { state } = await buildFixtureBattle();
+    const aldric = state.entities["pc:aldric"];
+    expect(aldric?.spellcasting?.preparedSpellIds).toContain("counterspell");
+    expect(aldric?.spellcasting?.slots[3]?.current).toBeGreaterThan(0);
+    expect(state.entities["npc:cultist-a"]?.spellcasting?.preparedSpellIds).toContain(
+      "burning-hands",
+    );
   });
 });
 

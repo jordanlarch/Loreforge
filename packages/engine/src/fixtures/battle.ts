@@ -4,8 +4,8 @@
  * Like {@link buildFixtureCampaign}, the world state is produced by driving real
  * commands through the engine (scene + entities + encounter + initiative), so it
  * exercises the event → projection path rather than being hand-built. It backs
- * the sandbox battle map at `/campaigns/sandbox/play` (#16): two PCs versus two
- * goblins on a small mapped grid, initiative already rolled.
+ * the sandbox battle map at `/campaigns/sandbox/play` (#16): three PCs versus a
+ * goblin and a cultist spellcaster on a small mapped grid, initiative already rolled.
  *
  * The command list is exported so the play surface can re-simulate the encounter
  * with a player's drag-to-move commands appended (a deterministic, no-persistence
@@ -56,6 +56,7 @@ import {
   type EncounterMapDef,
 } from "./battle-maps";
 import { FIXTURE_CHARACTERS } from "./party";
+import { monsterTemplate } from "../content/monsters";
 
 /** Stable seed/campaign id; the RNG (initiative) is keyed off this. */
 export const FIXTURE_BATTLE_CAMPAIGN_ID = "fixture:goblin-ambush";
@@ -171,7 +172,7 @@ const DEFAULT_FOES: readonly FoeSpec[] = [
   },
 ];
 
-/** The fixture party (Thorin + Elara), used by the sandbox + empty campaigns. */
+/** The fixture party (Thorin + Elara + Aldric), used by the sandbox + empty campaigns. */
 export const FIXTURE_PARTY: PartyMember[] = [
   {
     id: FIXTURE_CHARACTERS[0]!.id,
@@ -196,6 +197,42 @@ export const FIXTURE_PARTY: PartyMember[] = [
     skillProficiencies: FIXTURE_CHARACTERS[1]!.skillProficiencies,
     // The Bard is a caster so the live cast loop (#58) is exercisable.
     spellcasting: { ability: "cha" },
+  },
+  {
+    id: FIXTURE_CHARACTERS[2]!.id,
+    name: FIXTURE_CHARACTERS[2]!.name,
+    abilityScores: FIXTURE_CHARACTERS[2]!.abilityScores,
+    maxHp: FIXTURE_CHARACTERS[2]!.maxHp,
+    baseAc: FIXTURE_CHARACTERS[2]!.baseAc,
+    speed: FIXTURE_CHARACTERS[2]!.speed,
+    classes: FIXTURE_CHARACTERS[2]!.classes,
+    saveProficiencies: FIXTURE_CHARACTERS[2]!.saveProficiencies,
+    skillProficiencies: FIXTURE_CHARACTERS[2]!.skillProficiencies,
+    spellcasting: {
+      ability: "int",
+      casterLevel: 5,
+      preparedSpellIds: ["counterspell", "fire-bolt", "magic-missile"],
+    },
+  },
+];
+
+const cultistTemplate = monsterTemplate("cultist")!;
+
+/** Sandbox foes: one melee goblin + one cultist caster (Counterspell prod-verify). */
+const FIXTURE_SANDBOX_FOES: readonly FoeSpec[] = [
+  DEFAULT_FOES[0]!,
+  {
+    id: "npc:cultist-a",
+    name: "Cult Fanatic",
+    abilityScores: cultistTemplate.abilityScores,
+    maxHp: cultistTemplate.maxHp,
+    baseAc: cultistTemplate.baseAc,
+    speed: cultistTemplate.speed,
+    spellcasting: {
+      ability: cultistTemplate.spellcasting!.ability,
+      casterLevel: cultistTemplate.spellcasting!.casterLevel,
+      preparedSpellIds: [...cultistTemplate.spellcasting!.spellIds],
+    },
   },
 ];
 
@@ -383,12 +420,12 @@ export function expandEncounterFoes(
 
 /**
  * The ordered command list that builds the *fixture* encounter (Thorin + Elara
- * vs two goblins). Exported so callers can append `move_entity` commands and
- * replay the whole batch deterministically. Persisted campaigns seed from their
- * real roster instead via {@link buildPartyBattleCommands}.
+ * + Aldric vs goblin + cultist). Exported so callers can append `move_entity`
+ * commands and replay the whole batch deterministically. Persisted campaigns
+ * seed from their real roster instead via {@link buildPartyBattleCommands}.
  */
 export const FIXTURE_BATTLE_COMMANDS: Command[] =
-  buildPartyBattleCommands(FIXTURE_PARTY);
+  buildPartyBattleCommands(FIXTURE_PARTY, { foes: FIXTURE_SANDBOX_FOES });
 
 /**
  * A player-issued action the live channel replays on top of the base encounter:

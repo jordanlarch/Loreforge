@@ -450,6 +450,31 @@ export function useLiveSession({
           ...(opts?.targetAc !== undefined ? { targetAc: opts.targetAc } : {}),
         },
       }),
+    passCuttingWords: (reactor: string) =>
+      send({
+        t: "cmd",
+        action: { type: "pass_cutting_words", reactor },
+      }),
+    shortRest: (
+      entity: string,
+      opts?: {
+        hitDice?: number;
+        dieSize?: number;
+        naturalRecoverySlotLevels?: number[];
+      },
+    ) =>
+      send({
+        t: "cmd",
+        action: {
+          type: "short_rest",
+          entity,
+          ...(opts?.hitDice !== undefined ? { hitDice: opts.hitDice } : {}),
+          ...(opts?.dieSize !== undefined ? { dieSize: opts.dieSize } : {}),
+          ...(opts?.naturalRecoverySlotLevels
+            ? { naturalRecoverySlotLevels: opts.naturalRecoverySlotLevels }
+            : {}),
+        },
+      }),
     opportunityAttack: (
       reactor: string,
       target: string,

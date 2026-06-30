@@ -174,6 +174,7 @@ const commandSchema = z.discriminatedUnion("type", [
     entity: z.string(),
     hitDice: z.number().int().min(0).optional(),
     dieSize: z.number().int().min(1).optional(),
+    naturalRecoverySlotLevels: z.array(z.number().int().min(1).max(9)).optional(),
   }),
   z.object({ type: z.literal("long_rest"), entity: z.string() }),
   z.object({
@@ -244,6 +245,10 @@ const commandSchema = z.discriminatedUnion("type", [
     originalTotal: z.number(),
     natural: z.number().optional(),
     targetAc: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal("pass_cutting_words"),
+    reactor: z.string(),
   }),
 ]);
 

@@ -165,6 +165,18 @@ export type AttackCommand = {
   flurryBonusAttack?: boolean;
   /** Open Hand Technique rider on a Flurry hit (Warrior of the Open Hand). */
   openHandTechnique?: "prone" | "push" | "no_reactions";
+  /** Resume a staged attack after Cutting Words (internal). */
+  _resumeRoll?: {
+    natural: number;
+    total: number;
+    targetAc: number;
+    hit: boolean;
+    critical: boolean;
+    mode: RollMode;
+    hadBardicInspiration: boolean;
+  };
+  /** Skip Cutting Words staging on this attack. */
+  _skipCuttingWordsStage?: boolean;
 };
 
 /** Apply an SRD condition to a target (exhaustion carries a 1-6 level). */
@@ -530,6 +542,12 @@ export type FastHandsCommand = {
   action: "sleight_of_hand" | "thieves_tools" | "use_object";
 };
 
+/** Decline Cutting Words on a staged attack roll. */
+export type PassCuttingWordsCommand = {
+  type: "pass_cutting_words";
+  reactor: EntityRef;
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -589,7 +607,8 @@ export type Command =
   | EscapeGrappleCommand
   | UseClassFeatureCommand
   | CuttingWordsCommand
-  | FastHandsCommand;
+  | FastHandsCommand
+  | PassCuttingWordsCommand;
 
 export type CommandType = Command["type"];
 

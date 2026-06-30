@@ -252,6 +252,51 @@ export function reactionWindowKey(state: WorldState): string | null {
   return `${window.mover}:${[...window.eligible].sort().join(",")}`;
 }
 
+/** Party-controlled bard who may use Cutting Words on a staged attack. */
+export function controllableCuttingWords(
+  state: WorldState,
+  controlledSide: string,
+):
+  | {
+      reactor: EntityState;
+      against: EntityState;
+      target: EntityState;
+      natural: number;
+      total: number;
+      targetAc: number;
+      hit: boolean;
+    }
+  | undefined {
+  const pending = state.encounter?.pendingAttack;
+  if (!pending || !state.encounter) return undefined;
+  const against = state.entities[pending.cmd.attacker];
+  const target = state.entities[pending.cmd.target];
+  if (!against || !target) return undefined;
+  for (const id of pending.eligible) {
+    if (pending.declined.includes(id)) continue;
+    if (state.encounter.sides[id] !== controlledSide) continue;
+    const reactor = state.entities[id];
+    if (!reactor?.alive) continue;
+    return {
+      reactor,
+      against,
+      target,
+      natural: pending.natural,
+      total: pending.total,
+      targetAc: pending.targetAc,
+      hit: pending.hit,
+    };
+  }
+  return undefined;
+}
+
+/** Stable key for a staged Cutting Words window. */
+export function cuttingWordsWindowKey(state: WorldState): string | null {
+  const pending = state.encounter?.pendingAttack;
+  if (!pending) return null;
+  return `${pending.cmd.attacker}:${pending.cmd.target}:${pending.total}:${pending.natural}`;
+}
+
 /**
  * Whether `cell` falls inside `spell`'s area aimed at `aim` from `casterId`,
  * reusing the engine's own `withinBurst`/`withinCone` so the preview matches

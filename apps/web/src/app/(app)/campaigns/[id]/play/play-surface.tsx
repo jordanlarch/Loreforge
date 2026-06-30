@@ -79,6 +79,8 @@ import {
   aoeCaughtIds,
   castableSpellsFor,
   controllableReactors,
+  controllableCuttingWords,
+  cuttingWordsWindowKey,
   hostilesInScene,
   reactionWindowKey,
   targetsInRange,
@@ -297,6 +299,7 @@ function LiveBattle({
   const [castTargets, setCastTargets] = useState<string[]>([]);
   const [aimCell, setAimCell] = useState<Cell | null>(null);
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
+  const [dismissedCuttingWords, setDismissedCuttingWords] = useState<string | null>(null);
   const [stunningStrike, setStunningStrike] = useState(false);
   const [selectedMetamagic, setSelectedMetamagic] = useState<string | undefined>();
   const [flurryStrike, setFlurryStrike] = useState(false);
@@ -698,6 +701,15 @@ function LiveBattle({
   const reactionKey = state ? reactionWindowKey(state) : null;
   const showReaction =
     !!reaction && !!reactionKey && reactionKey !== dismissedReaction;
+  const cuttingWords = state
+    ? controllableCuttingWords(state, FIXTURE_BATTLE_PARTY_SIDE)
+    : undefined;
+  const cuttingWordsKey = state ? cuttingWordsWindowKey(state) : null;
+  const showCuttingWords =
+    !!cuttingWords &&
+    !!cuttingWordsKey &&
+    cuttingWordsKey !== dismissedCuttingWords &&
+    !showReaction;
   const reactorSheet = reaction ? loadouts?.[reaction.reactor.id] : undefined;
   const reactorReactionSpells = reaction
     ? reactorSheet
@@ -761,6 +773,24 @@ function LiveBattle({
   function onReactionPassHandler() {
     if (reactionKey) setDismissedReaction(reactionKey);
     onReactionPass?.();
+  }
+
+  function onCuttingWordsUse() {
+    if (!cuttingWords) return;
+    session.cuttingWords(
+      cuttingWords.reactor.id,
+      cuttingWords.against.id,
+      "attack",
+      cuttingWords.total,
+      { natural: cuttingWords.natural, targetAc: cuttingWords.targetAc },
+    );
+    if (cuttingWordsKey) setDismissedCuttingWords(cuttingWordsKey);
+  }
+
+  function onCuttingWordsPass() {
+    if (!cuttingWords) return;
+    session.passCuttingWords(cuttingWords.reactor.id);
+    if (cuttingWordsKey) setDismissedCuttingWords(cuttingWordsKey);
   }
 
   function onCastShieldReaction() {
@@ -1210,6 +1240,10 @@ function LiveBattle({
             onQuickUse={onQuickUseItem}
             showReaction={showReaction}
             reaction={reaction}
+            showCuttingWords={showCuttingWords}
+            cuttingWords={cuttingWords}
+            onCuttingWordsUse={onCuttingWordsUse}
+            onCuttingWordsPass={onCuttingWordsPass}
             reactorReactionSpells={reactorReactionSpells}
             onReactionAttack={onReactionAttack}
             onReactionPass={onReactionPassHandler}

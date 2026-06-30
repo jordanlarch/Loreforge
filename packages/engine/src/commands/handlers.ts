@@ -79,6 +79,7 @@ import {
   classLevel,
   COLOSSUS_SLAYER_DICE,
   colossusSlayerEligible,
+  cuttingWordsEligibleReactors,
   darkOnesBlessingTempHp,
   discipleOfLifeBonus,
   distantSpellRange,
@@ -117,6 +118,7 @@ import type {
 import type { RollMode } from "../rng/dice";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
+import type { PendingAttackState } from "../projections/world-state";
 import {
   handleDetectTrap,
   handleDisableTrap,
@@ -205,6 +207,7 @@ import {
   type MoveEntityCommand,
   type RelocateEntityCommand,
   type OpportunityAttackCommand,
+  type PassCuttingWordsCommand,
   type ReadyActionCommand,
   type RemoveConditionCommand,
   type ResolveSurpriseCommand,
@@ -1194,6 +1197,117 @@ function handleEndTurn(
   };
 }
 
+function resumeRollFromPending(
+  pending: PendingAttackState,
+  total: number,
+  hit: boolean,
+): NonNullable<AttackCommand["_resumeRoll"]> {
+  return {
+    natural: pending.natural,
+    total,
+    targetAc: pending.targetAc,
+    hit,
+    critical: hit && pending.critical,
+    mode: pending.mode,
+    hadBardicInspiration: pending.hadBardicInspiration,
+  };
+}
+
+function completePendingAttack(
+  ctx: ExecutionContext,
+  pending: PendingAttackState,
+  resumeRoll: NonNullable<AttackCommand["_resumeRoll"]>,
+): CommandResult {
+  return handleAttack(
+    {
+      ...pending.cmd,
+      _skipCuttingWordsStage: true,
+      _resumeRoll: resumeRoll,
+    },
+    ctx,
+    {
+      viaReaction: pending.viaReaction,
+      targetPosition: pending.targetPosition,
+    },
+  );
+}
+
+function mergePendingAttackAfterCuttingWords(
+  cmd: CuttingWordsCommand,
+  ctx: ExecutionContext,
+  cwResult: CommandResult,
+): CommandResult {
+  if (!cwResult.accepted) return cwResult;
+  const pending = ctx.world.encounter?.pendingAttack;
+  if (!pending || pending.cmd.attacker !== cmd.against || cmd.mode !== "attack") {
+    return cwResult;
+  }
+  const applied = cwResult.events.find((e) => e.type === "CuttingWordsApplied") as
+    | { payload: { adjustedTotal: number; hit?: boolean } }
+    | undefined;
+  if (!applied) return cwResult;
+  const hit = applied.payload.hit ?? pending.hit;
+  const complete = completePendingAttack(
+    ctx,
+    pending,
+    resumeRollFromPending(pending, applied.payload.adjustedTotal, hit),
+  );
+  if (!complete.accepted) return complete;
+  return {
+    accepted: true,
+    events: [...cwResult.events, ...complete.events],
+    summary: complete.summary,
+  };
+}
+
+function handlePassCuttingWords(
+  cmd: PassCuttingWordsCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const pending = ctx.world.encounter?.pendingAttack;
+  if (!pending) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      "No attack is waiting for Cutting Words.",
+    );
+  }
+  const reactor = ctx.world.entities[cmd.reactor];
+  if (!reactor) {
+    return reject("ACTOR_NOT_FOUND", `Reactor ${cmd.reactor} does not exist.`);
+  }
+  if (!pending.eligible.includes(cmd.reactor)) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${reactor.name} cannot pass on this Cutting Words window.`,
+    );
+  }
+  if (pending.declined.includes(cmd.reactor)) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${reactor.name} already passed on this attack.`,
+    );
+  }
+  const declined = [...pending.declined, cmd.reactor];
+  if (declined.length < pending.eligible.length) {
+    return {
+      accepted: true,
+      events: [
+        {
+          type: "PendingAttackUpdated",
+          ...meta(ctx, cmd.reactor),
+          payload: { declined },
+        },
+      ],
+      summary: { passed: cmd.reactor },
+    };
+  }
+  return completePendingAttack(
+    ctx,
+    pending,
+    resumeRollFromPending(pending, pending.total, pending.hit),
+  );
+}
+
 function handleAttack(
   cmd: AttackCommand,
   ctx: ExecutionContext,
@@ -1341,54 +1455,112 @@ function handleAttack(
     proneMode,
   );
 
-  const d20 = ctx.roll("1d20", `attack:${cmd.attacker}->${cmd.target}`, mode);
-  const events: DraftEvent[] = [rollDiceEvent(ctx, d20)];
-  // "1d20" carries no modifier, so the total is the natural face (or the chosen
-  // face under advantage/disadvantage).
-  const natural = d20.total;
-  let blessBonus = 0;
-  const hadBardicInspiration = (attacker.effects ?? []).some(
-    (fx) => fx.modifier.type === "bardic_inspiration",
-  );
-  for (const dice of attackRollBonusDice(attacker)) {
-    const roll = ctx.roll(dice, `attack-bless:${cmd.attacker}->${cmd.target}`);
-    events.push(rollDiceEvent(ctx, roll));
-    blessBonus += roll.total;
-  }
-  let banePenalty = 0;
-  for (const dice of attackRollPenaltyDice(attacker)) {
-    const roll = ctx.roll(dice, `attack-bane:${cmd.attacker}->${cmd.target}`);
-    events.push(rollDiceEvent(ctx, roll));
-    banePenalty += roll.total;
-  }
-  const total =
-    natural +
-    cmd.attackBonus +
-    blessBonus -
-    banePenalty -
-    exhaustionD20Penalty(attacker.conditions);
-  let coverAc = 0;
-  if (
-    attacker.position &&
-    targetPosition &&
-    attacker.sceneId &&
-    attacker.sceneId === target.sceneId
-  ) {
-    const exclude = new Set([attacker.id, target.id]);
-    coverAc = coverAcBonusFromLine(
-      attacker.position,
-      targetPosition,
-      cellProvidesCover(ctx.world, attacker.sceneId, exclude),
+  let natural: number;
+  let total: number;
+  let targetAc: number;
+  let hit: boolean;
+  let critical: boolean;
+  let hadBardicInspiration: boolean;
+  const events: DraftEvent[] = [];
+
+  if (cmd._resumeRoll) {
+    natural = cmd._resumeRoll.natural;
+    total = cmd._resumeRoll.total;
+    targetAc = cmd._resumeRoll.targetAc;
+    hit = cmd._resumeRoll.hit;
+    critical = cmd._resumeRoll.critical;
+    hadBardicInspiration = cmd._resumeRoll.hadBardicInspiration;
+  } else {
+    const d20 = ctx.roll("1d20", `attack:${cmd.attacker}->${cmd.target}`, mode);
+    events.push(rollDiceEvent(ctx, d20));
+    natural = d20.total;
+    hadBardicInspiration = (attacker.effects ?? []).some(
+      (fx) => fx.modifier.type === "bardic_inspiration",
     );
+    let blessBonus = 0;
+    for (const dice of attackRollBonusDice(attacker)) {
+      const roll = ctx.roll(dice, `attack-bless:${cmd.attacker}->${cmd.target}`);
+      events.push(rollDiceEvent(ctx, roll));
+      blessBonus += roll.total;
+    }
+    let banePenalty = 0;
+    for (const dice of attackRollPenaltyDice(attacker)) {
+      const roll = ctx.roll(dice, `attack-bane:${cmd.attacker}->${cmd.target}`);
+      events.push(rollDiceEvent(ctx, roll));
+      banePenalty += roll.total;
+    }
+    total =
+      natural +
+      cmd.attackBonus +
+      blessBonus -
+      banePenalty -
+      exhaustionD20Penalty(attacker.conditions);
+    let coverAc = 0;
+    if (
+      attacker.position &&
+      targetPosition &&
+      attacker.sceneId &&
+      attacker.sceneId === target.sceneId
+    ) {
+      const exclude = new Set([attacker.id, target.id]);
+      coverAc = coverAcBonusFromLine(
+        attacker.position,
+        targetPosition,
+        cellProvidesCover(ctx.world, attacker.sceneId, exclude),
+      );
+    }
+    targetAc = effectiveAc(target) + coverAc;
+    const forceCrit =
+      adjacent === true && critsWhenAdjacent(target.conditions);
+    const critThreshold = championCritThreshold(attacker.classes) ?? 20;
+    ({ hit, critical } = resolveHit(natural, total, targetAc, {
+      forceCrit,
+      critThreshold,
+    }));
+
+    if (!cmd._skipCuttingWordsStage) {
+      const cwEligible = cuttingWordsEligibleReactors(ctx.world, cmd.attacker);
+      if (cwEligible.length > 0) {
+        const strippedCmd = { ...cmd };
+        delete strippedCmd._resumeRoll;
+        delete strippedCmd._skipCuttingWordsStage;
+        events.push({
+          type: "PendingAttackStaged",
+          ...meta(ctx, cmd.attacker),
+          payload: {
+            cmd: strippedCmd,
+            natural,
+            total,
+            targetAc,
+            hit,
+            critical,
+            mode,
+            hadBardicInspiration,
+            eligible: cwEligible,
+            declined: [],
+            spendsAction,
+            spendsBonusAction,
+            spendsFlurryAttack,
+            viaReaction: opts?.viaReaction,
+            targetPosition: opts?.targetPosition,
+          },
+        });
+        return {
+          accepted: true,
+          events,
+          summary: {
+            pendingCuttingWords: true,
+            attacker: cmd.attacker,
+            target: cmd.target,
+            natural,
+            attackTotal: total,
+            targetAc,
+            hit,
+          },
+        };
+      }
+    }
   }
-  const targetAc = effectiveAc(target) + coverAc;
-  const forceCrit =
-    adjacent === true && critsWhenAdjacent(target.conditions);
-  const critThreshold = championCritThreshold(attacker.classes) ?? 20;
-  const { hit, critical } = resolveHit(natural, total, targetAc, {
-    forceCrit,
-    critThreshold,
-  });
 
   let damage: number | undefined;
   let sneakAttackDamage: number | undefined;
@@ -3994,7 +4166,13 @@ export function handleCommand(
     case "use_class_feature":
       return handleUseClassFeature(command, ctx);
     case "cutting_words":
-      return handleCuttingWords(command, ctx);
+      return mergePendingAttackAfterCuttingWords(
+        command,
+        ctx,
+        handleCuttingWords(command, ctx),
+      );
+    case "pass_cutting_words":
+      return handlePassCuttingWords(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

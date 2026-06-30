@@ -22,6 +22,14 @@ import {
   ensureHitDice,
   refreshSpellSlots,
 } from "@/lib/sheet-rest";
+import {
+  applyNaturalRecoveryToLoadout,
+  expendedSlotLevels,
+  naturalRecoveryAvailable,
+  naturalRecoveryBudget,
+} from "@/lib/natural-recovery";
+import { NATURAL_RECOVERY_RESOURCE_KEY, spendFeatureUse } from "@app/engine";
+import { ShortRestDialog } from "./short-rest-dialog";
 import { effectiveSheetVitals } from "@/lib/sheet-modifiers";
 
 import { AbilitiesPanel } from "./abilities-panel";
@@ -70,6 +78,7 @@ export function CharacterSheetView({
   const [tab, setTab] = useState<Tab>("Combat");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [featureToast, setFeatureToast] = useState<string | null>(null);
+  const [shortRestOpen, setShortRestOpen] = useState(false);
 
   const update = trpc.characters.update.useMutation({
     async onMutate(vars) {
@@ -221,8 +230,37 @@ export function CharacterSheetView({
   const charClasses = character.classes;
 
   function shortRest() {
-    const nextMeta = applyShortRestMeta(metaWithHitDice, charClasses);
+    if (
+      naturalRecoveryAvailable(charClasses, metaWithHitDice.resourceUses) &&
+      expendedSlotLevels(charSpells).length > 0
+    ) {
+      setShortRestOpen(true);
+      return;
+    }
+    finishShortRest([]);
+  }
+
+  function finishShortRest(slotLevels: number[]) {
+    let nextMeta = applyShortRestMeta(metaWithHitDice, charClasses);
+    if (slotLevels.length > 0) {
+      const spent = spendFeatureUse(
+        nextMeta.resourceUses?.[NATURAL_RECOVERY_RESOURCE_KEY],
+        1,
+      );
+      nextMeta = {
+        ...nextMeta,
+        resourceUses: {
+          ...nextMeta.resourceUses,
+          [NATURAL_RECOVERY_RESOURCE_KEY]: spent ?? [true],
+        },
+      };
+      update.mutate({
+        id,
+        spells: applyNaturalRecoveryToLoadout(charSpells, slotLevels),
+      });
+    }
     saveNotes(patchCharacterMeta(notesRaw, nextMeta));
+    setShortRestOpen(false);
   }
 
   function longRest() {
@@ -490,6 +528,15 @@ export function CharacterSheetView({
           onClose={() => setLevelingUp(false)}
         />
       )}
+
+      {shortRestOpen ? (
+        <ShortRestDialog
+          expendedLevels={expendedSlotLevels(charSpells)}
+          budget={naturalRecoveryBudget(charClasses)}
+          onConfirm={finishShortRest}
+          onCancel={() => setShortRestOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

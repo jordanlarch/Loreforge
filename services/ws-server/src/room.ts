@@ -481,6 +481,9 @@ export function isBattleAction(value: unknown): value is BattleAction {
     originalTotal?: unknown;
     natural?: unknown;
     targetAc?: unknown;
+    hitDice?: unknown;
+    dieSize?: unknown;
+    naturalRecoverySlotLevels?: unknown;
   };
   if (action.type === "end_turn") return true;
   if (action.type === "ready_action") {
@@ -599,6 +602,22 @@ export function isBattleAction(value: unknown): value is BattleAction {
       Number.isFinite(action.originalTotal) &&
       (action.natural === undefined || typeof action.natural === "number") &&
       (action.targetAc === undefined || typeof action.targetAc === "number")
+    );
+  }
+  if (action.type === "pass_cutting_words") {
+    return typeof action.reactor === "string";
+  }
+  if (action.type === "short_rest") {
+    const levels = action.naturalRecoverySlotLevels as unknown;
+    const levelsOk =
+      levels === undefined ||
+      (Array.isArray(levels) &&
+        levels.every((l) => typeof l === "number" && Number.isFinite(l)));
+    return (
+      typeof action.entity === "string" &&
+      (action.hitDice === undefined || typeof action.hitDice === "number") &&
+      (action.dieSize === undefined || typeof action.dieSize === "number") &&
+      levelsOk
     );
   }
   if (action.type === "detect_trap" || action.type === "disable_trap") {

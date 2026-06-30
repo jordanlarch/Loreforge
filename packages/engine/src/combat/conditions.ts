@@ -19,15 +19,15 @@
  *  - exhaustion (SRD 5.2.1 uniform model): a flat −2×level penalty to every D20
  *    Test and a −5×level-foot speed reduction; death at level 6.
  *
- * Not yet modelled (deferred to the Effect/spell systems): condition immunities,
- * perception/check auto-fails (blinded sight checks, deafened hearing), and the
- * social-only facets of charmed. Entity-level damage resist/vuln/immunity lists
- * are handled in `combat/damage.ts` (SRD-FID-19). Frightened's "while the source
- * approximated as always-on for the attack/check disadvantage (the engine
- * resolvers are position-free); the can't-approach restriction is enforced
- * against the tracked source in the movement handler.
+ * Not yet modelled (deferred to the Effect/spell systems): condition immunities
+ * and the social-only facets of charmed. Entity-level damage resist/vuln/
+ * immunity lists are handled in `combat/damage.ts` (SRD-FID-19). Blinded/
+ * deafened auto-fails, frightened LOS gates, petrified resistances, and grapple
+ * escape are handled in SRD-FID-20.
  */
-import type { Ability } from "../entities/types";
+import type { Ability, GridPosition, SceneState } from "../entities/types";
+import type { EntityState } from "../entities/types";
+import { hasLineOfSight } from "./grid";
 
 export const CONDITIONS = [
   "blinded",
@@ -51,6 +51,13 @@ export type Condition = (typeof CONDITIONS)[number];
 
 export function isCondition(value: string): value is Condition {
   return (CONDITIONS as readonly string[]).includes(value);
+}
+
+export function hasCondition(
+  conditions: readonly ConditionState[],
+  condition: Condition,
+): boolean {
+  return conditions.some((c) => c.condition === condition);
 }
 
 /** An applied condition instance carried on an entity. */
@@ -96,11 +103,9 @@ const CONDITION_MECHANICS: Record<Condition, ConditionMechanics> = {
   charmed: { cannotAttackSource: true },
   deafened: NO_MECHANICS,
   // Frightened (SRD 5.2.1): disadvantage on attack rolls *and* ability checks
-  // while the source is in line of sight (approximated as always-on), and the
-  // creature can't willingly move closer to the source (enforced in movement).
+  // while the source is in line of sight (gated in checkModeForEntity /
+  // ownAttackModeForEntity); can't willingly move closer to the source.
   frightened: {
-    ownAttacksDisadvantage: true,
-    checkDisadvantage: true,
     cannotApproachSource: true,
   },
   grappled: { speedZero: true },
@@ -209,6 +214,90 @@ export function checkMode(conditions: readonly ConditionState[]): RollAdjust {
     if (CONDITION_MECHANICS[c.condition].checkDisadvantage) {
       modes.push("disadvantage");
     }
+  }
+  return combineMode(...modes);
+}
+
+/** True when a condition causes an automatic ability-check failure. */
+export function checkAutoFail(
+  conditions: readonly ConditionState[],
+  skill?: string,
+  opts?: { requiresHearing?: boolean },
+): boolean {
+  if (hasCondition(conditions, "blinded") && skill) {
+    if (skill === "Perception" || skill === "Investigation") return true;
+  }
+  if (hasCondition(conditions, "deafened")) {
+    if (opts?.requiresHearing) return true;
+    if (skill === "Perception") return true;
+  }
+  return false;
+}
+
+type FrightenedWorld = {
+  entities: Record<string, EntityState>;
+  scenes: Record<string, SceneState | undefined>;
+};
+
+/** Frightened disadvantage applies only while a fear source is in line of sight. */
+export function frightenedDisadvantageActive(
+  entity: EntityState,
+  world: FrightenedWorld,
+): boolean {
+  const sources = frightenedSources(entity.conditions);
+  if (sources.size === 0) return false;
+  if (!entity.position || !entity.sceneId) return true;
+  const map = world.scenes[entity.sceneId]?.map;
+  const isBlocked = (cell: GridPosition): boolean =>
+    map?.blockedCells.some((c) => c.x === cell.x && c.y === cell.y) ?? false;
+  for (const sourceId of sources) {
+    const source = world.entities[sourceId];
+    if (
+      source?.position &&
+      source.sceneId === entity.sceneId &&
+      hasLineOfSight(entity.position, source.position, isBlocked)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Ability-check roll mode including frightened line-of-sight gating. */
+export function checkModeForEntity(
+  entity: EntityState,
+  world: FrightenedWorld,
+): RollAdjust {
+  const modes: RollAdjust[] = [];
+  if (frightenedDisadvantageActive(entity, world)) {
+    modes.push("disadvantage");
+  }
+  for (const c of entity.conditions) {
+    if (
+      c.condition !== "frightened" &&
+      CONDITION_MECHANICS[c.condition].checkDisadvantage
+    ) {
+      modes.push("disadvantage");
+    }
+  }
+  return combineMode(...modes);
+}
+
+/** Attack roll mode for the creature's own attacks, with frightened LOS gate. */
+export function ownAttackModeForEntity(
+  entity: EntityState,
+  world: FrightenedWorld,
+): RollAdjust {
+  const modes: RollAdjust[] = [];
+  if (frightenedDisadvantageActive(entity, world)) {
+    modes.push("disadvantage");
+  }
+  for (const c of entity.conditions) {
+    const m = CONDITION_MECHANICS[c.condition];
+    if (c.condition !== "frightened" && m.ownAttacksDisadvantage) {
+      modes.push("disadvantage");
+    }
+    if (m.ownAttacksAdvantage) modes.push("advantage");
   }
   return combineMode(...modes);
 }

@@ -5,6 +5,7 @@
  * debiting. Entity fields are explicit lists; condition-driven modifiers (e.g.
  * petrified) layer on later via the Effect system.
  */
+import type { ConditionState } from "../combat/conditions";
 import type { DamageType } from "../content/spells";
 import type { EntityState } from "../entities/types";
 
@@ -27,18 +28,24 @@ export function adjustDamageAmount(
   damageType: string,
   entity: Pick<
     EntityState,
-    "damageImmunities" | "damageResistances" | "damageVulnerabilities"
+    | "damageImmunities"
+    | "damageResistances"
+    | "damageVulnerabilities"
+    | "conditions"
   >,
 ): number {
   if (amount <= 0) return 0;
   if (hasDamageType(entity.damageImmunities, damageType)) return 0;
 
-  const resistant = hasDamageType(entity.damageResistances, damageType);
+  let adjusted = amount;
+  const resistant =
+    hasDamageType(entity.damageResistances, damageType) ||
+    entity.conditions?.some((c) => c.condition === "petrified");
   const vulnerable = hasDamageType(entity.damageVulnerabilities, damageType);
 
   // Multiple resist/vuln instances to the same type count once; both cancel out.
-  if (resistant && vulnerable) return amount;
-  if (resistant) return Math.floor(amount / 2);
-  if (vulnerable) return amount * 2;
-  return amount;
+  if (resistant && vulnerable) return adjusted;
+  if (resistant) adjusted = Math.floor(adjusted / 2);
+  else if (vulnerable) adjusted = adjusted * 2;
+  return adjusted;
 }

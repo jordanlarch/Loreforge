@@ -415,7 +415,7 @@ describe("Frightened (SRD 5.2.1)", () => {
     return (e as { payload: CheckRolledPayload }).payload;
   };
 
-  it("gives disadvantage on ability checks", async () => {
+  it("gives disadvantage on ability checks while the fear source is visible", async () => {
     await engine.execute(CAMPAIGN, {
       type: "apply_condition",
       target: "pc:hero",

@@ -185,6 +185,8 @@ export type CheckRolledPayload = {
   proficient: boolean;
   /** Pass/fail; present only when a `dc` was supplied. */
   success?: boolean;
+  /** Blinded auto-fail and similar — no d20 was rolled. */
+  autoFail?: boolean;
 };
 
 export type DeathSaveRolledPayload = {

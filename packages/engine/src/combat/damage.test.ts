@@ -53,4 +53,12 @@ describe("adjustDamageAmount", () => {
       adjustDamageAmount(10, "Fire", entity({ damageResistances: ["fire"] })),
     ).toBe(5);
   });
+
+  it("halves damage while petrified", () => {
+    expect(
+      adjustDamageAmount(11, "slashing", {
+        conditions: [{ condition: "petrified" }],
+      } as EntityState),
+    ).toBe(5);
+  });
 });

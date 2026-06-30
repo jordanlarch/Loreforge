@@ -5,7 +5,7 @@ import { abilityModifier } from "../entities/abilities";
 import { distanceFeet } from "../combat/grid";
 import { REACH_FEET } from "../combat/reactions";
 import {
-  checkMode,
+  checkModeForEntity,
   combineMode,
   exhaustionD20Penalty,
   isIncapacitated,
@@ -13,6 +13,7 @@ import {
 } from "../combat/conditions";
 import { effectiveSpeedForEntity } from "../combat/effects";
 import type { ActiveEffect } from "../combat/effects";
+import type { EntityState } from "../entities/types";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { RollMode } from "../rng/dice";
 import type { ExecutionContext } from "./context";
@@ -21,6 +22,7 @@ import type {
   DashCommand,
   DisengageCommand,
   DodgeCommand,
+  EscapeGrappleCommand,
   HelpCommand,
   HideCommand,
 } from "./types";
@@ -277,7 +279,7 @@ export function handleHide(cmd: HideCommand, ctx: ExecutionContext): CommandResu
   const dc = cmd.dc ?? HIDE_STEALTH_DC;
   const mode = combineMode(
     (cmd.mode ?? "normal") as RollAdjust,
-    checkMode(entity.conditions),
+    checkModeForEntity(entity, ctx.world),
   ) as RollMode;
   const roll = ctx.roll("1d20", `hide:${cmd.entity}`, mode);
   const natural = roll.total;
@@ -327,6 +329,101 @@ export function handleHide(cmd: HideCommand, ctx: ExecutionContext): CommandResu
       dc,
       success,
       hidden: success,
+    },
+  };
+}
+
+/** SRD 5.2.1 escape DC: 8 + the grappler's best Athletics or Acrobatics modifier. */
+function grappleEscapeDc(grappler: EntityState): number {
+  const strAth =
+    abilityModifier(grappler.abilityScores.str) + grappler.proficiencyBonus;
+  const dexAcr =
+    abilityModifier(grappler.abilityScores.dex) + grappler.proficiencyBonus;
+  return 8 + Math.max(strAth, dexAcr);
+}
+
+export function handleEscapeGrapple(
+  cmd: EscapeGrappleCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const blocked = requireOwnTurnAction(cmd.entity, ctx);
+  if (blocked) return blocked;
+
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+
+  const grappleState = entity.conditions.find(
+    (c) => c.condition === "grappled" && c.source,
+  );
+  if (!grappleState?.source) {
+    return reject("NOT_GRAPPLED", `${entity.name} is not grappled.`);
+  }
+
+  const grappler = ctx.world.entities[grappleState.source];
+  if (!grappler) {
+    return reject(
+      "ACTOR_NOT_FOUND",
+      `Grappler ${grappleState.source} is not on the battlefield.`,
+    );
+  }
+
+  const ability = cmd.useAcrobatics ? "dex" : "str";
+  const skill = cmd.useAcrobatics ? "Acrobatics" : "Athletics";
+  const dc = grappleEscapeDc(grappler);
+  const mode = combineMode(
+    (cmd.mode ?? "normal") as RollAdjust,
+    checkModeForEntity(entity, ctx.world),
+  ) as RollMode;
+  const roll = ctx.roll("1d20", `escape:${cmd.entity}`, mode);
+  const natural = roll.total;
+  const total =
+    natural +
+    abilityModifier(entity.abilityScores[ability]) +
+    entity.proficiencyBonus -
+    exhaustionD20Penalty(entity.conditions);
+  const success = total >= dc;
+
+  const events: DraftEvent[] = [
+    ...spendActionEvents(ctx, cmd.entity),
+    rollDiceEvent(ctx, roll),
+    {
+      type: "CheckRolled",
+      ...meta(ctx, cmd.entity),
+      payload: {
+        entity: cmd.entity,
+        ability,
+        skill,
+        dc,
+        mode,
+        natural,
+        total,
+        proficient: true,
+        success,
+      },
+    },
+  ];
+
+  if (success) {
+    events.push({
+      type: "ConditionRemoved",
+      ...meta(ctx, cmd.entity),
+      payload: {
+        target: cmd.entity,
+        condition: "grappled",
+      },
+    });
+  }
+
+  return {
+    accepted: true,
+    events,
+    summary: {
+      entity: cmd.entity,
+      escapeTotal: total,
+      dc,
+      success,
     },
   };
 }

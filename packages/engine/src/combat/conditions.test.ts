@@ -66,10 +66,15 @@ describe("exhaustionD20Penalty", () => {
 });
 
 describe("ownAttackMode", () => {
-  it("gives disadvantage when poisoned / blinded / frightened / prone", () => {
-    for (const cond of ["poisoned", "blinded", "frightened", "prone"] as const) {
+  it("gives disadvantage when poisoned / blinded / prone", () => {
+    for (const cond of ["poisoned", "blinded", "prone"] as const) {
       expect(ownAttackMode([c(cond)])).toBe("disadvantage");
     }
+  });
+  it("does not apply frightened without line-of-sight gating (see ownAttackModeForEntity)", () => {
+    expect(ownAttackMode([c("frightened", { source: "npc:dragon" })])).toBe(
+      "normal",
+    );
   });
   it("gives advantage when invisible", () => {
     expect(ownAttackMode([c("invisible")])).toBe("advantage");
@@ -80,9 +85,9 @@ describe("ownAttackMode", () => {
 });
 
 describe("checkMode", () => {
-  it("gives disadvantage on ability checks while frightened", () => {
+  it("does not apply frightened without line-of-sight gating (see checkModeForEntity)", () => {
     expect(checkMode([c("frightened", { source: "npc:dragon" })])).toBe(
-      "disadvantage",
+      "normal",
     );
   });
   it("is normal for conditions without a check rider", () => {

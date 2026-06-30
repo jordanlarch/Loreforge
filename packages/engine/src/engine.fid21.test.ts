@@ -263,6 +263,222 @@ describe("SRD-FID-21: Metamagic & Invocations", () => {
   });
 });
 
+describe("SRD-FID-21: Metamagic expansion", () => {
+  async function makeSorcerer(
+    engine: Engine,
+    metamagic: string,
+    position: GridPosition = { x: 0, y: 0 },
+  ) {
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:sorc",
+        kind: "character",
+        name: "Sorcerer",
+        abilityScores: { ...ABILITIES, cha: 16 },
+        maxHp: 30,
+        baseAc: 12,
+        classes: [{ class: "Sorcerer", level: 5 }],
+        sceneId: "s:arena",
+        position,
+        spellcasting: { ability: "cha" },
+        featureChoices: { "Sorcerer:2:metamagic": metamagic },
+        resourceUses: {},
+      },
+    });
+  }
+
+  it("Quickened Spell converts an action cast to a bonus action and spends 2 SP", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await makeSorcerer(engine, "Quickened Spell, Empowered Spell");
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 1, maxHp: 100 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:sorc", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:sorc": 20, "npc:foe": 0 },
+    });
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:sorc",
+      spellId: "fire-bolt",
+      slotLevel: 0,
+      targets: ["npc:foe"],
+      metamagic: "quickened",
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    const spellCast = cast.events.find((e) => e.type === "SpellCast") as {
+      payload: { bonusAction?: boolean; sorceryPointsSpent?: number };
+    };
+    expect(spellCast.payload.bonusAction).toBe(true);
+    expect(spellCast.payload.sorceryPointsSpent).toBe(2);
+    expect(cast.events.some((e) => e.type === "ActionSpent")).toBe(false);
+  });
+
+  it("Distant Spell extends range (rejected without, accepted with)", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: {
+        id: "s:arena",
+        name: "Arena",
+        map: { width: 50, height: 4, blockedCells: [] },
+      },
+    });
+    await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:arena" });
+    await makeSorcerer(engine, "Distant Spell, Empowered Spell");
+    // 30 cells = 150 ft: beyond Fire Bolt's 120 ft, within Distant's 240 ft.
+    await place(engine, "npc:foe", { x: 30, y: 0 }, [], { baseAc: 1, maxHp: 100 });
+    const without = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:sorc",
+      spellId: "fire-bolt",
+      slotLevel: 0,
+      targets: ["npc:foe"],
+    });
+    expect(without.accepted).toBe(false);
+    if (!without.accepted) expect(without.reason.code).toBe("OUT_OF_RANGE");
+    const withDistant = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:sorc",
+      spellId: "fire-bolt",
+      slotLevel: 0,
+      targets: ["npc:foe"],
+      metamagic: "distant",
+    });
+    expect(withDistant.accepted).toBe(true);
+  });
+
+  it("Seeking Spell rerolls a missed spell attack", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await makeSorcerer(engine, "Seeking Spell, Empowered Spell");
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 99, maxHp: 100 });
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:sorc",
+      spellId: "fire-bolt",
+      slotLevel: 0,
+      targets: ["npc:foe"],
+      metamagic: "seeking",
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    const resolved = cast.events.find((e) => e.type === "AttackResolved") as {
+      payload: { hit: boolean };
+    };
+    expect(resolved.payload.hit).toBe(false);
+    const reroll = cast.events.some(
+      (e) =>
+        e.type === "DiceRolled" &&
+        String((e.payload as { scope: string }).scope).startsWith(
+          "metamagic-seeking",
+        ),
+    );
+    expect(reroll).toBe(true);
+  });
+});
+
+describe("SRD-FID-21: Eldritch Invocation expansion", () => {
+  async function makeWarlock(
+    engine: Engine,
+    invocations: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:lock",
+        kind: "character",
+        name: "Warlock",
+        abilityScores: { ...ABILITIES, cha: 18 },
+        maxHp: 40,
+        baseAc: 12,
+        classes: [{ class: "Warlock", level: 5 }],
+        sceneId: "s:arena",
+        position: { x: 0, y: 0 },
+        spellcasting: { ability: "cha" },
+        featureChoices: { "Warlock:1:eldritch-invocations": invocations },
+        ...extra,
+      },
+    });
+  }
+
+  it("Repelling Blast pushes an Eldritch Blast target 10 ft away", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await makeWarlock(engine, "Repelling Blast");
+    await place(engine, "npc:foe", { x: 2, y: 0 }, [], { baseAc: 1, maxHp: 100 });
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:lock",
+      spellId: "eldritch-blast",
+      slotLevel: 0,
+      targets: ["npc:foe"],
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) return;
+    const moved = cast.events.find((e) => e.type === "EntityMoved") as {
+      payload: { entity: string; to: GridPosition };
+    };
+    expect(moved.payload.entity).toBe("npc:foe");
+    expect(moved.payload.to).toEqual({ x: 4, y: 0 });
+  });
+
+  it("Eldritch Spear extends Eldritch Blast range beyond 120 ft", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: {
+        id: "s:arena",
+        name: "Arena",
+        map: { width: 50, height: 4, blockedCells: [] },
+      },
+    });
+    await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:arena" });
+    await makeWarlock(engine, "Eldritch Spear");
+    // 30 cells = 150 ft: beyond the base 120 ft, within Eldritch Spear's 300 ft.
+    await place(engine, "npc:foe", { x: 30, y: 0 }, [], { baseAc: 1, maxHp: 100 });
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:lock",
+      spellId: "eldritch-blast",
+      slotLevel: 0,
+      targets: ["npc:foe"],
+    });
+    expect(cast.accepted).toBe(true);
+  });
+
+  it("Eldritch Mind grants advantage on concentration saves", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await makeWarlock(engine, "Eldritch Mind");
+    await engine.execute(CAMPAIGN, {
+      type: "start_concentration",
+      entity: "pc:lock",
+      spell: "Hex",
+    });
+    const dmg = await engine.execute(CAMPAIGN, {
+      type: "apply_damage",
+      target: "pc:lock",
+      damageType: "fire",
+      source: { amount: 10 },
+    });
+    expect(dmg.accepted).toBe(true);
+    if (!dmg.accepted) return;
+    const save = dmg.events.find(
+      (e) =>
+        e.type === "SaveRolled" &&
+        (e.payload as { ability: string }).ability === "con",
+    ) as { payload: { mode: string } };
+    expect(save.payload.mode).toBe("advantage");
+  });
+});
+
 describe("SRD-FID-21: Paladin — Lay on Hands, Channel Divinity, Divine Smite", () => {
   it("Lay on Hands spends HP from the pool to heal", () => {
     const key = featureResourceKey("Paladin", 1, "lay-on-hands");

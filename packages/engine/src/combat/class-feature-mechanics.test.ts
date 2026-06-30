@@ -4,8 +4,10 @@ import {
   agonizingBlastBonus,
   bardicInspirationDie,
   classLevel,
+  distantSpellRange,
   focusPointMaximum,
   hasEldritchInvocation,
+  METAMAGIC_OPTIONS,
   rageDamageBonus,
   selectedMetamagicOptions,
   sneakAttackDiceCount,
@@ -125,5 +127,34 @@ describe("class feature mechanics", () => {
       ),
     ).toBe(true);
     expect(agonizingBlastBonus({ ...baseEntity("x", { x: 0, y: 0 }).abilityScores, cha: 18 })).toBe(4);
+  });
+
+  it("normalizes the expanded Metamagic catalog with Sorcery Point costs", () => {
+    expect(
+      selectedMetamagicOptions({
+        "Sorcerer:2:metamagic": "Quickened Spell, Distant Spell, Seeking Spell",
+      }),
+    ).toEqual(["quickened", "distant", "seeking"]);
+    expect(METAMAGIC_OPTIONS.quickened.cost).toBe(2);
+    expect(METAMAGIC_OPTIONS.distant.cost).toBe(1);
+    expect(METAMAGIC_OPTIONS.seeking.cost).toBe(2);
+    expect(METAMAGIC_OPTIONS.subtle.cost).toBe(1);
+    expect(METAMAGIC_OPTIONS.extended.cost).toBe(1);
+  });
+
+  it("computes Distant Spell range (touch → 30 ft, else doubled)", () => {
+    expect(distantSpellRange(5, true)).toBe(30);
+    expect(distantSpellRange(120, false)).toBe(240);
+  });
+
+  it("reads the expanded Eldritch Invocation catalog", () => {
+    const choices = {
+      "Warlock:1:eldritch-invocations":
+        "Repelling Blast, Eldritch Spear, Eldritch Mind",
+    };
+    expect(hasEldritchInvocation(choices, "repelling-blast")).toBe(true);
+    expect(hasEldritchInvocation(choices, "eldritch-spear")).toBe(true);
+    expect(hasEldritchInvocation(choices, "eldritch-mind")).toBe(true);
+    expect(hasEldritchInvocation(choices, "devils-sight")).toBe(false);
   });
 });

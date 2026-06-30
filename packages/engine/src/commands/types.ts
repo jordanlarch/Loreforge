@@ -301,7 +301,10 @@ export type CastSpellCommand = {
   targets?: EntityRef[];
   origin?: GridPosition;
   mode?: RollMode;
-  /** Metamagic option id (empowered, heightened). */
+  /**
+   * Metamagic option id: empowered, heightened, quickened, distant, seeking,
+   * subtle, or extended. Validated against the caster's known options.
+   */
   metamagic?: string;
 };
 

@@ -17,6 +17,7 @@ import { criticalNotation, resolveHit } from "../combat/attack";
 import {
   cellIsDifficult,
   distanceFeet,
+  FEET_PER_CELL,
   hasLineOfSight,
   movementCostFeet,
   withinBurst,
@@ -73,11 +74,14 @@ import {
 import {
   agonizingBlastBonus,
   classLevel,
+  distantSpellRange,
   divineSmiteNotation,
+  ELDRITCH_SPEAR_RANGE_FEET,
   empoweredRerollCount,
   hasEldritchInvocation,
   isFiendOrUndead,
   METAMAGIC_OPTIONS,
+  REPELLING_BLAST_PUSH_FEET,
   selectedMetamagicOptions,
   sneakAttackEligible,
   sneakAttackNotation,
@@ -326,7 +330,11 @@ function concentrationCheckEvents(
 ): DraftEvent[] {
   if (!target.concentration || damage <= 0 || hpAfter <= 0) return [];
   const dc = concentrationDC(damage);
-  const { autoFail, mode } = saveResolution("con", target.conditions);
+  const { autoFail, mode: baseMode } = saveResolution("con", target.conditions);
+  // Warlock Eldritch Mind: advantage on CON saves to maintain concentration.
+  const mode = hasEldritchInvocation(target.featureChoices, "eldritch-mind")
+    ? combineMode(baseMode, "advantage")
+    : baseMode;
   if (autoFail) {
     return [
       {
@@ -516,6 +524,53 @@ function occupantAt(
       e.position !== undefined &&
       sameCell(e.position, cell),
   );
+}
+
+/**
+ * Repelling Blast (Eldritch Invocation): push `target` straight away from the
+ * caster by up to `REPELLING_BLAST_PUSH_FEET`, stopping early at the map edge,
+ * a wall, or another creature. Returns the `EntityMoved` event, or empty when
+ * positions are missing or no movement is possible.
+ */
+function repellingBlastPushEvents(
+  ctx: ExecutionContext,
+  caster: EntityState,
+  target: EntityState,
+): DraftEvent[] {
+  if (
+    !caster.position ||
+    !target.position ||
+    !caster.sceneId ||
+    caster.sceneId !== target.sceneId
+  ) {
+    return [];
+  }
+  const dx = Math.sign(target.position.x - caster.position.x);
+  const dy = Math.sign(target.position.y - caster.position.y);
+  if (dx === 0 && dy === 0) return [];
+  const map = ctx.world.scenes[caster.sceneId]?.map;
+  const steps = Math.floor(REPELLING_BLAST_PUSH_FEET / FEET_PER_CELL);
+  const exclude = new Set([target.id]);
+  let current = target.position;
+  for (let i = 0; i < steps; i += 1) {
+    const next = { x: current.x + dx, y: current.y + dy };
+    if (map) {
+      if (next.x < 0 || next.y < 0 || next.x >= map.width || next.y >= map.height) {
+        break;
+      }
+      if (map.blockedCells.some((c) => sameCell(c, next))) break;
+    }
+    if (occupantAt(ctx.world, caster.sceneId, next, exclude)) break;
+    current = next;
+  }
+  if (sameCell(current, target.position)) return [];
+  return [
+    {
+      type: "EntityMoved",
+      ...meta(ctx, target.id),
+      payload: { entity: target.id, from: target.position, to: current },
+    },
+  ];
 }
 
 function cellProvidesCover(
@@ -2437,9 +2492,46 @@ function handleCastSpell(
   }
   const casterLevel = totalLevel(caster.classes);
 
+  // --- Metamagic (Sorcerer) ---
+  // Parse before the action-economy and range checks so Quickened can reroute
+  // the action cost and Distant can extend reach. Sorcery Points are only spent
+  // later, once the cast is accepted.
+  let metamagicId: MetamagicOptionId | undefined;
+  let metamagicCost = 0;
+  let heightenedFirstSave = false;
+  const sorceryKey = featureResourceKey("Sorcerer", 2, "font-of-magic");
+  if (cmd.metamagic) {
+    if (!(cmd.metamagic in METAMAGIC_OPTIONS)) {
+      return reject(
+        "INVALID_PAYLOAD",
+        `Unknown Metamagic option "${cmd.metamagic}".`,
+      );
+    }
+    metamagicId = cmd.metamagic as MetamagicOptionId;
+    if (!selectedMetamagicOptions(caster.featureChoices).includes(metamagicId)) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        `${caster.name} does not know ${METAMAGIC_OPTIONS[metamagicId].name}.`,
+      );
+    }
+    metamagicCost = METAMAGIC_OPTIONS[metamagicId].cost;
+    heightenedFirstSave = metamagicId === "heightened";
+  }
+  const quickened = metamagicId === "quickened";
+  const distant = metamagicId === "distant";
+  const seeking = metamagicId === "seeking";
+  // Quickened Spell only applies to a spell whose casting time is an action.
+  if (quickened && spell.castingTime.unit !== "action") {
+    return reject(
+      "INVALID_PAYLOAD",
+      "Quickened Spell can only be applied to a spell with a casting time of an action.",
+    );
+  }
+
   // Bonus-action spells (Healing Word) cost the bonus action while in combat;
   // out of combat (no action economy) casting is unbudgeted, like movement.
-  const usesBonusAction = spell.castingTime.unit === "bonus";
+  // Quickened Spell converts an action-cast spell into a bonus action.
+  const usesBonusAction = spell.castingTime.unit === "bonus" || quickened;
   if (
     usesBonusAction &&
     caster.actionEconomy &&
@@ -2465,7 +2557,7 @@ function handleCastSpell(
       `${caster.name} has no reaction available this round.`,
     );
   }
-  const usesAction = spell.castingTime.unit === "action";
+  const usesAction = spell.castingTime.unit === "action" && !quickened;
   if (
     usesAction &&
     caster.actionEconomy &&
@@ -2501,28 +2593,6 @@ function handleCastSpell(
     }
   }
   const extraLevels = slotLevel - spell.level;
-
-  let metamagicId: MetamagicOptionId | undefined;
-  let metamagicCost = 0;
-  let heightenedFirstSave = false;
-  const sorceryKey = featureResourceKey("Sorcerer", 2, "font-of-magic");
-  if (cmd.metamagic) {
-    if (!(cmd.metamagic in METAMAGIC_OPTIONS)) {
-      return reject(
-        "INVALID_PAYLOAD",
-        `Unknown Metamagic option "${cmd.metamagic}".`,
-      );
-    }
-    metamagicId = cmd.metamagic as MetamagicOptionId;
-    if (!selectedMetamagicOptions(caster.featureChoices).includes(metamagicId)) {
-      return reject(
-        "ACTION_UNAVAILABLE",
-        `${caster.name} does not know ${METAMAGIC_OPTIONS[metamagicId].name}.`,
-      );
-    }
-    metamagicCost = METAMAGIC_OPTIONS[metamagicId].cost;
-    heightenedFirstSave = metamagicId === "heightened";
-  }
 
   // Resolve the affected-target list. Projectile spells (Magic Missile) take one
   // target entry per dart; single/multi spells take one entry per target.
@@ -2631,8 +2701,18 @@ function handleCastSpell(
   }
 
   // Validate every distinct target up front (existence, alive, range, LOS) so a
-  // rejected cast produces no events and no state change.
-  const maxRange = spellRangeFeet(spell.range);
+  // rejected cast produces no events and no state change. Eldritch Spear and
+  // Distant Spell extend the effective reach.
+  let maxRange = spellRangeFeet(spell.range);
+  if (
+    spell.id === "eldritch-blast" &&
+    hasEldritchInvocation(caster.featureChoices, "eldritch-spear")
+  ) {
+    maxRange = ELDRITCH_SPEAR_RANGE_FEET;
+  }
+  if (distant && maxRange !== undefined) {
+    maxRange = distantSpellRange(maxRange, spell.range.type === "touch");
+  }
   for (const targetId of new Set(targets)) {
     const target = ctx.world.entities[targetId];
     if (!target) {
@@ -2934,7 +3014,10 @@ function handleCastSpell(
     // A point-target sphere (range in feet) must be in range and visible — you
     // can't lob a Fireball past a wall or beyond its reach.
     if (usesPointOrigin && caster.position && spell.range.type === "feet") {
-      const max = spell.range.amount;
+      const max =
+        distant && spell.range.amount !== undefined
+          ? distantSpellRange(spell.range.amount, false)
+          : spell.range.amount;
       if (max !== undefined && distanceFeet(caster.position, origin) > max) {
         return reject(
           "OUT_OF_RANGE",
@@ -3084,7 +3167,7 @@ function handleCastSpell(
       `spell-attack:${caster.id}->${target.id}`,
       mode as RollMode,
     );
-    const natural = d20.total;
+    let natural = d20.total;
     let blessBonus = 0;
     for (const dice of attackRollBonusDice(caster)) {
       const roll = ctx.roll(
@@ -3103,12 +3186,9 @@ function handleCastSpell(
       events.push(rollDiceEvent(ctx, roll));
       banePenalty += roll.total;
     }
-    const total =
-      natural +
-      bonus +
-      blessBonus -
-      banePenalty -
-      exhaustionD20Penalty(caster.conditions);
+    const attackFlatBonus =
+      bonus + blessBonus - banePenalty - exhaustionD20Penalty(caster.conditions);
+    let total = natural + attackFlatBonus;
     const adjacentCrit =
       spell.attackAgainst.type === "melee" &&
       caster.position &&
@@ -3124,15 +3204,26 @@ function handleCastSpell(
         cellProvidesCover(ctx.world, caster.sceneId, exclude),
       );
     }
-    const { hit, critical } = resolveHit(
-      natural,
-      total,
-      effectiveAc(target) + spellCoverAc,
-      {
-        forceCrit: adjacentCrit,
-      },
-    );
+    const spellTargetAc = effectiveAc(target) + spellCoverAc;
+    let { hit, critical } = resolveHit(natural, total, spellTargetAc, {
+      forceCrit: adjacentCrit,
+    });
     events.push(rollDiceEvent(ctx, d20));
+    // Seeking Spell (Metamagic): reroll a missed spell attack and use the new
+    // roll. Sorcery Points were already accounted for above.
+    if (!hit && seeking) {
+      const reroll = ctx.roll(
+        "1d20",
+        `metamagic-seeking:${caster.id}->${target.id}`,
+        mode as RollMode,
+      );
+      events.push(rollDiceEvent(ctx, reroll));
+      natural = reroll.total;
+      total = natural + attackFlatBonus;
+      ({ hit, critical } = resolveHit(natural, total, spellTargetAc, {
+        forceCrit: adjacentCrit,
+      }));
+    }
 
     let damage: number | undefined;
     let damageRolls: { amount: number; type: string }[] = [];
@@ -3195,6 +3286,14 @@ function handleCastSpell(
           ...applyLedgerDamage(ctx, target, comp.amount, comp.type, ledger),
         );
       }
+    }
+    // Repelling Blast (Eldritch Invocation): push the target on an EB hit.
+    if (
+      hit &&
+      spell.id === "eldritch-blast" &&
+      hasEldritchInvocation(caster.featureChoices, "repelling-blast")
+    ) {
+      events.push(...repellingBlastPushEvents(ctx, caster, target));
     }
     Object.assign(summary, {
       target: target.id,

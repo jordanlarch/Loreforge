@@ -366,6 +366,18 @@ export function useClassFeature(
       };
     }
     if (input.channelDivinitySpend === "sacred_weapon") {
+      if (!hasClassSubclass(input.classes, "Paladin", "Oath of Devotion")) {
+        return {
+          ok: false,
+          message: "Sacred Weapon requires the Oath of Devotion.",
+        };
+      }
+      if (classLevel(input.classes, "Paladin") < 3) {
+        return {
+          ok: false,
+          message: "Sacred Weapon requires Paladin level 3 or higher.",
+        };
+      }
       if (!input.abilityScores) {
         return { ok: false, message: "Ability scores required for Sacred Weapon." };
       }

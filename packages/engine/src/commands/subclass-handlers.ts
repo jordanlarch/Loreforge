@@ -2,6 +2,7 @@
  * SRD-FID-21b subclass feature commands.
  */
 import { resolveHit } from "../combat/attack";
+import { entityReactionsSuppressed } from "../combat/effects";
 import {
   bardicInspirationDie,
   classLevel,
@@ -15,7 +16,7 @@ import {
 } from "../entities/feature-resources";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
-import type { CommandResult, CuttingWordsCommand } from "./types";
+import type { CommandResult, CuttingWordsCommand, FastHandsCommand } from "./types";
 import { reject } from "./types";
 
 function meta(
@@ -77,7 +78,10 @@ export function handleCuttingWords(
       "Cutting Words requires Bard level 3 or higher.",
     );
   }
-  if (reactor.reaction !== undefined && reactor.reaction !== "available") {
+  if (
+    reactor.reaction !== undefined &&
+    (reactor.reaction !== "available" || entityReactionsSuppressed(reactor))
+  ) {
     return reject(
       "NO_REACTION",
       `${reactor.name} has no reaction available this round.`,
@@ -177,5 +181,67 @@ export function handleCuttingWords(
       adjustedTotal,
       ...(hit !== undefined ? { hit } : {}),
     },
+  };
+}
+
+/** Thief — Fast Hands bonus-action interaction. */
+export function handleFastHands(
+  cmd: FastHandsCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
+  }
+  if (!entity.alive) {
+    return reject("TARGET_DEAD", `${entity.name} cannot use Fast Hands while down.`);
+  }
+  if (!hasClassSubclass(entity.classes, "Rogue", "Thief")) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${entity.name} does not have the Thief Fast Hands feature.`,
+    );
+  }
+  if (classLevel(entity.classes, "Rogue") < 3) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      "Fast Hands requires Rogue level 3 or higher.",
+    );
+  }
+  const encounter = ctx.world.encounter;
+  const active = encounter?.order[encounter.activeIndex]?.entity;
+  if (encounter?.initiativeRolled && active !== entity.id) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `It is not ${entity.name}'s turn.`,
+    );
+  }
+  const econ = entity.actionEconomy;
+  if (econ && econ.bonusAction !== "available") {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${entity.name} has already used its bonus action this turn.`,
+    );
+  }
+
+  const events: DraftEvent[] = [
+    {
+      type: "FastHandsUsed",
+      ...meta(ctx, entity.id),
+      payload: { entity: entity.id, action: cmd.action },
+    },
+  ];
+  if (econ) {
+    events.push({
+      type: "ActionSpent",
+      ...meta(ctx, entity.id),
+      payload: { entity: entity.id, bonusAction: true },
+    });
+  }
+
+  return {
+    accepted: true,
+    events,
+    summary: { entity: entity.id, action: cmd.action },
   };
 }

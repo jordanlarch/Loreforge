@@ -418,3 +418,148 @@ describe("SRD-FID-21b: Fiend Patron — Dark One's Blessing", () => {
     expect(temp.payload.amount).toBe(7);
   });
 });
+
+describe("SRD-FID-21b: Thief — Fast Hands", () => {
+  it("spends a bonus action for a Fast Hands interaction", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:thief",
+      { x: 0, y: 0 },
+      [{ class: "Rogue", level: 5, subclass: "Thief" }],
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, []);
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:thief", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:thief": 20, "npc:foe": 0 },
+    });
+    const fh = await engine.execute(CAMPAIGN, {
+      type: "fast_hands",
+      entity: "pc:thief",
+      action: "use_object",
+    });
+    expect(fh.accepted).toBe(true);
+    if (!fh.accepted) return;
+    expect(fh.events.some((e) => e.type === "FastHandsUsed")).toBe(true);
+    const spent = fh.events.find((e) => e.type === "ActionSpent") as {
+      payload: { bonusAction?: boolean };
+    };
+    expect(spent.payload.bonusAction).toBe(true);
+  });
+});
+
+describe("SRD-FID-21b: Oath of Devotion — Sacred Weapon", () => {
+  it("applies Sacred Weapon via Channel Divinity for an Oath paladin", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:pal",
+      { x: 0, y: 0 },
+      [{ class: "Paladin", level: 5, subclass: "Oath of Devotion" }],
+      { resourceUses: {}, abilityScores: { ...ABILITIES, cha: 16 } },
+    );
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:pal"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:pal": 20 },
+    });
+    const cdKey = featureResourceKey("Paladin", 3, "channel-divinity");
+    const sw = await engine.execute(CAMPAIGN, {
+      type: "use_class_feature",
+      entity: "pc:pal",
+      featureKey: cdKey,
+      channelDivinitySpend: "sacred_weapon",
+    });
+    expect(sw.accepted).toBe(true);
+    if (!sw.accepted) return;
+    expect(sw.events.some((e) => e.type === "EffectApplied")).toBe(true);
+  });
+});
+
+describe("SRD-FID-21b: Draconic Sorcery — Draconic Resilience", () => {
+  it("adds max HP and unarmored AC when not wearing armor", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:sorc",
+        kind: "character",
+        name: "Sorc",
+        abilityScores: { str: 10, dex: 14, con: 12, int: 10, wis: 10, cha: 16 },
+        maxHp: 30,
+        baseAc: 10,
+        classes: [{ class: "Sorcerer", level: 5, subclass: "Draconic Sorcery" }],
+        sceneId: "s:arena",
+        position: { x: 0, y: 0 },
+      },
+    });
+    const state = await engine.getState(CAMPAIGN);
+    const sorc = state.entities["pc:sorc"]!;
+    expect(sorc.hp.max).toBe(37);
+    expect(sorc.hp.current).toBe(37);
+    const { effectiveAc } = await import("./combat/effects");
+    expect(effectiveAc(sorc)).toBe(15);
+  });
+});
+
+describe("SRD-FID-21b: Warrior of the Open Hand — Open Hand Technique", () => {
+  it("knocks a target prone on a Flurry hit", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:monk",
+      { x: 0, y: 0 },
+      [{ class: "Monk", level: 5, subclass: "Warrior of the Open Hand" }],
+      { resourceUses: {} },
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 1, maxHp: 100 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:monk", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:monk": 20, "npc:foe": 0 },
+    });
+    const focusKey = featureResourceKey("Monk", 2, "monk-s-focus");
+    const flurry = await engine.execute(CAMPAIGN, {
+      type: "use_class_feature",
+      entity: "pc:monk",
+      featureKey: focusKey,
+      monkFocusSpend: "flurry",
+    });
+    expect(flurry.accepted).toBe(true);
+    const attack = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:monk",
+      target: "npc:foe",
+      attackBonus: 10,
+      damage: { notation: "1d6", type: "bludgeoning" },
+      monkWeaponOrUnarmed: true,
+      flurryBonusAttack: true,
+      openHandTechnique: "prone",
+    });
+    expect(attack.accepted).toBe(true);
+    if (!attack.accepted) return;
+    expect(
+      attack.events.some(
+        (e) =>
+          e.type === "OpenHandTechniqueApplied" ||
+          (e.type === "ConditionApplied" &&
+            (e as { payload: { condition: string } }).payload.condition ===
+              "prone"),
+      ),
+    ).toBe(true);
+  });
+});

@@ -64,6 +64,7 @@ import {
   effectFromSpec,
   effectiveAc,
   effectiveSpeedForEntity,
+  entityReactionsSuppressed,
   helpAttackMode,
   helpCheckMode,
   huntersMarkOn,
@@ -90,6 +91,7 @@ import {
   METAMAGIC_OPTIONS,
   NATURAL_RECOVERY_RESOURCE_KEY,
   naturalRecoveryMaximum,
+  OPEN_HAND_PUSH_FEET,
   potentCantripSaveOutcome,
   REPELLING_BLAST_PUSH_FEET,
   selectedMetamagicOptions,
@@ -167,7 +169,7 @@ import {
   handleHide,
 } from "./standard-action-handlers";
 import { handleUseClassFeature } from "./class-feature-handlers";
-import { handleCuttingWords } from "./subclass-handlers";
+import { handleCuttingWords, handleFastHands } from "./subclass-handlers";
 import {
   reject,
   type AbilityCheckCommand,
@@ -572,16 +574,11 @@ function occupantAt(
   );
 }
 
-/**
- * Repelling Blast (Eldritch Invocation): push `target` straight away from the
- * caster by up to `REPELLING_BLAST_PUSH_FEET`, stopping early at the map edge,
- * a wall, or another creature. Returns the `EntityMoved` event, or empty when
- * positions are missing or no movement is possible.
- */
-function repellingBlastPushEvents(
+function pushTargetAwayEvents(
   ctx: ExecutionContext,
   caster: EntityState,
   target: EntityState,
+  pushFeet: number,
 ): DraftEvent[] {
   if (
     !caster.position ||
@@ -595,7 +592,7 @@ function repellingBlastPushEvents(
   const dy = Math.sign(target.position.y - caster.position.y);
   if (dx === 0 && dy === 0) return [];
   const map = ctx.world.scenes[caster.sceneId]?.map;
-  const steps = Math.floor(REPELLING_BLAST_PUSH_FEET / FEET_PER_CELL);
+  const steps = Math.floor(pushFeet / FEET_PER_CELL);
   const exclude = new Set([target.id]);
   let current = target.position;
   for (let i = 0; i < steps; i += 1) {
@@ -617,6 +614,68 @@ function repellingBlastPushEvents(
       payload: { entity: target.id, from: target.position, to: current },
     },
   ];
+}
+
+/**
+ * Repelling Blast (Eldritch Invocation): push `target` straight away from the
+ * caster by up to `REPELLING_BLAST_PUSH_FEET`, stopping early at the map edge,
+ * a wall, or another creature. Returns the `EntityMoved` event, or empty when
+ * positions are missing or no movement is possible.
+ */
+function repellingBlastPushEvents(
+  ctx: ExecutionContext,
+  caster: EntityState,
+  target: EntityState,
+): DraftEvent[] {
+  return pushTargetAwayEvents(ctx, caster, target, REPELLING_BLAST_PUSH_FEET);
+}
+
+function openHandTechniqueEvents(
+  ctx: ExecutionContext,
+  attacker: EntityState,
+  target: EntityState,
+  technique: "prone" | "push" | "no_reactions",
+): DraftEvent[] {
+  const events: DraftEvent[] = [
+    {
+      type: "OpenHandTechniqueApplied",
+      ...meta(ctx, attacker.id),
+      payload: {
+        attacker: attacker.id,
+        target: target.id,
+        technique,
+      },
+    },
+  ];
+  if (technique === "prone") {
+    events.push({
+      type: "ConditionApplied",
+      ...meta(ctx, attacker.id),
+      payload: {
+        target: target.id,
+        condition: "prone",
+        source: attacker.id,
+      },
+    });
+  } else if (technique === "push") {
+    events.push(...pushTargetAwayEvents(ctx, attacker, target, OPEN_HAND_PUSH_FEET));
+  } else {
+    events.push({
+      type: "EffectApplied",
+      ...meta(ctx, attacker.id),
+      payload: {
+        target: target.id,
+        effect: {
+          id: `open-hand-no-reactions:${target.id}:${attacker.id}`,
+          name: "Open Hand Technique",
+          source: attacker.id,
+          modifier: { type: "reactions_suppressed" },
+          remainingRounds: 2,
+        },
+      },
+    });
+  }
+  return events;
 }
 
 function cellProvidesCover(
@@ -1172,6 +1231,7 @@ function handleAttack(
   // (economy present); outside combat attacks are unbudgeted.
   // Berserker Frenzy — a bonus-action melee attack while frenzied.
   const frenzyBonus = cmd.frenzyBonusAttack === true;
+  const flurryBonus = cmd.flurryBonusAttack === true;
   if (frenzyBonus && !entityIsFrenzied(attacker)) {
     return reject(
       "ACTION_UNAVAILABLE",
@@ -1181,7 +1241,28 @@ function handleAttack(
   const econ = opts?.viaReaction ? undefined : attacker.actionEconomy;
   let spendsAction = false;
   let spendsBonusAction = false;
-  if (frenzyBonus && econ) {
+  let spendsFlurryAttack = false;
+  if (flurryBonus) {
+    if (classLevel(attacker.classes, "Monk") < 2) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        `${attacker.name} must be a Monk to make a Flurry attack.`,
+      );
+    }
+    if (!cmd.monkWeaponOrUnarmed) {
+      return reject(
+        "INVALID_PAYLOAD",
+        "Flurry attacks require monkWeaponOrUnarmed.",
+      );
+    }
+    if (econ && (econ.flurryAttacksRemaining ?? 0) < 1) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        `${attacker.name} has no Flurry attacks remaining this turn.`,
+      );
+    }
+    spendsFlurryAttack = true;
+  } else if (frenzyBonus && econ) {
     if (econ.bonusAction !== "available") {
       return reject(
         "ACTION_UNAVAILABLE",
@@ -1473,6 +1554,22 @@ function handleAttack(
     events.push(
       ...poisonDeliveryEventsAfterHit(ctx, cmd.attacker, cmd.target, cmd.damage.type),
     );
+    if (
+      hit &&
+      cmd.flurryBonusAttack &&
+      cmd.openHandTechnique &&
+      hasClassSubclass(attacker.classes, "Monk", "Warrior of the Open Hand") &&
+      classLevel(attacker.classes, "Monk") >= 3
+    ) {
+      events.push(
+        ...openHandTechniqueEvents(
+          ctx,
+          attacker,
+          target,
+          cmd.openHandTechnique,
+        ),
+      );
+    }
   }
 
   // Debit the turn economy (own turn only): spend the action on the first attack
@@ -1493,6 +1590,7 @@ function handleAttack(
         ...(colossusSlayerDamage !== undefined && colossusSlayerDamage > 0
           ? { colossusSlayer: true }
           : {}),
+        ...(spendsFlurryAttack ? { flurryAttack: true } : {}),
         ...(stunningStrikeAttempted ? { stunningStrike: true } : {}),
       },
     });
@@ -2154,7 +2252,7 @@ function handleOpportunityAttack(
   if (!reactor) {
     return reject("ACTOR_NOT_FOUND", `Reactor ${cmd.reactor} does not exist.`);
   }
-  if (reactor.reaction !== "available") {
+  if (reactor.reaction !== "available" || entityReactionsSuppressed(reactor)) {
     return reject(
       "NO_REACTION",
       `${reactor.name} has no reaction available this round.`,
@@ -2258,7 +2356,7 @@ function handleTriggerReadied(
   if (!entity.readied) {
     return reject("NO_READIED_ACTION", `${entity.name} has no readied action.`);
   }
-  if (entity.reaction !== "available") {
+  if (entity.reaction !== "available" || entityReactionsSuppressed(entity)) {
     return reject(
       "NO_REACTION",
       `${entity.name} has no reaction available this round.`,
@@ -2715,7 +2813,7 @@ function handleCastSpell(
   if (
     usesReaction &&
     caster.reaction !== undefined &&
-    caster.reaction !== "available"
+    (caster.reaction !== "available" || entityReactionsSuppressed(caster))
   ) {
     return reject(
       "NO_REACTION",
@@ -3897,5 +3995,7 @@ export function handleCommand(
       return handleUseClassFeature(command, ctx);
     case "cutting_words":
       return handleCuttingWords(command, ctx);
+    case "fast_hands":
+      return handleFastHands(command, ctx);
   }
 }

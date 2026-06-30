@@ -161,6 +161,10 @@ export type AttackCommand = {
   divineSmiteSlotLevel?: number;
   /** Berserker Frenzy — bonus-action melee attack while frenzied. */
   frenzyBonusAttack?: boolean;
+  /** Monk Flurry of Blows — bonus unarmed strike while flurry attacks remain. */
+  flurryBonusAttack?: boolean;
+  /** Open Hand Technique rider on a Flurry hit (Warrior of the Open Hand). */
+  openHandTechnique?: "prone" | "push" | "no_reactions";
 };
 
 /** Apply an SRD condition to a target (exhaustion carries a 1-6 level). */
@@ -519,6 +523,13 @@ export type CuttingWordsCommand = {
   targetAc?: number;
 };
 
+/** Thief — Fast Hands: bonus-action Sleight of Hand, thieves' tools, or Use an Object. */
+export type FastHandsCommand = {
+  type: "fast_hands";
+  entity: EntityRef;
+  action: "sleight_of_hand" | "thieves_tools" | "use_object";
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -577,7 +588,8 @@ export type Command =
   | HideCommand
   | EscapeGrappleCommand
   | UseClassFeatureCommand
-  | CuttingWordsCommand;
+  | CuttingWordsCommand
+  | FastHandsCommand;
 
 export type CommandType = Command["type"];
 

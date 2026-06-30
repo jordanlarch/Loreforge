@@ -94,6 +94,25 @@ export function darkOnesBlessingTempHp(
   return Math.max(0, abilityModifier(scores.cha) + warlockLevel);
 }
 
+/** Draconic Sorcery — Draconic Resilience max HP bonus (+3 at level 1, +1/level). */
+export function draconicResilienceHpBonus(sorcererLevel: number): number {
+  return sorcererLevel >= 1 ? 2 + sorcererLevel : 0;
+}
+
+/** Draconic Resilience unarmored AC: 10 + DEX + CHA. */
+export function draconicResilienceAc(scores: AbilityScores): number {
+  return (
+    10 +
+    abilityModifier(scores.dex) +
+    abilityModifier(scores.cha)
+  );
+}
+
+/** Open Hand Technique push distance (feet). */
+export const OPEN_HAND_PUSH_FEET = 15;
+
+export type OpenHandTechnique = "prone" | "push" | "no_reactions";
+
 /** Champion — Improved Critical / Superior Critical natural-d20 crit range. */
 export function championCritThreshold(
   classes: readonly ClassLevel[] | undefined,

@@ -7,6 +7,11 @@
 import type { EntityRef, EntityState } from "../entities/types";
 import type { SpellAppliedEffect, SpellDefinition } from "../content/spells";
 import { effectiveSpeed } from "./conditions";
+import {
+  classLevel,
+  draconicResilienceAc,
+  hasClassSubclass,
+} from "./class-feature-mechanics";
 
 export type EffectModifier =
   | { type: "ac_bonus"; amount: number }
@@ -21,7 +26,8 @@ export type EffectModifier =
   | { type: "damage_resistance"; types: string[] }
   | { type: "rage_damage_bonus"; amount: number }
   | { type: "bardic_inspiration"; die: string }
-  | { type: "frenzy_active" };
+  | { type: "frenzy_active" }
+  | { type: "reactions_suppressed" };
 
 export type ActiveEffect = {
   id: string;
@@ -38,10 +44,23 @@ export type ActiveEffect = {
 
 export function effectiveAc(entity: EntityState): number {
   let ac = entity.baseAc;
+  if (
+    hasClassSubclass(entity.classes, "Sorcerer", "Draconic Sorcery") &&
+    classLevel(entity.classes, "Sorcerer") >= 3 &&
+    !entity.wearingArmor
+  ) {
+    ac = draconicResilienceAc(entity.abilityScores);
+  }
   for (const fx of entity.effects ?? []) {
     if (fx.modifier.type === "ac_bonus") ac += fx.modifier.amount;
   }
   return ac;
+}
+
+export function entityReactionsSuppressed(entity: EntityState): boolean {
+  return (entity.effects ?? []).some(
+    (fx) => fx.modifier.type === "reactions_suppressed",
+  );
 }
 
 /** Speed after conditions and effect riders (Haste, etc.). */

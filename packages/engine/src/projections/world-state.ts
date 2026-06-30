@@ -7,6 +7,11 @@
  * from genesis deterministically (`docs/engine/architecture.md` §3.2).
  */
 import { freshActionEconomy, surprisedActionEconomy, type InitiativeEntry } from "../combat/initiative";
+import {
+  classLevel,
+  draconicResilienceHpBonus,
+  hasClassSubclass,
+} from "../combat/class-feature-mechanics";
 import { cellIsDifficult, distanceFeet, movementCostFeet } from "../combat/grid";
 import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import {
@@ -129,7 +134,24 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
 
   switch (event.type) {
     case "EntityCreated": {
-      const entity = createEntityState(event.payload.entity);
+      let entity = createEntityState(event.payload.entity);
+      const sorcererLevel = classLevel(entity.classes, "Sorcerer");
+      if (
+        hasClassSubclass(entity.classes, "Sorcerer", "Draconic Sorcery") &&
+        sorcererLevel >= 3
+      ) {
+        const bonus = draconicResilienceHpBonus(sorcererLevel);
+        if (bonus > 0) {
+          entity = {
+            ...entity,
+            hp: {
+              ...entity.hp,
+              max: entity.hp.max + bonus,
+              current: entity.hp.current + bonus,
+            },
+          };
+        }
+      }
       next.entities[entity.id] = entity;
       break;
     }
@@ -564,6 +586,21 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         }
         if (event.payload.colossusSlayer) {
           ae = { ...ae, colossusSlayerUsed: true };
+        }
+        if (event.payload.flurryAttacksGranted != null) {
+          ae = {
+            ...ae,
+            flurryAttacksRemaining: event.payload.flurryAttacksGranted,
+          };
+        }
+        if (event.payload.flurryAttack) {
+          ae = {
+            ...ae,
+            flurryAttacksRemaining: Math.max(
+              0,
+              (ae.flurryAttacksRemaining ?? 0) - 1,
+            ),
+          };
         }
         if (event.payload.stunningStrike) {
           ae = { ...ae, stunningStrikeUsed: true };

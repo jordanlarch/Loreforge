@@ -8,6 +8,8 @@ import {
   colossusSlayerEligible,
   COLOSSUS_SLAYER_DICE,
   darkOnesBlessingTempHp,
+  draconicResilienceAc,
+  draconicResilienceHpBonus,
   discipleOfLifeBonus,
   distantSpellRange,
   focusPointMaximum,
@@ -229,5 +231,11 @@ describe("class feature mechanics", () => {
         scores,
       ),
     ).toBe(0);
+  });
+
+  it("computes Draconic Resilience HP bonus and unarmored AC", () => {
+    const scores = { str: 10, dex: 14, con: 10, int: 10, wis: 10, cha: 16 };
+    expect(draconicResilienceHpBonus(5)).toBe(7);
+    expect(draconicResilienceAc(scores)).toBe(15);
   });
 });

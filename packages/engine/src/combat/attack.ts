@@ -20,12 +20,18 @@ export function resolveHit(
   natural: number,
   total: number,
   targetAc: number,
-  options: { forceCrit?: boolean } = {},
+  options: { forceCrit?: boolean; critThreshold?: number } = {},
 ): HitResolution {
+  const threshold = options.critThreshold ?? 20;
   if (natural === 20) return { hit: true, critical: true };
   if (natural === 1) return { hit: false, critical: false };
   const hit = total >= targetAc;
-  return { hit, critical: hit && options.forceCrit === true };
+  const critical =
+    hit &&
+    (options.forceCrit === true ||
+      natural >= threshold ||
+      natural === 20);
+  return { hit, critical };
 }
 
 /**

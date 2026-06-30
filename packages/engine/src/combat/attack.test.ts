@@ -20,6 +20,17 @@ describe("resolveHit", () => {
     expect(resolveHit(8, 14, 15)).toEqual({ hit: false, critical: false });
   });
 
+  it("critThreshold lets a natural 19 crit on a hit (Champion Improved Critical)", () => {
+    expect(resolveHit(19, 18, 17, { critThreshold: 19 })).toEqual({
+      hit: true,
+      critical: true,
+    });
+    expect(resolveHit(19, 16, 17, { critThreshold: 19 })).toEqual({
+      hit: false,
+      critical: false,
+    });
+  });
+
   it("forceCrit upgrades a normal hit to a crit but never rescues a miss", () => {
     expect(resolveHit(12, 16, 15, { forceCrit: true })).toEqual({
       hit: true,

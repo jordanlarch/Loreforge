@@ -412,7 +412,7 @@ export type ReactionWindowOpenedPayload = {
 
 export type ReactionTakenPayload = {
   reactor: EntityRef;
-  trigger: "opportunity_attack" | "readied" | "spell";
+  trigger: "opportunity_attack" | "readied" | "spell" | "cutting_words";
 };
 
 export type ActionReadiedPayload = {
@@ -436,6 +436,7 @@ export type ActionSpentPayload = {
   entity: EntityRef;
   action?: boolean;
   attack?: boolean;
+  bonusAction?: boolean;
   /** Rogue Sneak Attack consumed for this turn. */
   sneakAttack?: boolean;
   /** Monk Stunning Strike consumed for this turn. */
@@ -484,6 +485,23 @@ export type SpellSlotExpendedPayload = {
 
 export type SpellSlotsRestoredPayload = {
   entity: EntityRef;
+};
+
+export type SpellSlotRecoveredPayload = {
+  entity: EntityRef;
+  slotLevel: number;
+};
+
+export type CuttingWordsAppliedPayload = {
+  reactor: EntityRef;
+  against: EntityRef;
+  mode: "attack" | "damage" | "check";
+  die: string;
+  penalty: number;
+  originalTotal: number;
+  adjustedTotal: number;
+  /** Present when mode is attack. */
+  hit?: boolean;
 };
 
 /** Discriminated union of all engine events. */
@@ -549,6 +567,14 @@ export type EngineEvent =
   | (EventMeta & {
       type: "SpellSlotsRestored";
       payload: SpellSlotsRestoredPayload;
+    })
+  | (EventMeta & {
+      type: "SpellSlotRecovered";
+      payload: SpellSlotRecoveredPayload;
+    })
+  | (EventMeta & {
+      type: "CuttingWordsApplied";
+      payload: CuttingWordsAppliedPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
   | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })

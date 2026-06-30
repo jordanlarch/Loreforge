@@ -793,6 +793,9 @@ async function runEnemyTurns(
           await appendAndPersist(document, documentName, [
             resolutionEntry(action, attackSummary, nameResolver(state), chatDeps),
           ]);
+          if (state.encounter?.pendingAttack) {
+            break;
+          }
         }
         // A foe advancing may step into the range a player readied a strike for;
         // resolve held actions now (it can interrupt the foe's own attack).

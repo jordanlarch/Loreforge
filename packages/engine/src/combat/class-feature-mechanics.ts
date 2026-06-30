@@ -1,6 +1,7 @@
 /**
  * SRD class-feature combat math (SRD-FID-21).
  */
+import type { SaveOutcome } from "../content/spells";
 import { abilityModifier } from "../entities/abilities";
 import { parseFeatureChoiceValues } from "../entities/class-feature-choices";
 import { featureResourceKey } from "../entities/feature-resources";
@@ -42,6 +43,55 @@ export function hasClassSubclass(
  */
 export function discipleOfLifeBonus(slotLevel: number): number {
   return slotLevel >= 1 ? 2 + slotLevel : 0;
+}
+
+/** Hunter — Colossus Slayer extra damage dice (SRD 5.2.1). */
+export const COLOSSUS_SLAYER_DICE = "1d8";
+
+/** True when Colossus Slayer +1d8 applies (injured target; once per turn). */
+export function colossusSlayerEligible(
+  attacker: EntityState,
+  target: EntityState,
+  colossusSlayerUsed: boolean | undefined,
+): boolean {
+  if (colossusSlayerUsed) return false;
+  if (classLevel(attacker.classes, "Ranger") < 3) return false;
+  if (!hasClassSubclass(attacker.classes, "Ranger", "Hunter")) return false;
+  return target.hp.current < target.hp.max;
+}
+
+/**
+ * Evoker — Potent Cantrip: successful saves against Wizard cantrips still deal
+ * half damage when the spell would otherwise deal none on a success.
+ */
+export function potentCantripSaveOutcome(
+  spell: { level: number; damage?: readonly unknown[] },
+  caster: Pick<EntityState, "classes">,
+  baseOutcome: SaveOutcome,
+): SaveOutcome {
+  if (
+    spell.level === 0 &&
+    spell.damage?.length &&
+    baseOutcome === "no_effect" &&
+    hasClassSubclass(caster.classes, "Wizard", "Evoker") &&
+    classLevel(caster.classes, "Wizard") >= 3
+  ) {
+    return "half_damage";
+  }
+  return baseOutcome;
+}
+
+/**
+ * Fiend Patron — Dark One's Blessing temp HP on reducing a hostile creature to 0 HP.
+ */
+export function darkOnesBlessingTempHp(
+  classes: readonly ClassLevel[] | undefined,
+  scores: AbilityScores,
+): number {
+  if (!hasClassSubclass(classes, "Warlock", "Fiend Patron")) return 0;
+  const warlockLevel = classLevel(classes, "Warlock");
+  if (warlockLevel < 3) return 0;
+  return Math.max(0, abilityModifier(scores.cha) + warlockLevel);
 }
 
 /** Champion — Improved Critical / Superior Critical natural-d20 crit range. */

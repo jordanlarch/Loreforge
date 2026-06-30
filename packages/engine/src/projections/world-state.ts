@@ -562,6 +562,9 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         if (event.payload.sneakAttack) {
           ae = { ...ae, sneakAttackUsed: true };
         }
+        if (event.payload.colossusSlayer) {
+          ae = { ...ae, colossusSlayerUsed: true };
+        }
         if (event.payload.stunningStrike) {
           ae = { ...ae, stunningStrikeUsed: true };
         }

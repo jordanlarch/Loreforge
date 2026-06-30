@@ -86,6 +86,8 @@ export type ActionEconomyState = {
   freeInteractionUsed: boolean;
   /** Rogue Sneak Attack — once per turn. */
   sneakAttackUsed?: boolean;
+  /** Hunter Colossus Slayer — once per turn. */
+  colossusSlayerUsed?: boolean;
   /** Monk Stunning Strike — once per turn. */
   stunningStrikeUsed?: boolean;
 };

@@ -235,3 +235,186 @@ describe("SRD-FID-21b: Circle of the Land — Natural Recovery", () => {
     expect(again.reason.code).toBe("ACTION_UNAVAILABLE");
   });
 });
+
+describe("SRD-FID-21b: Hunter — Colossus Slayer", () => {
+  it("adds 1d8 once per turn when the target is below max HP", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:hunter",
+      { x: 0, y: 0 },
+      [{ class: "Ranger", level: 5, subclass: "Hunter" }],
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 1, maxHp: 40 });
+    await engine.execute(CAMPAIGN, {
+      type: "apply_damage",
+      target: "npc:foe",
+      damageType: "slashing",
+      source: { amount: 10 },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:hunter", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:hunter": 20, "npc:foe": 0 },
+    });
+    const attack = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:hunter",
+      target: "npc:foe",
+      attackBonus: 10,
+      damage: { notation: "1d1", type: "piercing" },
+    });
+    expect(attack.accepted).toBe(true);
+    if (!attack.accepted) return;
+    const resolved = attack.events.find((e) => e.type === "AttackResolved") as {
+      payload: { colossusSlayerDamage?: number; damage?: number };
+    };
+    expect(resolved.payload.colossusSlayerDamage).toBeGreaterThan(0);
+    expect(resolved.payload.damage).toBeGreaterThan(1);
+  });
+
+  it("does not trigger against a target at full HP", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:hunter",
+      { x: 0, y: 0 },
+      [{ class: "Ranger", level: 5, subclass: "Hunter" }],
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 1, maxHp: 40 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:hunter", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:hunter": 20, "npc:foe": 0 },
+    });
+    const attack = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:hunter",
+      target: "npc:foe",
+      attackBonus: 10,
+      damage: { notation: "1d1", type: "piercing" },
+    });
+    expect(attack.accepted).toBe(true);
+    if (!attack.accepted) return;
+    const resolved = attack.events.find((e) => e.type === "AttackResolved") as {
+      payload: { colossusSlayerDamage?: number };
+    };
+    expect(resolved.payload.colossusSlayerDamage).toBeUndefined();
+  });
+});
+
+describe("SRD-FID-21b: Evoker — Potent Cantrip", () => {
+  it("deals half damage on a successful save against a Wizard cantrip", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:evoker",
+        kind: "character",
+        name: "Evoker",
+        abilityScores: { ...ABILITIES, int: 16 },
+        maxHp: 30,
+        baseAc: 12,
+        classes: [{ class: "Wizard", level: 5, subclass: "Evoker" }],
+        sceneId: "s:arena",
+        position: { x: 0, y: 0 },
+        spellcasting: {
+          ability: "int",
+          preparedSpellIds: ["poison-spray"],
+        },
+      },
+    });
+    await place(
+      engine,
+      "npc:foe",
+      { x: 1, y: 0 },
+      [],
+      {
+        baseAc: 10,
+        maxHp: 40,
+        abilityScores: { str: 10, dex: 10, con: 20, int: 10, wis: 10, cha: 10 },
+      },
+    );
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:evoker", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:evoker": 20, "npc:foe": 0 },
+    });
+
+    let foundHalfOnSave = false;
+    for (let i = 0; i < 30; i += 1) {
+      const cast = await engine.execute(CAMPAIGN, {
+        type: "cast_spell",
+        caster: "pc:evoker",
+        spellId: "poison-spray",
+        slotLevel: 0,
+        targets: ["npc:foe"],
+      });
+      if (!cast.accepted) continue;
+      const save = cast.events.find((e) => e.type === "SaveRolled") as {
+        payload: { success: boolean };
+      };
+      const dealt = cast.events.find((e) => e.type === "DamageDealt") as {
+        payload: { amount: number };
+      };
+      if (save?.payload.success && dealt?.payload.amount > 0) {
+        foundHalfOnSave = true;
+        break;
+      }
+      await engine.execute(CAMPAIGN, { type: "end_turn" });
+      if (i % 2 === 1) await engine.execute(CAMPAIGN, { type: "end_turn" });
+    }
+    expect(foundHalfOnSave).toBe(true);
+  });
+});
+
+describe("SRD-FID-21b: Fiend Patron — Dark One's Blessing", () => {
+  it("grants temp HP when the warlock drops a hostile creature to 0 HP", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:lock",
+      { x: 0, y: 0 },
+      [{ class: "Warlock", level: 5, subclass: "Fiend Patron" }],
+      { abilityScores: { ...ABILITIES, cha: 14 } },
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, [], { baseAc: 1, maxHp: 5 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:lock", "npc:foe"],
+      sides: { "pc:lock": "party", "npc:foe": "enemies" },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:lock": 20, "npc:foe": 0 },
+    });
+    const attack = await engine.execute(CAMPAIGN, {
+      type: "attack",
+      attacker: "pc:lock",
+      target: "npc:foe",
+      attackBonus: 10,
+      damage: { notation: "2d6", type: "slashing" },
+    });
+    expect(attack.accepted).toBe(true);
+    if (!attack.accepted) return;
+    const temp = attack.events.find((e) => e.type === "TempHpGranted") as {
+      payload: { target: string; amount: number };
+    };
+    expect(temp).toBeDefined();
+    expect(temp.payload.target).toBe("pc:lock");
+    expect(temp.payload.amount).toBe(7);
+  });
+});

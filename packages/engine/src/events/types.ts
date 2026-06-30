@@ -581,6 +581,60 @@ export type PendingIndomitableResolvedPayload = {
   entity: EntityRef;
 };
 
+export type SpiritualWeaponSummonedPayload = {
+  caster: EntityRef;
+  slotLevel: number;
+  instanceId: string;
+  roundsRemaining: number;
+};
+
+export type SpiritualWeaponTickedPayload = {
+  caster: EntityRef;
+  instanceId: string;
+  roundsRemaining: number;
+};
+
+export type SpiritualWeaponDismissedPayload = {
+  caster: EntityRef;
+  instanceId: string;
+};
+
+export type SpellZoneCreatedPayload = {
+  sceneId: SceneId;
+  instanceId: string;
+  spellId: string;
+  caster: EntityRef;
+  slotLevel: number;
+  origin: import("../entities/types").GridPosition;
+  cells: import("../entities/types").GridPosition[];
+};
+
+export type SpellZoneRemovedPayload = {
+  sceneId: SceneId;
+  instanceId: string;
+};
+
+export type PolymorphAppliedPayload = {
+  target: EntityRef;
+  caster: EntityRef;
+  beastSlug: string;
+  beastName: string;
+  beastAbilityScores: import("../entities/types").AbilityScores;
+  beastMaxHp: number;
+  beastAc: number;
+  beastSpeed: number;
+  storedAbilityScores: import("../entities/types").AbilityScores;
+  storedMaxHp: number;
+  storedBaseAc: number;
+  storedSpeed: number;
+  storedHpCurrent: number;
+};
+
+export type PolymorphEndedPayload = {
+  target: EntityRef;
+  reason: "concentration" | "zero_hp";
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -689,6 +743,34 @@ export type EngineEvent =
   | (EventMeta & {
       type: "PendingIndomitableResolved";
       payload: PendingIndomitableResolvedPayload;
+    })
+  | (EventMeta & {
+      type: "SpiritualWeaponSummoned";
+      payload: SpiritualWeaponSummonedPayload;
+    })
+  | (EventMeta & {
+      type: "SpiritualWeaponTicked";
+      payload: SpiritualWeaponTickedPayload;
+    })
+  | (EventMeta & {
+      type: "SpiritualWeaponDismissed";
+      payload: SpiritualWeaponDismissedPayload;
+    })
+  | (EventMeta & {
+      type: "SpellZoneCreated";
+      payload: SpellZoneCreatedPayload;
+    })
+  | (EventMeta & {
+      type: "SpellZoneRemoved";
+      payload: SpellZoneRemovedPayload;
+    })
+  | (EventMeta & {
+      type: "PolymorphApplied";
+      payload: PolymorphAppliedPayload;
+    })
+  | (EventMeta & {
+      type: "PolymorphEnded";
+      payload: PolymorphEndedPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
   | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })

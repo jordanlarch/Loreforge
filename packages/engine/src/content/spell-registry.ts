@@ -1763,7 +1763,7 @@ const SPIRITUAL_WEAPON: SpellDefinition = {
   damage: [{ dice: "1d8+4", type: "force" }],
   upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
   description:
-    "You create a floating, spectral weapon that attacks once as a bonus action on subsequent turns (tracer: one immediate ranged spell attack for 1d8 + spellcasting modifier force damage).",
+    "You create a floating, spectral weapon. Casting makes one immediate ranged spell attack; as a bonus action on later turns you can strike again (10 rounds).",
 };
 
 const MIRROR_IMAGE: SpellDefinition = {
@@ -2053,7 +2053,7 @@ const WALL_OF_FIRE: SpellDefinition = {
   saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
   damage: [{ dice: "5d8", type: "fire" }],
   description:
-    "You create a wall of fire on a solid surface (tracer: 20-ft burst at a point). Each creature in the area when the wall appears makes a Dexterity save, taking 5d8 fire damage on a failure or half on a success.",
+    "You create a wall of fire on a solid surface. Creatures in the area when it appears and at the start of their turns make a Dexterity save, taking 5d8 fire damage on a failure or half on a success.",
 };
 
 const CHAIN_LIGHTNING: SpellDefinition = {
@@ -2568,7 +2568,7 @@ const POLYMORPH: SpellDefinition = {
   ritual: false,
   targeting: "single",
   description:
-    "Transform a willing creature or one that fails a Wisdom save into a new form (tracer: restrained until concentration ends).",
+    "Transform a willing creature or one that fails a Wisdom save into a beast form (default: wolf). Reverts when concentration ends or the beast form drops to 0 HP.",
 };
 
 const REMOVE_CURSE: SpellDefinition = {

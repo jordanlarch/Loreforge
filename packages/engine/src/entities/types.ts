@@ -196,6 +196,10 @@ export type EntityState = {
   activeFearStress?: ActiveFearStressInstance[];
   /** Active burning instances (GRILL-EXPLORATION Q4). */
   activeBurning?: ActiveBurningInstance[];
+  /** Summoned Spiritual Weapon — bonus-action strikes until duration ends (FID-12). */
+  activeSpiritualWeapon?: ActiveSpiritualWeaponInstance;
+  /** Polymorph beast form with stored original stats (FID-12). */
+  polymorph?: PolymorphState;
   /** Explicit damage modifiers (SRD-FID-19). */
   damageResistances?: DamageType[];
   damageVulnerabilities?: DamageType[];
@@ -251,6 +255,32 @@ export type ActiveBurningInstance = {
   burningSlug: string;
   /** Turn-start fire damage tick while active. */
   pendingRepeat: boolean;
+};
+
+export type ActiveSpiritualWeaponInstance = {
+  instanceId: string;
+  slotLevel: number;
+  roundsRemaining: number;
+};
+
+export type PolymorphState = {
+  caster: EntityRef;
+  beastSlug: string;
+  beastName: string;
+  storedAbilityScores: AbilityScores;
+  storedMaxHp: number;
+  storedBaseAc: number;
+  storedSpeed: number;
+  storedHpCurrent: number;
+};
+
+export type SceneSpellZone = {
+  instanceId: string;
+  spellId: string;
+  caster: EntityRef;
+  slotLevel: number;
+  origin: GridPosition;
+  cells: GridPosition[];
 };
 
 export type DeathSaveTally = { successes: number; failures: number };
@@ -338,6 +368,8 @@ export type SceneState = {
   traps?: SceneTrapInstance[];
   /** Ambient environmental effects active in this scene (GRILL-LIVE-ENV-EFFECT Q2). */
   environmentalEffectSlugs?: string[];
+  /** Persistent spell zones (Wall of Fire, …) on this scene grid (FID-12). */
+  spellZones?: SceneSpellZone[];
 };
 
 /**

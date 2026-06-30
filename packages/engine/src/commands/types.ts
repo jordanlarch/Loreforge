@@ -353,6 +353,12 @@ export type PassIndomitableCommand = {
   entity: EntityRef;
 };
 
+export type StrikeSpiritualWeaponCommand = {
+  type: "strike_spiritual_weapon";
+  caster: EntityRef;
+  target: EntityRef;
+};
+
 export type DetectTrapCommand = {
   type: "detect_trap";
   entity: EntityRef;
@@ -632,7 +638,8 @@ export type Command =
   | FastHandsCommand
   | PassCuttingWordsCommand
   | PassCounterspellCommand
-  | PassIndomitableCommand;
+  | PassIndomitableCommand
+  | StrikeSpiritualWeaponCommand;
 
 export type CommandType = Command["type"];
 

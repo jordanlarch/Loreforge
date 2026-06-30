@@ -220,7 +220,23 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         hp.current = clampHp(hp.current - remaining, hp.max);
 
         let updated: EntityState = { ...target, hp, alive: hp.current > 0 };
-        if (hp.current === 0 && !updated.dead) {
+        if (hp.current === 0 && updated.polymorph) {
+          const stored = updated.polymorph;
+          updated = {
+            ...updated,
+            polymorph: undefined,
+            abilityScores: { ...stored.storedAbilityScores },
+            hp: {
+              ...hp,
+              max: stored.storedMaxHp,
+              current: 0,
+            },
+            baseAc: stored.storedBaseAc,
+            speed: stored.storedSpeed,
+            alive: false,
+            deathSaves: { successes: 0, failures: 0 },
+          };
+        } else if (hp.current === 0 && !updated.dead) {
           if (
             !wasDown &&
             isInstantDeathFromDamage(
@@ -566,6 +582,42 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
             target.id,
             spell,
           );
+          if (spell.toLowerCase() === "polymorph") {
+            for (const [id, entity] of Object.entries(next.entities)) {
+              if (entity.polymorph?.caster === target.id) {
+                const stored = entity.polymorph;
+                next.entities[id] = {
+                  ...entity,
+                  polymorph: undefined,
+                  abilityScores: { ...stored.storedAbilityScores },
+                  hp: {
+                    ...entity.hp,
+                    max: stored.storedMaxHp,
+                    current: Math.min(
+                      stored.storedHpCurrent,
+                      stored.storedMaxHp,
+                    ),
+                  },
+                  baseAc: stored.storedBaseAc,
+                  speed: stored.storedSpeed,
+                };
+              }
+            }
+          }
+          if (spell.toLowerCase() === "wall of fire") {
+            for (const [sceneId, scene] of Object.entries(next.scenes)) {
+              if (!scene.spellZones?.length) continue;
+              const filtered = scene.spellZones.filter(
+                (z) =>
+                  !(
+                    z.caster === target.id && z.spellId === "wall-of-fire"
+                  ),
+              );
+              if (filtered.length !== scene.spellZones.length) {
+                next.scenes[sceneId] = { ...scene, spellZones: filtered };
+              }
+            }
+          }
         }
       }
       break;
@@ -707,6 +759,126 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         next.encounter?.pendingIndomitable?.entity === event.payload.entity
       ) {
         next.encounter = { ...next.encounter, pendingIndomitable: undefined };
+      }
+      break;
+    }
+    case "SpiritualWeaponSummoned": {
+      const caster = next.entities[event.payload.caster];
+      if (caster) {
+        next.entities[caster.id] = {
+          ...caster,
+          activeSpiritualWeapon: {
+            instanceId: event.payload.instanceId,
+            slotLevel: event.payload.slotLevel,
+            roundsRemaining: event.payload.roundsRemaining,
+          },
+        };
+      }
+      break;
+    }
+    case "SpiritualWeaponTicked": {
+      const caster = next.entities[event.payload.caster];
+      if (caster?.activeSpiritualWeapon) {
+        next.entities[caster.id] = {
+          ...caster,
+          activeSpiritualWeapon: {
+            ...caster.activeSpiritualWeapon,
+            roundsRemaining: event.payload.roundsRemaining,
+          },
+        };
+      }
+      break;
+    }
+    case "SpiritualWeaponDismissed": {
+      const caster = next.entities[event.payload.caster];
+      if (caster) {
+        next.entities[caster.id] = {
+          ...caster,
+          activeSpiritualWeapon: undefined,
+        };
+      }
+      break;
+    }
+    case "SpellZoneCreated": {
+      const scene = next.scenes[event.payload.sceneId];
+      if (scene) {
+        const spellZones = [...(scene.spellZones ?? [])];
+        spellZones.push({
+          instanceId: event.payload.instanceId,
+          spellId: event.payload.spellId,
+          caster: event.payload.caster,
+          slotLevel: event.payload.slotLevel,
+          origin: event.payload.origin,
+          cells: [...event.payload.cells],
+        });
+        next.scenes[event.payload.sceneId] = { ...scene, spellZones };
+      }
+      break;
+    }
+    case "SpellZoneRemoved": {
+      const scene = next.scenes[event.payload.sceneId];
+      if (scene?.spellZones?.length) {
+        next.scenes[event.payload.sceneId] = {
+          ...scene,
+          spellZones: scene.spellZones.filter(
+            (z) => z.instanceId !== event.payload.instanceId,
+          ),
+        };
+      }
+      break;
+    }
+    case "PolymorphApplied": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        const beastHp = Math.min(
+          event.payload.beastMaxHp,
+          event.payload.storedHpCurrent,
+        );
+        next.entities[target.id] = {
+          ...target,
+          polymorph: {
+            caster: event.payload.caster,
+            beastSlug: event.payload.beastSlug,
+            beastName: event.payload.beastName,
+            storedAbilityScores: { ...event.payload.storedAbilityScores },
+            storedMaxHp: event.payload.storedMaxHp,
+            storedBaseAc: event.payload.storedBaseAc,
+            storedSpeed: event.payload.storedSpeed,
+            storedHpCurrent: event.payload.storedHpCurrent,
+          },
+          abilityScores: { ...event.payload.beastAbilityScores },
+          hp: {
+            ...target.hp,
+            max: event.payload.beastMaxHp,
+            current: beastHp,
+          },
+          baseAc: event.payload.beastAc,
+          speed: event.payload.beastSpeed,
+          conditions: target.conditions.filter((c) => c.condition !== "restrained"),
+        };
+      }
+      break;
+    }
+    case "PolymorphEnded": {
+      const target = next.entities[event.payload.target];
+      if (target?.polymorph) {
+        const stored = target.polymorph;
+        const hpCurrent =
+          event.payload.reason === "zero_hp" ? 0 : stored.storedHpCurrent;
+        next.entities[target.id] = {
+          ...target,
+          polymorph: undefined,
+          abilityScores: { ...stored.storedAbilityScores },
+          hp: {
+            ...target.hp,
+            max: stored.storedMaxHp,
+            current: Math.min(hpCurrent, stored.storedMaxHp),
+          },
+          baseAc: stored.storedBaseAc,
+          speed: stored.storedSpeed,
+          alive: hpCurrent > 0,
+          dead: hpCurrent <= 0 ? target.dead : false,
+        };
       }
       break;
     }

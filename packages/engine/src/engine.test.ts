@@ -113,12 +113,11 @@ describe("Engine command pipeline", () => {
   });
 
   it("heals a downed (0 HP, not dead) creature back to its feet", async () => {
-    // 100 necrotic drops Thorin to 0 HP: downed and unconscious, but not dead.
     await engine.execute(CAMPAIGN, {
       type: "apply_damage",
       target: "pc:thorin",
       damageType: "necrotic",
-      source: { amount: 100 },
+      source: { amount: 40 },
     });
     const result = await engine.execute(CAMPAIGN, {
       type: "apply_healing",

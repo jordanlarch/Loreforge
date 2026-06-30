@@ -507,7 +507,7 @@ const SCORCHING_RAY: SpellDefinition = {
   concentration: false,
   ritual: false,
   targeting: "multi",
-  projectiles: { base: 3, perSlotLevel: 1 },
+  projectiles: { base: 3, perSlotLevel: 1, spellAttack: true },
   damage: [{ dice: "2d6", type: "fire" }],
   description:
     "You create three rays of fire and hurl them at targets within range. Each ray requires a separate ranged spell attack, dealing 2d6 fire damage on a hit.",
@@ -1318,12 +1318,12 @@ const HEX: SpellDefinition = {
     {
       name: "Hex",
       scope: "targets",
-      modifier: { type: "hunters_mark", dice: "1d6" },
+      modifier: { type: "hex", dice: "1d6", ability: "wis" },
       concentration: true,
     },
   ],
   description:
-    "The target is cursed; you deal an extra 1d6 necrotic damage when you hit it with an attack.",
+    "The target is cursed; you deal an extra 1d6 necrotic damage when you hit it with an attack, and it has disadvantage on ability checks with the chosen ability.",
 };
 
 const BANE: SpellDefinition = {

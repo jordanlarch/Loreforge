@@ -5,6 +5,7 @@ import { spellAttackBonus, spellSaveDC } from "./content/spellcasting";
 import type { AbilityScores } from "./entities/types";
 import type {
   AttackResolvedPayload,
+  CheckRolledPayload,
   DamageDealtPayload,
 } from "./events/types";
 
@@ -473,5 +474,191 @@ describe("Spells: determinism & replay", () => {
     const events = await engine.getEvents(CAMPAIGN);
     const { rebuild } = await import("./projections/world-state");
     expect(rebuild(CAMPAIGN, events)).toEqual(live);
+  });
+});
+
+describe("Spells: Scorching Ray (per-ray spell attacks)", () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 1 });
+    await setup(engine, { targetAc: 1, targetHp: 200 });
+  });
+
+  it("rolls a separate attack for each ray", async () => {
+    const result = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "scorching-ray",
+      slotLevel: 2,
+      targets: ["npc:dummy", "npc:dummy", "npc:dummy"],
+    });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const attacks = result.events.filter((e) => e.type === "AttackResolved");
+    expect(attacks).toHaveLength(3);
+    expect(result.events.some((e) => e.type === "DamageDealt")).toBe(true);
+  });
+});
+
+describe("Spells: Hex (necrotic bonus + check disadvantage)", () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 1 });
+    await setup(engine, { targetAc: 1, targetHp: 200 });
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:lock",
+        kind: "character",
+        name: "Warlock",
+        abilityScores: { ...SCORES, cha: 16 },
+        maxHp: 30,
+        baseAc: 13,
+        sceneId: "s:1",
+        classes: [{ class: "Warlock", level: 5 }],
+        spellcasting: { ability: "cha" },
+      },
+    });
+  });
+
+  it("applies hex with the chosen ability and adds necrotic damage on spell hits", async () => {
+    const hex = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:lock",
+      spellId: "hex",
+      slotLevel: 1,
+      targets: ["npc:dummy"],
+      hexAbility: "dex",
+    });
+    expect(hex.accepted).toBe(true);
+    const cursed = (await engine.getState(CAMPAIGN)).entities["npc:dummy"];
+    const hexFx = cursed?.effects?.find((fx) => fx.modifier.type === "hex");
+    expect(hexFx?.modifier).toMatchObject({
+      type: "hex",
+      ability: "dex",
+      dice: "1d6",
+    });
+
+    const bolt = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:lock",
+      spellId: "eldritch-blast",
+      slotLevel: 0,
+      targets: ["npc:dummy"],
+    });
+    expect(bolt.accepted).toBe(true);
+    if (!bolt.accepted) return;
+    const necrotic = bolt.events.filter(
+      (e) =>
+        e.type === "DamageDealt" &&
+        (e.payload as DamageDealtPayload).damageType === "necrotic",
+    );
+    expect(necrotic.length).toBeGreaterThan(0);
+  });
+
+  it("imposes disadvantage on the hexed ability during checks", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:lock",
+      spellId: "hex",
+      slotLevel: 1,
+      targets: ["npc:dummy"],
+      hexAbility: "wis",
+    });
+    const check = await engine.execute(CAMPAIGN, {
+      type: "ability_check",
+      entity: "npc:dummy",
+      ability: "wis",
+    });
+    expect(check.accepted).toBe(true);
+    if (!check.accepted) return;
+    const rolled = check.events.find((e) => e.type === "CheckRolled");
+    expect((rolled?.payload as CheckRolledPayload | undefined)?.mode).toBe(
+      "disadvantage",
+    );
+  });
+});
+
+describe("Spells: Counterspell level contest", () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 1 });
+    await setup(engine);
+  });
+
+  it("auto-counters when the counterspell slot meets or beats the target spell", async () => {
+    const result = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "counterspell",
+      slotLevel: 3,
+      targets: ["npc:dummy"],
+      counteredSpellSlotLevel: 2,
+    });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.summary).toMatchObject({ countered: true });
+  });
+
+  it("rejects counterspell without a target spell level", async () => {
+    const result = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "counterspell",
+      slotLevel: 3,
+      targets: ["npc:dummy"],
+    });
+    expect(result.accepted).toBe(false);
+    if (!result.accepted) expect(result.reason.code).toBe("INVALID_PAYLOAD");
+  });
+});
+
+describe("Spells: Dispel Magic (level-based removal)", () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine({ now: () => 1 });
+    await setup(engine);
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:lock",
+        kind: "character",
+        name: "Warlock",
+        abilityScores: SCORES,
+        maxHp: 30,
+        baseAc: 13,
+        sceneId: "s:1",
+        classes: [{ class: "Warlock", level: 5 }],
+        spellcasting: { ability: "cha" },
+      },
+    });
+  });
+
+  it("ends all level-3-or-lower magical effects on the target", async () => {
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:lock",
+      spellId: "hex",
+      slotLevel: 1,
+      targets: ["npc:dummy"],
+      hexAbility: "wis",
+    });
+    expect(
+      (await engine.getState(CAMPAIGN)).entities["npc:dummy"]?.effects?.length,
+    ).toBe(1);
+
+    const dispel = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:mage",
+      spellId: "dispel-magic",
+      slotLevel: 3,
+      targets: ["npc:dummy"],
+    });
+    expect(dispel.accepted).toBe(true);
+    if (!dispel.accepted) return;
+    expect(dispel.summary).toMatchObject({ dispelled: 1 });
+    expect(
+      (await engine.getState(CAMPAIGN)).entities["npc:dummy"]?.effects?.length,
+    ).toBe(0);
   });
 });

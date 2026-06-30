@@ -13,6 +13,10 @@ import {
   hasClassSubclass,
 } from "../combat/class-feature-mechanics";
 import { cellIsDifficult, distanceFeet, movementCostFeet } from "../combat/grid";
+import {
+  failuresFromDamageAtZeroHp,
+  isInstantDeathFromDamage,
+} from "../combat/death";
 import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import {
   applyTimedEffectTick,
@@ -197,17 +201,35 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
 
         let updated: EntityState = { ...target, hp, alive: hp.current > 0 };
         if (hp.current === 0 && !updated.dead) {
-          if (wasDown && remaining > 0) {
-            // Taking damage while already at 0 HP is a death-save failure.
+          if (
+            !wasDown &&
+            isInstantDeathFromDamage(
+              event.payload.amount,
+              hp.max,
+              event.payload.hpBefore,
+              target.hp.temp,
+              hp.current,
+            )
+          ) {
+            updated = {
+              ...updated,
+              dead: true,
+              deathSaves: undefined,
+              stable: false,
+              concentration: undefined,
+            };
+          } else if (wasDown && remaining > 0) {
             const tally = updated.deathSaves ?? { successes: 0, failures: 0 };
-            const failures = tally.failures + 1;
+            const delta = failuresFromDamageAtZeroHp(
+              event.payload.critical ?? false,
+            );
+            const failures = tally.failures + delta;
             updated = {
               ...updated,
               deathSaves: { ...tally, failures: Math.min(3, failures) },
               dead: failures >= 3,
             };
           } else if (!wasDown) {
-            // Freshly downed: begin death saves; concentration ends.
             updated = {
               ...updated,
               deathSaves: { successes: 0, failures: 0 },

@@ -55,6 +55,8 @@ export type DamageDealtPayload = {
   damageType: string;
   hpBefore: number;
   hpAfter: number;
+  /** When true, damage at 0 HP counts as two death-save failures. */
+  critical?: boolean;
 };
 
 export type HealingAppliedPayload = {

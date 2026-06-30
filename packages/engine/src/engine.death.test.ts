@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Engine } from "./engine";
 import type { AbilityScores } from "./entities/types";
+import type { DeathSaveRolledPayload } from "./events/types";
 
 const ABILITIES: AbilityScores = {
   str: 14,
@@ -38,12 +39,18 @@ async function setup(engine: Engine) {
   await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:1" });
 }
 
-async function damage(engine: Engine, target: string, amount: number) {
+async function damage(
+  engine: Engine,
+  target: string,
+  amount: number,
+  opts?: { critical?: boolean },
+) {
   return engine.execute(CAMPAIGN, {
     type: "apply_damage",
     target,
     damageType: "necrotic",
     source: { amount },
+    ...(opts?.critical ? { critical: true } : {}),
   });
 }
 
@@ -60,7 +67,7 @@ describe("Dying: dropping to 0 HP", () => {
   });
 
   it("downs (not kills) a creature reduced to 0 HP and starts death saves", async () => {
-    await damage(engine, "pc:hero", 25);
+    await damage(engine, "pc:hero", 10);
     const hero = await state(engine, "pc:hero");
     expect(hero?.hp.current).toBe(0);
     expect(hero?.alive).toBe(false);
@@ -78,7 +85,7 @@ describe("Dying: dropping to 0 HP", () => {
   });
 
   it("treats damage taken while at 0 HP as a death-save failure", async () => {
-    await damage(engine, "pc:hero", 25); // down
+    await damage(engine, "pc:hero", 10); // down
     await damage(engine, "pc:hero", 1);
     let hero = await state(engine, "pc:hero");
     expect(hero?.deathSaves?.failures).toBe(1);
@@ -89,6 +96,34 @@ describe("Dying: dropping to 0 HP", () => {
     hero = await state(engine, "pc:hero");
     expect(hero?.deathSaves?.failures).toBe(3);
     expect(hero?.dead).toBe(true);
+  });
+
+  it("counts a critical hit at 0 HP as two death-save failures", async () => {
+    await damage(engine, "pc:hero", 10); // down
+    await damage(engine, "pc:hero", 1, { critical: true });
+    const hero = await state(engine, "pc:hero");
+    expect(hero?.deathSaves?.failures).toBe(2);
+    expect(hero?.dead).toBe(false);
+  });
+
+  it("instantly kills when overflow damage equals max HP", async () => {
+    await spawn(engine, "pc:cleric", 12);
+    await damage(engine, "pc:cleric", 6); // 6 / 12
+    await damage(engine, "pc:cleric", 18); // 12 overflow >= 12 max
+    const cleric = await state(engine, "pc:cleric");
+    expect(cleric?.hp.current).toBe(0);
+    expect(cleric?.dead).toBe(true);
+    expect(cleric?.deathSaves).toBeUndefined();
+  });
+
+  it("downs without instant death when overflow is below max HP", async () => {
+    await spawn(engine, "pc:tank", 22);
+    await damage(engine, "pc:tank", 12); // 10 / 22
+    await damage(engine, "pc:tank", 20); // 10 overflow < 22 max
+    const tank = await state(engine, "pc:tank");
+    expect(tank?.hp.current).toBe(0);
+    expect(tank?.dead).toBe(false);
+    expect(tank?.deathSaves).toEqual({ successes: 0, failures: 0 });
   });
 
   it("refuses to heal or roll for a truly dead creature", async () => {
@@ -115,7 +150,7 @@ describe("Dying: dropping to 0 HP", () => {
   });
 
   it("resolves death saves to a terminal state (stable, dead, or revived)", async () => {
-    await damage(engine, "pc:hero", 25); // down
+    await damage(engine, "pc:hero", 10); // down
 
     let terminal: "stable" | "dead" | "revived" | undefined;
     for (let i = 0; i < 12 && !terminal; i++) {
@@ -144,18 +179,35 @@ describe("Dying: dropping to 0 HP", () => {
   });
 
   it("is deterministic across replay", async () => {
-    await damage(engine, "pc:hero", 25);
-    await engine.execute(CAMPAIGN, { type: "death_save", entity: "pc:hero" });
-    const first = await state(engine, "pc:hero");
+    await damage(engine, "pc:hero", 10);
+    const firstSave = await engine.execute(CAMPAIGN, {
+      type: "death_save",
+      entity: "pc:hero",
+    });
+    const firstNatural = firstSave.accepted
+      ? (
+          firstSave.events.find((e) => e.type === "DeathSaveRolled")?.payload as
+            | DeathSaveRolledPayload
+            | undefined
+        )?.natural
+      : undefined;
 
     const replay = new Engine({ now: () => 1 });
     await setup(replay);
     await spawn(replay, "pc:hero", 10);
-    await damage(replay, "pc:hero", 25);
-    await replay.execute(CAMPAIGN, { type: "death_save", entity: "pc:hero" });
-    const second = await state(replay, "pc:hero");
+    await damage(replay, "pc:hero", 10);
+    const secondSave = await replay.execute(CAMPAIGN, {
+      type: "death_save",
+      entity: "pc:hero",
+    });
+    const secondNatural = secondSave.accepted
+      ? (
+          secondSave.events.find((e) => e.type === "DeathSaveRolled")
+            ?.payload as DeathSaveRolledPayload | undefined
+        )?.natural
+      : undefined;
 
-    expect(second?.deathSaves).toEqual(first?.deathSaves);
+    expect(secondNatural).toBe(firstNatural);
   });
 });
 
@@ -302,7 +354,7 @@ describe("Concentration", () => {
       entity: "pc:frail",
       spell: "Hold Person",
     });
-    const r = await damage(engine, "pc:frail", 25); // down
+    const r = await damage(engine, "pc:frail", 10); // down
     expect(r.accepted).toBe(true);
     if (r.accepted) {
       // No CON save is rolled when concentration ends from being downed.

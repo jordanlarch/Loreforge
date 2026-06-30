@@ -177,6 +177,8 @@ export type SpellAttack = {
 export type SpellProjectiles = {
   base: number;
   perSlotLevel: number;
+  /** When true, each projectile requires a separate ranged spell attack (Scorching Ray). */
+  spellAttack?: boolean;
 };
 
 /**
@@ -237,6 +239,7 @@ export type SpellAppliedEffect = {
     | { type: "attack_roll_bonus"; dice: string }
     | { type: "attack_roll_penalty"; dice: string }
     | { type: "hunters_mark"; dice: string }
+    | { type: "hex"; dice: string; ability: import("../entities/types").Ability }
     | { type: "attacks_against_advantage" }
     | { type: "attacks_against_disadvantage" }
     | { type: "speed_bonus"; amount: number };

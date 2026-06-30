@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { concentrationDC, resolveDeathSave } from "./death";
+import {
+  concentrationDC,
+  failuresFromDamageAtZeroHp,
+  isInstantDeathFromDamage,
+  overflowDamageWhenDropped,
+  resolveDeathSave,
+} from "./death";
 
 describe("resolveDeathSave", () => {
   it("counts a roll of 10+ as one success", () => {
@@ -62,6 +68,29 @@ describe("resolveDeathSave", () => {
   it("clamps tallies to 3", () => {
     const res = resolveDeathSave(1, { successes: 0, failures: 2 });
     expect(res.failures).toBe(3);
+  });
+});
+
+describe("instant death overflow", () => {
+  it("counts overflow when dropping from partial HP", () => {
+    expect(overflowDamageWhenDropped(18, 6, 0)).toBe(12);
+    expect(
+      isInstantDeathFromDamage(18, 12, 6, 0, 0),
+    ).toBe(true);
+  });
+
+  it("does not instant-kill when overflow is below max HP", () => {
+    expect(overflowDamageWhenDropped(20, 10, 0)).toBe(10);
+    expect(
+      isInstantDeathFromDamage(20, 22, 10, 0, 0),
+    ).toBe(false);
+  });
+});
+
+describe("failuresFromDamageAtZeroHp", () => {
+  it("doubles failures on a critical hit", () => {
+    expect(failuresFromDamageAtZeroHp(false)).toBe(1);
+    expect(failuresFromDamageAtZeroHp(true)).toBe(2);
   });
 });
 

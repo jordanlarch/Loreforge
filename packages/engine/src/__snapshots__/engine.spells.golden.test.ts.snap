@@ -984,9 +984,9 @@ exports[`Spells: golden resolution snapshots > resolves every authored spell to 
   },
   "scorching-ray": {
     "accepted": true,
-    "attackHits": 0,
-    "attacks": 0,
-    "damageDealt": 24,
+    "attackHits": 3,
+    "attacks": 3,
+    "damageDealt": 33,
     "damagedTargets": 1,
     "healingApplied": 0,
     "saves": 0,

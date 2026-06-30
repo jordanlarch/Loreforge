@@ -167,6 +167,16 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
   if (spell.targeting === "self") {
     return { ...base, targets: ["pc:caster"] };
   }
+  if (spell.id === "counterspell") {
+    return {
+      ...base,
+      targets: ["t1"],
+      counteredSpellSlotLevel: 2,
+    };
+  }
+  if (spell.id === "hex") {
+    return { ...base, targets: ["t1"], hexAbility: "wis" };
+  }
   if (spell.projectiles) {
     return {
       ...base,

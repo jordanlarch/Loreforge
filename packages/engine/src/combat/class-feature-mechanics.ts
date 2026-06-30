@@ -147,7 +147,14 @@ export function stunningStrikeSaveDc(
   );
 }
 
-export type MetamagicOptionId = "empowered" | "heightened";
+export type MetamagicOptionId =
+  | "empowered"
+  | "heightened"
+  | "quickened"
+  | "distant"
+  | "seeking"
+  | "subtle"
+  | "extended";
 
 export type MetamagicOption = {
   id: MetamagicOptionId;
@@ -158,9 +165,19 @@ export type MetamagicOption = {
 export const METAMAGIC_OPTIONS: Record<MetamagicOptionId, MetamagicOption> = {
   empowered: { id: "empowered", name: "Empowered Spell", cost: 1 },
   heightened: { id: "heightened", name: "Heightened Spell", cost: 2 },
+  quickened: { id: "quickened", name: "Quickened Spell", cost: 2 },
+  distant: { id: "distant", name: "Distant Spell", cost: 1 },
+  seeking: { id: "seeking", name: "Seeking Spell", cost: 2 },
+  subtle: { id: "subtle", name: "Subtle Spell", cost: 1 },
+  extended: { id: "extended", name: "Extended Spell", cost: 1 },
 };
 
-export type EldritchInvocationId = "agonizing-blast" | "devils-sight";
+export type EldritchInvocationId =
+  | "agonizing-blast"
+  | "devils-sight"
+  | "repelling-blast"
+  | "eldritch-spear"
+  | "eldritch-mind";
 
 export type EldritchInvocation = {
   id: EldritchInvocationId;
@@ -173,7 +190,24 @@ export const ELDRITCH_INVOCATIONS: Record<
 > = {
   "agonizing-blast": { id: "agonizing-blast", name: "Agonizing Blast" },
   "devils-sight": { id: "devils-sight", name: "Devil's Sight" },
+  "repelling-blast": { id: "repelling-blast", name: "Repelling Blast" },
+  "eldritch-spear": { id: "eldritch-spear", name: "Eldritch Spear" },
+  "eldritch-mind": { id: "eldritch-mind", name: "Eldritch Mind" },
 };
+
+/** Eldritch Spear extends Eldritch Blast's range to 300 ft (SRD 5.2.1). */
+export const ELDRITCH_SPEAR_RANGE_FEET = 300;
+
+/** Repelling Blast pushes a creature 10 ft straight away on a hit. */
+export const REPELLING_BLAST_PUSH_FEET = 10;
+
+/**
+ * Distant Spell: a touch spell reaches 30 ft; any other ranged spell's range
+ * doubles (SRD 5.2.1).
+ */
+export function distantSpellRange(baseFeet: number, isTouch: boolean): number {
+  return isTouch ? 30 : baseFeet * 2;
+}
 
 const METAMAGIC_CHOICE_KEY = "Sorcerer:2:metamagic";
 const INVOCATION_CHOICE_KEY = "Warlock:1:eldritch-invocations";
@@ -181,8 +215,9 @@ const INVOCATION_CHOICE_KEY = "Warlock:1:eldritch-invocations";
 function normalizeMetamagicId(raw: string): MetamagicOptionId | undefined {
   const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
   if (slug in METAMAGIC_OPTIONS) return slug as MetamagicOptionId;
-  if (slug.startsWith("empowered")) return "empowered";
-  if (slug.startsWith("heightened")) return "heightened";
+  for (const id of Object.keys(METAMAGIC_OPTIONS) as MetamagicOptionId[]) {
+    if (slug.startsWith(id)) return id;
+  }
   return undefined;
 }
 

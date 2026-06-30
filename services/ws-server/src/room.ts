@@ -471,6 +471,19 @@ export function isBattleAction(value: unknown): value is BattleAction {
     featureKey?: unknown;
     monkFocusSpend?: unknown;
     beneficiaryId?: unknown;
+    rageFrenzy?: unknown;
+    channelDivinitySpend?: unknown;
+    frenzyBonusAttack?: unknown;
+    flurryBonusAttack?: unknown;
+    openHandTechnique?: unknown;
+    against?: unknown;
+    mode?: unknown;
+    originalTotal?: unknown;
+    natural?: unknown;
+    targetAc?: unknown;
+    hitDice?: unknown;
+    dieSize?: unknown;
+    naturalRecoverySlotLevels?: unknown;
   };
   if (action.type === "end_turn") return true;
   if (action.type === "ready_action") {
@@ -514,7 +527,15 @@ export function isBattleAction(value: unknown): value is BattleAction {
       (action.finesseOrRanged === undefined ||
         typeof action.finesseOrRanged === "boolean") &&
       (action.usesStrength === undefined ||
-        typeof action.usesStrength === "boolean")
+        typeof action.usesStrength === "boolean") &&
+      (action.frenzyBonusAttack === undefined ||
+        typeof action.frenzyBonusAttack === "boolean") &&
+      (action.flurryBonusAttack === undefined ||
+        typeof action.flurryBonusAttack === "boolean") &&
+      (action.openHandTechnique === undefined ||
+        action.openHandTechnique === "prone" ||
+        action.openHandTechnique === "push" ||
+        action.openHandTechnique === "no_reactions")
     );
   }
   if (action.type === "opportunity_attack") {
@@ -544,13 +565,59 @@ export function isBattleAction(value: unknown): value is BattleAction {
       action.monkFocusSpend === "flurry" ||
       action.monkFocusSpend === "patient_defense" ||
       action.monkFocusSpend === "step_of_wind";
+    const cdOk =
+      action.channelDivinitySpend === undefined ||
+      action.channelDivinitySpend === "divine_sense" ||
+      action.channelDivinitySpend === "sacred_weapon" ||
+      action.channelDivinitySpend === "turn_undead";
     return (
       typeof action.entity === "string" &&
       typeof action.featureKey === "string" &&
       action.featureKey.trim().length >= 3 &&
       focusOk &&
+      cdOk &&
+      (action.rageFrenzy === undefined || typeof action.rageFrenzy === "boolean") &&
       (action.beneficiaryId === undefined ||
         typeof action.beneficiaryId === "string")
+    );
+  }
+  if (action.type === "fast_hands") {
+    return (
+      typeof action.entity === "string" &&
+      (action.action === "sleight_of_hand" ||
+        action.action === "thieves_tools" ||
+        action.action === "use_object")
+    );
+  }
+  if (action.type === "cutting_words") {
+    const modeOk =
+      action.mode === "attack" ||
+      action.mode === "damage" ||
+      action.mode === "check";
+    return (
+      typeof action.reactor === "string" &&
+      typeof action.against === "string" &&
+      modeOk &&
+      typeof action.originalTotal === "number" &&
+      Number.isFinite(action.originalTotal) &&
+      (action.natural === undefined || typeof action.natural === "number") &&
+      (action.targetAc === undefined || typeof action.targetAc === "number")
+    );
+  }
+  if (action.type === "pass_cutting_words") {
+    return typeof action.reactor === "string";
+  }
+  if (action.type === "short_rest") {
+    const levels = action.naturalRecoverySlotLevels as unknown;
+    const levelsOk =
+      levels === undefined ||
+      (Array.isArray(levels) &&
+        levels.every((l) => typeof l === "number" && Number.isFinite(l)));
+    return (
+      typeof action.entity === "string" &&
+      (action.hitDice === undefined || typeof action.hitDice === "number") &&
+      (action.dieSize === undefined || typeof action.dieSize === "number") &&
+      levelsOk
     );
   }
   if (action.type === "detect_trap" || action.type === "disable_trap") {

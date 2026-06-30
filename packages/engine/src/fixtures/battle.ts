@@ -34,6 +34,10 @@ import type {
   ResolveCurseTickCommand,
   TriggerReadiedCommand,
   UseClassFeatureCommand,
+  FastHandsCommand,
+  CuttingWordsCommand,
+  PassCuttingWordsCommand,
+  ShortRestCommand,
 } from "../commands/types";
 import type {
   Ability,
@@ -405,7 +409,11 @@ export type BattleAction =
   | ApplyFallDamageCommand
   | ApplyBurningCommand
   | ExtinguishBurningCommand
-  | UseClassFeatureCommand;
+  | UseClassFeatureCommand
+  | FastHandsCommand
+  | CuttingWordsCommand
+  | PassCuttingWordsCommand
+  | ShortRestCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {

@@ -4,8 +4,12 @@
 import type { SaveOutcome } from "../content/spells";
 import { abilityModifier } from "../entities/abilities";
 import { parseFeatureChoiceValues } from "../entities/class-feature-choices";
-import { featureResourceKey } from "../entities/feature-resources";
+import {
+  featureResourceKey,
+  remainingFeatureUses,
+} from "../entities/feature-resources";
 import { distanceFeet } from "./grid";
+import { entityReactionsSuppressed } from "./effects";
 import type { RollAdjust } from "./conditions";
 import type { AbilityScores, ClassLevel, EntityState } from "../entities/types";
 
@@ -370,4 +374,43 @@ export function agonizingBlastBonus(scores: AbilityScores): number {
 /** Empowered Spell — reroll up to this many damage dice (Charisma modifier, min 1). */
 export function empoweredRerollCount(scores: AbilityScores): number {
   return Math.max(1, abilityModifier(scores.cha));
+}
+
+type CuttingWordsWorld = {
+  entities: Record<string, EntityState | undefined>;
+};
+
+/** Bards who may react with Cutting Words to an attack roll (SRD 5.2.1). */
+export function cuttingWordsEligibleReactors(
+  world: CuttingWordsWorld,
+  attackerId: string,
+): string[] {
+  const attacker = world.entities[attackerId];
+  if (!attacker?.alive) return [];
+  const biKey = featureResourceKey("Bard", 1, "bardic-inspiration");
+  const eligible: string[] = [];
+  for (const [id, entity] of Object.entries(world.entities)) {
+    if (!entity?.alive) continue;
+    if (!hasClassSubclass(entity.classes, "Bard", "College of Lore")) continue;
+    if (classLevel(entity.classes, "Bard") < 3) continue;
+    if (entity.reaction !== undefined && entity.reaction !== "available") continue;
+    if (entityReactionsSuppressed(entity)) continue;
+    const poolSize = Math.max(0, entity.proficiencyBonus);
+    if (
+      remainingFeatureUses(entity.resourceUses?.[biKey], poolSize) < 1
+    ) {
+      continue;
+    }
+    if (
+      entity.position &&
+      attacker.position &&
+      entity.sceneId &&
+      entity.sceneId === attacker.sceneId &&
+      distanceFeet(entity.position, attacker.position) > 60
+    ) {
+      continue;
+    }
+    eligible.push(id);
+  }
+  return eligible;
 }

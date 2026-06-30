@@ -523,6 +523,28 @@ export type OpenHandTechniqueAppliedPayload = {
   technique: "prone" | "push" | "no_reactions";
 };
 
+export type PendingAttackStagedPayload = {
+  cmd: import("../commands/types").AttackCommand;
+  natural: number;
+  total: number;
+  targetAc: number;
+  hit: boolean;
+  critical: boolean;
+  mode: RollMode;
+  hadBardicInspiration: boolean;
+  eligible: EntityRef[];
+  declined: EntityRef[];
+  spendsAction: boolean;
+  spendsBonusAction: boolean;
+  spendsFlurryAttack: boolean;
+  viaReaction?: boolean;
+  targetPosition?: GridPosition;
+};
+
+export type PendingAttackUpdatedPayload = {
+  declined: EntityRef[];
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -599,6 +621,14 @@ export type EngineEvent =
   | (EventMeta & {
       type: "OpenHandTechniqueApplied";
       payload: OpenHandTechniqueAppliedPayload;
+    })
+  | (EventMeta & {
+      type: "PendingAttackStaged";
+      payload: PendingAttackStagedPayload;
+    })
+  | (EventMeta & {
+      type: "PendingAttackUpdated";
+      payload: PendingAttackUpdatedPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
   | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })

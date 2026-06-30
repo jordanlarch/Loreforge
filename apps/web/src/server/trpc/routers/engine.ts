@@ -141,6 +141,9 @@ const commandSchema = z.discriminatedUnion("type", [
     monkWeaponOrUnarmed: z.boolean().optional(),
     finesseOrRanged: z.boolean().optional(),
     usesStrength: z.boolean().optional(),
+    frenzyBonusAttack: z.boolean().optional(),
+    flurryBonusAttack: z.boolean().optional(),
+    openHandTechnique: z.enum(["prone", "push", "no_reactions"]).optional(),
   }),
   z.object({
     type: z.literal("apply_condition"),
@@ -171,6 +174,7 @@ const commandSchema = z.discriminatedUnion("type", [
     entity: z.string(),
     hitDice: z.number().int().min(0).optional(),
     dieSize: z.number().int().min(1).optional(),
+    naturalRecoverySlotLevels: z.array(z.number().int().min(1).max(9)).optional(),
   }),
   z.object({ type: z.literal("long_rest"), entity: z.string() }),
   z.object({
@@ -223,6 +227,28 @@ const commandSchema = z.discriminatedUnion("type", [
       .enum(["flurry", "patient_defense", "step_of_wind"])
       .optional(),
     beneficiaryId: z.string().optional(),
+    rageFrenzy: z.boolean().optional(),
+    channelDivinitySpend: z
+      .enum(["divine_sense", "sacred_weapon", "turn_undead"])
+      .optional(),
+  }),
+  z.object({
+    type: z.literal("fast_hands"),
+    entity: z.string(),
+    action: z.enum(["sleight_of_hand", "thieves_tools", "use_object"]),
+  }),
+  z.object({
+    type: z.literal("cutting_words"),
+    reactor: z.string(),
+    against: z.string(),
+    mode: z.enum(["attack", "damage", "check"]),
+    originalTotal: z.number(),
+    natural: z.number().optional(),
+    targetAc: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal("pass_cutting_words"),
+    reactor: z.string(),
   }),
 ]);
 

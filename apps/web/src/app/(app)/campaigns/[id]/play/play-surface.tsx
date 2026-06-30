@@ -79,6 +79,8 @@ import {
   aoeCaughtIds,
   castableSpellsFor,
   controllableReactors,
+  controllableCuttingWords,
+  cuttingWordsWindowKey,
   hostilesInScene,
   reactionWindowKey,
   targetsInRange,
@@ -297,8 +299,14 @@ function LiveBattle({
   const [castTargets, setCastTargets] = useState<string[]>([]);
   const [aimCell, setAimCell] = useState<Cell | null>(null);
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
+  const [dismissedCuttingWords, setDismissedCuttingWords] = useState<string | null>(null);
   const [stunningStrike, setStunningStrike] = useState(false);
   const [selectedMetamagic, setSelectedMetamagic] = useState<string | undefined>();
+  const [flurryStrike, setFlurryStrike] = useState(false);
+  const [frenzyStrike, setFrenzyStrike] = useState(false);
+  const [openHandTechnique, setOpenHandTechnique] = useState<
+    "prone" | "push" | "no_reactions" | undefined
+  >();
   // Client-side session pause (#101): freezes the local turn UI + clock. The
   // server-authoritative engine freeze is a deferred follow-up.
   const [paused, setPaused] = useState(false);
@@ -431,6 +439,16 @@ function LiveBattle({
     activeEntity.alive &&
     activeEntity.actionEconomy !== undefined &&
     state?.encounter?.sides[activeEntity.id] === FIXTURE_BATTLE_PARTY_SIDE;
+
+  useEffect(() => {
+    const remaining = activeEntity?.actionEconomy?.flurryAttacksRemaining ?? 0;
+    if (remaining > 0) {
+      setFlurryStrike(true);
+    } else {
+      setFlurryStrike(false);
+      setOpenHandTechnique(undefined);
+    }
+  }, [activeEntity?.actionEconomy?.flurryAttacksRemaining]);
 
   // Sheet-driven loadout for the active combatant (#98): real weapons + spells
   // + consumables when the roster is bridged in; generic fallback otherwise.
@@ -605,6 +623,9 @@ function LiveBattle({
   function onPickTarget(targetId: string) {
     if (!armed || !activeEntity) return;
     if (armed.kind === "attack") {
+      const flurryActive =
+        flurryStrike &&
+        (activeEntity.actionEconomy?.flurryAttacksRemaining ?? 0) > 0;
       session.attack(
         activeEntity.id,
         targetId,
@@ -613,16 +634,22 @@ function LiveBattle({
         armed.attack.rangeFt,
         {
           ...(stunningStrike ? { stunningStrike: true } : {}),
-          ...(armed.attack.monkWeaponOrUnarmed
+          ...(armed.attack.monkWeaponOrUnarmed || flurryActive
             ? { monkWeaponOrUnarmed: true }
             : {}),
           ...(armed.attack.finesseOrRanged
             ? { finesseOrRanged: true }
             : {}),
           ...(armed.attack.usesStrength ? { usesStrength: true } : {}),
+          ...(frenzyStrike ? { frenzyBonusAttack: true } : {}),
+          ...(flurryActive ? { flurryBonusAttack: true } : {}),
+          ...(flurryActive && openHandTechnique
+            ? { openHandTechnique }
+            : {}),
         },
       );
       setStunningStrike(false);
+      setFrenzyStrike(false);
     } else if (armed.kind === "ready") {
       // Hold the strike; the server fires it when the foe enters this range.
       session.readyAction(
@@ -674,6 +701,15 @@ function LiveBattle({
   const reactionKey = state ? reactionWindowKey(state) : null;
   const showReaction =
     !!reaction && !!reactionKey && reactionKey !== dismissedReaction;
+  const cuttingWords = state
+    ? controllableCuttingWords(state, FIXTURE_BATTLE_PARTY_SIDE)
+    : undefined;
+  const cuttingWordsKey = state ? cuttingWordsWindowKey(state) : null;
+  const showCuttingWords =
+    !!cuttingWords &&
+    !!cuttingWordsKey &&
+    cuttingWordsKey !== dismissedCuttingWords &&
+    !showReaction;
   const reactorSheet = reaction ? loadouts?.[reaction.reactor.id] : undefined;
   const reactorReactionSpells = reaction
     ? reactorSheet
@@ -737,6 +773,24 @@ function LiveBattle({
   function onReactionPassHandler() {
     if (reactionKey) setDismissedReaction(reactionKey);
     onReactionPass?.();
+  }
+
+  function onCuttingWordsUse() {
+    if (!cuttingWords) return;
+    session.cuttingWords(
+      cuttingWords.reactor.id,
+      cuttingWords.against.id,
+      "attack",
+      cuttingWords.total,
+      { natural: cuttingWords.natural, targetAc: cuttingWords.targetAc },
+    );
+    if (cuttingWordsKey) setDismissedCuttingWords(cuttingWordsKey);
+  }
+
+  function onCuttingWordsPass() {
+    if (!cuttingWords) return;
+    session.passCuttingWords(cuttingWords.reactor.id);
+    if (cuttingWordsKey) setDismissedCuttingWords(cuttingWordsKey);
   }
 
   function onCastShieldReaction() {
@@ -1186,6 +1240,10 @@ function LiveBattle({
             onQuickUse={onQuickUseItem}
             showReaction={showReaction}
             reaction={reaction}
+            showCuttingWords={showCuttingWords}
+            cuttingWords={cuttingWords}
+            onCuttingWordsUse={onCuttingWordsUse}
+            onCuttingWordsPass={onCuttingWordsPass}
             reactorReactionSpells={reactorReactionSpells}
             onReactionAttack={onReactionAttack}
             onReactionPass={onReactionPassHandler}
@@ -1208,9 +1266,19 @@ function LiveBattle({
             onStunningStrikeChange={setStunningStrike}
             selectedMetamagic={selectedMetamagic}
             onMetamagicChange={setSelectedMetamagic}
+            flurryStrike={flurryStrike}
+            onFlurryStrikeChange={setFlurryStrike}
+            frenzyStrike={frenzyStrike}
+            onFrenzyStrikeChange={setFrenzyStrike}
+            openHandTechnique={openHandTechnique}
+            onOpenHandTechniqueChange={setOpenHandTechnique}
             onUseClassFeature={(featureKey, opts) => {
               if (!activeEntity) return;
               session.useClassFeature(activeEntity.id, featureKey, opts);
+            }}
+            onFastHands={(action) => {
+              if (!activeEntity) return;
+              session.fastHands(activeEntity.id, action);
             }}
           />
         }

@@ -12,10 +12,11 @@ import type { WeaponAttack } from "@/lib/sheet-loadout";
 import type { SceneTrapInstance } from "@app/engine";
 
 import { CombatActionBar, type ArmedAction } from "./combat-action-bar";
-import { ClassFeatureControls } from "./class-feature-controls";
+import { ClassFeatureControls, type ClassFeatureUseOpts } from "./class-feature-controls";
 import { PoisonTurnControls } from "./poison-turn-controls";
 import { BurningTurnControls } from "./burning-turn-controls";
 import { ReactionPrompt } from "./reaction-prompt";
+import { CuttingWordsPrompt } from "./cutting-words-prompt";
 import { TrapTurnControls } from "./trap-action-bar";
 
 function EconChip({ label, used }: { label: string; used: boolean }) {
@@ -78,6 +79,10 @@ export function CombatTurnBar({
   onQuickUse,
   showReaction,
   reaction,
+  showCuttingWords,
+  cuttingWords,
+  onCuttingWordsUse,
+  onCuttingWordsPass,
   reactorReactionSpells,
   onReactionAttack,
   onReactionPass,
@@ -96,7 +101,14 @@ export function CombatTurnBar({
   onStunningStrikeChange,
   selectedMetamagic,
   onMetamagicChange,
+  flurryStrike,
+  onFlurryStrikeChange,
+  frenzyStrike,
+  onFrenzyStrikeChange,
+  openHandTechnique,
+  onOpenHandTechniqueChange,
   onUseClassFeature,
+  onFastHands,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -139,6 +151,17 @@ export function CombatTurnBar({
   }) => void;
   showReaction: boolean;
   reaction?: { reactor: EntityState; mover: EntityState };
+  showCuttingWords?: boolean;
+  cuttingWords?: {
+    reactor: EntityState;
+    against: EntityState;
+    natural: number;
+    total: number;
+    targetAc: number;
+    hit: boolean;
+  };
+  onCuttingWordsUse?: () => void;
+  onCuttingWordsPass?: () => void;
   reactorReactionSpells: CastableSpell[];
   onReactionAttack?: () => void;
   onReactionPass?: () => void;
@@ -157,12 +180,17 @@ export function CombatTurnBar({
   onStunningStrikeChange?: (value: boolean) => void;
   selectedMetamagic?: string;
   onMetamagicChange?: (value: string | undefined) => void;
-  onUseClassFeature?: (
-    featureKey: string,
-    opts?: {
-      monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
-      beneficiaryId?: string;
-    },
+  flurryStrike?: boolean;
+  onFlurryStrikeChange?: (value: boolean) => void;
+  frenzyStrike?: boolean;
+  onFrenzyStrikeChange?: (value: boolean) => void;
+  openHandTechnique?: "prone" | "push" | "no_reactions";
+  onOpenHandTechniqueChange?: (
+    value: "prone" | "push" | "no_reactions" | undefined,
+  ) => void;
+  onUseClassFeature?: (featureKey: string, opts?: ClassFeatureUseOpts) => void;
+  onFastHands?: (
+    action: "sleight_of_hand" | "thieves_tools" | "use_object",
   ) => void;
 }) {
   const armedMode = armed !== null;
@@ -187,6 +215,21 @@ export function CombatTurnBar({
           onCastShield={onCastShield}
           onTake={onReactionAttack}
           onPass={onReactionPass}
+        />
+      ) : null}
+
+      {showCuttingWords &&
+      cuttingWords &&
+      onCuttingWordsUse &&
+      onCuttingWordsPass ? (
+        <CuttingWordsPrompt
+          reactorName={cuttingWords.reactor.name}
+          againstName={cuttingWords.against.name}
+          attackTotal={cuttingWords.total}
+          targetAc={cuttingWords.targetAc}
+          hit={cuttingWords.hit}
+          onUse={onCuttingWordsUse}
+          onPass={onCuttingWordsPass}
         />
       ) : null}
 
@@ -313,7 +356,14 @@ export function CombatTurnBar({
                     onStunningStrikeChange={onStunningStrikeChange ?? (() => {})}
                     selectedMetamagic={selectedMetamagic}
                     onMetamagicChange={onMetamagicChange ?? (() => {})}
+                    flurryStrike={flurryStrike}
+                    onFlurryStrikeChange={onFlurryStrikeChange}
+                    frenzyStrike={frenzyStrike}
+                    onFrenzyStrikeChange={onFrenzyStrikeChange}
+                    openHandTechnique={openHandTechnique}
+                    onOpenHandTechniqueChange={onOpenHandTechniqueChange}
                     onUseClassFeature={onUseClassFeature}
+                    onFastHands={onFastHands}
                   />
                 ) : null}
                 {nearbyTraps?.length && onDetectTrap && onDisableTrap ? (

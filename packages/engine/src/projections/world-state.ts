@@ -57,6 +57,27 @@ export type EncounterState = {
     eligible: EntityRef[];
     moverAtProvocation: GridPosition;
   };
+  /** Attack roll staged while eligible bards may use Cutting Words. */
+  pendingAttack?: PendingAttackState;
+};
+
+/** Attack paused after the roll until Cutting Words resolve or pass. */
+export type PendingAttackState = {
+  cmd: import("../commands/types").AttackCommand;
+  natural: number;
+  total: number;
+  targetAc: number;
+  hit: boolean;
+  critical: boolean;
+  mode: import("../rng/dice").RollMode;
+  hadBardicInspiration: boolean;
+  eligible: EntityRef[];
+  declined: EntityRef[];
+  spendsAction: boolean;
+  spendsBonusAction: boolean;
+  spendsFlurryAttack: boolean;
+  viaReaction?: boolean;
+  targetPosition?: GridPosition;
 };
 
 export type WorldState = {
@@ -540,6 +561,43 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "PendingAttackStaged": {
+      if (next.encounter) {
+        next.encounter = {
+          ...next.encounter,
+          pendingAttack: {
+            cmd: event.payload.cmd,
+            natural: event.payload.natural,
+            total: event.payload.total,
+            targetAc: event.payload.targetAc,
+            hit: event.payload.hit,
+            critical: event.payload.critical,
+            mode: event.payload.mode,
+            hadBardicInspiration: event.payload.hadBardicInspiration,
+            eligible: [...event.payload.eligible],
+            declined: [...event.payload.declined],
+            spendsAction: event.payload.spendsAction,
+            spendsBonusAction: event.payload.spendsBonusAction,
+            spendsFlurryAttack: event.payload.spendsFlurryAttack,
+            viaReaction: event.payload.viaReaction,
+            targetPosition: event.payload.targetPosition,
+          },
+        };
+      }
+      break;
+    }
+    case "PendingAttackUpdated": {
+      if (next.encounter?.pendingAttack) {
+        next.encounter = {
+          ...next.encounter,
+          pendingAttack: {
+            ...next.encounter.pendingAttack,
+            declined: [...event.payload.declined],
+          },
+        };
+      }
+      break;
+    }
     case "ReactionTaken": {
       const reactor = next.entities[event.payload.reactor];
       if (reactor) {
@@ -979,6 +1037,9 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "Rested":
       break;
     case "AttackResolved": {
+      if (next.encounter?.pendingAttack) {
+        next.encounter = { ...next.encounter, pendingAttack: undefined };
+      }
       const attacker = next.entities[event.payload.attacker];
       if (attacker) {
         let effects = attacker.effects;

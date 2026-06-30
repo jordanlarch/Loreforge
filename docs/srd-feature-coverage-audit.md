@@ -118,7 +118,7 @@ Work end-to-end with deterministic math + tests:
 | SRD-FID-19 | Temp HP | soaks damage first | **`grant_temp_hp` command + False Life** (SRD-FID-19) |
 | ENG-9 | Short rest / Hit Dice | emits `Rested`, optional heal | **no Hit Dice pool tracked** |
 | SRD-FID-20 | Grappled / Frightened / Blinded / Deafened / Petrified / Charmed | declared + core effect | **Done** — `escape_grapple`; frightened LOS gates; blinded/deafened auto-fail; petrified resistances. Charmed social-only facets still deferred. |
-| SRD-FID-21 | Class & subclass features | text + resource counters | **Partial** — Sneak Attack, Rage, Bardic Inspiration (PR #334); Monk Focus + Stunning Strike, Metamagic (Empowered/Heightened), Agonizing Blast (PR pending); subclass mechanics still display-only. |
+| SRD-FID-21 | Class & subclass features | text + resource counters | **Partial** — Sneak Attack, Rage, Bardic Inspiration (PR #334); Monk Focus, Stunning Strike, Metamagic, Agonizing Blast (PR #335); subclass + remaining class features still display-only. |
 | SRD-FID-22 | Species traits | full trait text | **0 mechanical** (Darkvision, Breath Weapon, Lucky, Powerful Build, lineage spells…) |
 | SRD-FID-23 | Feats | full Codex catalog | **8 mechanical**; rest recorded but inert |
 | SRD-FID-24 | Weapons | finesse, reach, ranged ability | Light/Heavy/Loading/Ammunition/Thrown/Versatile/long-range; **weapon mastery display-only** |

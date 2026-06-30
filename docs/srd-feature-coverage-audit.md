@@ -136,7 +136,7 @@ Work end-to-end with deterministic math + tests:
 | ID | Item | Notes |
 |---|---|---|
 | SRD-FID-18 | **Difficult terrain** movement cost | PR #330 — `SceneMap.difficultCells`; `movementCostFeet` doubles entered squares in handler + projection. |
-| SRD-FID-19 | **Resistance / Vulnerability / Immunity** | PR TBD — `adjustDamageAmount` on entity damage lists across damage paths |
+| SRD-FID-19 | **Resistance / Vulnerability / Immunity** | PR #331 — `adjustDamageAmount` on entity damage lists across damage paths |
 | ENG-8 | **Instant death / massive damage**, crit-doubles-death-failures, Stabilize action | partially overlaps SRD-FID-13 |
 | SRD-FID-30 | **Mounted combat**, **Underwater combat** | |
 | SRD-FID-14 | **Two-weapon fighting**, **unarmed strike** rules, **Shove**, **Grapple action** | conditions exist; actions don't |

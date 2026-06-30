@@ -146,6 +146,7 @@ import {
   handleHelp,
   handleHide,
 } from "./standard-action-handlers";
+import { handleUseClassFeature } from "./class-feature-handlers";
 import {
   reject,
   type AbilityCheckCommand,
@@ -3562,5 +3563,7 @@ export function handleCommand(
       return handleHide(command, ctx);
     case "escape_grapple":
       return handleEscapeGrapple(command, ctx);
+    case "use_class_feature":
+      return handleUseClassFeature(command, ctx);
   }
 }

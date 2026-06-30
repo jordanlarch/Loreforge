@@ -155,6 +155,37 @@ describe("isBattleAction", () => {
     ).toBe(false);
   });
 
+  it("accepts FID-21 attack flags and use_class_feature", () => {
+    expect(
+      isBattleAction({
+        type: "attack",
+        attacker: "pc:1",
+        target: "npc:1",
+        attackBonus: 5,
+        damage: { notation: "1d8", type: "slashing" },
+        stunningStrike: true,
+        monkWeaponOrUnarmed: true,
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "cast_spell",
+        caster: "pc:1",
+        spellId: "fire-bolt",
+        slotLevel: 0,
+        metamagic: "empowered",
+      }),
+    ).toBe(true);
+    expect(
+      isBattleAction({
+        type: "use_class_feature",
+        entity: "pc:1",
+        featureKey: "Monk:2:monk-s-focus",
+        monkFocusSpend: "patient_defense",
+      }),
+    ).toBe(true);
+  });
+
   it("accepts coat_weapon and apply_poison (GRILL-LIVE-POISON)", () => {
     expect(
       isBattleAction({

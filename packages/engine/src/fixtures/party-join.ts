@@ -98,6 +98,16 @@ export function partyMemberToEntityInit(
       ? { meleeReachFt: member.meleeReachFt }
       : {}),
     ...(member.spellcasting ? { spellcasting: member.spellcasting } : {}),
+    ...(member.featureChoices
+      ? { featureChoices: { ...member.featureChoices } }
+      : {}),
+    ...(member.resourceUses
+      ? {
+          resourceUses: Object.fromEntries(
+            Object.entries(member.resourceUses).map(([k, v]) => [k, [...v]]),
+          ),
+        }
+      : {}),
   };
 }
 

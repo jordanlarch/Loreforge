@@ -70,6 +70,7 @@ export function FeaturesTab({
   onFeatureResult?: (message: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [bardicTarget, setBardicTarget] = useState<string>("");
   const utils = trpc.useUtils();
   const useFeatureMut = trpc.characters.useFeature.useMutation({
     onSuccess: (data) => {
@@ -278,7 +279,13 @@ export function FeaturesTab({
     onPatchMeta({ resourceUses: { ...resourceUses, [id]: next } });
   }
 
-  function useFeature(row: FeatureRow) {
+  function useFeature(
+    row: FeatureRow,
+    opts?: {
+      monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
+      beneficiaryId?: string;
+    },
+  ) {
     if (!row.uses || row.uses <= 0) return;
     const remaining = remainingFeatureUses(resourceUses[row.id], row.uses);
     if (remaining <= 0) return;
@@ -287,6 +294,8 @@ export function FeaturesTab({
       id: characterId,
       featureKey: row.id,
       useIndex: spentCount,
+      monkFocusSpend: opts?.monkFocusSpend,
+      beneficiaryId: opts?.beneficiaryId,
     });
     onFeatureUse?.(row.name);
   }
@@ -390,6 +399,9 @@ export function FeaturesTab({
             resourceUses={resourceUses}
             onToggleResource={toggleResource}
             onUseFeature={useFeature}
+            bardicTarget={bardicTarget}
+            onBardicTarget={setBardicTarget}
+            selfCharacterId={characterId}
           />
         </SheetSection>
       </div>
@@ -514,11 +526,23 @@ function FeatureList({
   resourceUses,
   onToggleResource,
   onUseFeature,
+  bardicTarget,
+  onBardicTarget,
+  selfCharacterId,
 }: {
   rows: FeatureRow[];
   resourceUses: Record<string, boolean[]>;
   onToggleResource: (id: string, index: number, total: number) => void;
-  onUseFeature: (row: FeatureRow) => void;
+  onUseFeature: (
+    row: FeatureRow,
+    opts?: {
+      monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
+      beneficiaryId?: string;
+    },
+  ) => void;
+  bardicTarget?: string;
+  onBardicTarget?: (target: string) => void;
+  selfCharacterId?: string;
 }) {
   if (rows.length === 0) {
     return <p className="text-sm text-lore-muted">None yet.</p>;
@@ -531,6 +555,9 @@ function FeatureList({
         const remaining = hasUses
           ? remainingFeatureUses(resourceUses[row.id], row.uses!)
           : 0;
+
+        const isMonkFocus = row.id.includes("monk-s-focus");
+        const isBardic = row.id.includes("bardic-inspiration");
 
         return (
           <li
@@ -557,14 +584,62 @@ function FeatureList({
                         onToggleResource(row.id, i, row.uses!)
                       }
                     />
-                    <button
-                      type="button"
-                      onClick={() => onUseFeature(row)}
-                      disabled={remaining <= 0}
-                      className="rounded border border-lore-accent bg-lore-accent-dim px-2 py-0.5 text-xs text-lore-text disabled:opacity-40"
-                    >
-                      Use
-                    </button>
+                    {isMonkFocus ? (
+                      <div className="flex flex-wrap gap-1">
+                        {(
+                          [
+                            ["patient_defense", "Patient Defense"],
+                            ["step_of_wind", "Step of Wind"],
+                            ["flurry", "Flurry"],
+                          ] as const
+                        ).map(([mode, label]) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            disabled={remaining <= 0}
+                            onClick={() =>
+                              onUseFeature(row, { monkFocusSpend: mode })
+                            }
+                            className="rounded border border-lore-accent bg-lore-accent-dim px-2 py-0.5 text-xs text-lore-text disabled:opacity-40"
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : isBardic ? (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <input
+                          type="text"
+                          value={bardicTarget ?? selfCharacterId ?? ""}
+                          onChange={(e) => onBardicTarget?.(e.target.value)}
+                          placeholder="Ally character id"
+                          className="w-28 rounded border border-lore-border bg-lore-surface px-2 py-0.5 text-xs"
+                          aria-label="Bardic Inspiration ally"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUseFeature(row, {
+                              beneficiaryId:
+                                bardicTarget?.trim() || selfCharacterId,
+                            })
+                          }
+                          disabled={remaining <= 0}
+                          className="rounded border border-lore-accent bg-lore-accent-dim px-2 py-0.5 text-xs text-lore-text disabled:opacity-40"
+                        >
+                          Grant
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onUseFeature(row)}
+                        disabled={remaining <= 0}
+                        className="rounded border border-lore-accent bg-lore-accent-dim px-2 py-0.5 text-xs text-lore-text disabled:opacity-40"
+                      >
+                        Use
+                      </button>
+                    )}
                   </>
                 )}
               </div>

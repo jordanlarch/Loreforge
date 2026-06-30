@@ -137,6 +137,10 @@ const commandSchema = z.discriminatedUnion("type", [
     attackBonus: z.number().int(),
     damage: z.object({ notation: z.string(), type: z.string() }),
     mode: rollMode.optional(),
+    stunningStrike: z.boolean().optional(),
+    monkWeaponOrUnarmed: z.boolean().optional(),
+    finesseOrRanged: z.boolean().optional(),
+    usesStrength: z.boolean().optional(),
   }),
   z.object({
     type: z.literal("apply_condition"),
@@ -201,6 +205,25 @@ const commandSchema = z.discriminatedUnion("type", [
     }),
   }),
   z.object({ type: z.literal("trigger_readied"), entity: z.string() }),
+  z.object({
+    type: z.literal("cast_spell"),
+    caster: z.string(),
+    spellId: z.string(),
+    slotLevel: z.number().int(),
+    targets: z.array(z.string()).optional(),
+    origin: gridPosition.optional(),
+    mode: rollMode.optional(),
+    metamagic: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("use_class_feature"),
+    entity: z.string(),
+    featureKey: z.string(),
+    monkFocusSpend: z
+      .enum(["flurry", "patient_defense", "step_of_wind"])
+      .optional(),
+    beneficiaryId: z.string().optional(),
+  }),
 ]);
 
 export const engineRouter = createTRPCRouter({

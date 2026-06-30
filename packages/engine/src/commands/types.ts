@@ -470,6 +470,17 @@ export type EscapeGrappleCommand = {
   mode?: RollMode;
 };
 
+/** Spend a class feature use during live play (Rage, Monk Focus, Bardic Inspiration, …). */
+export type UseClassFeatureCommand = {
+  type: "use_class_feature";
+  entity: EntityRef;
+  featureKey: string;
+  /** Ally receiving Bardic Inspiration. */
+  beneficiaryId?: EntityRef;
+  /** Monk's Focus spend variant. */
+  monkFocusSpend?: "flurry" | "patient_defense" | "step_of_wind";
+};
+
 export type Command =
   | CreateSceneCommand
   | ChangeSceneCommand
@@ -526,7 +537,8 @@ export type Command =
   | DodgeCommand
   | HelpCommand
   | HideCommand
-  | EscapeGrappleCommand;
+  | EscapeGrappleCommand
+  | UseClassFeatureCommand;
 
 export type CommandType = Command["type"];
 

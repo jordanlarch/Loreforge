@@ -733,6 +733,10 @@ export const charactersRouter = createTRPCRouter({
         id: z.string().uuid(),
         featureKey: z.string().trim().min(3).max(120),
         useIndex: z.number().int().min(0).default(0),
+        monkFocusSpend: z
+          .enum(["flurry", "patient_defense", "step_of_wind"])
+          .optional(),
+        beneficiaryId: z.string().trim().min(1).max(120).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -781,6 +785,8 @@ export const charactersRouter = createTRPCRouter({
         maxHp: effectiveMax,
         rng,
         useIndex: input.useIndex,
+        monkFocusSpend: input.monkFocusSpend,
+        beneficiaryId: input.beneficiaryId,
       });
 
       if (!result.ok) {
@@ -806,6 +812,42 @@ export const charactersRouter = createTRPCRouter({
         nextMeta = {
           ...nextMeta,
           actionSurgeReady: true,
+        };
+      }
+
+      if (result.selfEffects?.length) {
+        nextMeta = {
+          ...nextMeta,
+          activeEffects: [
+            ...(parsedNotes.meta.activeEffects ?? []),
+            ...result.selfEffects.map((e) => ({
+              id: e.id,
+              name: e.name,
+              mod:
+                e.modifier.type === "damage_resistance"
+                  ? `Resist ${e.modifier.types.join("/")}`
+                  : e.modifier.type === "rage_damage_bonus"
+                    ? `+${e.modifier.amount} damage`
+                    : e.modifier.type,
+              affects: "self",
+              enabled: true,
+            })),
+          ],
+        };
+      }
+
+      if (result.startDodging) {
+        nextMeta = { ...nextMeta, dodging: true };
+      }
+      if (result.startDisengage) {
+        nextMeta = { ...nextMeta, disengaged: true };
+      }
+      if (result.bonusMovementFeet != null && result.bonusMovementFeet > 0) {
+        nextMeta = {
+          ...nextMeta,
+          bonusMovementFeet:
+            (parsedNotes.meta.bonusMovementFeet ?? 0) +
+            result.bonusMovementFeet,
         };
       }
 

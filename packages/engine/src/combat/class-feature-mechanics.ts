@@ -414,3 +414,39 @@ export function cuttingWordsEligibleReactors(
   }
   return eligible;
 }
+
+/** Spellcasters who may react with Counterspell to a visible cast (SRD). */
+export function counterspellEligibleReactors(
+  world: CuttingWordsWorld,
+  castingCasterId: string,
+): string[] {
+  const caster = world.entities[castingCasterId];
+  if (!caster?.alive) return [];
+  const eligible: string[] = [];
+  for (const [id, entity] of Object.entries(world.entities)) {
+    if (!entity?.alive || id === castingCasterId) continue;
+    if (entity.reaction !== undefined && entity.reaction !== "available") {
+      continue;
+    }
+    if (entityReactionsSuppressed(entity)) continue;
+    if (!entity.spellcasting) continue;
+    const prepared = entity.spellcasting.preparedSpellIds;
+    if (!prepared?.includes("counterspell")) continue;
+    const slots = entity.spellcasting.slots ?? {};
+    const hasSlot = Object.entries(slots).some(
+      ([level, slot]) => Number(level) >= 3 && slot.current > 0,
+    );
+    if (!hasSlot) continue;
+    if (
+      entity.position &&
+      caster.position &&
+      entity.sceneId &&
+      entity.sceneId === caster.sceneId &&
+      distanceFeet(entity.position, caster.position) > 60
+    ) {
+      continue;
+    }
+    eligible.push(id);
+  }
+  return eligible;
+}

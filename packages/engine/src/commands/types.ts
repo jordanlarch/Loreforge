@@ -339,6 +339,13 @@ export type CastSpellCommand = {
    * Counterspell only: slot level of the spell being interrupted.
    */
   counteredSpellSlotLevel?: number;
+  /** Internal: skip staging for Counterspell reaction window. */
+  _skipCounterspellStage?: boolean;
+};
+
+export type PassCounterspellCommand = {
+  type: "pass_counterspell";
+  reactor: EntityRef;
 };
 
 export type DetectTrapCommand = {
@@ -618,7 +625,8 @@ export type Command =
   | UseClassFeatureCommand
   | CuttingWordsCommand
   | FastHandsCommand
-  | PassCuttingWordsCommand;
+  | PassCuttingWordsCommand
+  | PassCounterspellCommand;
 
 export type CommandType = Command["type"];
 

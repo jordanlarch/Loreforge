@@ -607,6 +607,9 @@ export function isBattleAction(value: unknown): value is BattleAction {
   if (action.type === "pass_cutting_words") {
     return typeof action.reactor === "string";
   }
+  if (action.type === "pass_counterspell") {
+    return typeof action.reactor === "string";
+  }
   if (action.type === "short_rest") {
     const levels = action.naturalRecoverySlotLevels as unknown;
     const levelsOk =

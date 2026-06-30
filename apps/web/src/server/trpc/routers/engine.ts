@@ -250,6 +250,10 @@ const commandSchema = z.discriminatedUnion("type", [
     type: z.literal("pass_cutting_words"),
     reactor: z.string(),
   }),
+  z.object({
+    type: z.literal("pass_counterspell"),
+    reactor: z.string(),
+  }),
 ]);
 
 export const engineRouter = createTRPCRouter({

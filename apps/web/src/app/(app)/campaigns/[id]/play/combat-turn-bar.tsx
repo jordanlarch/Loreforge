@@ -17,6 +17,7 @@ import { PoisonTurnControls } from "./poison-turn-controls";
 import { BurningTurnControls } from "./burning-turn-controls";
 import { ReactionPrompt } from "./reaction-prompt";
 import { CuttingWordsPrompt } from "./cutting-words-prompt";
+import { CounterspellPrompt } from "./counterspell-prompt";
 import { TrapTurnControls } from "./trap-action-bar";
 
 function EconChip({ label, used }: { label: string; used: boolean }) {
@@ -83,6 +84,10 @@ export function CombatTurnBar({
   cuttingWords,
   onCuttingWordsUse,
   onCuttingWordsPass,
+  showCounterspell,
+  counterspell,
+  onCounterspellUse,
+  onCounterspellPass,
   reactorReactionSpells,
   onReactionAttack,
   onReactionPass,
@@ -162,6 +167,16 @@ export function CombatTurnBar({
   };
   onCuttingWordsUse?: () => void;
   onCuttingWordsPass?: () => void;
+  showCounterspell?: boolean;
+  counterspell?: {
+    reactor: EntityState;
+    casting: EntityState;
+    spellName: string;
+    slotLevel: number;
+    counterspellSlotLevel: number;
+  };
+  onCounterspellUse?: () => void;
+  onCounterspellPass?: () => void;
   reactorReactionSpells: CastableSpell[];
   onReactionAttack?: () => void;
   onReactionPass?: () => void;
@@ -230,6 +245,21 @@ export function CombatTurnBar({
           hit={cuttingWords.hit}
           onUse={onCuttingWordsUse}
           onPass={onCuttingWordsPass}
+        />
+      ) : null}
+
+      {showCounterspell &&
+      counterspell &&
+      onCounterspellUse &&
+      onCounterspellPass ? (
+        <CounterspellPrompt
+          reactorName={counterspell.reactor.name}
+          castingName={counterspell.casting.name}
+          spellName={counterspell.spellName}
+          slotLevel={counterspell.slotLevel}
+          counterspellSlotLevel={counterspell.counterspellSlotLevel}
+          onUse={onCounterspellUse}
+          onPass={onCounterspellPass}
         />
       ) : null}
 

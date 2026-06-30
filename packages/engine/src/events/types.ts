@@ -547,6 +547,28 @@ export type PendingAttackUpdatedPayload = {
   declined: EntityRef[];
 };
 
+export type ActionSurgeGrantedPayload = {
+  entity: EntityRef;
+};
+
+export type PendingSpellCastStagedPayload = {
+  cmd: import("../commands/types").CastSpellCommand;
+  slotLevel: number;
+  eligible: EntityRef[];
+  declined: EntityRef[];
+};
+
+export type PendingSpellCastUpdatedPayload = {
+  declined: EntityRef[];
+};
+
+export type SpellCastCancelledPayload = {
+  caster: EntityRef;
+  spellId: string;
+  spellName: string;
+  counteredBy: EntityRef;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -631,6 +653,22 @@ export type EngineEvent =
   | (EventMeta & {
       type: "PendingAttackUpdated";
       payload: PendingAttackUpdatedPayload;
+    })
+  | (EventMeta & {
+      type: "ActionSurgeGranted";
+      payload: ActionSurgeGrantedPayload;
+    })
+  | (EventMeta & {
+      type: "PendingSpellCastStaged";
+      payload: PendingSpellCastStagedPayload;
+    })
+  | (EventMeta & {
+      type: "PendingSpellCastUpdated";
+      payload: PendingSpellCastUpdatedPayload;
+    })
+  | (EventMeta & {
+      type: "SpellCastCancelled";
+      payload: SpellCastCancelledPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
   | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })

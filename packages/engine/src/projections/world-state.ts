@@ -63,6 +63,16 @@ export type EncounterState = {
   };
   /** Attack roll staged while eligible bards may use Cutting Words. */
   pendingAttack?: PendingAttackState;
+  /** Spell cast staged while eligible casters may Counterspell. */
+  pendingSpellCast?: PendingSpellCastState;
+};
+
+/** Spell cast paused until Counterspell reactions resolve or pass. */
+export type PendingSpellCastState = {
+  cmd: import("../commands/types").CastSpellCommand;
+  slotLevel: number;
+  eligible: EntityRef[];
+  declined: EntityRef[];
 };
 
 /** Attack paused after the roll until Cutting Words resolve or pass. */
@@ -620,6 +630,52 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "ActionSurgeGranted": {
+      const entity = next.entities[event.payload.entity];
+      if (entity?.actionEconomy) {
+        next.entities[entity.id] = {
+          ...entity,
+          actionEconomy: {
+            ...entity.actionEconomy,
+            action: "available",
+            attacks: { ...entity.actionEconomy.attacks, used: 0 },
+          },
+        };
+      }
+      break;
+    }
+    case "PendingSpellCastStaged": {
+      if (next.encounter) {
+        next.encounter = {
+          ...next.encounter,
+          pendingSpellCast: {
+            cmd: event.payload.cmd,
+            slotLevel: event.payload.slotLevel,
+            eligible: [...event.payload.eligible],
+            declined: [...event.payload.declined],
+          },
+        };
+      }
+      break;
+    }
+    case "PendingSpellCastUpdated": {
+      if (next.encounter?.pendingSpellCast) {
+        next.encounter = {
+          ...next.encounter,
+          pendingSpellCast: {
+            ...next.encounter.pendingSpellCast,
+            declined: [...event.payload.declined],
+          },
+        };
+      }
+      break;
+    }
+    case "SpellCastCancelled": {
+      if (next.encounter?.pendingSpellCast) {
+        next.encounter = { ...next.encounter, pendingSpellCast: undefined };
+      }
+      break;
+    }
     case "ReactionTaken": {
       const reactor = next.entities[event.payload.reactor];
       if (reactor) {
@@ -802,6 +858,9 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       break;
     }
     case "SpellCast": {
+      if (next.encounter?.pendingSpellCast) {
+        next.encounter = { ...next.encounter, pendingSpellCast: undefined };
+      }
       // A bonus-action cast consumes the bonus action while on the clock; HP /
       // slot changes ride on paired Healing/Damage/Slot events.
       if (event.payload.bonusAction) {

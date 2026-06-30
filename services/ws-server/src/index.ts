@@ -749,6 +749,9 @@ async function runEnemyTurns(
 ): Promise<void> {
   let state = await room.getState();
   if (!activeEnemy(state)) return;
+  if (state.encounter?.pendingAttack || state.encounter?.pendingSpellCast) {
+    return;
+  }
 
   if (client) setThinking(document, true);
   try {
@@ -797,10 +800,27 @@ async function runEnemyTurns(
             break;
           }
         }
+        if (action.type === "cast_spell") {
+          await appendAndPersist(document, documentName, [
+            resolutionEntry(
+              action,
+              summary as Record<string, unknown> | undefined,
+              nameResolver(state),
+              chatDeps,
+            ),
+          ]);
+          if (state.encounter?.pendingSpellCast) {
+            break;
+          }
+        }
         // A foe advancing may step into the range a player readied a strike for;
         // resolve held actions now (it can interrupt the foe's own attack).
         await runReadiedTriggers(room, document, documentName, client);
         state = await room.getState();
+      }
+
+      if (state.encounter?.pendingAttack || state.encounter?.pendingSpellCast) {
+        break;
       }
 
       if (client) {
@@ -1642,6 +1662,14 @@ const server = new Hocuspocus({
             }
           }
         } else {
+          const afterCmd = await room.getState();
+          if (
+            afterCmd.encounter?.pendingAttack ||
+            afterCmd.encounter?.pendingSpellCast
+          ) {
+            clearClientBusy(document);
+            return;
+          }
           await runEnemyReactions(room, document, documentName, getNarrationClient());
           await runEnemyTurns(room, document, documentName, getNarrationClient());
         }

@@ -280,6 +280,14 @@ export function handleUseClassFeature(
     });
   }
 
+  if (result.kind === "extra_action") {
+    events.push({
+      type: "ActionSurgeGranted",
+      ...meta(ctx, entity.id),
+      payload: { entity: entity.id },
+    });
+  }
+
   return {
     accepted: true,
     events,

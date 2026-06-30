@@ -179,7 +179,7 @@ describe("Spells: Cure Wounds (touch heal, +spell mod, upcast)", () => {
     expect(ally.deathSaves).toBeUndefined();
   });
 
-  it("refuses a truly dead target", async () => {
+  it("refuses a truly dead target for Cure Wounds", async () => {
     const engine = new Engine({ now: () => 1 });
     await setup(engine, { allyMaxHp: 10 });
     // Down the ally, then three more hits while at 0 HP ⇒ 3 failures ⇒ dead.
@@ -202,6 +202,70 @@ describe("Spells: Cure Wounds (touch heal, +spell mod, upcast)", () => {
     });
     expect(result.accepted).toBe(false);
     if (!result.accepted) expect(result.reason.code).toBe("INVALID_TARGET");
+  });
+
+  it("Revivify raises a dead creature to 1 HP", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: { id: "s:1", name: "Camp" },
+    });
+    await engine.execute(CAMPAIGN, { type: "change_scene", sceneId: "s:1" });
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:cleric",
+        kind: "character",
+        name: "Cleric",
+        abilityScores: SCORES,
+        maxHp: 30,
+        baseAc: 13,
+        sceneId: "s:1",
+        classes: [{ class: "Cleric", level: 5 }],
+        spellcasting: {
+          ability: "wis",
+          casterLevel: 5,
+          preparedSpellIds: ["revivify"],
+        },
+      },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:ally",
+        kind: "character",
+        name: "Ally",
+        abilityScores: SCORES,
+        maxHp: 10,
+        baseAc: 13,
+        sceneId: "s:1",
+      },
+    });
+    for (let i = 0; i < 4; i += 1) {
+      await engine.execute(CAMPAIGN, {
+        type: "apply_damage",
+        target: "pc:ally",
+        damageType: "necrotic",
+        source: { amount: 20 },
+      });
+    }
+    expect((await engine.getState(CAMPAIGN)).entities["pc:ally"]?.dead).toBe(
+      true,
+    );
+
+    const result = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:cleric",
+      spellId: "revivify",
+      slotLevel: 3,
+      targets: ["pc:ally"],
+    });
+    expect(result.accepted).toBe(true);
+    const ally = (await engine.getState(CAMPAIGN)).entities["pc:ally"]!;
+    expect(ally.dead).toBe(false);
+    expect(ally.alive).toBe(true);
+    expect(ally.hp.current).toBe(1);
+    expect(ally.deathSaves).toBeUndefined();
   });
 });
 

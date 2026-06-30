@@ -473,6 +473,8 @@ export function isBattleAction(value: unknown): value is BattleAction {
     beneficiaryId?: unknown;
     rageFrenzy?: unknown;
     channelDivinitySpend?: unknown;
+    layOnHandsHealAmount?: unknown;
+    layOnHandsPurify?: unknown;
     frenzyBonusAttack?: unknown;
     flurryBonusAttack?: unknown;
     openHandTechnique?: unknown;
@@ -578,8 +580,16 @@ export function isBattleAction(value: unknown): value is BattleAction {
       cdOk &&
       (action.rageFrenzy === undefined || typeof action.rageFrenzy === "boolean") &&
       (action.beneficiaryId === undefined ||
-        typeof action.beneficiaryId === "string")
+        typeof action.beneficiaryId === "string") &&
+      (action.layOnHandsHealAmount === undefined ||
+        (typeof action.layOnHandsHealAmount === "number" &&
+          Number.isFinite(action.layOnHandsHealAmount))) &&
+      (action.layOnHandsPurify === undefined ||
+        typeof action.layOnHandsPurify === "boolean")
     );
+  }
+  if (action.type === "pass_indomitable") {
+    return typeof action.entity === "string";
   }
   if (action.type === "fast_hands") {
     return (

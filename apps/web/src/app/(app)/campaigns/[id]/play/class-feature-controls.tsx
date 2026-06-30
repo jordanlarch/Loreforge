@@ -22,6 +22,8 @@ export type ClassFeatureUseOpts = {
   beneficiaryId?: string;
   rageFrenzy?: boolean;
   channelDivinitySpend?: "divine_sense" | "sacred_weapon" | "turn_undead";
+  layOnHandsHealAmount?: number;
+  layOnHandsPurify?: boolean;
 };
 
 function hasMonkFocus(entity: EntityState): boolean {
@@ -59,6 +61,26 @@ function actionSurgeKey(entity: EntityState): string | undefined {
   return featureResourceKey("Fighter", 2, feat.id);
 }
 
+function secondWindKey(entity: EntityState): string | undefined {
+  const level = classLevel(entity.classes ?? [], "Fighter");
+  if (level < 1) return undefined;
+  const feat = classFeaturesForLevel("Fighter", 1).find(
+    (f) => f.id === "second-wind",
+  );
+  if (!feat) return undefined;
+  return featureResourceKey("Fighter", 1, feat.id);
+}
+
+function layOnHandsKey(entity: EntityState): string | undefined {
+  const level = classLevel(entity.classes ?? [], "Paladin");
+  if (level < 1) return undefined;
+  const feat = classFeaturesForLevel("Paladin", 1).find(
+    (f) => f.id === "lay-on-hands",
+  );
+  if (!feat) return undefined;
+  return featureResourceKey("Paladin", 1, feat.id);
+}
+
 export function ClassFeatureControls({
   entity,
   disabled,
@@ -74,6 +96,8 @@ export function ClassFeatureControls({
   onOpenHandTechniqueChange,
   onUseClassFeature,
   onFastHands,
+  onArmLayOnHands,
+  onArmTurnUndead,
 }: {
   entity: EntityState;
   disabled?: boolean;
@@ -89,6 +113,10 @@ export function ClassFeatureControls({
   onOpenHandTechniqueChange?: (value: OpenHandTechnique | undefined) => void;
   onUseClassFeature: (featureKey: string, opts?: ClassFeatureUseOpts) => void;
   onFastHands?: (action: FastHandsAction) => void;
+  /** Arm map picker for Lay on Hands ally heal. */
+  onArmLayOnHands?: (featureKey: string) => void;
+  /** Arm map picker for Turn Undead target. */
+  onArmTurnUndead?: (featureKey: string) => void;
 }) {
   const focusKey = monkFocusKey(entity);
   const focusFeat = focusKey
@@ -143,6 +171,7 @@ export function ClassFeatureControls({
     cdKey &&
     cdRemaining > 0 &&
     hasClassSubclass(entity.classes, "Paladin", "Oath of Devotion");
+  const showChannelDivinity = cdKey && cdRemaining > 0;
 
   const surgeKey = actionSurgeKey(entity);
   const surgeFeat = surgeKey
@@ -153,6 +182,30 @@ export function ClassFeatureControls({
       ? remainingFeatureUses(
           entity.resourceUses?.[surgeKey],
           effectiveFeaturePoolSize(surgeKey, entity.classes, surgeFeat.uses),
+        )
+      : 0;
+
+  const swKey = secondWindKey(entity);
+  const swFeat = swKey
+    ? classFeaturesForLevel("Fighter", 1).find((f) => f.id === "second-wind")
+    : undefined;
+  const swRemaining =
+    swKey && swFeat?.uses && entity.classes
+      ? remainingFeatureUses(
+          entity.resourceUses?.[swKey],
+          effectiveFeaturePoolSize(swKey, entity.classes, swFeat.uses),
+        )
+      : 0;
+
+  const lohKey = layOnHandsKey(entity);
+  const lohFeat = lohKey
+    ? classFeaturesForLevel("Paladin", 1).find((f) => f.id === "lay-on-hands")
+    : undefined;
+  const lohPoolRemaining =
+    lohKey && lohFeat?.uses && entity.classes
+      ? remainingFeatureUses(
+          entity.resourceUses?.[lohKey],
+          effectiveFeaturePoolSize(lohKey, entity.classes, lohFeat.uses),
         )
       : 0;
 
@@ -172,7 +225,10 @@ export function ClassFeatureControls({
     !showMetamagic &&
     !rageKey &&
     !showSacredWeapon &&
+    !showChannelDivinity &&
     !surgeKey &&
+    !swKey &&
+    !lohKey &&
     !showFastHands &&
     flurryAttacksLeft < 1 &&
     !frenzied
@@ -263,6 +319,55 @@ export function ClassFeatureControls({
           className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
         >
           Sacred Weapon
+        </button>
+      ) : null}
+
+      {showChannelDivinity ? (
+        <>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() =>
+              onUseClassFeature(cdKey!, {
+                channelDivinitySpend: "divine_sense",
+              })
+            }
+            className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
+          >
+            Divine Sense
+          </button>
+          {onArmTurnUndead ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onArmTurnUndead(cdKey!)}
+              className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
+            >
+              Turn Undead
+            </button>
+          ) : null}
+        </>
+      ) : null}
+
+      {swKey && swRemaining > 0 ? (
+        <button
+          type="button"
+          disabled={disabled || !bonusActionFree}
+          onClick={() => onUseClassFeature(swKey)}
+          className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
+        >
+          Second Wind
+        </button>
+      ) : null}
+
+      {lohKey && lohPoolRemaining >= 5 && onArmLayOnHands ? (
+        <button
+          type="button"
+          disabled={disabled || !bonusActionFree}
+          onClick={() => onArmLayOnHands(lohKey)}
+          className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
+        >
+          Lay on Hands (+5)
         </button>
       ) : null}
 

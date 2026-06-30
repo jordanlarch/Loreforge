@@ -150,7 +150,7 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
           : { x: 10, y: 10 };
     return { ...base, origin };
   }
-  if (spell.healing) {
+  if (spell.healing && spell.id !== "revivify") {
     return {
       ...base,
       targets:
@@ -160,6 +160,9 @@ function castFor(spell: SpellDefinition): CastSpellCommand {
             ? ["a1", "a2"]
             : ["a1"],
     };
+  }
+  if (spell.id === "revivify") {
+    return { ...base, targets: ["a1"] };
   }
   if (spell.targeting === "self" && spell.id === "misty-step") {
     return { ...base, origin: { x: 0, y: -2 } };
@@ -208,6 +211,12 @@ function summarize(spell: SpellDefinition, events: DraftEvent[]): GoldenRecord {
       .filter((e) => e.type === "DamageDealt")
       .map((e) => (e.payload as { target: string }).target),
   );
+  const revivedHp = events
+    .filter((e) => e.type === "CreatureRevived")
+    .reduce(
+      (s, e) => s + ((e.payload as { hp: number }).hp ?? 0),
+      0,
+    );
   return {
     accepted: true,
     slotSpent: events.some((e) => e.type === "SpellSlotExpended") ? spell.level : 0,
@@ -215,7 +224,7 @@ function summarize(spell: SpellDefinition, events: DraftEvent[]): GoldenRecord {
     attackHits: attacks.filter((e) => (e.payload as { hit: boolean }).hit).length,
     saves: events.filter((e) => e.type === "SaveRolled").length,
     damageDealt: sum("DamageDealt", "amount"),
-    healingApplied: sum("HealingApplied", "amount"),
+    healingApplied: sum("HealingApplied", "amount") + revivedHp,
     damagedTargets: damaged.size,
   };
 }
@@ -228,6 +237,16 @@ describe("Spells: golden resolution snapshots", () => {
       const spell = SPELL_REGISTRY[id]!;
       const engine = new Engine({ now: () => SEED });
       await setupArena(engine);
+      if (id === "revivify") {
+        for (let i = 0; i < 4; i += 1) {
+          await engine.execute(CAMPAIGN, {
+            type: "apply_damage",
+            target: "a1",
+            damageType: "necrotic",
+            source: { amount: 100 },
+          });
+        }
+      }
       const result = await engine.execute(CAMPAIGN, castFor(spell));
 
       // A registry spell that no longer casts cleanly is a regression, not a

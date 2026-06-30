@@ -13,6 +13,8 @@ import {
   areHostile,
   FEET_PER_CELL,
   getSpell,
+  indomitableAvailable,
+  indomitableFeatureKey,
   withinBurst,
   withinCone,
   withinCube,
@@ -366,6 +368,40 @@ export function counterspellWindowKey(state: WorldState): string | null {
   const pending = state.encounter?.pendingSpellCast;
   if (!pending) return null;
   return `${pending.cmd.caster}:${pending.cmd.spellId}:${pending.slotLevel}`;
+}
+
+/** Party-controlled Fighter who may reroll a staged failed save with Indomitable. */
+export function controllableIndomitable(
+  state: WorldState,
+  controlledSide: string,
+):
+  | {
+      entity: EntityState;
+      ability: string;
+      dc: number;
+      featureKey: string;
+    }
+  | undefined {
+  const pending = state.encounter?.pendingIndomitable;
+  if (!pending || !state.encounter) return undefined;
+  if (state.encounter.sides[pending.entity] !== controlledSide) return undefined;
+  const entity = state.entities[pending.entity];
+  if (!entity?.alive || !indomitableAvailable(entity)) return undefined;
+  const featureKey = indomitableFeatureKey(entity);
+  if (!featureKey) return undefined;
+  return {
+    entity,
+    ability: pending.ability,
+    dc: pending.dc,
+    featureKey,
+  };
+}
+
+/** Stable key for a staged Indomitable window. */
+export function indomitableWindowKey(state: WorldState): string | null {
+  const pending = state.encounter?.pendingIndomitable;
+  if (!pending) return null;
+  return `${pending.entity}:${pending.ability}:${pending.dc}`;
 }
 
 /**

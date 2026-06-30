@@ -82,6 +82,8 @@ export type PartyMember = {
   classes: ClassLevel[];
   /** Class saving-throw proficiencies (SRD-FID-16). */
   saveProficiencies?: Ability[];
+  /** Skill proficiencies from sheet (SRD-FID-16). */
+  skillProficiencies?: string[];
   /** Class-feature picks (Metamagic, Invocations, …) from character sheet meta. */
   featureChoices?: Record<string, string>;
   /** Spent class-feature pools synced from sheet meta. */
@@ -180,6 +182,7 @@ export const FIXTURE_PARTY: PartyMember[] = [
     speed: FIXTURE_CHARACTERS[0]!.speed,
     classes: FIXTURE_CHARACTERS[0]!.classes,
     saveProficiencies: FIXTURE_CHARACTERS[0]!.saveProficiencies,
+    skillProficiencies: FIXTURE_CHARACTERS[0]!.skillProficiencies,
   },
   {
     id: FIXTURE_CHARACTERS[1]!.id,
@@ -190,6 +193,7 @@ export const FIXTURE_PARTY: PartyMember[] = [
     speed: FIXTURE_CHARACTERS[1]!.speed,
     classes: FIXTURE_CHARACTERS[1]!.classes,
     saveProficiencies: FIXTURE_CHARACTERS[1]!.saveProficiencies,
+    skillProficiencies: FIXTURE_CHARACTERS[1]!.skillProficiencies,
     // The Bard is a caster so the live cast loop (#58) is exercisable.
     spellcasting: { ability: "cha" },
   },
@@ -251,6 +255,9 @@ export function buildPartyBattleCommands(
         classes: m.classes,
         ...(m.saveProficiencies?.length
           ? { saveProficiencies: m.saveProficiencies }
+          : {}),
+        ...(m.skillProficiencies?.length
+          ? { skillProficiencies: m.skillProficiencies }
           : {}),
         sceneId: FIXTURE_BATTLE_SCENE_ID,
         position: PARTY_POSITIONS[i]!,

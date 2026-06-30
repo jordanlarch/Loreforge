@@ -731,3 +731,97 @@ describe("SRD-FID-21: Action Surge", () => {
     expect(again.accepted).toBe(true);
   });
 });
+
+describe("SRD-FID-21: Fighter — Indomitable", () => {
+  it("stages a window after a failed save and rerolls with Fighter level bonus", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:fighter",
+      { x: 0, y: 0 },
+      [{ class: "Fighter", level: 9 }],
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, []);
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:fighter", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:fighter": 20, "npc:foe": 0 },
+    });
+
+    const fail = await engine.execute(CAMPAIGN, {
+      type: "saving_throw",
+      entity: "pc:fighter",
+      ability: "wis",
+      dc: 30,
+    });
+    expect(fail.accepted).toBe(true);
+    if (!fail.accepted) return;
+    const firstSave = fail.events.find((e) => e.type === "SaveRolled")?.payload as
+      | { success: boolean }
+      | undefined;
+    expect(firstSave?.success).toBe(false);
+
+    let state = await engine.getState(CAMPAIGN);
+    expect(state.encounter?.pendingIndomitable?.entity).toBe("pc:fighter");
+    expect(state.encounter?.pendingIndomitable?.ability).toBe("wis");
+
+    const key = featureResourceKey("Fighter", 9, "indomitable");
+    const reroll = await engine.execute(CAMPAIGN, {
+      type: "use_class_feature",
+      entity: "pc:fighter",
+      featureKey: key,
+    });
+    expect(reroll.accepted).toBe(true);
+    if (!reroll.accepted) return;
+    expect(
+      reroll.events.some((e) => e.type === "PendingIndomitableResolved"),
+    ).toBe(true);
+    const secondSave = reroll.events.find((e) => e.type === "SaveRolled")
+      ?.payload as { indomitableReroll?: boolean; total: number } | undefined;
+    expect(secondSave?.indomitableReroll).toBe(true);
+    expect(secondSave!.total).toBeGreaterThanOrEqual(9);
+
+    state = await engine.getState(CAMPAIGN);
+    expect(state.encounter?.pendingIndomitable).toBeUndefined();
+  });
+
+  it("pass_indomitable clears the window without spending Indomitable", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(
+      engine,
+      "pc:fighter",
+      { x: 0, y: 0 },
+      [{ class: "Fighter", level: 9 }],
+    );
+    await place(engine, "npc:foe", { x: 1, y: 0 }, []);
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:fighter", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:fighter": 20, "npc:foe": 0 },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "saving_throw",
+      entity: "pc:fighter",
+      ability: "wis",
+      dc: 30,
+    });
+
+    const key = featureResourceKey("Fighter", 9, "indomitable");
+    const pass = await engine.execute(CAMPAIGN, {
+      type: "pass_indomitable",
+      entity: "pc:fighter",
+    });
+    expect(pass.accepted).toBe(true);
+    const fighter = (await engine.getState(CAMPAIGN)).entities["pc:fighter"]!;
+    expect(fighter.resourceUses?.[key]).toBeUndefined();
+    expect((await engine.getState(CAMPAIGN)).encounter?.pendingIndomitable).toBeUndefined();
+  });
+});

@@ -9,7 +9,9 @@
 import {
   abilityModifier,
   isSaveProficient,
+  isSkillProficient,
   saveRollTotal,
+  skillProficiencyBonus,
   totalLevel,
 } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
@@ -212,6 +214,7 @@ import {
   type OpportunityAttackCommand,
   type PassCuttingWordsCommand,
   type PassCounterspellCommand,
+  type PassIndomitableCommand,
   type ReadyActionCommand,
   type RemoveConditionCommand,
   type ResolveSurpriseCommand,
@@ -1372,6 +1375,36 @@ function handlePassCounterspell(
   };
 }
 
+function handlePassIndomitable(
+  cmd: PassIndomitableCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const pending = ctx.world.encounter?.pendingIndomitable;
+  if (!pending) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      "No failed save is waiting for Indomitable.",
+    );
+  }
+  if (pending.entity !== cmd.entity) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      "This character cannot pass on the Indomitable window.",
+    );
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "PendingIndomitableResolved",
+        ...meta(ctx, cmd.entity),
+        payload: { entity: cmd.entity },
+      },
+    ],
+    summary: { passed: cmd.entity },
+  };
+}
+
 function handleAttack(
   cmd: AttackCommand,
   ctx: ExecutionContext,
@@ -2019,6 +2052,7 @@ function handleAbilityCheck(
   if (checkAutoFail(entity.conditions, cmd.skill, {
     requiresHearing: cmd.requiresHearing,
   })) {
+    const proficient = isSkillProficient(entity, cmd.skill, cmd.proficient);
     return {
       accepted: true,
       events: [
@@ -2033,7 +2067,7 @@ function handleAbilityCheck(
             mode: "normal",
             natural: 1,
             total: 0,
-            proficient: cmd.proficient ?? false,
+            proficient,
             autoFail: true,
             ...(cmd.dc !== undefined ? { success: false } : {}),
           },
@@ -2046,7 +2080,7 @@ function handleAbilityCheck(
         total: 0,
         autoFail: true,
         ...(cmd.dc !== undefined ? { dc: cmd.dc, success: false } : {}),
-        proficient: cmd.proficient ?? false,
+        proficient,
       },
     };
   }
@@ -2059,7 +2093,8 @@ function handleAbilityCheck(
   ) as RollMode;
   const roll = ctx.roll("1d20", `check:${cmd.entity}:${cmd.ability}`, mode);
   const natural = roll.total;
-  const profBonus = cmd.proficient ? entity.proficiencyBonus : 0;
+  const proficient = isSkillProficient(entity, cmd.skill, cmd.proficient);
+  const profBonus = skillProficiencyBonus(entity, cmd.skill, proficient);
   const total =
     natural +
     abilityModifier(entity.abilityScores[cmd.ability]) +
@@ -2082,7 +2117,7 @@ function handleAbilityCheck(
           mode,
           natural,
           total,
-          proficient: cmd.proficient ?? false,
+          proficient,
           ...(success !== undefined ? { success } : {}),
         },
       },
@@ -2094,7 +2129,7 @@ function handleAbilityCheck(
       total,
       ...(cmd.dc !== undefined ? { dc: cmd.dc } : {}),
       ...(success !== undefined ? { success } : {}),
-      proficient: cmd.proficient ?? false,
+      proficient,
     },
   };
 }
@@ -3430,12 +3465,28 @@ function handleCastSpell(
         entity: targetId,
       });
     }
-    // Healing may target a downed (0 HP, not yet dead) ally to revive them;
-    // every other spell needs a living target.
-    if (!target.alive && !(spell.healing && !target.dead)) {
-      return reject("INVALID_TARGET", `${target.name} is not a valid target.`, {
-        entity: targetId,
-      });
+    // Healing may target a downed (0 HP, not dead) ally; Revivify targets the dead.
+    const revivifyCast = spell.id === "revivify";
+    if (!target.alive) {
+      if (revivifyCast) {
+        if (!target.dead) {
+          return reject(
+            "INVALID_TARGET",
+            `${target.name} is not dead — Revivify requires a creature that died within the last minute.`,
+            { entity: targetId },
+          );
+        }
+      } else if (!(spell.healing && !target.dead)) {
+        return reject("INVALID_TARGET", `${target.name} is not a valid target.`, {
+          entity: targetId,
+        });
+      }
+    } else if (revivifyCast) {
+      return reject(
+        "INVALID_TARGET",
+        `${target.name} is alive — Revivify only works on a dead creature.`,
+        { entity: targetId },
+      );
     }
     // Range + line of sight apply only when both are placed in the same mapped
     // scene; mapless/unplaced casting (narrative, tests) is unconstrained.
@@ -3470,6 +3521,57 @@ function handleCastSpell(
         }
       }
     }
+  }
+
+  if (spell.id === "revivify") {
+    const targetId = targets[0];
+    if (!targetId) {
+      return reject("INVALID_PAYLOAD", "Revivify requires a dead creature.");
+    }
+    const target = ctx.world.entities[targetId];
+    if (!target) {
+      return reject("TARGET_NOT_FOUND", `Target ${targetId} does not exist.`);
+    }
+    const events: DraftEvent[] = [
+      {
+        type: "SpellCast",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          caster: cmd.caster,
+          spellId: spell.id,
+          spellName: spell.name,
+          slotLevel,
+          targets: [targetId],
+        },
+      },
+      {
+        type: "SpellSlotExpended",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, slotLevel },
+      },
+      {
+        type: "CreatureRevived",
+        ...meta(ctx, cmd.caster),
+        payload: { target: targetId, caster: cmd.caster, hp: 1 },
+      },
+    ];
+    if (usesAction && caster.actionEconomy) {
+      events.push({
+        type: "ActionSpent",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, action: true },
+      });
+    }
+    return {
+      accepted: true,
+      events,
+      summary: {
+        caster: cmd.caster,
+        target: targetId,
+        revived: true,
+        hp: 1,
+      },
+    };
   }
 
   if (spell.id === "dispel-magic") {
@@ -4598,6 +4700,8 @@ export function handleCommand(
       return handlePassCuttingWords(command, ctx);
     case "pass_counterspell":
       return handlePassCounterspell(command, ctx);
+    case "pass_indomitable":
+      return handlePassIndomitable(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

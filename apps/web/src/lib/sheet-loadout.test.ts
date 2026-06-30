@@ -22,6 +22,7 @@ function entity(over: Partial<EntityState> & { id: string }): EntityState {
     classes: [],
     proficiencyBonus: 2,
     saveProficiencies: [],
+    skillProficiencies: [],
     alive: true,
     conditions: [],
     dead: false,

@@ -179,6 +179,8 @@ export type SaveRolledPayload = {
   autoFail: boolean;
   /** Whether the entity's proficiency bonus was added. */
   proficient?: boolean;
+  /** Indomitable reroll — do not open another Indomitable window. */
+  indomitableReroll?: boolean;
 };
 
 export type CheckRolledPayload = {
@@ -569,6 +571,16 @@ export type SpellCastCancelledPayload = {
   counteredBy: EntityRef;
 };
 
+export type CreatureRevivedPayload = {
+  target: EntityRef;
+  caster: EntityRef;
+  hp: number;
+};
+
+export type PendingIndomitableResolvedPayload = {
+  entity: EntityRef;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -669,6 +681,14 @@ export type EngineEvent =
   | (EventMeta & {
       type: "SpellCastCancelled";
       payload: SpellCastCancelledPayload;
+    })
+  | (EventMeta & {
+      type: "CreatureRevived";
+      payload: CreatureRevivedPayload;
+    })
+  | (EventMeta & {
+      type: "PendingIndomitableResolved";
+      payload: PendingIndomitableResolvedPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
   | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })

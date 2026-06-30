@@ -26,6 +26,7 @@ import type { Rng } from "../rng/prng";
 export type ClassFeatureActionKind =
   | "heal"
   | "extra_action"
+  | "indomitable_reroll"
   | "rage"
   | "bardic_inspiration"
   | "monk_flurry"
@@ -54,6 +55,7 @@ export type ClassFeatureActionDef = {
 export const CLASS_FEATURE_ACTIONS: Record<string, ClassFeatureActionDef> = {
   "second-wind": { kind: "heal", dice: "1d10", addClassLevel: true },
   "action-surge": { kind: "extra_action" },
+  indomitable: { kind: "indomitable_reroll" },
   rage: { kind: "rage" },
   "bardic-inspiration": { kind: "bardic_inspiration" },
   "monk-s-focus": { kind: "monk_flurry" },

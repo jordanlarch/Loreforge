@@ -11,6 +11,7 @@ import {
   classLevel,
   draconicResilienceHpBonus,
   hasClassSubclass,
+  indomitableAvailable,
 } from "../combat/class-feature-mechanics";
 import { cellIsDifficult, distanceFeet, movementCostFeet } from "../combat/grid";
 import {
@@ -65,6 +66,15 @@ export type EncounterState = {
   pendingAttack?: PendingAttackState;
   /** Spell cast staged while eligible casters may Counterspell. */
   pendingSpellCast?: PendingSpellCastState;
+  /** Failed save the entity may reroll with Indomitable. */
+  pendingIndomitable?: PendingIndomitableState;
+};
+
+/** Indomitable window after a failed saving throw. */
+export type PendingIndomitableState = {
+  entity: EntityRef;
+  ability: import("../entities/types").Ability;
+  dc: number;
 };
 
 /** Spell cast paused until Counterspell reactions resolve or pass. */
@@ -258,12 +268,14 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         const hp = { ...target.hp };
         hp.current = clampHp(hp.current + event.payload.amount, hp.max);
         const revived = hp.current > 0 && target.hp.current === 0;
+        const wasDead = target.dead;
         next.entities[target.id] = {
           ...target,
           hp,
           alive: hp.current > 0,
-          // Healing above 0 ends the dying state.
-          ...(revived ? { deathSaves: undefined, stable: false } : {}),
+          ...(revived || wasDead
+            ? { deathSaves: undefined, stable: false, dead: false }
+            : {}),
         };
       }
       break;
@@ -673,6 +685,28 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "SpellCastCancelled": {
       if (next.encounter?.pendingSpellCast) {
         next.encounter = { ...next.encounter, pendingSpellCast: undefined };
+      }
+      break;
+    }
+    case "CreatureRevived": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        next.entities[target.id] = {
+          ...target,
+          hp: { ...target.hp, current: event.payload.hp },
+          alive: true,
+          dead: false,
+          deathSaves: undefined,
+          stable: false,
+        };
+      }
+      break;
+    }
+    case "PendingIndomitableResolved": {
+      if (
+        next.encounter?.pendingIndomitable?.entity === event.payload.entity
+      ) {
+        next.encounter = { ...next.encounter, pendingIndomitable: undefined };
       }
       break;
     }
@@ -1136,8 +1170,27 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
-    case "SaveRolled":
+    case "SaveRolled": {
+      if (
+        !event.payload.success &&
+        !event.payload.autoFail &&
+        !event.payload.indomitableReroll &&
+        next.encounter
+      ) {
+        const entity = next.entities[event.payload.entity];
+        if (entity && indomitableAvailable(entity)) {
+          next.encounter = {
+            ...next.encounter,
+            pendingIndomitable: {
+              entity: event.payload.entity,
+              ability: event.payload.ability,
+              dc: event.payload.dc,
+            },
+          };
+        }
+      }
       break;
+    }
     case "CheckRolled": {
       const entity = next.entities[event.payload.entity];
       if (entity?.effects?.some((fx) => fx.modifier.type === "help_check")) {

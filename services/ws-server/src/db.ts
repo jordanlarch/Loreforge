@@ -177,6 +177,7 @@ export async function getCampaignParty(
       speed: characters.speed,
       classes: characters.classes,
       saveProficiencies: characters.saveProficiencies,
+      skillProficiencies: characters.skillProficiencies,
       spells: characters.spells,
       equipment: characters.equipment,
       notes: characters.notes,
@@ -211,6 +212,9 @@ export async function getCampaignParty(
       classes: row.classes,
       ...(row.saveProficiencies?.length
         ? { saveProficiencies: row.saveProficiencies }
+        : {}),
+      ...(row.skillProficiencies?.length
+        ? { skillProficiencies: row.skillProficiencies }
         : {}),
       ...(meleeReachFt !== undefined ? { meleeReachFt } : {}),
       ...(isCaster

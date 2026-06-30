@@ -1881,7 +1881,7 @@ const REVIVIFY: SpellDefinition = {
   targeting: "single",
   healing: { dice: "1d1+1" },
   description:
-    "You touch a creature that died within the last minute and return it to life with 1 hit point (tracer: flat 2 HP heal on a living wounded ally).",
+    "You touch a creature that died within the last minute and return it to life with 1 hit point.",
 };
 
 const TASHAS_HIDEOUS_LAUGHTER: SpellDefinition = {

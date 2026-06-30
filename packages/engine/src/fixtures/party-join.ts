@@ -94,6 +94,9 @@ export function partyMemberToEntityInit(
     ...(member.saveProficiencies?.length
       ? { saveProficiencies: member.saveProficiencies }
       : {}),
+    ...(member.skillProficiencies?.length
+      ? { skillProficiencies: member.skillProficiencies }
+      : {}),
     ...(member.meleeReachFt !== undefined
       ? { meleeReachFt: member.meleeReachFt }
       : {}),

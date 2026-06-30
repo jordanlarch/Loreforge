@@ -66,8 +66,15 @@ import {
   helpAttackMode,
   helpCheckMode,
   huntersMarkOn,
+  rageDamageBonusFromEffects,
   spellDurationRounds,
+  stripOneBardicInspiration,
 } from "../combat/effects";
+import {
+  classLevel,
+  sneakAttackEligible,
+  sneakAttackNotation,
+} from "../combat/class-feature-mechanics";
 import { coverAcBonusFromLine } from "../combat/cover";
 import { adjustDamageAmount } from "../combat/damage";
 import { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "../combat/reactions";
@@ -1130,6 +1137,9 @@ function handleAttack(
   // face under advantage/disadvantage).
   const natural = d20.total;
   let blessBonus = 0;
+  const hadBardicInspiration = (attacker.effects ?? []).some(
+    (fx) => fx.modifier.type === "bardic_inspiration",
+  );
   for (const dice of attackRollBonusDice(attacker)) {
     const roll = ctx.roll(dice, `attack-bless:${cmd.attacker}->${cmd.target}`);
     events.push(rollDiceEvent(ctx, roll));
@@ -1169,6 +1179,7 @@ function handleAttack(
   });
 
   let damage: number | undefined;
+  let sneakAttackDamage: number | undefined;
   let hpAfter = target.hp.current;
   if (hit) {
     const notation = critical
@@ -1185,6 +1196,24 @@ function handleAttack(
       );
       events.push(rollDiceEvent(ctx, extra));
       damage += Math.max(0, extra.total);
+    }
+    if (cmd.usesStrength) {
+      const rageBonus = rageDamageBonusFromEffects(attacker);
+      if (rageBonus > 0) damage += rageBonus;
+    }
+    const canSneak =
+      !econ?.sneakAttackUsed &&
+      sneakAttackEligible(attacker, target, ctx.world, mode, {
+        finesseOrRanged: cmd.finesseOrRanged,
+      });
+    if (canSneak) {
+      const saNotation = sneakAttackNotation(classLevel(attacker.classes, "Rogue"));
+      if (saNotation !== "0") {
+        const saRoll = ctx.roll(saNotation, `sneak:${cmd.attacker}->${cmd.target}`);
+        events.push(rollDiceEvent(ctx, saRoll));
+        sneakAttackDamage = Math.max(0, saRoll.total);
+        damage += sneakAttackDamage;
+      }
     }
     damage = adjustDamageAmount(damage, cmd.damage.type, target);
     const fromTemp = Math.min(target.hp.temp, damage);
@@ -1203,6 +1232,8 @@ function handleAttack(
       critical,
       damageType: cmd.damage.type,
       ...(damage !== undefined ? { damage } : {}),
+      ...(sneakAttackDamage !== undefined ? { sneakAttackDamage } : {}),
+      ...(hadBardicInspiration ? { bardicInspirationUsed: true } : {}),
     },
   });
 
@@ -1231,7 +1262,14 @@ function handleAttack(
     events.push({
       type: "ActionSpent",
       ...meta(ctx, cmd.attacker),
-      payload: { entity: cmd.attacker, action: spendsAction, attack: true },
+      payload: {
+        entity: cmd.attacker,
+        action: spendsAction,
+        attack: true,
+        ...(sneakAttackDamage !== undefined && sneakAttackDamage > 0
+          ? { sneakAttack: true }
+          : {}),
+      },
     });
     attacksLeft = Math.max(0, econ.attacks.total - (econ.attacks.used + 1));
   }

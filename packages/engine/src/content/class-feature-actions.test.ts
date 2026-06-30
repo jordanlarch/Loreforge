@@ -52,3 +52,42 @@ describe("resolveFeatureHeal", () => {
     expect(amount).toBeGreaterThanOrEqual(6);
   });
 });
+
+describe("Rage and Bardic Inspiration (SRD-FID-21)", () => {
+  it("returns rage self effects", () => {
+    const key = featureResourceKey("Barbarian", 1, "rage");
+    const result = useClassFeature({
+      characterId: "pc:barb",
+      classes: [{ class: "Barbarian", level: 9 }],
+      featureKey: key,
+      resourceUses: {},
+      currentHp: 10,
+      maxHp: 40,
+      rng: createSeededRng("rage-use"),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.kind).toBe("rage");
+    expect(result.selfEffects?.[1]?.modifier).toEqual({
+      type: "rage_damage_bonus",
+      amount: 3,
+    });
+  });
+
+  it("grants Bardic Inspiration to an ally", () => {
+    const key = featureResourceKey("Bard", 1, "bardic-inspiration");
+    const result = useClassFeature({
+      characterId: "pc:bard",
+      classes: [{ class: "Bard", level: 5 }],
+      featureKey: key,
+      resourceUses: {},
+      currentHp: 10,
+      maxHp: 30,
+      rng: createSeededRng("bi-use"),
+      beneficiaryId: "pc:ally",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.allyEffect?.target).toBe("pc:ally");
+  });
+});

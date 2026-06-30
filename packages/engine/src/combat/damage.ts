@@ -32,14 +32,23 @@ export function adjustDamageAmount(
     | "damageResistances"
     | "damageVulnerabilities"
     | "conditions"
+    | "effects"
   >,
 ): number {
   if (amount <= 0) return 0;
   if (hasDamageType(entity.damageImmunities, damageType)) return 0;
 
   let adjusted = amount;
+  const effectResist = entity.effects?.flatMap((fx) =>
+    fx.modifier.type === "damage_resistance" ? fx.modifier.types : [],
+  );
+  const effectResistant =
+    effectResist?.some(
+      (entry) => normalizeDamageType(entry) === normalizeDamageType(damageType),
+    ) ?? false;
   const resistant =
     hasDamageType(entity.damageResistances, damageType) ||
+    effectResistant ||
     entity.conditions?.some((c) => c.condition === "petrified");
   const vulnerable = hasDamageType(entity.damageVulnerabilities, damageType);
 

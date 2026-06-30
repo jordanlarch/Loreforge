@@ -75,6 +75,7 @@ const BARD: LevelMap = {
     feat(
       "Bardic Inspiration",
       "Bonus Action: ally within 60 ft gains a Bardic Inspiration die (d6, scales at 5/10/15) for 1 hour. Uses = CHA mod (min 1); regain all on Long Rest.",
+      { uses: 3, recharge: "long_rest" },
     ),
     feat("Spellcasting", "Prepare bard spells using Charisma; Musical Instrument focus."),
   ],

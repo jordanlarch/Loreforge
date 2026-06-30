@@ -138,6 +138,10 @@ export type AttackResolvedPayload = {
   damageType: string;
   /** Damage dealt on a hit; omitted on a miss. */
   damage?: number;
+  /** Extra Sneak Attack damage included in `damage`. */
+  sneakAttackDamage?: number;
+  /** Whether a Bardic Inspiration die was added to the attack roll. */
+  bardicInspirationUsed?: boolean;
 };
 
 export type ConditionAppliedPayload = {
@@ -428,6 +432,8 @@ export type ActionSpentPayload = {
   entity: EntityRef;
   action?: boolean;
   attack?: boolean;
+  /** Rogue Sneak Attack consumed for this turn. */
+  sneakAttack?: boolean;
 };
 
 export type DashMovementGrantedPayload = {

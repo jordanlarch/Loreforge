@@ -149,6 +149,10 @@ export type AttackCommand = {
   /** Effective reach/range in feet; defaults to melee (5 ft) on a mapped scene. */
   rangeFt?: number;
   mode?: RollMode;
+  /** Finesse or ranged weapon — required for Sneak Attack eligibility. */
+  finesseOrRanged?: boolean;
+  /** Strength-based weapon attack — adds Rage damage bonus while raging. */
+  usesStrength?: boolean;
 };
 
 /** Apply an SRD condition to a target (exhaustion carries a 1-6 level). */

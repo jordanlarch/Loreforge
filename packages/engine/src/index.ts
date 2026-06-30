@@ -132,6 +132,14 @@ export {
 } from "./combat/cover";
 export { adjustDamageAmount } from "./combat/damage";
 export {
+  bardicInspirationDie,
+  classLevel,
+  rageDamageBonus,
+  sneakAttackDiceCount,
+  sneakAttackEligible,
+  sneakAttackNotation,
+} from "./combat/class-feature-mechanics";
+export {
   charmedSources,
   checkAutoFail,
   checkMode,

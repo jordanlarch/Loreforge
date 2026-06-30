@@ -1,18 +1,27 @@
 /**
- * Deterministic class-feature actions (CHAR-7b) — Second Wind heal, etc.
- * Sheet "Use" and Live Play share this registry; engine owns the math.
+ * Deterministic class-feature actions (CHAR-7b, SRD-FID-21) — Second Wind, Rage, etc.
  */
+import {
+  bardicInspirationDie,
+  classLevel,
+  rageDamageBonus,
+} from "../combat/class-feature-mechanics";
+import type { ActiveEffect } from "../combat/effects";
 import { classFeaturesForLevel } from "../entities/class-features";
 import {
   parseFeatureResourceKey,
   remainingFeatureUses,
   spendFeatureUse,
 } from "../entities/feature-resources";
-import type { ClassLevel } from "../entities/types";
+import type { ClassLevel, EntityRef } from "../entities/types";
 import { rollDice, type DiceRoll } from "../rng/dice";
 import type { Rng } from "../rng/prng";
 
-export type ClassFeatureActionKind = "heal" | "extra_action";
+export type ClassFeatureActionKind =
+  | "heal"
+  | "extra_action"
+  | "rage"
+  | "bardic_inspiration";
 
 export type ClassFeatureActionDef = {
   kind: ClassFeatureActionKind;
@@ -25,6 +34,8 @@ export type ClassFeatureActionDef = {
 export const CLASS_FEATURE_ACTIONS: Record<string, ClassFeatureActionDef> = {
   "second-wind": { kind: "heal", dice: "1d10", addClassLevel: true },
   "action-surge": { kind: "extra_action" },
+  rage: { kind: "rage" },
+  "bardic-inspiration": { kind: "bardic_inspiration" },
 };
 
 export function classFeatureAction(
@@ -51,6 +62,56 @@ export function resolveFeatureHeal(
   return { amount, roll };
 }
 
+export function buildRageEffect(
+  entityId: EntityRef,
+  _barbarianLevel: number,
+): ActiveEffect {
+  return {
+    id: `rage:${entityId}`,
+    name: "Rage",
+    source: entityId,
+    modifier: {
+      type: "damage_resistance",
+      types: ["bludgeoning", "piercing", "slashing"],
+    },
+    remainingRounds: 10,
+  };
+}
+
+export function buildRageDamageEffect(
+  entityId: EntityRef,
+  barbarianLevel: number,
+): ActiveEffect {
+  return {
+    id: `rage-dmg:${entityId}`,
+    name: "Rage Damage",
+    source: entityId,
+    modifier: {
+      type: "rage_damage_bonus",
+      amount: rageDamageBonus(barbarianLevel),
+    },
+    remainingRounds: 10,
+  };
+}
+
+export function buildBardicInspirationEffect(
+  beneficiaryId: EntityRef,
+  granterId: EntityRef,
+  bardLevel: number,
+  effectId: string,
+): ActiveEffect {
+  return {
+    id: effectId,
+    name: "Bardic Inspiration",
+    source: granterId,
+    modifier: {
+      type: "bardic_inspiration",
+      die: bardicInspirationDie(bardLevel),
+    },
+    remainingRounds: 600,
+  };
+}
+
 export type FeatureUseResult = {
   ok: true;
   featureKey: string;
@@ -58,6 +119,10 @@ export type FeatureUseResult = {
   kind: ClassFeatureActionKind;
   resourceUses: Record<string, boolean[]>;
   healAmount?: number;
+  /** Effects to apply to the user (Rage). */
+  selfEffects?: ActiveEffect[];
+  /** Effect to apply to an ally (Bardic Inspiration). */
+  allyEffect?: { target: EntityRef; effect: ActiveEffect };
   message: string;
 };
 
@@ -73,6 +138,8 @@ export function useClassFeature(
     maxHp: number;
     rng: Rng;
     useIndex?: number;
+    /** Ally receiving Bardic Inspiration. */
+    beneficiaryId?: EntityRef;
   },
 ): FeatureUseResult | FeatureUseError {
   const parsed = parseFeatureResourceKey(input.featureKey);
@@ -131,6 +198,47 @@ export function useClassFeature(
       resourceUses: nextUses,
       healAmount: healed,
       message: `Second Wind restores ${healed} HP (${amount} rolled, capped at max).`,
+    };
+  }
+
+  if (action.kind === "rage") {
+    const barLevel = classLevel(input.classes, "Barbarian");
+    return {
+      ok: true,
+      featureKey: input.featureKey,
+      featureId,
+      kind: "rage",
+      resourceUses: nextUses,
+      selfEffects: [
+        buildRageEffect(input.characterId, barLevel),
+        buildRageDamageEffect(input.characterId, barLevel),
+      ],
+      message: `Rage activated (+${rageDamageBonus(barLevel)} damage, B/P/S resistance).`,
+    };
+  }
+
+  if (action.kind === "bardic_inspiration") {
+    if (!input.beneficiaryId) {
+      return { ok: false, message: "Choose an ally for Bardic Inspiration." };
+    }
+    const bardLevel = classLevel(input.classes, "Bard");
+    const die = bardicInspirationDie(bardLevel);
+    return {
+      ok: true,
+      featureKey: input.featureKey,
+      featureId,
+      kind: "bardic_inspiration",
+      resourceUses: nextUses,
+      allyEffect: {
+        target: input.beneficiaryId,
+        effect: buildBardicInspirationEffect(
+          input.beneficiaryId,
+          input.characterId,
+          bardLevel,
+          `bi:${input.beneficiaryId}:${input.featureKey}`,
+        ),
+      },
+      message: `Granted Bardic Inspiration (${die}) to ally.`,
     };
   }
 

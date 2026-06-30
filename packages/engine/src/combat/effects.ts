@@ -17,7 +17,10 @@ export type EffectModifier =
   | { type: "attacks_against_disadvantage" }
   | { type: "help_attack"; foe: EntityRef; helper: EntityRef }
   | { type: "help_check"; helper: EntityRef }
-  | { type: "speed_bonus"; amount: number };
+  | { type: "speed_bonus"; amount: number }
+  | { type: "damage_resistance"; types: string[] }
+  | { type: "rage_damage_bonus"; amount: number }
+  | { type: "bardic_inspiration"; die: string };
 
 export type ActiveEffect = {
   id: string;
@@ -53,12 +56,48 @@ export function effectiveSpeedForEntity(entity: EntityState): number {
 
 /** Bless-style d4 (etc.) dice to roll and add to an attack total. */
 export function attackRollBonusDice(attacker: EntityState): string[] {
-  return (attacker.effects ?? [])
-    .filter(
-      (fx): fx is ActiveEffect & { modifier: { type: "attack_roll_bonus"; dice: string } } =>
-        fx.modifier.type === "attack_roll_bonus",
-    )
-    .map((fx) => fx.modifier.dice);
+  const dice: string[] = [];
+  for (const fx of attacker.effects ?? []) {
+    if (fx.modifier.type === "attack_roll_bonus") {
+      dice.push(fx.modifier.dice);
+    }
+    if (fx.modifier.type === "bardic_inspiration") {
+      dice.push(fx.modifier.die);
+    }
+  }
+  return dice;
+}
+
+/** Remove one consumed Bardic Inspiration effect after it modifies a roll. */
+export function stripOneBardicInspiration(entity: EntityState): ActiveEffect[] {
+  const effects = entity.effects ?? [];
+  let removed = false;
+  return effects.filter((fx) => {
+    if (!removed && fx.modifier.type === "bardic_inspiration") {
+      removed = true;
+      return false;
+    }
+    return true;
+  });
+}
+
+export function rageDamageBonusFromEffects(entity: EntityState): number {
+  for (const fx of entity.effects ?? []) {
+    if (fx.modifier.type === "rage_damage_bonus") {
+      return fx.modifier.amount;
+    }
+  }
+  return 0;
+}
+
+export function effectDamageResistances(entity: EntityState): string[] {
+  const types: string[] = [];
+  for (const fx of entity.effects ?? []) {
+    if (fx.modifier.type === "damage_resistance") {
+      types.push(...fx.modifier.types);
+    }
+  }
+  return types;
 }
 
 /** Bane-style d4 (etc.) dice to subtract from an attack total. */

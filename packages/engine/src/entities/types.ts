@@ -84,6 +84,8 @@ export type ActionEconomyState = {
   attacks: { used: number; total: number };
   /** One free object interaction per turn. */
   freeInteractionUsed: boolean;
+  /** Rogue Sneak Attack — once per turn. */
+  sneakAttackUsed?: boolean;
 };
 
 /** Canonical entity record held in the WorldState projection. */

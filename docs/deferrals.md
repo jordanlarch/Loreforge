@@ -453,7 +453,7 @@ Tracked here; several alias to existing engine rows (don't mint duplicates — f
 | SRD-FID-17 | Surprise (combat order) | doc-only | **Done** | PR #329 — `resolve_surprise` command; surprised flag blocks move/actions/reactions on first turn. |
 | SRD-FID-18 | Difficult terrain movement cost | doc-only | **Done** | PR #330 — `SceneMap.difficultCells`; path-based `movementCostFeet` doubles entered squares. |
 | SRD-FID-19 | Resistance / Vulnerability / Immunity + temp-HP **grant** command | doc-only | **Done** | PR #331 — `adjustDamageAmount`; entity damage lists; `grant_temp_hp` + False Life temp HP. |
-| SRD-FID-20 | Condition depth (grapple escape, frightened gates, blinded/deafened auto-fail, petrified resistances) | doc-only | **Done** | `escape_grapple`; frightened LOS gates; blinded/deafened auto-fail; petrified resist in `adjustDamageAmount`. see also SRD-FID-3, SRD-FID-14. |
+| SRD-FID-20 | Condition depth (grapple escape, frightened gates, blinded/deafened auto-fail, petrified resistances) | doc-only | **Done** | PR #333 — `escape_grapple`; frightened LOS gates; blinded/deafened auto-fail; petrified resist in `adjustDamageAmount`. |
 | SRD-FID-21 | Class + subclass feature **mechanics** (2 of ~12 wired; subclasses 0) | doc-only | Partial | PR #334 — Sneak Attack, Rage (use + resist/bonus), Bardic Inspiration grant/die; Ki/Metamagic/Invocations/subclass mechanics still deferred. |
 | SRD-FID-22 | Species trait mechanics (Darkvision, Breath Weapon, Lucky, lineages…) — 0 wired | doc-only | Missing | |
 | SRD-FID-23 | Feat mechanical coverage (8 wired of full Codex set) | doc-only | Partial | |

@@ -56,9 +56,7 @@ import {
   SubclassCatalogPreview,
   SubclassPicker,
 } from "@/components/character-creation/class-choice-pickers";
-import {
-  RangerFeatureChoices,
-} from "@/components/character-creation/class-feature-choices";
+import { ClassFeatureChoicePanel } from "@/components/character-creation/class-feature-choices";
 import {
   CodexItemAddPicker,
   CodexSpellAddPicker,
@@ -537,7 +535,13 @@ export function CreationWizard() {
   const advancementOk =
     !hasAdvancement ||
     (selectedClass != null &&
-      advancementComplete(selectedClass.name, startingLevel, advances));
+      advancementComplete(
+        selectedClass.name,
+        startingLevel,
+        advances,
+        featureChoices,
+        startingSubclass,
+      ));
 
   const stepValid = [
     nameValid,
@@ -829,6 +833,8 @@ export function CreationWizard() {
               onFightingStyle={setFightingStyle}
               startingSubclass={startingSubclass}
               onStartingSubclass={setStartingSubclass}
+              featureChoices={featureChoices}
+              onFeatureChoices={setFeatureChoices}
             />
           )}
           {step === 8 && hasAdvancement && selectedClass && (
@@ -839,6 +845,9 @@ export function CreationWizard() {
               abilityScores={finalScores}
               advances={advances}
               onChange={setAdvances}
+              featureChoices={featureChoices}
+              onFeatureChoices={setFeatureChoices}
+              startingSubclass={startingSubclass}
               spells={spellLoadout.spells}
               onAddSpell={(spell) =>
                 setSpellLoadout((prev) => {
@@ -2243,6 +2252,8 @@ function FeaturesStep({
   onFightingStyle,
   startingSubclass,
   onStartingSubclass,
+  featureChoices,
+  onFeatureChoices,
 }: {
   className: string;
   startingLevel: number;
@@ -2250,6 +2261,8 @@ function FeaturesStep({
   onFightingStyle: (v: string) => void;
   startingSubclass: string;
   onStartingSubclass: (v: string) => void;
+  featureChoices: Record<string, string>;
+  onFeatureChoices: (choices: Record<string, string>) => void;
 }) {
   const features = classFeaturesForLevel(className, 1);
   const stubs = featureStubsForLevel(className, 1);
@@ -2292,7 +2305,13 @@ function FeaturesStep({
         startingLevel={startingLevel}
       />
 
-      {className === "Ranger" && startingLevel >= 1 && <RangerFeatureChoices />}
+      <ClassFeatureChoicePanel
+        className={className}
+        level={1}
+        subclass={startingSubclass}
+        choices={featureChoices}
+        onChange={onFeatureChoices}
+      />
 
       <ul className="mt-6 space-y-2">
         {features.length > 0

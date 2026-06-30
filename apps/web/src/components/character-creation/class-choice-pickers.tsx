@@ -8,6 +8,8 @@ import {
   fightingStyleOnFeaturesStep,
   fightingStylePickLevel,
   subclassPickLevel,
+  featureChoicesCompleteForLevels,
+  needsFightingStyleForLevel,
   type LevelAdvanceChoice,
 } from "@app/engine";
 
@@ -392,7 +394,7 @@ export function featuresStepChoicesComplete(
   startingLevel: number,
   fightingStyle: string,
   startingSubclass: string,
-  _featureChoices: Record<string, string>,
+  featureChoices: Record<string, string>,
   _advances: LevelAdvanceChoice[] = [],
 ): boolean {
   if (
@@ -403,6 +405,16 @@ export function featuresStepChoicesComplete(
   }
   const subPick = subclassPickLevel(className);
   if (subPick === 1 && startingLevel >= 1 && !startingSubclass.trim()) {
+    return false;
+  }
+  if (
+    !featureChoicesCompleteForLevels(
+      className,
+      [1],
+      featureChoices,
+      () => undefined,
+    )
+  ) {
     return false;
   }
   return true;

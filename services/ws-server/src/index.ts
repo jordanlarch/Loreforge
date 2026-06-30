@@ -749,7 +749,7 @@ async function runEnemyTurns(
 ): Promise<void> {
   let state = await room.getState();
   if (!activeEnemy(state)) return;
-  if (state.encounter?.pendingAttack || state.encounter?.pendingSpellCast) {
+  if (state.encounter?.pendingAttack || state.encounter?.pendingSpellCast || state.encounter?.pendingIndomitable) {
     return;
   }
 
@@ -819,7 +819,7 @@ async function runEnemyTurns(
         state = await room.getState();
       }
 
-      if (state.encounter?.pendingAttack || state.encounter?.pendingSpellCast) {
+      if (state.encounter?.pendingAttack || state.encounter?.pendingSpellCast || state.encounter?.pendingIndomitable) {
         break;
       }
 
@@ -1665,7 +1665,8 @@ const server = new Hocuspocus({
           const afterCmd = await room.getState();
           if (
             afterCmd.encounter?.pendingAttack ||
-            afterCmd.encounter?.pendingSpellCast
+            afterCmd.encounter?.pendingSpellCast ||
+            afterCmd.encounter?.pendingIndomitable
           ) {
             clearClientBusy(document);
             return;

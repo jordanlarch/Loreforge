@@ -6,12 +6,40 @@ import type {
   ChannelDivinitySpend,
   MonkFocusSpend,
 } from "../content/class-feature-actions";
-import { abilityModifier } from "../entities/abilities";
+import {
+  abilityModifier,
+  saveProficiencyBonus,
+} from "../entities/abilities";
+import { classFeaturesForLevel } from "../entities/class-features";
+import {
+  effectiveFeaturePoolSize,
+  parseFeatureResourceKey,
+  remainingFeatureUses,
+  spendFeatureUse,
+} from "../entities/feature-resources";
+import { classLevel } from "../combat/class-feature-mechanics";
 import type { EntityState } from "../entities/types";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "./context";
 import type { CommandResult, UseClassFeatureCommand } from "./types";
 import { reject } from "./types";
+
+function rollDiceEvent(
+  ctx: ExecutionContext,
+  roll: { notation: string; rolls: number[]; total: number; scope: string; drawIndex: number },
+): DraftEvent {
+  return {
+    type: "DiceRolled",
+    ...meta(ctx),
+    payload: {
+      notation: roll.notation,
+      rolls: roll.rolls,
+      total: roll.total,
+      scope: roll.scope,
+      drawIndex: roll.drawIndex,
+    },
+  };
+}
 
 function meta(
   ctx: ExecutionContext,
@@ -98,18 +126,113 @@ export function handleUseClassFeature(
   cmd: UseClassFeatureCommand,
   ctx: ExecutionContext,
 ): CommandResult {
-  const blocked = requireOwnTurn(cmd.entity, ctx);
-  if (blocked) return blocked;
+  const parsedKey = parseFeatureResourceKey(cmd.featureKey);
+  const isIndomitable = parsedKey?.featureId === "indomitable";
+
+  if (!isIndomitable) {
+    const blocked = requireOwnTurn(cmd.entity, ctx);
+    if (blocked) return blocked;
+  }
 
   const entity = ctx.world.entities[cmd.entity];
   if (!entity) {
     return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} does not exist.`);
   }
-  if (!entity.alive) {
+  if (!entity.alive && !isIndomitable) {
     return reject("TARGET_DEAD", `${entity.name} cannot use features while down.`);
   }
   if (!entity.classes?.length) {
     return reject("INVALID_PAYLOAD", "Entity has no class levels.");
+  }
+
+  if (isIndomitable) {
+    const pending = ctx.world.encounter?.pendingIndomitable;
+    if (!pending || pending.entity !== cmd.entity) {
+      return reject(
+        "ACTION_UNAVAILABLE",
+        "No failed save is waiting for Indomitable.",
+      );
+    }
+    const fighterLevel = classLevel(entity.classes, "Fighter");
+    const feat = classFeaturesForLevel("Fighter", 9).find(
+      (f) => f.id === "indomitable",
+    );
+    if (!feat?.uses) {
+      return reject("INVALID_PAYLOAD", "Indomitable is not available.");
+    }
+    const poolSize = effectiveFeaturePoolSize(
+      cmd.featureKey,
+      entity.classes,
+      feat.uses,
+    );
+    const remaining = remainingFeatureUses(
+      entity.resourceUses?.[cmd.featureKey],
+      poolSize,
+    );
+    if (remaining <= 0) {
+      return reject("ACTION_UNAVAILABLE", "No Indomitable uses remaining.");
+    }
+    const spent = spendFeatureUse(entity.resourceUses?.[cmd.featureKey], poolSize);
+    if (!spent) {
+      return reject("ACTION_UNAVAILABLE", "No Indomitable uses remaining.");
+    }
+    const roll = ctx.roll(
+      "1d20",
+      `indomitable:${cmd.entity}:${pending.ability}`,
+    );
+    const natural = roll.total;
+    const total =
+      natural +
+      abilityModifier(entity.abilityScores[pending.ability]) +
+      saveProficiencyBonus(entity, pending.ability) +
+      fighterLevel;
+    const success = total >= pending.dc;
+    return {
+      accepted: true,
+      events: [
+        {
+          type: "FeaturePoolSpent",
+          ...meta(ctx, entity.id),
+          payload: {
+            entity: entity.id,
+            featureKey: cmd.featureKey,
+            resourceUses: spent,
+          },
+        },
+        rollDiceEvent(ctx, roll),
+        {
+          type: "SaveRolled",
+          ...meta(ctx, entity.id),
+          payload: {
+            entity: entity.id,
+            ability: pending.ability,
+            dc: pending.dc,
+            mode: "normal",
+            natural,
+            total,
+            success,
+            autoFail: false,
+            proficient: entity.saveProficiencies.includes(pending.ability),
+            indomitableReroll: true,
+          },
+        },
+        {
+          type: "PendingIndomitableResolved",
+          ...meta(ctx, entity.id),
+          payload: { entity: entity.id },
+        },
+      ],
+      summary: {
+        entity: entity.id,
+        featureKey: cmd.featureKey,
+        kind: "indomitable_reroll",
+        total,
+        success,
+        message: success
+          ? `Indomitable reroll succeeds (${total} vs DC ${pending.dc}).`
+          : `Indomitable reroll still fails (${total} vs DC ${pending.dc}).`,
+      },
+    };
   }
 
   const beneficiary = cmd.beneficiaryId
@@ -285,6 +408,14 @@ export function handleUseClassFeature(
       type: "ActionSurgeGranted",
       ...meta(ctx, entity.id),
       payload: { entity: entity.id },
+    });
+  }
+
+  if (result.kind === "heal" && result.featureId === "second-wind") {
+    events.push({
+      type: "ActionSpent",
+      ...meta(ctx, entity.id),
+      payload: { entity: entity.id, bonusAction: true },
     });
   }
 

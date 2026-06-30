@@ -231,6 +231,8 @@ const commandSchema = z.discriminatedUnion("type", [
     channelDivinitySpend: z
       .enum(["divine_sense", "sacred_weapon", "turn_undead"])
       .optional(),
+    layOnHandsHealAmount: z.number().int().positive().optional(),
+    layOnHandsPurify: z.boolean().optional(),
   }),
   z.object({
     type: z.literal("fast_hands"),
@@ -253,6 +255,10 @@ const commandSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("pass_counterspell"),
     reactor: z.string(),
+  }),
+  z.object({
+    type: z.literal("pass_indomitable"),
+    entity: z.string(),
   }),
 ]);
 

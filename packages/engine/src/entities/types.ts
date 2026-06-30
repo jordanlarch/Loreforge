@@ -112,6 +112,8 @@ export type EntityState = {
   proficiencyBonus: number;
   /** Class saving-throw proficiencies (SRD-FID-16). */
   saveProficiencies: Ability[];
+  /** Skill proficiencies (SRD-FID-16); skill checks add proficiency when listed. */
+  skillProficiencies: string[];
   /**
    * Attacks granted by a single Attack action. Defaults to the Extra Attack
    * value derived from {@link classes} (1, or 2+ for martial classes at level
@@ -364,6 +366,8 @@ export type EntityInit = {
   classes?: ClassLevel[];
   /** Class saving-throw proficiencies; defaults to none. */
   saveProficiencies?: Ability[];
+  /** Skill proficiencies for ability checks; defaults to none. */
+  skillProficiencies?: string[];
   /** Override attacks-per-Attack-action (monster Multiattack). Defaults to the
    * Extra Attack value derived from `classes`. */
   attacksPerAction?: number;

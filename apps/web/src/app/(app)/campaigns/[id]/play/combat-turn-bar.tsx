@@ -6,6 +6,7 @@
  * live on the party rail (hover) or sheet peek (click).
  */
 import type { EntityState } from "@app/engine";
+import { classLevel } from "@app/engine";
 
 import type { CastableSpell } from "@/lib/live-combat";
 import type { WeaponAttack } from "@/lib/sheet-loadout";
@@ -18,6 +19,7 @@ import { BurningTurnControls } from "./burning-turn-controls";
 import { ReactionPrompt } from "./reaction-prompt";
 import { CuttingWordsPrompt } from "./cutting-words-prompt";
 import { CounterspellPrompt } from "./counterspell-prompt";
+import { IndomitablePrompt } from "./indomitable-prompt";
 import { TrapTurnControls } from "./trap-action-bar";
 
 function EconChip({ label, used }: { label: string; used: boolean }) {
@@ -88,6 +90,10 @@ export function CombatTurnBar({
   counterspell,
   onCounterspellUse,
   onCounterspellPass,
+  showIndomitable,
+  indomitable,
+  onIndomitableUse,
+  onIndomitablePass,
   reactorReactionSpells,
   onReactionAttack,
   onReactionPass,
@@ -114,6 +120,8 @@ export function CombatTurnBar({
   onOpenHandTechniqueChange,
   onUseClassFeature,
   onFastHands,
+  onArmLayOnHands,
+  onArmTurnUndead,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -177,6 +185,10 @@ export function CombatTurnBar({
   };
   onCounterspellUse?: () => void;
   onCounterspellPass?: () => void;
+  showIndomitable?: boolean;
+  indomitable?: { entity: EntityState; ability: string; dc: number };
+  onIndomitableUse?: () => void;
+  onIndomitablePass?: () => void;
   reactorReactionSpells: CastableSpell[];
   onReactionAttack?: () => void;
   onReactionPass?: () => void;
@@ -207,6 +219,8 @@ export function CombatTurnBar({
   onFastHands?: (
     action: "sleight_of_hand" | "thieves_tools" | "use_object",
   ) => void;
+  onArmLayOnHands?: (featureKey: string) => void;
+  onArmTurnUndead?: (featureKey: string) => void;
 }) {
   const armedMode = armed !== null;
 
@@ -260,6 +274,20 @@ export function CombatTurnBar({
           counterspellSlotLevel={counterspell.counterspellSlotLevel}
           onUse={onCounterspellUse}
           onPass={onCounterspellPass}
+        />
+      ) : null}
+
+      {showIndomitable &&
+      indomitable &&
+      onIndomitableUse &&
+      onIndomitablePass ? (
+        <IndomitablePrompt
+          entityName={indomitable.entity.name}
+          ability={indomitable.ability}
+          dc={indomitable.dc}
+          fighterLevel={classLevel(indomitable.entity.classes ?? [], "Fighter")}
+          onUse={onIndomitableUse}
+          onPass={onIndomitablePass}
         />
       ) : null}
 
@@ -394,6 +422,8 @@ export function CombatTurnBar({
                     onOpenHandTechniqueChange={onOpenHandTechniqueChange}
                     onUseClassFeature={onUseClassFeature}
                     onFastHands={onFastHands}
+                    onArmLayOnHands={onArmLayOnHands}
+                    onArmTurnUndead={onArmTurnUndead}
                   />
                 ) : null}
                 {nearbyTraps?.length && onDetectTrap && onDisableTrap ? (

@@ -348,6 +348,11 @@ export type PassCounterspellCommand = {
   reactor: EntityRef;
 };
 
+export type PassIndomitableCommand = {
+  type: "pass_indomitable";
+  entity: EntityRef;
+};
+
 export type DetectTrapCommand = {
   type: "detect_trap";
   entity: EntityRef;
@@ -626,7 +631,8 @@ export type Command =
   | CuttingWordsCommand
   | FastHandsCommand
   | PassCuttingWordsCommand
-  | PassCounterspellCommand;
+  | PassCounterspellCommand
+  | PassIndomitableCommand;
 
 export type CommandType = Command["type"];
 

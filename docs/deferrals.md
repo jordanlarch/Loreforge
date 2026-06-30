@@ -430,7 +430,7 @@ tracer; the 5-ft-Sphere/Concentration gaps were fixed anyway). Engine suite gree
 | SRD-FID-6 | Open5e converter defaults every save spell to `half_damage` (~165 spells wrong) | #315 | **Done** | `open5e-spell.ts` infers `no_effect` unless text says "half"; **registry regenerated — 68 spells corrected** (e.g. Sacred Flame, Hold Person). |
 | SRD-FID-7 | Hex reuses Hunter's Mark machinery (wrong damage type, weapon-only) | #316 | **Done** | Dedicated `hex` effect modifier: necrotic bonus on any attack by caster, `hexAbility` on cast, check disadvantage via `hexCheckDisadvantage`. |
 | SRD-FID-8 | Scorching Ray auto-hits; should be separate ranged spell attacks | #317 | **Done** | `SpellProjectiles.spellAttack`; per-ray `resolveSpellAttackRay` + `AttackResolved` per dart. Magic Missile unchanged (auto-hit). |
-| SRD-FID-9 | Revivify heals a living ally; should raise the recently dead | #318 | Deferred | Needs a revive/raise-dead path (clear `dead`/`deathSaves`); overlaps a missing "Dead" lifecycle. |
+| SRD-FID-9 | Revivify heals a living ally; should raise the recently dead | #318 | **Done** | PR #347 — `CreatureRevived` path; dead-only target validation; raises to 1 HP (clears `dead`/`deathSaves`). |
 | SRD-FID-10 | ~~Sleep flat save; should be 5d8 HP-total budget~~ — **RETRACTED** (2014 claim) | #319 | **Done/retracted** | 2024 Sleep *is* a Wisdom save → engine was already a valid tracer. Fixed remaining gaps: 5-ft Sphere + Concentration. |
 | SRD-FID-11 | Counterspell / Dispel Magic lack interrupt + spell-level contest | #320 | **Done** | PR #346 — Counterspell level contest via `counteredSpellSlotLevel`; Dispel removes all ≤3rd-level effects + ability check per 4th+; cast staging (`PendingSpellCastStaged`) + `pass_counterspell` + Counterspell resolves/cancels pending cast; Live Play reaction prompt; ws-server pauses enemy AI during window. |
 | SRD-FID-12 | Tracer spells simplified | #321 | **Partial** | **Flame Strike done** (cylinder + 5d6 fire/5d6 radiant). Wall of Fire (persistent zone) / Polymorph (stat-swap) / Spiritual Weapon (recurring bonus-action) still need subsystems (overlap ENG-3). |
@@ -449,7 +449,7 @@ Tracked here; several alias to existing engine rows (don't mint duplicates — f
 
 | ID | Item | Tracking | Status | Notes |
 |---|---|---|---|---|
-| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | **Partial** | **Save proficiencies done** — PR #328: `saveProficiencies` on `EntityState`; threaded DB → ws-server → live entities; all save paths. Skill/tool on entity still open. |
+| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | **Partial** | **Save + skill proficiencies done** — PR #328 (saves), **#347 (skills)**: `skillProficiencies` on `EntityState`; auto-detect on `ability_check`; threaded DB → ws-server → live entities. Tool/weapon proficiency still open. |
 | SRD-FID-17 | Surprise (combat order) | doc-only | **Done** | PR #329 — `resolve_surprise` command; surprised flag blocks move/actions/reactions on first turn. |
 | SRD-FID-18 | Difficult terrain movement cost | doc-only | **Done** | PR #330 — `SceneMap.difficultCells`; path-based `movementCostFeet` doubles entered squares. |
 | SRD-FID-19 | Resistance / Vulnerability / Immunity + temp-HP **grant** command | doc-only | **Done** | PR #331 — `adjustDamageAmount`; entity damage lists; `grant_temp_hp` + False Life temp HP. |

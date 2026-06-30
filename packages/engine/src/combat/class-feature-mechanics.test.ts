@@ -40,6 +40,7 @@ const baseEntity = (id: string, pos: { x: number; y: number }): EntityState =>
     classes: [],
     proficiencyBonus: 2,
     saveProficiencies: [],
+    skillProficiencies: [],
     alive: true,
     dead: false,
     sceneId: "s:1",

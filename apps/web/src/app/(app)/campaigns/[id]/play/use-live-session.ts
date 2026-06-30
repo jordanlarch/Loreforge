@@ -405,6 +405,8 @@ export function useLiveSession({
         beneficiaryId?: string;
         rageFrenzy?: boolean;
         channelDivinitySpend?: "divine_sense" | "sacred_weapon" | "turn_undead";
+        layOnHandsHealAmount?: number;
+        layOnHandsPurify?: boolean;
       },
     ) =>
       send({
@@ -420,6 +422,12 @@ export function useLiveSession({
           ...(opts?.rageFrenzy ? { rageFrenzy: true } : {}),
           ...(opts?.channelDivinitySpend
             ? { channelDivinitySpend: opts.channelDivinitySpend }
+            : {}),
+          ...(opts?.layOnHandsHealAmount !== undefined
+            ? { layOnHandsHealAmount: opts.layOnHandsHealAmount }
+            : {}),
+          ...(opts?.layOnHandsPurify
+            ? { layOnHandsPurify: opts.layOnHandsPurify }
             : {}),
         },
       }),
@@ -459,6 +467,11 @@ export function useLiveSession({
       send({
         t: "cmd",
         action: { type: "pass_counterspell", reactor },
+      }),
+    passIndomitable: (entity: string) =>
+      send({
+        t: "cmd",
+        action: { type: "pass_indomitable", entity },
       }),
     shortRest: (
       entity: string,

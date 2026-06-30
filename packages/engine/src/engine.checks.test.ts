@@ -73,6 +73,38 @@ describe("ability_check", () => {
     expect(check.proficient).toBe(true);
   });
 
+  it("auto-detects skill proficiency from entity state (FID-16)", async () => {
+    const engine = new Engine({ now: () => 0 });
+    await engine.execute(CAMPAIGN, {
+      type: "create_scene",
+      scene: { id: SCENE, name: "Library" },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "create_entity",
+      entity: {
+        id: "pc:sage",
+        kind: "character",
+        name: "Sage",
+        abilityScores: { str: 10, dex: 10, con: 10, int: 18, wis: 12, cha: 8 },
+        maxHp: 30,
+        baseAc: 12,
+        sceneId: SCENE,
+        classes: [{ class: "Wizard", level: 5 }],
+        skillProficiencies: ["Arcana"],
+      },
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "ability_check",
+      entity: "pc:sage",
+      ability: "int",
+      skill: "Arcana",
+      dc: 5,
+    });
+    const check = lastCheck(await engine.getEvents(CAMPAIGN));
+    expect(check.proficient).toBe(true);
+    expect(check.total).toBe(check.natural + 4 + 3);
+  });
+
   it("supports an uncontested roll with no DC (success omitted)", async () => {
     const engine = await setup();
     const res = await engine.execute(CAMPAIGN, {

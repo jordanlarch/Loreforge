@@ -143,6 +143,8 @@ export {
   naturalRecoveryMaximum,
   cuttingWordsEligibleReactors,
   counterspellEligibleReactors,
+  indomitableAvailable,
+  indomitableFeatureKey,
   hasEldritchInvocation,
   martialArtsDie,
   METAMAGIC_OPTIONS,

@@ -31,6 +31,7 @@ import {
   tutorialHintForScene,
   tutorialScene,
   tutorialSceneRequiresCompanion,
+  classLevel,
   type EntityState,
   type ItemDefinition,
   type WorldState,
@@ -81,11 +82,15 @@ import {
   controllableReactors,
   controllableCuttingWords,
   controllableCounterspell,
+  controllableIndomitable,
   cuttingWordsWindowKey,
   counterspellWindowKey,
+  indomitableWindowKey,
   hostilesInScene,
   reactionWindowKey,
   targetsInRange,
+  alliesInRange,
+  MELEE_REACH_FT,
   castTargetCandidates,
   reactionSpellsFor,
   type CastableSpell,
@@ -303,6 +308,7 @@ function LiveBattle({
   const [dismissedReaction, setDismissedReaction] = useState<string | null>(null);
   const [dismissedCuttingWords, setDismissedCuttingWords] = useState<string | null>(null);
   const [dismissedCounterspell, setDismissedCounterspell] = useState<string | null>(null);
+  const [dismissedIndomitable, setDismissedIndomitable] = useState<string | null>(null);
   const [stunningStrike, setStunningStrike] = useState(false);
   const [selectedMetamagic, setSelectedMetamagic] = useState<string | undefined>();
   const [flurryStrike, setFlurryStrike] = useState(false);
@@ -546,7 +552,13 @@ function LiveBattle({
       return undefined;
     }
     const rangeFt =
-      armed.kind === "cast" ? armed.spell.rangeFt : armed.attack.rangeFt;
+      armed.kind === "cast"
+        ? armed.spell.rangeFt
+        : armed.kind === "lay_on_hands"
+          ? MELEE_REACH_FT
+          : armed.kind === "turn_undead"
+            ? 30
+            : armed.attack.rangeFt;
     // A readied strike picks any hostile in the scene (it fires later, when that
     // foe enters range); an immediate attack/cast is limited to current range.
     const targetableIds =
@@ -556,7 +568,13 @@ function LiveBattle({
           ? castTargetCandidates(state, activeEntity.id, armed.spell).map(
               (e) => e.id,
             )
-          : targetsInRange(state, activeEntity.id, rangeFt).map((e) => e.id);
+          : armed.kind === "lay_on_hands"
+            ? alliesInRange(state, activeEntity.id, MELEE_REACH_FT, {
+                includeSelf: true,
+              }).map((e) => e.id)
+            : armed.kind === "turn_undead"
+              ? targetsInRange(state, activeEntity.id, 30).map((e) => e.id)
+              : targetsInRange(state, activeEntity.id, rangeFt).map((e) => e.id);
     return {
       origin: activeEntity.position,
       rangeCells: Math.floor(rangeFt / FEET_PER_CELL),
@@ -663,7 +681,17 @@ function LiveBattle({
         armed.attack.damage,
         armed.attack.rangeFt,
       );
-    } else {
+    } else if (armed.kind === "lay_on_hands") {
+      session.useClassFeature(activeEntity.id, armed.featureKey, {
+        beneficiaryId: targetId,
+        layOnHandsHealAmount: armed.healAmount,
+      });
+    } else if (armed.kind === "turn_undead") {
+      session.useClassFeature(activeEntity.id, armed.featureKey, {
+        channelDivinitySpend: "turn_undead",
+        beneficiaryId: targetId,
+      });
+    } else if (armed.kind === "cast") {
       const maxTargets = armed.spell.maxTargets ?? 1;
       if (maxTargets > 1) {
         setCastTargets((prev) => {
@@ -723,6 +751,17 @@ function LiveBattle({
     counterspellKey !== dismissedCounterspell &&
     !showReaction &&
     !showCuttingWords;
+  const indomitable = state
+    ? controllableIndomitable(state, FIXTURE_BATTLE_PARTY_SIDE)
+    : undefined;
+  const indomitableKey = state ? indomitableWindowKey(state) : null;
+  const showIndomitable =
+    !!indomitable &&
+    !!indomitableKey &&
+    indomitableKey !== dismissedIndomitable &&
+    !showReaction &&
+    !showCuttingWords &&
+    !showCounterspell;
   const reactorSheet = reaction ? loadouts?.[reaction.reactor.id] : undefined;
   const reactorReactionSpells = reaction
     ? reactorSheet
@@ -821,6 +860,18 @@ function LiveBattle({
     if (!counterspell) return;
     session.passCounterspell(counterspell.reactor.id);
     if (counterspellKey) setDismissedCounterspell(counterspellKey);
+  }
+
+  function onIndomitableUse() {
+    if (!indomitable) return;
+    session.useClassFeature(indomitable.entity.id, indomitable.featureKey);
+    if (indomitableKey) setDismissedIndomitable(indomitableKey);
+  }
+
+  function onIndomitablePass() {
+    if (!indomitable) return;
+    session.passIndomitable(indomitable.entity.id);
+    if (indomitableKey) setDismissedIndomitable(indomitableKey);
   }
 
   function onCastShieldReaction() {
@@ -1278,6 +1329,10 @@ function LiveBattle({
             counterspell={counterspell}
             onCounterspellUse={onCounterspellUse}
             onCounterspellPass={onCounterspellPass}
+            showIndomitable={showIndomitable}
+            indomitable={indomitable}
+            onIndomitableUse={onIndomitableUse}
+            onIndomitablePass={onIndomitablePass}
             reactorReactionSpells={reactorReactionSpells}
             onReactionAttack={onReactionAttack}
             onReactionPass={onReactionPassHandler}
@@ -1309,6 +1364,12 @@ function LiveBattle({
             onUseClassFeature={(featureKey, opts) => {
               if (!activeEntity) return;
               session.useClassFeature(activeEntity.id, featureKey, opts);
+            }}
+            onArmLayOnHands={(featureKey) => {
+              setArmed({ kind: "lay_on_hands", featureKey, healAmount: 5 });
+            }}
+            onArmTurnUndead={(featureKey) => {
+              setArmed({ kind: "turn_undead", featureKey });
             }}
             onFastHands={(action) => {
               if (!activeEntity) return;

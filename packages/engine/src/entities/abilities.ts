@@ -71,6 +71,27 @@ export function isSaveProficient(
   return entity.saveProficiencies.includes(ability);
 }
 
+/** Whether an entity is proficient in a named skill (command override wins). */
+export function isSkillProficient(
+  entity: Pick<EntityState, "skillProficiencies" | "proficiencyBonus">,
+  skill: string | undefined,
+  override?: boolean,
+): boolean {
+  if (override !== undefined) return override;
+  if (!skill?.trim()) return false;
+  const norm = skill.trim().toLowerCase();
+  return entity.skillProficiencies.some((s) => s.trim().toLowerCase() === norm);
+}
+
+/** Proficiency bonus added to a skill check when proficient. */
+export function skillProficiencyBonus(
+  entity: Pick<EntityState, "skillProficiencies" | "proficiencyBonus">,
+  skill: string | undefined,
+  override?: boolean,
+): number {
+  return isSkillProficient(entity, skill, override) ? entity.proficiencyBonus : 0;
+}
+
 /** Proficiency bonus added to a save when proficient. */
 export function saveProficiencyBonus(
   entity: Pick<EntityState, "saveProficiencies" | "proficiencyBonus">,
@@ -128,6 +149,9 @@ export function createEntityState(init: EntityInit): EntityState {
     classes,
     proficiencyBonus: proficiencyBonusForLevel(level),
     saveProficiencies: init.saveProficiencies ? [...init.saveProficiencies] : [],
+    skillProficiencies: init.skillProficiencies
+      ? [...init.skillProficiencies]
+      : [],
     ...(init.attacksPerAction !== undefined
       ? { attacksPerAction: init.attacksPerAction }
       : {}),

@@ -15,6 +15,8 @@ export type ArmedAction =
   | { kind: "attack"; attack: WeaponAttack }
   | { kind: "ready"; attack: WeaponAttack }
   | { kind: "cast"; spell: CastableSpell }
+  | { kind: "lay_on_hands"; featureKey: string; healAmount: number }
+  | { kind: "turn_undead"; featureKey: string }
   | null;
 
 export function CombatActionBar({
@@ -115,11 +117,15 @@ export function CombatActionBar({
         ? `Pick a target for ${armed.attack.label}`
         : armed.kind === "ready"
           ? `Pick a foe to ready ${armed.attack.label} against — it fires when they enter range`
-          : multi
-            ? `Pick up to ${armed.spell.maxTargets} allies for ${armed.spell.name} (${castTargetCount ?? 0}/${armed.spell.maxTargets})`
-            : armed.spell.targetKind === "ally"
-              ? `Pick an ally for ${armed.spell.name}`
-              : `Pick a target for ${armed.spell.name}`;
+          : armed.kind === "lay_on_hands"
+            ? `Pick an ally to heal (+${armed.healAmount} HP)`
+            : armed.kind === "turn_undead"
+              ? "Pick an Undead target for Turn Undead"
+              : multi
+                ? `Pick up to ${armed.spell.maxTargets} allies for ${armed.spell.name} (${castTargetCount ?? 0}/${armed.spell.maxTargets})`
+                : armed.spell.targetKind === "ally"
+                  ? `Pick an ally for ${armed.spell.name}`
+                  : `Pick a target for ${armed.spell.name}`;
     return (
       <div
         className={`flex items-center justify-between gap-2 rounded-lg border border-lore-accent bg-lore-accent-dim px-3 py-2 text-sm ${inline ? "" : "mb-3"}`}

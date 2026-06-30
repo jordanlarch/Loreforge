@@ -4,7 +4,9 @@
 import type { SaveOutcome } from "../content/spells";
 import { abilityModifier } from "../entities/abilities";
 import { parseFeatureChoiceValues } from "../entities/class-feature-choices";
+import { classFeaturesForLevel } from "../entities/class-features";
 import {
+  effectiveFeaturePoolSize,
   featureResourceKey,
   remainingFeatureUses,
 } from "../entities/feature-resources";
@@ -449,4 +451,26 @@ export function counterspellEligibleReactors(
     eligible.push(id);
   }
   return eligible;
+}
+
+/** True when a Fighter 9+ has an unused Indomitable reroll. */
+export function indomitableAvailable(entity: EntityState): boolean {
+  const level = classLevel(entity.classes, "Fighter");
+  if (level < 9) return false;
+  const key = featureResourceKey("Fighter", 9, "indomitable");
+  const feat = classFeaturesForLevel("Fighter", 9).find(
+    (f) => f.id === "indomitable",
+  );
+  if (!feat?.uses) return false;
+  return (
+    remainingFeatureUses(
+      entity.resourceUses?.[key],
+      effectiveFeaturePoolSize(key, entity.classes, feat.uses),
+    ) > 0
+  );
+}
+
+export function indomitableFeatureKey(entity: EntityState): string | undefined {
+  if (classLevel(entity.classes, "Fighter") < 9) return undefined;
+  return featureResourceKey("Fighter", 9, "indomitable");
 }

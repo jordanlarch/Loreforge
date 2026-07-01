@@ -34,6 +34,7 @@ import { interactObjectEvents } from "../dungeon/objects";
 import {
   dungeonFogRevealEvents,
   dungeonFogRevealZoneEvents,
+  dungeonFogSeedAuthoredEvents,
   revealAreaEvents,
   shareScoutRevealEvents,
 } from "../dungeon/fog";
@@ -242,6 +243,17 @@ function enterDungeonEvents(
         floor?.zones,
       ),
     );
+    if (floor?.revealedCells?.length) {
+      events.push(
+        ...dungeonFogSeedAuthoredEvents(
+          ctx,
+          partyIds,
+          sceneId,
+          floor.revealedCells,
+          floor.zones,
+        ),
+      );
+    }
     const patrolFloors =
       layoutForDungeon(ctx, cmd.dungeonEntityId)?.floors ??
       buildLayoutState(loadDungeonFloors(cmd.entityData)).floors;

@@ -68,6 +68,46 @@ describe("DUN-5 fog reveal", () => {
     expect(after.dungeonProgress?.discoveredZoneIds).toContain("entry");
   });
 
+  it("seeds prep-authored starting revealed cells on threshold enter (DUN-16)", async () => {
+    const store = new InMemoryEventStore();
+    const engine = new Engine({ store });
+    const campaign = "dun16-seed";
+    const ossuaryCell = { x: 7, y: 3 };
+    const entityData = {
+      floors: [
+        {
+          ...samples.minimalTwoZoneFloor.floors[0]!,
+          revealedCells: [ossuaryCell],
+        },
+      ],
+    };
+    const settlementScene = "scene:realm:22222222-2222-4222-8222-222222222222";
+    await engine.execute(campaign, {
+      type: "create_scene",
+      scene: {
+        id: settlementScene,
+        name: "Hamlet",
+        map: { width: 10, height: 10, blockedCells: [] },
+      },
+    });
+    await engine.execute(campaign, { type: "change_scene", sceneId: settlementScene });
+    await seedHero(engine, campaign, settlementScene, { x: 2, y: 2 });
+    await engine.execute(campaign, {
+      type: "enter_dungeon",
+      dungeonEntityId: DUNGEON_ID,
+      floorIndex: 0,
+      entryZoneId: "entry",
+      zoneName: "Entry Hall",
+      locationName: "Crypt",
+      entityData,
+    });
+    const floor0 = sceneIdForDungeonFloor(DUNGEON_ID, 0);
+    const after = await engine.getState(campaign);
+    const keys = revealedCellKeysFor(after, "char:hero", floor0);
+    expect(keys.has(`${ossuaryCell.x},${ossuaryCell.y}`)).toBe(true);
+    expect(after.dungeonProgress?.discoveredZoneIds).toContain("ossuary");
+  });
+
   it("reveals vision cells on move and discovers a new zone", async () => {
     const store = new InMemoryEventStore();
     const engine = new Engine({ store });

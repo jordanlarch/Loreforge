@@ -110,6 +110,8 @@ export type NormalizedDungeonFloor = {
   zones: NormalizedDungeonZone[];
   transitions: FloorTransition[];
   patrolRoutes: PatrolRoute[];
+  /** Cells revealed for all party on first dungeon threshold enter (DUN-16 prep). */
+  revealedCells?: GridCell[];
 };
 
 export type DungeonLayoutState = {
@@ -141,4 +143,6 @@ export type AuthoredDungeonFloor = {
   zones: AuthoredDungeonZone[];
   transitions?: FloorTransition[];
   patrolRoutes?: PatrolRoute[];
+  /** Starting revealed cells authored in prep; seeded on first threshold enter (DUN-16). */
+  revealedCells?: GridCell[];
 };

@@ -216,6 +216,35 @@ export function dungeonFogRevealZoneEvents(
   return events;
 }
 
+/** Seed prep-authored starting revealed cells for all party on threshold enter (DUN-16). */
+export function dungeonFogSeedAuthoredEvents(
+  ctx: ExecutionContext,
+  entityIds: EntityRef[],
+  sceneId: SceneId,
+  cells: GridCell[],
+  zonesOverride?: NormalizedDungeonZone[],
+): DraftEvent[] {
+  if (cells.length === 0) return [];
+
+  const events: DraftEvent[] = [];
+  const batchRevealed = new Set<string>();
+  const batchDiscovered = new Set<string>();
+
+  for (const entityId of entityIds) {
+    appendFogAndDiscovery(
+      ctx,
+      entityId,
+      sceneId,
+      cells,
+      events,
+      batchRevealed,
+      batchDiscovered,
+      zonesOverride,
+    );
+  }
+  return events;
+}
+
 export function shareScoutRevealEvents(
   ctx: ExecutionContext,
   scoutId: EntityRef,

@@ -24,6 +24,8 @@ import {
   markBriefingDelivered,
   normalizeEntityQuests,
   parseQuestInstanceData,
+  formatQuestBriefingLine,
+  queueStepAdvanceLine,
   templateFromInstance,
   type QuestPrerequisiteContext,
   type QuestTemplate,
@@ -385,14 +387,24 @@ export const questsRouter = createTRPCRouter({
 
       const status: HookStatus = result.completed ? "resolved" : "active";
 
-      let data = result.data as Record<string, unknown>;
+      const template = templateFromInstance({
+        id: existing.id,
+        status: existing.status,
+        title: existing.title,
+        data: result.data,
+      });
+
+      const advanceLine = result.completed
+        ? `Quest complete — ${template?.title ?? existing.title}. Well done.`
+        : template
+          ? formatQuestBriefingLine(template, result.data.currentStepId)
+          : `Step complete — ${existing.title}.`;
+      let data = queueStepAdvanceLine(result.data, advanceLine) as Record<
+        string,
+        unknown
+      >;
+
       if (status === "resolved") {
-        const template = templateFromInstance({
-          id: existing.id,
-          status: existing.status,
-          title: existing.title,
-          data: result.data,
-        });
         const granted = buildRewardsGranted(template);
         if (granted?.xpPerPc && !parsed.rewardsGranted) {
           await grantQuestXpToParty(

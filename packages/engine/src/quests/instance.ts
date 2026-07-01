@@ -12,6 +12,9 @@ export type QuestInstanceData = {
   outcomeNotes?: string;
   /** Set when status → Resolved and engine grants template rewards (Phase D). */
   rewardsGranted?: QuestRewardsGranted;
+  /** GM line to deliver in Live Play after manual step completion (Quest tab). */
+  pendingStepAdvanceLine?: string;
+  stepAdvanceDelivered?: boolean;
 };
 
 export type QuestInstanceStatus =
@@ -57,6 +60,11 @@ export function parseQuestInstanceData(data: unknown): QuestInstanceData {
     rewardsGranted: isRecord(data.rewardsGranted)
       ? (data.rewardsGranted as QuestInstanceData["rewardsGranted"])
       : undefined,
+    pendingStepAdvanceLine:
+      typeof data.pendingStepAdvanceLine === "string"
+        ? data.pendingStepAdvanceLine
+        : undefined,
+    stepAdvanceDelivered: data.stepAdvanceDelivered === true,
   };
 }
 

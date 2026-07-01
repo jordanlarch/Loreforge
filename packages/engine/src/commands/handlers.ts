@@ -8,10 +8,10 @@
  */
 import {
   abilityModifier,
+  checkProficiencyBonus,
+  isCheckProficient,
   isSaveProficient,
-  isSkillProficient,
   saveRollTotal,
-  skillProficiencyBonus,
   totalLevel,
 } from "../entities/abilities";
 import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
@@ -2064,7 +2064,7 @@ function handleAbilityCheck(
   if (checkAutoFail(entity.conditions, cmd.skill, {
     requiresHearing: cmd.requiresHearing,
   })) {
-    const proficient = isSkillProficient(entity, cmd.skill, cmd.proficient);
+    const proficient = isCheckProficient(entity, cmd.skill, cmd.proficient);
     return {
       accepted: true,
       events: [
@@ -2105,8 +2105,8 @@ function handleAbilityCheck(
   ) as RollMode;
   const roll = ctx.roll("1d20", `check:${cmd.entity}:${cmd.ability}`, mode);
   const natural = roll.total;
-  const proficient = isSkillProficient(entity, cmd.skill, cmd.proficient);
-  const profBonus = skillProficiencyBonus(entity, cmd.skill, proficient);
+  const proficient = isCheckProficient(entity, cmd.skill, cmd.proficient);
+  const profBonus = checkProficiencyBonus(entity, cmd.skill, cmd.proficient);
   const total =
     natural +
     abilityModifier(entity.abilityScores[cmd.ability]) +

@@ -85,6 +85,10 @@ export type PartyMember = {
   saveProficiencies?: Ability[];
   /** Skill proficiencies from sheet (SRD-FID-16). */
   skillProficiencies?: string[];
+  /** Tool proficiencies from sheet (SRD-FID-16). */
+  toolProficiencies?: string[];
+  /** Weapon proficiencies from sheet (SRD-FID-16). */
+  weaponProficiencies?: string[];
   /** Class-feature picks (Metamagic, Invocations, …) from character sheet meta. */
   featureChoices?: Record<string, string>;
   /** Spent class-feature pools synced from sheet meta. */
@@ -184,6 +188,8 @@ export const FIXTURE_PARTY: PartyMember[] = [
     classes: FIXTURE_CHARACTERS[0]!.classes,
     saveProficiencies: FIXTURE_CHARACTERS[0]!.saveProficiencies,
     skillProficiencies: FIXTURE_CHARACTERS[0]!.skillProficiencies,
+    toolProficiencies: FIXTURE_CHARACTERS[0]!.toolProficiencies,
+    weaponProficiencies: FIXTURE_CHARACTERS[0]!.weaponProficiencies,
   },
   {
     id: FIXTURE_CHARACTERS[1]!.id,
@@ -195,6 +201,8 @@ export const FIXTURE_PARTY: PartyMember[] = [
     classes: FIXTURE_CHARACTERS[1]!.classes,
     saveProficiencies: FIXTURE_CHARACTERS[1]!.saveProficiencies,
     skillProficiencies: FIXTURE_CHARACTERS[1]!.skillProficiencies,
+    toolProficiencies: FIXTURE_CHARACTERS[1]!.toolProficiencies,
+    weaponProficiencies: FIXTURE_CHARACTERS[1]!.weaponProficiencies,
     // The Bard is a caster so the live cast loop (#58) is exercisable.
     spellcasting: { ability: "cha" },
   },
@@ -208,6 +216,7 @@ export const FIXTURE_PARTY: PartyMember[] = [
     classes: FIXTURE_CHARACTERS[2]!.classes,
     saveProficiencies: FIXTURE_CHARACTERS[2]!.saveProficiencies,
     skillProficiencies: FIXTURE_CHARACTERS[2]!.skillProficiencies,
+    weaponProficiencies: FIXTURE_CHARACTERS[2]!.weaponProficiencies,
     spellcasting: {
       ability: "int",
       casterLevel: 5,
@@ -295,6 +304,12 @@ export function buildPartyBattleCommands(
           : {}),
         ...(m.skillProficiencies?.length
           ? { skillProficiencies: m.skillProficiencies }
+          : {}),
+        ...(m.toolProficiencies?.length
+          ? { toolProficiencies: m.toolProficiencies }
+          : {}),
+        ...(m.weaponProficiencies?.length
+          ? { weaponProficiencies: m.weaponProficiencies }
           : {}),
         sceneId: FIXTURE_BATTLE_SCENE_ID,
         position: PARTY_POSITIONS[i]!,

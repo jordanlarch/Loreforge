@@ -46,14 +46,26 @@ export {
 export {
   abilityModifier,
   attacksPerAction,
+  checkProficiencyBonus,
   createEntityState,
   extraAttackCount,
+  isCheckProficient,
   isSaveProficient,
+  isSkillProficient,
+  isToolProficient,
+  isWeaponProficient,
   proficiencyBonusForLevel,
   saveProficiencyBonus,
   saveRollTotal,
+  skillProficiencyBonus,
   totalLevel,
+  weaponProficiencyBonus,
 } from "./entities/abilities";
+export {
+  isProficientWithWeapon,
+  normalizeProficiencyLabel,
+  weaponProficiencyCategory,
+} from "./content/weapon-proficiency";
 export {
   ABILITIES,
   type Ability,

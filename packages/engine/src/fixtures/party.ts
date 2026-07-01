@@ -39,6 +39,8 @@ export type CharacterSheetInput = {
   speed: number;
   saveProficiencies: Ability[];
   skillProficiencies: string[];
+  toolProficiencies?: string[];
+  weaponProficiencies?: string[];
 };
 
 export type FixtureCharacter = CharacterSheetInput;
@@ -56,6 +58,8 @@ export const FIXTURE_CHARACTERS: FixtureCharacter[] = [
     speed: 30,
     saveProficiencies: ["str", "con"],
     skillProficiencies: ["Athletics", "Intimidation", "Survival"],
+    toolProficiencies: ["Gaming Set"],
+    weaponProficiencies: ["Simple Weapons", "Martial Weapons"],
   },
   {
     id: "pc:elara",
@@ -69,6 +73,14 @@ export const FIXTURE_CHARACTERS: FixtureCharacter[] = [
     speed: 35,
     saveProficiencies: ["dex", "cha"],
     skillProficiencies: ["Performance", "Persuasion", "Perception", "Deception"],
+    toolProficiencies: ["Lute"],
+    weaponProficiencies: [
+      "Simple Weapons",
+      "Hand Crossbow",
+      "Longsword",
+      "Rapier",
+      "Shortsword",
+    ],
   },
   {
     id: "pc:aldric",
@@ -82,6 +94,13 @@ export const FIXTURE_CHARACTERS: FixtureCharacter[] = [
     speed: 30,
     saveProficiencies: ["int", "wis"],
     skillProficiencies: ["Arcana", "History", "Investigation"],
+    weaponProficiencies: [
+      "Dagger",
+      "Dart",
+      "Sling",
+      "Quarterstaff",
+      "Light Crossbow",
+    ],
   },
 ];
 
@@ -209,6 +228,15 @@ export async function buildFixtureCampaign(
         speed: character.speed,
         classes: character.classes,
         saveProficiencies: character.saveProficiencies,
+        ...(character.skillProficiencies.length
+          ? { skillProficiencies: character.skillProficiencies }
+          : {}),
+        ...(character.toolProficiencies?.length
+          ? { toolProficiencies: character.toolProficiencies }
+          : {}),
+        ...(character.weaponProficiencies?.length
+          ? { weaponProficiencies: character.weaponProficiencies }
+          : {}),
         sceneId: "scene:tavern",
       },
     });

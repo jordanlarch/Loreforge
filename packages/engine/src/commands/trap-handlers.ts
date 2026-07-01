@@ -6,7 +6,13 @@ import type { Condition } from "../combat/conditions";
 import { adjustDamageAmount } from "../combat/damage";
 import { getTrapDefinition } from "../content/srd-trap-seeds";
 import type { TrapDefinition, TrapEffect } from "../content/toolbox-definitions";
-import { abilityModifier, isSaveProficient, saveRollTotal } from "../entities/abilities";
+import {
+  abilityModifier,
+  isCheckProficient,
+  isSaveProficient,
+  isToolProficient,
+  saveRollTotal,
+} from "../entities/abilities";
 import type { EntityRef, SceneId, SceneTrapInstance } from "../entities/types";
 import type { DraftEvent } from "../events/types";
 import type { RollMode } from "../rng/dice";
@@ -231,7 +237,7 @@ export function handleDetectTrap(
   if (!def?.detect) {
     return reject("TRAP_NO_DETECT", `${def?.name ?? found.trap.trapSlug} has no detect DC.`);
   }
-  const proficient = def.detect.skill === "Perception";
+  const proficient = isCheckProficient(actor, "Perception");
   const { events, success } = rollCheck(
     ctx,
     cmd.entity,
@@ -277,12 +283,15 @@ export function handleDisableTrap(
   if (!def?.disable) {
     return reject("TRAP_NO_DISABLE", `${def?.name ?? found.trap.trapSlug} cannot be disabled.`);
   }
+  const proficient = def.disable.tool
+    ? isToolProficient(actor, def.disable.tool)
+    : isCheckProficient(actor, undefined);
   const { events, success } = rollCheck(
     ctx,
     cmd.entity,
     def.disable.ability,
     def.disable.dc,
-    Boolean(def.disable.tool),
+    proficient,
     `trap-disable:${cmd.trapInstanceId}`,
   );
   events.push({

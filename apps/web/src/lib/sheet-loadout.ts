@@ -18,6 +18,7 @@ import {
   aggregateFightingStyleModifiers,
   extraAttackCount,
   weaponSpecFromItemDefinition,
+  weaponProficiencyBonus,
   type ClassLevel,
   type CombatFeatToggles,
   type EntityState,
@@ -179,7 +180,9 @@ function resolveWeapon(
 ): WeaponAttack {
   const mod = weaponAbilityMod(entity, spec);
   const magic = spec.attackBonus ?? 0;
-  const attackBonus = entity.proficiencyBonus + mod + magic;
+  const weaponKey = normalize(name) || "weapon";
+  const profBonus = weaponProficiencyBonus(entity, weaponKey);
+  const attackBonus = profBonus + mod + magic;
   const damageMod = mod + magic;
   const notation =
     damageMod !== 0 ? `${spec.dice}${fmtMod(damageMod)}` : spec.dice;

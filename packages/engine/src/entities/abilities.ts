@@ -4,6 +4,10 @@
  */
 import { exhaustionD20Penalty } from "../combat/conditions";
 import { fullCasterSlots } from "../content/spell-slots";
+import {
+  isProficientWithWeapon,
+  normalizeProficiencyLabel,
+} from "../content/weapon-proficiency";
 import type { Ability, ClassLevel, EntityInit, EntityState } from "./types";
 
 /**
@@ -79,17 +83,86 @@ export function isSkillProficient(
 ): boolean {
   if (override !== undefined) return override;
   if (!skill?.trim()) return false;
-  const norm = skill.trim().toLowerCase();
-  return entity.skillProficiencies.some((s) => s.trim().toLowerCase() === norm);
+  return entity.skillProficiencies.some(
+    (s) => normalizeProficiencyLabel(s) === normalizeProficiencyLabel(skill),
+  );
 }
 
-/** Proficiency bonus added to a skill check when proficient. */
-export function skillProficiencyBonus(
-  entity: Pick<EntityState, "skillProficiencies" | "proficiencyBonus">,
+/** Whether an entity is proficient with a tool (command override wins). */
+export function isToolProficient(
+  entity: Pick<EntityState, "toolProficiencies" | "proficiencyBonus">,
+  tool: string | undefined,
+  override?: boolean,
+): boolean {
+  if (override !== undefined) return override;
+  if (!tool?.trim()) return false;
+  const norm = normalizeProficiencyLabel(tool);
+  return (entity.toolProficiencies ?? []).some(
+    (t) => normalizeProficiencyLabel(t) === norm,
+  );
+}
+
+/** Whether an entity is proficient with a weapon id/name (command override wins). */
+export function isWeaponProficient(
+  entity: Pick<EntityState, "weaponProficiencies" | "proficiencyBonus">,
+  weaponKey: string | undefined,
+  override?: boolean,
+): boolean {
+  if (override !== undefined) return override;
+  if (!weaponKey?.trim()) return false;
+  return isProficientWithWeapon(entity.weaponProficiencies ?? [], weaponKey);
+}
+
+/** Skill or tool proficiency for a named check (SRD-FID-16). */
+export function isCheckProficient(
+  entity: Pick<
+    EntityState,
+    "skillProficiencies" | "toolProficiencies" | "proficiencyBonus"
+  >,
+  skill: string | undefined,
+  override?: boolean,
+): boolean {
+  if (override !== undefined) return override;
+  return (
+    isSkillProficient(entity, skill) || isToolProficient(entity, skill)
+  );
+}
+
+/** Proficiency bonus for a skill or tool check. */
+export function checkProficiencyBonus(
+  entity: Pick<
+    EntityState,
+    "skillProficiencies" | "toolProficiencies" | "proficiencyBonus"
+  >,
   skill: string | undefined,
   override?: boolean,
 ): number {
-  return isSkillProficient(entity, skill, override) ? entity.proficiencyBonus : 0;
+  return isCheckProficient(entity, skill, override)
+    ? entity.proficiencyBonus
+    : 0;
+}
+
+/** Proficiency bonus added to a weapon attack when proficient. */
+export function weaponProficiencyBonus(
+  entity: Pick<EntityState, "weaponProficiencies" | "proficiencyBonus">,
+  weaponKey: string | undefined,
+  override?: boolean,
+): number {
+  return isWeaponProficient(entity, weaponKey, override)
+    ? entity.proficiencyBonus
+    : 0;
+}
+
+/** Proficiency bonus for a skill or tool check. */
+export function skillProficiencyBonus(
+  entity: Pick<
+    EntityState,
+    "skillProficiencies" | "toolProficiencies" | "proficiencyBonus"
+  >,
+  skill: string | undefined,
+  override?: boolean,
+): number {
+  return checkProficiencyBonus(entity, skill, override);
 }
 
 /** Proficiency bonus added to a save when proficient. */
@@ -151,6 +224,10 @@ export function createEntityState(init: EntityInit): EntityState {
     saveProficiencies: init.saveProficiencies ? [...init.saveProficiencies] : [],
     skillProficiencies: init.skillProficiencies
       ? [...init.skillProficiencies]
+      : [],
+    toolProficiencies: init.toolProficiencies ? [...init.toolProficiencies] : [],
+    weaponProficiencies: init.weaponProficiencies
+      ? [...init.weaponProficiencies]
       : [],
     ...(init.attacksPerAction !== undefined
       ? { attacksPerAction: init.attacksPerAction }

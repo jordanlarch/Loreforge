@@ -449,7 +449,7 @@ Tracked here; several alias to existing engine rows (don't mint duplicates — f
 
 | ID | Item | Tracking | Status | Notes |
 |---|---|---|---|---|
-| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` (saves resolve as non-proficient today) | doc-only | **Partial** | **Save + skill proficiencies done** — PR #328 (saves), **#347 (skills)**: `skillProficiencies` on `EntityState`; auto-detect on `ability_check`; threaded DB → ws-server → live entities. Tool/weapon proficiency still open. |
+| SRD-FID-16 | Saving-throw + skill/tool/weapon **proficiency** on `EntityState` | doc-only | **Done** | PR #328 (saves), **#347 (skills)**, **FID-16 remainder** (unshipped): `toolProficiencies` + `weaponProficiencies` on `EntityState`; auto-detect on `ability_check` (tools), trap detect/disable, and Live Play `sheet-loadout` attack menus; threaded fixtures → ws-server (`proficiencies.tools/weapons` in sheet meta) → live entities. |
 | SRD-FID-17 | Surprise (combat order) | doc-only | **Done** | PR #329 — `resolve_surprise` command; surprised flag blocks move/actions/reactions on first turn. |
 | SRD-FID-18 | Difficult terrain movement cost | doc-only | **Done** | PR #330 — `SceneMap.difficultCells`; path-based `movementCostFeet` doubles entered squares. |
 | SRD-FID-19 | Resistance / Vulnerability / Immunity + temp-HP **grant** command | doc-only | **Done** | PR #331 — `adjustDamageAmount`; entity damage lists; `grant_temp_hp` + False Life temp HP. |

@@ -23,6 +23,8 @@ function entity(over: Partial<EntityState> & { id: string }): EntityState {
     proficiencyBonus: 2,
     saveProficiencies: [],
     skillProficiencies: [],
+    toolProficiencies: [],
+    weaponProficiencies: [],
     alive: true,
     conditions: [],
     dead: false,
@@ -56,6 +58,7 @@ describe("deriveWeaponAttacks", () => {
       id: "hero",
       abilityScores: { str: 16, dex: 12, con: 10, int: 10, wis: 10, cha: 10 },
       proficiencyBonus: 3,
+      weaponProficiencies: ["Martial Weapons"],
     });
     const [atk] = deriveWeaponAttacks(hero, [item({ name: "Longsword" })]);
     expect(atk?.attackBonus).toBe(6); // +3 STR +3 prof
@@ -68,11 +71,23 @@ describe("deriveWeaponAttacks", () => {
       id: "archer",
       abilityScores: { str: 8, dex: 16, con: 10, int: 10, wis: 10, cha: 10 },
       proficiencyBonus: 2,
+      weaponProficiencies: ["Shortbow"],
     });
     const [atk] = deriveWeaponAttacks(archer, [item({ name: "Shortbow" })]);
     expect(atk?.attackBonus).toBe(5); // +3 DEX +2 prof
     expect(atk?.damage.notation).toBe("1d6+3");
     expect(atk?.rangeFt).toBe(80);
+  });
+
+  it("omits proficiency when not proficient with the weapon", () => {
+    const hero = entity({
+      id: "hero",
+      abilityScores: { str: 16, dex: 12, con: 10, int: 10, wis: 10, cha: 10 },
+      proficiencyBonus: 3,
+      weaponProficiencies: [],
+    });
+    const [atk] = deriveWeaponAttacks(hero, [item({ name: "Longsword" })]);
+    expect(atk?.attackBonus).toBe(3); // +3 STR only
   });
 
   it("ignores unequipped, zero-quantity, and non-weapon items", () => {
@@ -101,6 +116,7 @@ describe("deriveWeaponAttacks", () => {
       id: "hero",
       abilityScores: { str: 16, dex: 12, con: 10, int: 10, wis: 10, cha: 10 },
       proficiencyBonus: 3,
+      weaponProficiencies: ["Martial Weapons"],
     });
     const [atk] = deriveWeaponAttacks(
       hero,

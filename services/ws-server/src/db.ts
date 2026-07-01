@@ -66,6 +66,8 @@ const SHEET_META_MARKER = "\n\n---loreforge-sheet-meta-v1---\n";
 function sheetMetaFromNotes(notes: string | null | undefined): {
   featureChoices?: Record<string, string>;
   resourceUses?: Record<string, boolean[]>;
+  toolProficiencies?: string[];
+  weaponProficiencies?: string[];
 } {
   if (!notes?.includes(SHEET_META_MARKER)) return {};
   const metaIdx = notes.indexOf(SHEET_META_MARKER);
@@ -75,6 +77,10 @@ function sheetMetaFromNotes(notes: string | null | undefined): {
     ) as {
       featureChoices?: Record<string, string>;
       resourceUses?: Record<string, boolean[]>;
+      proficiencies?: {
+        tools?: string[];
+        weapons?: string[];
+      };
     };
     return {
       ...(parsed.featureChoices
@@ -89,6 +95,12 @@ function sheetMetaFromNotes(notes: string | null | undefined): {
               ]),
             ),
           }
+        : {}),
+      ...(parsed.proficiencies?.tools?.length
+        ? { toolProficiencies: [...parsed.proficiencies.tools] }
+        : {}),
+      ...(parsed.proficiencies?.weapons?.length
+        ? { weaponProficiencies: [...parsed.proficiencies.weapons] }
         : {}),
     };
   } catch {
@@ -215,6 +227,12 @@ export async function getCampaignParty(
         : {}),
       ...(row.skillProficiencies?.length
         ? { skillProficiencies: row.skillProficiencies }
+        : {}),
+      ...(sheetMeta.toolProficiencies?.length
+        ? { toolProficiencies: sheetMeta.toolProficiencies }
+        : {}),
+      ...(sheetMeta.weaponProficiencies?.length
+        ? { weaponProficiencies: sheetMeta.weaponProficiencies }
         : {}),
       ...(meleeReachFt !== undefined ? { meleeReachFt } : {}),
       ...(isCaster

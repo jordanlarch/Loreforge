@@ -16,6 +16,7 @@ import { spellAttackBonus, spellSaveDC } from "../content/spellcasting";
 import { withinBurst, distanceFeet } from "../combat/grid";
 import { areHostile } from "../combat/reactions";
 import { effectiveAc } from "../combat/effects";
+import { mainActionAvailable, mainActionSpendPayload } from "../combat/initiative";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "../commands/context";
 import type { CommandResult } from "../commands/types";
@@ -47,6 +48,8 @@ type ZoneTickSpec = {
   baseSlot: number;
   damageType: string;
   fixedDice?: string;
+  /** When false, a successful save negates damage (Cloudkill). Default true = half. */
+  halfOnSuccess?: boolean;
 };
 
 const ZONE_TURN_START_TICKS: Record<string, ZoneTickSpec> = {
@@ -64,6 +67,15 @@ const ZONE_TURN_START_TICKS: Record<string, ZoneTickSpec> = {
     dieSize: 10,
     baseSlot: 2,
     damageType: "radiant",
+  },
+  cloudkill: {
+    ability: "con",
+    baseDice: 5,
+    dieSize: 8,
+    baseSlot: 5,
+    damageType: "poison",
+    fixedDice: "5d8",
+    halfOnSuccess: false,
   },
 };
 
@@ -182,7 +194,12 @@ function rollZoneSaveDamageTick(
       drawIndex: roll.drawIndex,
     },
   });
-  const amount = success ? Math.floor(roll.total / 2) : roll.total;
+  const amount =
+    success && spec.halfOnSuccess === false
+      ? 0
+      : success
+        ? Math.floor(roll.total / 2)
+        : roll.total;
   if (amount > 0) {
     events.push({
       type: "DamageDealt",
@@ -393,7 +410,7 @@ export function handleStrikeCallLightning(
       "No call lightning storm cloud is active for this caster.",
     );
   }
-  if (caster.actionEconomy && caster.actionEconomy.action !== "available") {
+  if (caster.actionEconomy && !mainActionAvailable(caster.actionEconomy)) {
     return reject(
       "ACTION_UNAVAILABLE",
       `${caster.name} has already used their action.`,
@@ -462,7 +479,10 @@ export function handleStrikeCallLightning(
     {
       type: "ActionSpent",
       ...meta(ctx, caster.id),
-      payload: { entity: caster.id, action: true },
+      payload: {
+        entity: caster.id,
+        ...mainActionSpendPayload(caster.actionEconomy!),
+      },
     },
   ];
   if (amount > 0) {
@@ -553,6 +573,79 @@ export function spellZoneTurnStartEvents(
     if (!spec) continue;
     if (!entityInZoneCells(entity, zone.cells)) continue;
     events.push(...rollZoneSaveDamageTick(ctx, entity, zone, spec));
+  }
+  events.push(...stinkingCloudTurnStartEvents(ctx, entityId));
+  return events;
+}
+
+/** Stinking Cloud — Con save at turn start in the zone or spend the action retching. */
+export function stinkingCloudTurnStartEvents(
+  ctx: ExecutionContext,
+  entityId: EntityRef,
+): DraftEvent[] {
+  const entity = ctx.world.entities[entityId];
+  if (!entity?.position || !entity.sceneId || !entity.alive) return [];
+  const scene = ctx.world.scenes[entity.sceneId];
+  const zones = scene?.spellZones?.filter((z) => z.spellId === "stinking-cloud");
+  if (!zones?.length) return [];
+
+  const inCloud = zones.some((z) => entityInZoneCells(entity, z.cells));
+  if (!inCloud) return [];
+
+  const caster = ctx.world.entities[zones[0]!.caster];
+  const dc = spellSaveDC(caster ?? entity);
+  if (dc === undefined) return [];
+
+  const d20 = ctx.roll("1d20", `stinking-cloud:${entityId}`);
+  const mod = abilityModifier(entity.abilityScores.con);
+  const total = d20.total + mod;
+  const success = total >= dc;
+  const events: DraftEvent[] = [
+    {
+      type: "DiceRolled",
+      ...meta(ctx, entityId),
+      payload: {
+        notation: d20.notation,
+        rolls: d20.rolls,
+        total: d20.total,
+        scope: d20.scope,
+        drawIndex: d20.drawIndex,
+      },
+    },
+    {
+      type: "SaveRolled",
+      ...meta(ctx, entityId),
+      payload: {
+        entity: entityId,
+        ability: "con",
+        dc,
+        mode: "normal",
+        natural: d20.total,
+        total,
+        success,
+        autoFail: false,
+      },
+    },
+  ];
+  if (!success) {
+    if (!entity.conditions.some((c) => c.condition === "poisoned")) {
+      events.push({
+        type: "ConditionApplied",
+        ...meta(ctx, zones[0]!.caster),
+        payload: {
+          target: entityId,
+          condition: "poisoned",
+          source: zones[0]!.caster,
+        },
+      });
+    }
+    if (entity.actionEconomy?.action === "available") {
+      events.push({
+        type: "ActionSpent",
+        ...meta(ctx, entityId),
+        payload: { entity: entityId, action: true },
+      });
+    }
   }
   return events;
 }
@@ -817,4 +910,6 @@ export const CONCENTRATION_ZONE_SPELL_IDS: Record<string, string> = {
   "wall of fire": "wall-of-fire",
   moonbeam: "moonbeam",
   "call lightning": "call-lightning",
+  cloudkill: "cloudkill",
+  "stinking cloud": "stinking-cloud",
 };

@@ -22,6 +22,7 @@ import { effectiveSpeed, isIncapacitated } from "../combat/conditions";
 import {
   applyTimedEffectTick,
   effectiveSpeedForEntity,
+  entityHasHaste,
   expireStartOfTurnEffects,
   stripConcentrationConditions,
   stripConcentrationEffects,
@@ -29,6 +30,7 @@ import {
   stripHelpCheckEffects,
   stripOneBardicInspiration,
 } from "../combat/effects";
+import { CONCENTRATION_ZONE_SPELL_IDS } from "../spells/fid12-spells";
 import { attacksPerAction, createEntityState } from "../entities/abilities";
 import type {
   EntityRef,
@@ -453,10 +455,15 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           disengaged: undefined,
           actionEconomy: actor.surprised
             ? surprisedActionEconomy(attacksPerAction(actor))
-            : freshActionEconomy(
-                effectiveSpeedForEntity(actor),
-                attacksPerAction(actor),
-              ),
+            : {
+                ...freshActionEconomy(
+                  effectiveSpeedForEntity(actor),
+                  attacksPerAction(actor),
+                ),
+                ...(entityHasHaste(actor)
+                  ? { extraAction: "available" as const }
+                  : {}),
+              },
           reaction: actor.surprised ? "lost" : "available",
           readied: undefined,
         });
@@ -471,6 +478,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           actionEconomy: undefined,
           disengaged: undefined,
           surprised: undefined,
+          hasteLethargy: actor.hasteLethargy ? undefined : actor.hasteLethargy,
         };
       }
       break;
@@ -604,14 +612,7 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
               }
             }
           }
-          const zoneSpellId =
-            spell.toLowerCase() === "wall of fire"
-              ? "wall-of-fire"
-              : spell.toLowerCase() === "moonbeam"
-                ? "moonbeam"
-                : spell.toLowerCase() === "call lightning"
-                  ? "call-lightning"
-                  : undefined;
+          const zoneSpellId = CONCENTRATION_ZONE_SPELL_IDS[spell.toLowerCase()];
           if (zoneSpellId) {
             for (const [sceneId, scene] of Object.entries(next.scenes)) {
               if (!scene.spellZones?.length) continue;
@@ -652,12 +653,23 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
     case "EffectRemoved": {
       const target = next.entities[event.payload.target];
       if (target) {
-        next.entities[target.id] = {
-          ...target,
-          effects: (target.effects ?? []).filter(
-            (fx) => fx.id !== event.payload.effectId,
-          ),
-        };
+        const removed = (target.effects ?? []).find(
+          (fx) => fx.id === event.payload.effectId,
+        );
+        const effects = (target.effects ?? []).filter(
+          (fx) => fx.id !== event.payload.effectId,
+        );
+        const updates: EntityState = { ...target, effects };
+        if (removed?.name === "Haste") {
+          updates.hasteLethargy = true;
+          updates.conditions = [
+            ...(target.conditions ?? []).filter(
+              (c) => c.condition !== "incapacitated",
+            ),
+            { condition: "incapacitated", source: removed.source },
+          ];
+        }
+        next.entities[target.id] = updates;
       }
       break;
     }
@@ -979,6 +991,9 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         }
         if (event.payload.bonusAction) {
           ae = { ...ae, bonusAction: "used" };
+        }
+        if (event.payload.extraAction) {
+          ae = { ...ae, extraAction: "used" };
         }
         next.entities[entity.id] = { ...entity, actionEconomy: ae };
       }

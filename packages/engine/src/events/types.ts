@@ -453,6 +453,8 @@ export type ActionSpentPayload = {
   flurryAttack?: boolean;
   /** Monk Stunning Strike consumed for this turn. */
   stunningStrike?: boolean;
+  /** Haste extra action consumed. */
+  extraAction?: boolean;
 };
 
 export type FeaturePoolSpentPayload = {

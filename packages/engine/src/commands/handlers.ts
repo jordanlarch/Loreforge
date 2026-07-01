@@ -14,7 +14,8 @@ import {
   saveRollTotal,
   totalLevel,
 } from "../entities/abilities";
-import { sortInitiative, type InitiativeRollInput } from "../combat/initiative";
+import { sortInitiative, mainActionAvailable, mainActionSpendPayload, type InitiativeRollInput } from "../combat/initiative";
+import { entityHasHaste } from "../combat/effects";
 import { criticalNotation, resolveHit } from "../combat/attack";
 import {
   cellIsDifficult,
@@ -2650,7 +2651,7 @@ function handleReadyAction(
   if (isIncapacitated(entity.conditions)) {
     return reject("ACTION_UNAVAILABLE", `${entity.name} is incapacitated.`);
   }
-  if (entity.actionEconomy?.action !== "available") {
+  if (entity.actionEconomy && !mainActionAvailable(entity.actionEconomy)) {
     return reject(
       "ACTION_UNAVAILABLE",
       `${entity.name} has already used its action this turn.`,
@@ -3138,10 +3139,13 @@ function rollSpellSave(
       ],
     };
   }
+  const hasteMode: RollAdjust =
+    entityHasHaste(target) && ability === "dex" ? "advantage" : "normal";
   const mode = combineMode(
     opts?.modeOverride ?? "normal",
     condMode,
     dodgeMode,
+    hasteMode,
   );
   const roll = ctx.roll("1d20", `save:${target.id}:${ability}`, mode);
   const natural = roll.total;
@@ -3324,7 +3328,7 @@ function handleCastSpell(
   if (
     usesAction &&
     caster.actionEconomy &&
-    caster.actionEconomy.action !== "available"
+    !mainActionAvailable(caster.actionEconomy)
   ) {
     return reject(
       "ACTION_UNAVAILABLE",
@@ -4047,7 +4051,10 @@ function handleCastSpell(
     events.push({
       type: "ActionSpent",
       ...meta(ctx, cmd.caster),
-      payload: { entity: cmd.caster, action: true },
+      payload: {
+        entity: cmd.caster,
+        ...mainActionSpendPayload(caster.actionEconomy),
+      },
     });
   }
   if (usesReaction && caster.reaction !== undefined) {
@@ -4653,6 +4660,34 @@ function handleCastSpell(
         slotLevel,
         `call-lightning:${caster.id}:${ctx.timestamp}`,
         10,
+      ),
+    );
+  }
+  if (spell.id === "cloudkill" && cmd.origin && caster.sceneId) {
+    events.push(
+      spellZoneCreatedEvent(
+        ctx,
+        "cloudkill",
+        caster.id,
+        caster.sceneId,
+        cmd.origin,
+        slotLevel,
+        `cloudkill:${caster.id}:${ctx.timestamp}`,
+        20,
+      ),
+    );
+  }
+  if (spell.id === "stinking-cloud" && cmd.origin && caster.sceneId) {
+    events.push(
+      spellZoneCreatedEvent(
+        ctx,
+        "stinking-cloud",
+        caster.id,
+        caster.sceneId,
+        cmd.origin,
+        slotLevel,
+        `stinking-cloud:${caster.id}:${ctx.timestamp}`,
+        20,
       ),
     );
   }

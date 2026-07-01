@@ -1692,7 +1692,7 @@ const STINKING_CLOUD: SpellDefinition = {
   saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
   failedSaveCondition: "poisoned",
   description:
-    "You create a 20-foot-radius sphere of yellow, nauseating gas. Each creature in the area must succeed on a Constitution saving throw or spend its action retching (tracer: poisoned on a failed save).",
+    "You create a 20-foot-radius sphere of yellow, nauseating gas. Creatures in the area on cast and at the start of their turns make a Constitution save or become poisoned and lose their action retching on a failure.",
 };
 
 const HASTE: SpellDefinition = {
@@ -1723,7 +1723,7 @@ const HASTE: SpellDefinition = {
     },
   ],
   description:
-    "Choose a willing creature. Until the spell ends, its speed is doubled (+30 ft at tracer depth), it gains +2 AC, it has advantage on Dexterity saving throws, and it gains an additional action (tracer: +2 AC and +30 speed).",
+    "Choose a willing creature. Until the spell ends: +2 AC, +30 ft speed, advantage on Dex saves, and one extra action per turn (Attack/Dash/Disengage/Hide/Utilize). When the spell ends, the target is incapacitated with speed 0 until the end of its next turn.",
 };
 
 const HYPNOTIC_PATTERN: SpellDefinition = {
@@ -2424,7 +2424,7 @@ const CLOUDKILL: SpellDefinition = {
   saveAgainst: { ability: "con", dc: "spellsave", onSuccess: "no_effect" },
   damage: [{ dice: "5d8", type: "poison" }],
   description:
-    "A poisonous yellow fog fills a 20-foot-radius sphere. Each creature in the area when the spell is cast makes a Constitution save, taking 5d8 poison damage on a failure.",
+    "A poisonous yellow fog fills a 20-foot-radius sphere. Creatures in the area on cast and at the start of their turns make a Constitution save or take 5d8 poison damage (no damage on success). The cloud persists while you concentrate.",
 };
 
 const INSECT_PLAGUE: SpellDefinition = {

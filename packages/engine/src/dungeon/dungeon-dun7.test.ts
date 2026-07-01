@@ -18,7 +18,9 @@ describe("DUN-7 emit dungeon floors", () => {
   });
 
   it("emits slug zone ids from room names", () => {
-    const floors = emitDungeonFloorsFromRooms(sampleRooms, ["skeleton patrol"]);
+    const floors = emitDungeonFloorsFromRooms(sampleRooms, {
+      wanderingMonsters: ["skeleton patrol"],
+    });
     expect(floors).toHaveLength(2);
     const ground = floors[0]!;
     expect(ground.zones[0]?.zoneId).toBe("threshold-of-tears");
@@ -39,7 +41,9 @@ describe("DUN-7 emit dungeon floors", () => {
   });
 
   it("loads emitted floors through the layout loader", () => {
-    const authored = emitDungeonFloorsFromRooms(sampleRooms, ["skeleton patrol"]);
+    const authored = emitDungeonFloorsFromRooms(sampleRooms, {
+      wanderingMonsters: ["skeleton patrol"],
+    });
     const normalized = loadDungeonFloors({ floors: authored });
     expect(normalized[0]?.zones.map((z) => z.zoneId)).toEqual([
       "threshold-of-tears",

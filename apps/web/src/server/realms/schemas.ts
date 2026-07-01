@@ -116,6 +116,10 @@ export function dataSchemaFor(
     return base.extend({
       /** Authored floor layout (DUN-7); emitted from rooms when absent. */
       floors: z.array(z.record(z.string(), z.unknown())).max(20).optional(),
+      /** Legacy generator field — migrate to Gameplay Toolbox / Exploration Hazards lists. */
+      hazards: z.array(z.string().trim().max(500)).max(100).optional(),
+      /** Legacy string list — prefer `wanderingMonsterEntries`. */
+      wanderingMonsters: z.array(z.string().trim().max(500)).max(100).optional(),
     });
   }
   return base;

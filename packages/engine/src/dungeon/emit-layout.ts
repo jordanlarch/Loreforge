@@ -3,6 +3,7 @@
  */
 import { loadDungeonFloors } from "./layout";
 import { parseDungeonRooms, zoneIdForRoomIndex, type ParsedDungeonRoom } from "./rooms";
+import { resolveWanderingMonsterTemplate } from "./encounter-ref";
 import type {
   AuthoredDungeonFloor,
   AuthoredDungeonZone,
@@ -145,19 +146,15 @@ function makeConnection(
   };
 }
 
-function creatureTemplateFromLabel(label: string): string {
-  const lower = label.toLowerCase();
-  for (const slug of ["goblin", "skeleton", "zombie", "orc", "bandit", "wolf", "spider"]) {
-    if (lower.includes(slug)) return slug;
-  }
-  return "skeleton";
-}
-
-function patrolRouteForZone(zone: PlacedZone, label: string, patrolId: string): PatrolRoute {
+function patrolRouteForZone(
+  zone: PlacedZone,
+  creatureTemplateRef: string,
+  patrolId: string,
+): PatrolRoute {
   const { x, y, w, h } = zone.rect;
   return {
     patrolId,
-    creatureTemplateRef: creatureTemplateFromLabel(label),
+    creatureTemplateRef,
     waypoints: [
       { x: x + 1, y: y + 1 },
       { x: x + w - 2, y: y + 1 },
@@ -170,7 +167,7 @@ function patrolRouteForZone(zone: PlacedZone, label: string, patrolId: string): 
 function emitFloorFromRooms(
   floorRooms: { room: ParsedDungeonRoom; globalIndex: number }[],
   floorIndex: number,
-  wanderingMonsters: string[],
+  entityData?: unknown,
 ): AuthoredDungeonFloor {
   const usedIds = new Set<string>();
   const placed: PlacedZone[] = [];
@@ -256,11 +253,15 @@ function emitFloorFromRooms(
   }
 
   const patrolRoutes: PatrolRoute[] = [];
-  const wanderLabel = wanderingMonsters.find((m) => m.trim())?.trim();
+  const wander = resolveWanderingMonsterTemplate(entityData);
   const patrolZone = placed.length > 1 ? placed[1] : placed[0];
-  if (wanderLabel && patrolZone) {
+  if (wander && patrolZone) {
     patrolRoutes.push(
-      patrolRouteForZone(patrolZone, wanderLabel, `${patrolZone.zoneId}-patrol`),
+      patrolRouteForZone(
+        patrolZone,
+        wander.template,
+        `${patrolZone.zoneId}-patrol`,
+      ),
     );
   }
 
@@ -285,7 +286,7 @@ function emitFloorFromRooms(
 /** Build authored floors[] from parsed rooms (DUN-7 generator layout). */
 export function emitDungeonFloorsFromRooms(
   rooms: ParsedDungeonRoom[],
-  wanderingMonsters: string[] = [],
+  entityData?: unknown,
 ): AuthoredDungeonFloor[] {
   if (rooms.length === 0) return [];
 
@@ -299,7 +300,7 @@ export function emitDungeonFloorsFromRooms(
   const floors: AuthoredDungeonFloor[] = [];
   for (const floorIndex of [...byFloor.keys()].sort((a, b) => a - b)) {
     floors.push(
-      emitFloorFromRooms(byFloor.get(floorIndex)!, floorIndex, wanderingMonsters),
+      emitFloorFromRooms(byFloor.get(floorIndex)!, floorIndex, entityData),
     );
   }
   return floors;
@@ -315,10 +316,7 @@ export function enrichDungeonEntityData(
   const rooms = parseDungeonRooms(data);
   if (rooms.length === 0) return data;
 
-  const wanderers = Array.isArray(data.wanderingMonsters)
-    ? data.wanderingMonsters.map(String)
-    : [];
-  const floors = emitDungeonFloorsFromRooms(rooms, wanderers);
+  const floors = emitDungeonFloorsFromRooms(rooms, data);
   if (floors.length === 0) return data;
 
   loadDungeonFloors({ floors });

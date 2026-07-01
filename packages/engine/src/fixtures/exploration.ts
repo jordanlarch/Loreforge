@@ -10,6 +10,10 @@ import {
   floorByIndex,
   loadDungeonFloors,
 } from "../dungeon/layout";
+import {
+  resolveRoomEncounterTemplate,
+  resolveWanderingMonsterTemplate,
+} from "../dungeon/encounter-ref";
 import type { Command } from "../commands/types";
 import type {
   AbilityScores,
@@ -506,16 +510,6 @@ export function buildLocationNpcCommands(
   return commands;
 }
 
-/** Parse a monster slug from free-text encounter / wandering-monster labels. */
-function slugFromMonsterLabel(label: string): string {
-  const lower = label.toLowerCase();
-  if (lower.includes("goblin")) return "goblin";
-  if (lower.includes("wolf")) return "wolf";
-  if (lower.includes("orc")) return "orc";
-  if (lower.includes("skeleton")) return "skeleton";
-  return "skeleton";
-}
-
 /** First authored room on a dungeon entity (GENR-5 room promotion). */
 export function firstDungeonRoom(
   data: unknown,
@@ -529,19 +523,14 @@ export function resolveDungeonFoesForRoom(
   data: unknown,
   roomIndex = 0,
 ): FoeSpec[] {
-  const room = dungeonRoomAt(data, roomIndex);
-  let label: string | undefined = room?.encounter;
-  if (!label && roomIndex === 0 && data && typeof data === "object") {
-    const wanderers = (data as Record<string, unknown>).wanderingMonsters;
-    if (Array.isArray(wanderers) && wanderers.length > 0) {
-      label = String(wanderers[0]);
-    }
-  }
-  const slug = label ? slugFromMonsterLabel(label) : "skeleton";
-  const countMatch = label?.match(/\b(\d+)\b/);
-  const count = countMatch ? Math.min(4, Math.max(1, Number(countMatch[1]))) : 2;
+  let resolved =
+    resolveRoomEncounterTemplate(data, roomIndex) ??
+    (roomIndex === 0 ? resolveWanderingMonsterTemplate(data) : undefined) ?? {
+      template: "skeleton",
+      count: 2,
+    };
   const expanded = expandEncounterFoes(
-    [{ template: slug, count }],
+    [{ template: resolved.template, count: resolved.count }],
     monsterTemplate,
   );
   return expanded.map((foe, i) => ({

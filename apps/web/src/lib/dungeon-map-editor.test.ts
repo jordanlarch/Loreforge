@@ -19,6 +19,11 @@ import {
   setZoneRect,
   applyZoneRectResize,
   inferAuthoredZoneRect,
+  addDungeonFloor,
+  addFloorTransition,
+  removeFloorTransition,
+  updateFloorTransitionCell,
+  transitionCellsOnFloor,
   toggleBlockedCell,
   toggleConnectionLocked,
   toggleZoneObject,
@@ -134,5 +139,50 @@ describe("dungeon-map-editor", () => {
     const [nextNorm] = normalizeAuthoredFloors([nextFloor]);
     expect(nextNorm!.zones[0]!.cells).toHaveLength(24);
     expect((nextFloor.map?.width ?? 0) >= 8).toBe(true);
+  });
+
+  it("adds floors and linked stair transitions (DUN-14)", () => {
+    let floors = addDungeonFloor([]);
+    expect(floors).toHaveLength(1);
+    expect(floors[0]?.index).toBe(0);
+
+    floors = addDungeonFloor(floors);
+    expect(floors).toHaveLength(2);
+    expect(floors[1]?.index).toBe(1);
+
+    floors = addFloorTransition(floors, 0, 1, { x: 4, y: 3 });
+    const ground = floors.find((f) => f.index === 0)!;
+    const upper = floors.find((f) => f.index === 1)!;
+    expect(ground.transitions?.[0]?.transitionId).toBe("stairs-0-to-1");
+    expect(ground.transitions?.[0]?.fromCell).toEqual({ x: 4, y: 3 });
+    expect(upper.transitions?.some((t) => t.transitionId === "stairs-0-to-1-return")).toBe(
+      true,
+    );
+
+    floors = updateFloorTransitionCell(floors, 0, "stairs-0-to-1", "to", {
+      x: 3,
+      y: 4,
+    });
+    const updatedUpper = floors.find((f) => f.index === 1)!;
+    expect(updatedUpper.transitions?.[0]?.fromCell).toEqual({ x: 3, y: 4 });
+
+    floors = removeFloorTransition(floors, 0, "stairs-0-to-1");
+    expect(floors.find((f) => f.index === 0)?.transitions).toHaveLength(0);
+    expect(floors.find((f) => f.index === 1)?.transitions).toHaveLength(0);
+
+    const marked = transitionCellsOnFloor({
+      index: 0,
+      name: "Ground",
+      zones: [],
+      transitions: [
+        {
+          transitionId: "stairs-0-to-1",
+          toFloorIndex: 1,
+          fromCell: { x: 1, y: 1 },
+          toCell: { x: 2, y: 2 },
+        },
+      ],
+    });
+    expect(marked.get("1,1")?.direction).toBe("out");
   });
 });

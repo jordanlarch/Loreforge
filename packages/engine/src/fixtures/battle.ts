@@ -43,6 +43,7 @@ import type {
   StrikeCallLightningCommand,
   EndEncounterCommand,
   ShortRestCommand,
+  MarkDungeonRoomClearedCommand,
 } from "../commands/types";
 import type {
   Ability,
@@ -206,8 +207,12 @@ export const FIXTURE_PARTY: PartyMember[] = [
     classes: FIXTURE_CHARACTERS[1]!.classes,
     saveProficiencies: FIXTURE_CHARACTERS[1]!.saveProficiencies,
     skillProficiencies: FIXTURE_CHARACTERS[1]!.skillProficiencies,
-    toolProficiencies: FIXTURE_CHARACTERS[1]!.toolProficiencies,
     weaponProficiencies: FIXTURE_CHARACTERS[1]!.weaponProficiencies,
+    spellcasting: {
+      ability: "wis",
+      casterLevel: 5,
+      preparedSpellIds: ["call-lightning", "cure-wounds", "produce-flame"],
+    },
   },
   {
     id: FIXTURE_CHARACTERS[2]!.id,
@@ -497,7 +502,8 @@ export type BattleAction =
   | StrikeSpiritualWeaponCommand
   | StrikeCallLightningCommand
   | EndEncounterCommand
-  | ShortRestCommand;
+  | ShortRestCommand
+  | MarkDungeonRoomClearedCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {

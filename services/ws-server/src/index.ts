@@ -31,6 +31,7 @@ import {
   classifyTutorialRelightIntent,
   arrivalNarrationForLocation,
   allHostileCombatantsDefeated,
+  dungeonRoomClearCommand,
   DEFAULT_STARTING_LOCATION,
   isTutorialFriendlyFireTarget,
   openingNarrationForLocation,
@@ -754,7 +755,33 @@ async function maybeResolveCampaignCombatVictory(
   const endResult = await room.apply({ type: "end_encounter" });
   if (!endResult.accepted) return;
 
-  writeProjection(document, await room.getState());
+  let stateAfter = await room.getState();
+  const location =
+    (await getCampaignStartingLocation(campaignId)) ?? DEFAULT_STARTING_LOCATION;
+  const extras = await getCampaignLocationEnterExtras(
+    campaignId,
+    location.entityId,
+  );
+  const clearCmd = dungeonRoomClearCommand(
+    stateAfter,
+    location,
+    extras?.entityData,
+  );
+  if (clearCmd) {
+    const clearResult = await room.apply(clearCmd);
+    if (clearResult.accepted) {
+      stateAfter = await room.getState();
+      writeProjection(document, stateAfter);
+      await appendAndPersist(document, documentName, [
+        gmEntry(
+          `${clearCmd.roomName} is cleared. The way deeper lies open.`,
+          deps,
+        ),
+      ]);
+    }
+  }
+
+  writeProjection(document, stateAfter);
   await appendAndPersist(document, documentName, [
     gmEntry("The last foe falls. Combat is over.", deps),
   ]);

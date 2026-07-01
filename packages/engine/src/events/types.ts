@@ -643,6 +643,30 @@ export type PolymorphEndedPayload = {
   reason: "concentration" | "zero_hp";
 };
 
+export type CreatureBanishedPayload = {
+  target: EntityRef;
+  caster: EntityRef;
+  returnSceneId: SceneId;
+  returnPosition: GridPosition;
+};
+
+export type CreatureReturnedPayload = {
+  target: EntityRef;
+  reason: "concentration" | "duration";
+};
+
+export type DungeonRoomEnteredPayload = {
+  dungeonEntityId: string;
+  roomIndex: number;
+  roomName: string;
+};
+
+export type DungeonRoomClearedPayload = {
+  dungeonEntityId: string;
+  roomIndex: number;
+  roomName: string;
+};
+
 /** Discriminated union of all engine events. */
 export type EngineEvent =
   | (EventMeta & { type: "EntityCreated"; payload: EntityCreatedPayload })
@@ -783,6 +807,22 @@ export type EngineEvent =
   | (EventMeta & {
       type: "PolymorphEnded";
       payload: PolymorphEndedPayload;
+    })
+  | (EventMeta & {
+      type: "CreatureBanished";
+      payload: CreatureBanishedPayload;
+    })
+  | (EventMeta & {
+      type: "CreatureReturned";
+      payload: CreatureReturnedPayload;
+    })
+  | (EventMeta & {
+      type: "DungeonRoomEntered";
+      payload: DungeonRoomEnteredPayload;
+    })
+  | (EventMeta & {
+      type: "DungeonRoomCleared";
+      payload: DungeonRoomClearedPayload;
     })
   | (EventMeta & { type: "EffectApplied"; payload: EffectAppliedPayload })
   | (EventMeta & { type: "EffectRemoved"; payload: EffectRemovedPayload })

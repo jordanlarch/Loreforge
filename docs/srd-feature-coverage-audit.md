@@ -74,7 +74,7 @@ These run today and produce **wrong results** vs the PDF. Mirrored to `docs/defe
 | **SRD-FID-9** | Revivify raises dead | ✅ **Done** — PR #347 |
 | **SRD-FID-10** | Sleep (2014 claim retracted) | ✅ **Done/retracted** |
 | **SRD-FID-11** | Counterspell / Dispel interrupt + contest | ✅ **Done** — PR #346, #349 |
-| **SRD-FID-12** | Tracer spells (zones, polymorph, summons, …) | 🟡 **Partial** — PR #348 (Wall of Fire, Polymorph, Spiritual Weapon); PR #352 (Moonbeam, Call Lightning engine, Spirit Guardians); PR #355 (Cloudkill, Stinking Cloud, Haste depth). Live Play Call Lightning strike button wired. Remaining: Banishment, … (ENG-3 overlap) |
+| **SRD-FID-12** | Tracer spells (zones, polymorph, summons, …) | 🟡 **Partial** — PR #348 (Wall of Fire, Polymorph, Spiritual Weapon); PR #352 (Moonbeam, Call Lightning engine, Spirit Guardians); PR #355 (Cloudkill, Stinking Cloud, Haste depth); PR #356 (Banishment). Live Play Call Lightning strike button wired. Remaining: Slow, Darkness, … (ENG-3 overlap) |
 | **SRD-FID-13** | Damage at 0 HP (crit failures, instant death) | ✅ **Done** — PR #346 area |
 
 ---
@@ -109,7 +109,7 @@ Work end-to-end with deterministic math + tests (751 engine tests, Jun 2026):
 
 | ID | Area | Missing vs PDF |
 |---|---|---|
-| SRD-FID-12 | Tracer spells | Banishment, … (Cloudkill / Stinking Cloud zones + Haste extra action shipped PR #355) |
+| SRD-FID-12 | Tracer spells | Slow, Darkness, … (Banishment shipped PR #356) |
 | SRD-FID-21 | Class features | Remaining base-class features; Live Play wiring for some (PR #351 shipped Indomitable/Lay on Hands/Spiritual Weapon) |
 | SRD-FID-22 | Species traits | 0 mechanical |
 | SRD-FID-23 | Feats | 8 mechanical; rest inert |

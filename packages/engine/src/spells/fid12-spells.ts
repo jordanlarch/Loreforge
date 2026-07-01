@@ -905,6 +905,94 @@ export function buildPolymorphCastEvents(
   return { events };
 }
 
+export function creatureBanishedEvent(
+  ctx: ExecutionContext,
+  casterId: EntityRef,
+  target: EntityState,
+): DraftEvent {
+  return {
+    type: "CreatureBanished",
+    ...meta(ctx, casterId),
+    payload: {
+      target: target.id,
+      caster: casterId,
+      returnSceneId: target.sceneId ?? "",
+      returnPosition: target.position ?? { x: 0, y: 0 },
+    },
+  };
+}
+
+export function creatureReturnedEvent(
+  ctx: ExecutionContext,
+  targetId: EntityRef,
+  reason: "concentration" | "duration",
+): DraftEvent {
+  return {
+    type: "CreatureReturned",
+    ...meta(ctx, targetId),
+    payload: { target: targetId, reason },
+  };
+}
+
+export function buildBanishmentCastEvents(
+  ctx: ExecutionContext,
+  caster: EntityState,
+  target: EntityState,
+): { events: DraftEvent[]; blocked?: string } {
+  const encounter = ctx.world.encounter;
+  const hostile =
+    encounter &&
+    areHostile(encounter.sides[caster.id], encounter.sides[target.id]);
+  const unwilling = hostile && target.id !== caster.id;
+
+  const events: DraftEvent[] = [];
+  if (unwilling) {
+    const dc = spellSaveDC(caster)!;
+    const d20 = ctx.roll("1d20", `banishment-save:${target.id}`);
+    const mod = abilityModifier(target.abilityScores.cha);
+    const total = d20.total + mod;
+    const success = total >= dc;
+    events.push({
+      type: "DiceRolled",
+      ...meta(ctx, caster.id),
+      payload: {
+        notation: d20.notation,
+        rolls: d20.rolls,
+        total: d20.total,
+        scope: d20.scope,
+        drawIndex: d20.drawIndex,
+      },
+    });
+    events.push({
+      type: "SaveRolled",
+      ...meta(ctx, caster.id),
+      payload: {
+        entity: target.id,
+        ability: "cha",
+        dc,
+        mode: "normal",
+        natural: d20.total,
+        total,
+        success,
+        autoFail: false,
+      },
+    });
+    if (success) {
+      return {
+        events,
+        blocked: `${target.name} succeeded on the Charisma save.`,
+      };
+    }
+  }
+
+  if (!target.position || !target.sceneId) {
+    return { events, blocked: `${target.name} is not on the battlefield.` };
+  }
+
+  events.push(creatureBanishedEvent(ctx, caster.id, target));
+  return { events };
+}
+
 /** Spell display names → zone spell ids for concentration cleanup. */
 export const CONCENTRATION_ZONE_SPELL_IDS: Record<string, string> = {
   "wall of fire": "wall-of-fire",

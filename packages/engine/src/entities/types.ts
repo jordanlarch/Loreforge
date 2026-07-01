@@ -210,6 +210,8 @@ export type EntityState = {
   activeSpiritGuardians?: ActiveSpiritGuardiansInstance;
   /** Polymorph beast form with stored original stats (FID-12). */
   polymorph?: PolymorphState;
+  /** Banishment — removed from the battlefield until concentration ends (FID-12). */
+  banishment?: BanishmentState;
   /** Explicit damage modifiers (SRD-FID-19). */
   damageResistances?: DamageType[];
   damageVulnerabilities?: DamageType[];
@@ -287,6 +289,13 @@ export type PolymorphState = {
   storedBaseAc: number;
   storedSpeed: number;
   storedHpCurrent: number;
+};
+
+/** Stored return location while a creature is banished (FID-12). */
+export type BanishmentState = {
+  caster: EntityRef;
+  returnSceneId: SceneId;
+  returnPosition: GridPosition;
 };
 
 export type SceneSpellZone = {

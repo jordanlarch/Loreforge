@@ -2187,7 +2187,7 @@ const BANISHMENT: SpellDefinition = {
   saveAgainst: { ability: "cha", dc: "spellsave", onSuccess: "no_effect" },
   failedSaveCondition: "incapacitated",
   description:
-    "You attempt to send one creature you can see to another plane of existence. On a failed Charisma save the target is incapacitated (tracer: removed from play narrated).",
+    "You attempt to send one creature you can see to another plane. On a failed Charisma save the target is banished (removed from the battlefield, incapacitated) until the spell ends.",
 };
 
 const SLOW: SpellDefinition = {

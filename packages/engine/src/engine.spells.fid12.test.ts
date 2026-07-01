@@ -399,6 +399,58 @@ describe("SRD-FID-12: Stinking Cloud zone", () => {
   });
 });
 
+describe("SRD-FID-12: Banishment", () => {
+  it("banishes a target on a failed Charisma save and returns them when concentration ends", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:wizard", { x: 0, y: 0 }, {
+      classes: [{ class: "Wizard", level: 9 }],
+      spellcasting: { ability: "int", casterLevel: 9 },
+    });
+    await place(
+      engine,
+      "npc:foe",
+      { x: 3, y: 0 },
+      {
+        baseAc: 10,
+        maxHp: 200,
+        abilityScores: { ...CASTER_SCORES, cha: 1 },
+      },
+    );
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:wizard", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:wizard": 20, "npc:foe": 0 },
+    });
+
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:wizard",
+      spellId: "banishment",
+      slotLevel: 4,
+      targets: ["npc:foe"],
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) throw new Error("cast failed");
+    expect(cast.events.some((e) => e.type === "CreatureBanished")).toBe(true);
+
+    const banished = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    expect(banished.banishment).toBeDefined();
+    expect(banished.position).toBeUndefined();
+
+    await engine.execute(CAMPAIGN, {
+      type: "end_concentration",
+      entity: "pc:wizard",
+    });
+    const returned = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    expect(returned.banishment).toBeUndefined();
+    expect(returned.position).toEqual({ x: 3, y: 0 });
+  });
+});
+
 describe("SRD-FID-12: Haste depth", () => {
   it("grants an extra action on the hasted creature's turn", async () => {
     const engine = new Engine({ now: () => 1 });

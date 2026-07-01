@@ -178,6 +178,12 @@ import {
 } from "./standard-action-handlers";
 import { handleUseClassFeature } from "./class-feature-handlers";
 import {
+  handleAdvanceDungeonRoom,
+  handleEnterDungeonRoom,
+  handleMarkDungeonRoomCleared,
+} from "./dungeon-handlers";
+import {
+  buildBanishmentCastEvents,
   buildPolymorphCastEvents,
   enumerateBurstCells,
   handleStrikeCallLightning,
@@ -3895,6 +3901,83 @@ function handleCastSpell(
     };
   }
 
+  if (spell.id === "banishment") {
+    const targetId = targets[0];
+    if (!targetId) {
+      return reject("INVALID_PAYLOAD", "Banishment requires a target creature.");
+    }
+    const target = ctx.world.entities[targetId];
+    if (!target) {
+      return reject("TARGET_NOT_FOUND", `Target ${targetId} does not exist.`);
+    }
+    const banish = buildBanishmentCastEvents(ctx, caster, target);
+    if (banish.blocked) {
+      return {
+        accepted: true,
+        events: [
+          {
+            type: "SpellCast",
+            ...meta(ctx, cmd.caster),
+            payload: {
+              caster: cmd.caster,
+              spellId: spell.id,
+              spellName: spell.name,
+              slotLevel,
+              targets: [targetId],
+            },
+          },
+          ...banish.events,
+        ],
+        summary: { caster: cmd.caster, target: targetId, blocked: banish.blocked },
+      };
+    }
+    const events: DraftEvent[] = [
+      {
+        type: "SpellCast",
+        ...meta(ctx, cmd.caster),
+        payload: {
+          caster: cmd.caster,
+          spellId: spell.id,
+          spellName: spell.name,
+          slotLevel,
+          targets: [targetId],
+        },
+      },
+      {
+        type: "SpellSlotExpended",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, slotLevel },
+      },
+    ];
+    if (usesAction && caster.actionEconomy) {
+      events.push({
+        type: "ActionSpent",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, action: true },
+      });
+    }
+    events.push(...banish.events);
+    if (spell.concentration) {
+      if (caster.concentration) {
+        events.push({
+          type: "ConcentrationBroken",
+          ...meta(ctx, cmd.caster),
+          payload: { entity: cmd.caster, reason: "recast" },
+        });
+      }
+      events.push({
+        type: "ConcentrationStarted",
+        ...meta(ctx, cmd.caster),
+        payload: { entity: cmd.caster, spell: spell.name },
+      });
+    }
+    return {
+      accepted: true,
+      events,
+      summary: { caster: cmd.caster, target: targetId, banished: true },
+    };
+  }
+
   // Area spells (Fireball, Burning Hands) resolve from `origin` + the area
   // shape into the set of caught creatures; `targets` is unused. Validating
   // here keeps a rejected area cast side-effect-free.
@@ -4841,6 +4924,12 @@ export function handleCommand(
       return handleStrikeSpiritualWeapon(command, ctx);
     case "strike_call_lightning":
       return handleStrikeCallLightning(command, ctx);
+    case "enter_dungeon_room":
+      return handleEnterDungeonRoom(command, ctx);
+    case "mark_dungeon_room_cleared":
+      return handleMarkDungeonRoomCleared(command, ctx);
+    case "advance_dungeon_room":
+      return handleAdvanceDungeonRoom(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

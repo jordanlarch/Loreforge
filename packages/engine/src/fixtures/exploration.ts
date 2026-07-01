@@ -65,6 +65,50 @@ export function sceneIdForRealmEntity(entityId: string): string {
     : `scene:realm:${entityId}`;
 }
 
+/** Per-room dungeon scene id (RUNG-4 rooms-as-entities lite). */
+export function sceneIdForDungeonRoom(
+  dungeonEntityId: string,
+  roomIndex: number,
+): string {
+  return `${sceneIdForRealmEntity(dungeonEntityId)}:room:${roomIndex}`;
+}
+
+export type ParsedDungeonRoom = {
+  name: string;
+  encounter: string;
+  summary?: string;
+};
+
+/** Parse authored dungeon rooms from Realms entity `data.rooms`. */
+export function parseDungeonRooms(data: unknown): ParsedDungeonRoom[] {
+  if (!data || typeof data !== "object") return [];
+  const rooms = (data as Record<string, unknown>).rooms;
+  if (!Array.isArray(rooms)) return [];
+  const parsed: ParsedDungeonRoom[] = [];
+  for (const room of rooms) {
+    if (!room || typeof room !== "object") continue;
+    const obj = room as { name?: unknown; encounter?: unknown; summary?: unknown };
+    const encounter =
+      typeof obj.encounter === "string" ? obj.encounter.trim() : "";
+    if (!encounter) continue;
+    const name =
+      typeof obj.name === "string" && obj.name.trim()
+        ? obj.name.trim()
+        : `Room ${parsed.length + 1}`;
+    const summary =
+      typeof obj.summary === "string" ? obj.summary.trim() : undefined;
+    parsed.push({ name, encounter, summary });
+  }
+  return parsed;
+}
+
+export function dungeonRoomAt(
+  data: unknown,
+  roomIndex: number,
+): ParsedDungeonRoom | undefined {
+  return parseDungeonRooms(data)[roomIndex];
+}
+
 /** Reverse {@link sceneIdForRealmEntity} for Realms-backed scenes. */
 export function entityIdFromSceneId(sceneId: string | undefined): string | undefined {
   if (!sceneId) return undefined;
@@ -166,7 +210,7 @@ function buildExplorationScene(
   };
 }
 
-function mapForType(type: ExplorableRealmType): ExplorationMapDef {
+export function mapForType(type: ExplorableRealmType): ExplorationMapDef {
   switch (type) {
     case "tavern":
       return {
@@ -465,26 +509,18 @@ function slugFromMonsterLabel(label: string): string {
 export function firstDungeonRoom(
   data: unknown,
 ): { name: string; encounter: string } | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const rooms = (data as Record<string, unknown>).rooms;
-  if (!Array.isArray(rooms) || rooms.length === 0) return undefined;
-  const room = rooms[0];
-  if (!room || typeof room !== "object") return undefined;
-  const obj = room as { name?: unknown; encounter?: unknown };
-  const encounter = typeof obj.encounter === "string" ? obj.encounter.trim() : "";
-  if (!encounter) return undefined;
-  const name = typeof obj.name === "string" ? obj.name.trim() : "Entry";
-  return { name: name || "Entry", encounter };
+  return dungeonRoomAt(data, 0);
 }
 
-/** Resolve dungeon foes from the first room encounter, then wandering monsters. */
-export function resolveDungeonFoes(
+/** Resolve dungeon foes for a specific room index (defaults to entry room). */
+export function resolveDungeonFoesForRoom(
   dungeonEntityId: string,
   data: unknown,
+  roomIndex = 0,
 ): FoeSpec[] {
-  const room = firstDungeonRoom(data);
+  const room = dungeonRoomAt(data, roomIndex);
   let label: string | undefined = room?.encounter;
-  if (!label && data && typeof data === "object") {
+  if (!label && roomIndex === 0 && data && typeof data === "object") {
     const wanderers = (data as Record<string, unknown>).wanderingMonsters;
     if (Array.isArray(wanderers) && wanderers.length > 0) {
       label = String(wanderers[0]);
@@ -499,9 +535,19 @@ export function resolveDungeonFoes(
   );
   return expanded.map((foe, i) => ({
     ...foe,
-    id: `npc:dungeon:${dungeonEntityId.slice(0, 8)}:${i}`,
-    ...(i === 0 ? { coatedPoisonSlug: "srd-2024_serpent-venom" } : {}),
+    id: `npc:dungeon:${dungeonEntityId.slice(0, 8)}:r${roomIndex}:${i}`,
+    ...(i === 0 && roomIndex === 0
+      ? { coatedPoisonSlug: "srd-2024_serpent-venom" }
+      : {}),
   }));
+}
+
+/** @deprecated Use {@link resolveDungeonFoesForRoom}. */
+export function resolveDungeonFoes(
+  dungeonEntityId: string,
+  data: unknown,
+): FoeSpec[] {
+  return resolveDungeonFoesForRoom(dungeonEntityId, data, 0);
 }
 
 /**
@@ -566,17 +612,23 @@ export function buildDungeonEntryCommands(
   location: CampaignStartingLocation,
   state: WorldState,
   foes: readonly FoeSpec[],
+  entityData?: unknown,
 ): Command[] {
   const partyIds = Object.values(state.entities)
     .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
     .map((e) => e.id);
+  const room = dungeonRoomAt(entityData, 0);
+  const roomName = room?.name ?? "Entry";
+  const sceneId = sceneIdForDungeonRoom(location.entityId, 0);
   return [
-    ...buildEnterLocationCommands(location, state),
-    ...buildDungeonCombatCommands(
-      sceneIdForRealmEntity(location.entityId),
-      partyIds,
-      foes,
-    ),
+    {
+      type: "enter_dungeon_room",
+      dungeonEntityId: location.entityId,
+      roomIndex: 0,
+      roomName,
+      locationName: location.name,
+    },
+    ...buildDungeonCombatCommands(sceneId, partyIds, foes),
   ];
 }
 

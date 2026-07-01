@@ -113,8 +113,17 @@ export type WorldState = {
   currentSceneId?: SceneId;
   /** Present while an encounter is active. */
   encounter?: EncounterState;
+  /** Per-dungeon room index + cleared rooms (RUNG-4). */
+  dungeonProgress?: DungeonProgressState;
   /** Sequence number of the last event folded into this state. */
   lastSequence: number;
+};
+
+/** Tracks which dungeon room the party occupies and which rooms are cleared. */
+export type DungeonProgressState = {
+  dungeonEntityId: string;
+  currentRoomIndex: number;
+  clearedRooms: number[];
 };
 
 export function emptyWorldState(campaignId: string): WorldState {
@@ -612,6 +621,22 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
               }
             }
           }
+          if (spell.toLowerCase() === "banishment") {
+            for (const [id, entity] of Object.entries(next.entities)) {
+              if (entity.banishment?.caster === target.id) {
+                const stored = entity.banishment;
+                next.entities[id] = {
+                  ...entity,
+                  banishment: undefined,
+                  sceneId: stored.returnSceneId,
+                  position: { ...stored.returnPosition },
+                  conditions: entity.conditions.filter(
+                    (c) => c.condition !== "incapacitated",
+                  ),
+                };
+              }
+            }
+          }
           const zoneSpellId = CONCENTRATION_ZONE_SPELL_IDS[spell.toLowerCase()];
           if (zoneSpellId) {
             for (const [sceneId, scene] of Object.entries(next.scenes)) {
@@ -920,6 +945,69 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
           speed: stored.storedSpeed,
           alive: hpCurrent > 0,
           dead: hpCurrent <= 0 ? target.dead : false,
+        };
+      }
+      break;
+    }
+    case "CreatureBanished": {
+      const target = next.entities[event.payload.target];
+      if (target) {
+        next.entities[target.id] = {
+          ...target,
+          banishment: {
+            caster: event.payload.caster,
+            returnSceneId: event.payload.returnSceneId,
+            returnPosition: { ...event.payload.returnPosition },
+          },
+          position: undefined,
+          conditions: [
+            ...target.conditions.filter((c) => c.condition !== "incapacitated"),
+            {
+              condition: "incapacitated",
+              source: event.payload.caster,
+              concentrationSpell: "Banishment",
+              concentrationHolder: event.payload.caster,
+            },
+          ],
+        };
+      }
+      break;
+    }
+    case "CreatureReturned": {
+      const target = next.entities[event.payload.target];
+      if (target?.banishment) {
+        const stored = target.banishment;
+        next.entities[target.id] = {
+          ...target,
+          banishment: undefined,
+          sceneId: stored.returnSceneId,
+          position: { ...stored.returnPosition },
+          conditions: target.conditions.filter(
+            (c) => c.condition !== "incapacitated",
+          ),
+        };
+      }
+      break;
+    }
+    case "DungeonRoomEntered": {
+      next.dungeonProgress = {
+        dungeonEntityId: event.payload.dungeonEntityId,
+        currentRoomIndex: event.payload.roomIndex,
+        clearedRooms: next.dungeonProgress?.clearedRooms ?? [],
+      };
+      break;
+    }
+    case "DungeonRoomCleared": {
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === event.payload.dungeonEntityId
+      ) {
+        const cleared = new Set(progress.clearedRooms);
+        cleared.add(event.payload.roomIndex);
+        next.dungeonProgress = {
+          ...progress,
+          clearedRooms: [...cleared].sort((a, b) => a - b),
         };
       }
       break;

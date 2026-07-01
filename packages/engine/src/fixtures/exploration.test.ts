@@ -12,6 +12,7 @@ import {
   arrivalNarrationForLocation,
   realmNpcEntityId,
   resolveDungeonFoes,
+  sceneIdForDungeonRoom,
   sceneIdForRealmEntity,
   type CampaignStartingLocation,
 } from "./exploration";
@@ -224,12 +225,20 @@ describe("buildDungeonEntryCommands", () => {
 
     const before = await engine.getState(campaign);
     const foes = resolveDungeonFoes(dungeon.entityId, { wanderingMonsters: ["goblin scouts"] });
-    for (const command of buildDungeonEntryCommands(dungeon, before, foes)) {
+    for (const command of buildDungeonEntryCommands(
+      dungeon,
+      before,
+      foes,
+      { wanderingMonsters: ["goblin scouts"] },
+    )) {
       await engine.execute(campaign, command);
     }
 
     const after = await engine.getState(campaign);
-    expect(after.currentSceneId).toBe(sceneIdForRealmEntity(dungeon.entityId));
+    expect(after.currentSceneId).toBe(
+      sceneIdForDungeonRoom(dungeon.entityId, 0),
+    );
+    expect(after.dungeonProgress?.currentRoomIndex).toBe(0);
     expect(after.encounter?.initiativeRolled).toBe(true);
     expect(Object.keys(after.entities).some((id) => id.startsWith("npc:dungeon:"))).toBe(true);
   });

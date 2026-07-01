@@ -9,7 +9,7 @@
  * the surface can render map + tokens + chat + HUD without combat chrome. The
  * deterministic engine remains the authority — this only drives presentation.
  */
-import { FEET_PER_CELL, parseDungeonFloorSceneId } from "@app/engine";
+import { FEET_PER_CELL, isPatrolEntityId, parseDungeonFloorSceneId, patrolDetectedParty } from "@app/engine";
 import type { WorldState } from "@app/engine";
 
 import type { Cell } from "@/lib/battle-map/geometry";
@@ -61,9 +61,22 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
 
   const pc = sceneId ? explorePcEntity(state, sceneId) : undefined;
 
-  const placed = Object.values(state.entities).filter(
-    (e) => e.sceneId === sceneId && e.position !== undefined,
-  );
+  let fog: ExploreModel["fog"];
+  if (sceneId && parseDungeonFloorSceneId(sceneId) && pc?.id) {
+    const keys = state.dungeonFog?.[pc.id]?.[sceneId];
+    if (keys && keys.length > 0) {
+      fog = { revealed: new Set(keys) };
+    }
+  }
+
+  const placed = Object.values(state.entities).filter((e) => {
+    if (e.sceneId !== sceneId || e.position === undefined) return false;
+    if (fog && isPatrolEntityId(e.id)) {
+      const key = `${e.position.x},${e.position.y}`;
+      if (!fog.revealed.has(key)) return false;
+    }
+    return true;
+  });
 
   const tokens: BattleToken[] = placed.map((e) => ({
     id: e.id,
@@ -72,7 +85,7 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
     position: e.position!,
     hp: { current: e.hp.current, max: e.hp.max },
     alive: e.alive,
-    hostile: false,
+    hostile: isPatrolEntityId(e.id) ? patrolDetectedParty(state, e.id) : false,
     isActive: false,
     draggable: e.id === pc?.id && e.alive,
     interactive:
@@ -95,14 +108,6 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
       (c) => c.x >= 0 && c.y >= 0 && c.x < map.width && c.y < map.height,
       (c) => wallSet.has(`${c.x},${c.y}`),
     ).filter((c) => !occupied.has(`${c.x},${c.y}`));
-  }
-
-  let fog: ExploreModel["fog"];
-  if (sceneId && parseDungeonFloorSceneId(sceneId) && pc?.id) {
-    const keys = state.dungeonFog?.[pc.id]?.[sceneId];
-    if (keys && keys.length > 0) {
-      fog = { revealed: new Set(keys) };
-    }
   }
 
   return {

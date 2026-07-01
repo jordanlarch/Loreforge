@@ -36,14 +36,21 @@ import {
   revealAreaEvents,
   shareScoutRevealEvents,
 } from "../dungeon/fog";
+import {
+  deployPatrolEvents,
+  resetPatrolEvents,
+  tickPatrolEvents,
+} from "../dungeon/patrols";
 import type {
   CommandResult,
   EnterDungeonCommand,
   InteractObjectCommand,
   MarkZoneClearedCommand,
+  ResetPatrolsCommand,
   RevealAreaCommand,
   ShareScoutRevealCommand,
   StartZoneEncounterCommand,
+  TickPatrolsCommand,
   UseConnectionCommand,
   UseFloorTransitionCommand,
 } from "./types";
@@ -229,6 +236,10 @@ function enterDungeonEvents(
         floor?.zones,
       ),
     );
+    const patrolFloors =
+      layoutForDungeon(ctx, cmd.dungeonEntityId)?.floors ??
+      buildLayoutState(loadDungeonFloors(cmd.entityData)).floors;
+    events.push(...deployPatrolEvents(ctx, cmd.dungeonEntityId, patrolFloors));
   }
 
   return events;
@@ -597,6 +608,41 @@ export function handleRevealArea(
       cells: cmd.cells.length,
       forEntity: cmd.forEntity,
     },
+  };
+}
+
+export function handleTickPatrols(
+  cmd: TickPatrolsCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const progress = ctx.world.dungeonProgress;
+  if (!progress || progress.dungeonEntityId !== cmd.dungeonEntityId) {
+    return reject("INVALID_PAYLOAD", "The party is not in this dungeon.");
+  }
+  if (ctx.world.encounter) {
+    return { accepted: true, events: [], summary: { skipped: "encounter" } };
+  }
+  const events = tickPatrolEvents(ctx, cmd.dungeonEntityId, cmd.floorIndex);
+  return {
+    accepted: true,
+    events,
+    summary: { moved: events.filter((e) => e.type === "PatrolMoved").length },
+  };
+}
+
+export function handleResetPatrols(
+  cmd: ResetPatrolsCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const progress = ctx.world.dungeonProgress;
+  if (!progress || progress.dungeonEntityId !== cmd.dungeonEntityId) {
+    return reject("INVALID_PAYLOAD", "The party is not in this dungeon.");
+  }
+  const events = resetPatrolEvents(ctx, cmd.dungeonEntityId);
+  return {
+    accepted: true,
+    events,
+    summary: { reset: events.filter((e) => e.type === "PatrolMoved").length },
   };
 }
 

@@ -12,6 +12,7 @@ import type {
   GridCell,
   NormalizedDungeonFloor,
   NormalizedDungeonZone,
+  PatrolRoute,
   ZoneRect,
 } from "./types";
 
@@ -182,7 +183,27 @@ function normalizeFloor(raw: AuthoredDungeonFloor): NormalizedDungeonFloor {
     entrance: raw.entrance,
     zones,
     transitions: raw.transitions ?? [],
+    patrolRoutes: normalizePatrolRoutes(raw.patrolRoutes),
   };
+}
+
+function normalizePatrolRoutes(raw: AuthoredDungeonFloor["patrolRoutes"]): PatrolRoute[] {
+  if (!raw || raw.length === 0) return [];
+  const seen = new Set<string>();
+  const out: PatrolRoute[] = [];
+  for (const route of raw) {
+    if (!route?.patrolId || route.waypoints.length === 0 || seen.has(route.patrolId)) {
+      continue;
+    }
+    seen.add(route.patrolId);
+    out.push({
+      patrolId: route.patrolId,
+      creatureTemplateRef: route.creatureTemplateRef ?? "skeleton",
+      waypoints: dedupeCells(route.waypoints),
+      intervalMs: route.intervalMs,
+    });
+  }
+  return out;
 }
 
 function slugifyRoomName(name: string, fallback: string): string {
@@ -278,6 +299,7 @@ export function synthesizeFloorsFromRooms(
       entrance,
       zones,
       transitions: [],
+      patrolRoutes: [],
     });
   }
 

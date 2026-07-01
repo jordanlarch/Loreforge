@@ -29,7 +29,20 @@
             "rect": { "x": 6, "y": 2, "w": 4, "h": 4 }
           }
         ],
-        "transitions": []
+        "transitions": [],
+        "patrolRoutes": [
+          {
+            "patrolId": "ossuary-skeleton",
+            "creatureTemplateRef": "skeleton",
+            "waypoints": [
+              { "x": 7, "y": 3 },
+              { "x": 9, "y": 3 },
+              { "x": 9, "y": 5 },
+              { "x": 7, "y": 5 }
+            ],
+            "intervalMs": 1000
+          }
+        ]
       }
     ]
   },

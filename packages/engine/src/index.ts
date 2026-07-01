@@ -674,12 +674,22 @@ export {
   revealAreaEvents,
   shareScoutRevealEvents,
 } from "./dungeon/fog";
+export {
+  DEFAULT_PATROL_INTERVAL_MS,
+  deployPatrolEvents,
+  isPatrolEntityId,
+  patrolDetectedParty,
+  patrolEntityId,
+  resetPatrolEvents,
+  tickPatrolEvents,
+} from "./dungeon/patrols";
 export type {
   DungeonLayoutState,
   NormalizedDungeonFloor,
   NormalizedDungeonZone,
   DungeonMapObject,
   ObjectNoise,
+  PatrolRoute,
 } from "./dungeon/types";
 export {
   arrivalNarrationForLocation,

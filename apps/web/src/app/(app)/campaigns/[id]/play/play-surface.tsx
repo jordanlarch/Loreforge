@@ -1114,6 +1114,7 @@ function LiveBattle({
                   walls={explore.walls}
                   tokens={explore.tokens}
                   reachable={explore.reachable}
+                  fog={explore.fog}
                   onMoveToken={(id, to) => session.moveToken(id, to)}
                   onSelectToken={
                     onEntityClick ? onExploreTokenSelect : undefined

@@ -181,6 +181,8 @@ import {
   handleEnterDungeon,
   handleInteractObject,
   handleMarkZoneCleared,
+  handleRevealArea,
+  handleShareScoutReveal,
   handleStartZoneEncounter,
   handleUseConnection,
   handleUseFloorTransition,
@@ -189,6 +191,7 @@ import {
   dungeonMovePrecheck,
   dungeonZoneVisitEvents,
 } from "../dungeon/move-zone";
+import { dungeonFogRevealEvents } from "../dungeon/fog";
 import {
   buildBanishmentCastEvents,
   buildPolymorphCastEvents,
@@ -862,6 +865,9 @@ function handleMoveEntity(
   );
   events.push(
     ...dungeonZoneVisitEvents(ctx, cmd.entity, entity.position, to),
+  );
+  events.push(
+    ...dungeonFogRevealEvents(ctx, cmd.entity, entity.position, to),
   );
 
   return { accepted: true, events, summary: { entity: cmd.entity, to } };
@@ -4956,6 +4962,10 @@ export function handleCommand(
       return handleMarkZoneCleared(command, ctx);
     case "interact_object":
       return handleInteractObject(command, ctx);
+    case "share_scout_reveal":
+      return handleShareScoutReveal(command, ctx);
+    case "reveal_area":
+      return handleRevealArea(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

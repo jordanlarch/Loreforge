@@ -667,6 +667,13 @@ export {
   actorCanReachObject,
 } from "./dungeon/layout";
 export { interactObjectEvents, objectTaken } from "./dungeon/objects";
+export {
+  dungeonFogRevealEvents,
+  dungeonFogRevealZoneEvents,
+  revealedCellKeysFor,
+  revealAreaEvents,
+  shareScoutRevealEvents,
+} from "./dungeon/fog";
 export type {
   DungeonLayoutState,
   NormalizedDungeonFloor,

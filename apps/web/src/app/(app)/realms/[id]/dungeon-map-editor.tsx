@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthoredDungeonFloor, GridCell } from "@app/engine";
 
@@ -9,6 +9,13 @@ import {
   CodexToolboxAddPicker,
   RealmsNpcAddPicker,
 } from "@/components/realms-dungeon-pickers";
+import {
+  clampZoom,
+  OVERWORLD_ZOOM_MAX,
+  OVERWORLD_ZOOM_MIN,
+  OVERWORLD_ZOOM_STEP,
+  panForSvgZoom,
+} from "@/lib/map-viewport-zoom";
 import { trpc } from "@/lib/trpc/client";
 import {
   addCellTrap,
@@ -52,6 +59,7 @@ const CELL_PX = 22;
 const SVG_PAD_X = 20;
 const SVG_PAD_Y = 12;
 const HANDLE_PX = 8;
+const VIEWPORT_PAN_DEFAULT = { x: 24, y: 24 };
 
 function rectSvgBounds(rect: ZoneRect) {
   return {
@@ -123,6 +131,21 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
   const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(
     null,
   );
+  const [pan, setPan] = useState(VIEWPORT_PAN_DEFAULT);
+  const [zoom, setZoom] = useState(1);
+  const [viewportPanning, setViewportPanning] = useState(false);
+
+  const mapViewportRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const viewportPanDrag = useRef<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
 
   useEffect(() => {
     setFloors(savedFloors);
@@ -162,6 +185,104 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
     setDirty(true);
   }
 
+  const applyViewportZoom = useCallback(
+    (next: number, anchor?: { clientX: number; clientY: number }) => {
+      const el = mapViewportRef.current;
+      setZoom((prev) => {
+        const clamped = clampZoom(next, OVERWORLD_ZOOM_MIN, OVERWORLD_ZOOM_MAX);
+        if (clamped === prev) return prev;
+        if (el && anchor) {
+          const rect = el.getBoundingClientRect();
+          const nextPan = panForSvgZoom({
+            panX: panRef.current.x,
+            panY: panRef.current.y,
+            clientX: anchor.clientX,
+            clientY: anchor.clientY,
+            rect,
+            oldZoom: prev,
+            newZoom: clamped,
+          });
+          const updated = { x: nextPan.panX, y: nextPan.panY };
+          panRef.current = updated;
+          setPan(updated);
+        }
+        return clamped;
+      });
+    },
+    [],
+  );
+
+  const resetViewport = useCallback(() => {
+    setZoom(1);
+    setPan(VIEWPORT_PAN_DEFAULT);
+    panRef.current = VIEWPORT_PAN_DEFAULT;
+  }, []);
+
+  const onViewportWheel = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -OVERWORLD_ZOOM_STEP : OVERWORLD_ZOOM_STEP;
+      applyViewportZoom(
+        clampZoom(
+          zoomRef.current + delta,
+          OVERWORLD_ZOOM_MIN,
+          OVERWORLD_ZOOM_MAX,
+        ),
+        { clientX: e.clientX, clientY: e.clientY },
+      );
+    },
+    [applyViewportZoom],
+  );
+
+  useEffect(() => {
+    const el = mapViewportRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", onViewportWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onViewportWheel);
+  }, [onViewportWheel]);
+
+  const onViewportMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    viewportPanDrag.current = {
+      x: e.clientX,
+      y: e.clientY,
+      panX: panRef.current.x,
+      panY: panRef.current.y,
+    };
+    setViewportPanning(true);
+  }, []);
+
+  useEffect(() => {
+    if (!viewportPanning) return;
+
+    function onMove(ev: MouseEvent) {
+      const drag = viewportPanDrag.current;
+      if (!drag) return;
+      const updated = {
+        x: drag.panX + (ev.clientX - drag.x),
+        y: drag.panY + (ev.clientY - drag.y),
+      };
+      panRef.current = updated;
+      setPan(updated);
+    }
+
+    function onUp(ev: MouseEvent) {
+      if (ev.button === 1) {
+        viewportPanDrag.current = null;
+        setViewportPanning(false);
+      }
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [viewportPanning]);
+
   const finishResizeDrag = useCallback(
     (drag: ResizeDragState, rect: ZoneRect) => {
       if (!currentFloor) return;
@@ -177,16 +298,18 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
     const drag = resizeDrag;
 
     function onMove(e: MouseEvent) {
-      const deltaX = Math.round((e.clientX - drag.startClientX) / CELL_PX);
-      const deltaY = Math.round((e.clientY - drag.startClientY) / CELL_PX);
+      const scale = zoomRef.current;
+      const deltaX = Math.round((e.clientX - drag.startClientX) / (CELL_PX * scale));
+      const deltaY = Math.round((e.clientY - drag.startClientY) / (CELL_PX * scale));
       setPreviewRect(
         applyZoneRectResize(drag.startRect, drag.handle, deltaX, deltaY),
       );
     }
 
     function onUp(e: MouseEvent) {
-      const deltaX = Math.round((e.clientX - drag.startClientX) / CELL_PX);
-      const deltaY = Math.round((e.clientY - drag.startClientY) / CELL_PX);
+      const scale = zoomRef.current;
+      const deltaX = Math.round((e.clientX - drag.startClientX) / (CELL_PX * scale));
+      const deltaY = Math.round((e.clientY - drag.startClientY) / (CELL_PX * scale));
       finishResizeDrag(
         drag,
         applyZoneRectResize(drag.startRect, drag.handle, deltaX, deltaY),
@@ -406,7 +529,8 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
           <h2 className="font-display text-lg">Floor map</h2>
           <p className="mt-1 text-xs text-lore-muted">
             Paint walls, entrance, loot, traps, NPCs, and interactables. Use Zones to
-            drag-resize room geometry; Stairs links floors. Codex slugs resolve in Live Play.
+            drag-resize room geometry; Stairs links floors. Wheel zoom · middle-click pan.
+            Codex slugs resolve in Live Play.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -480,7 +604,55 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
       </div>
 
       <div className="mt-4 flex flex-col gap-4 lg:flex-row">
-        <div className="overflow-x-auto rounded border border-lore-border bg-lore-bg p-2">
+        <div
+          ref={mapViewportRef}
+          className={`relative max-h-[min(70vh,520px)] min-h-[280px] overflow-hidden rounded border border-lore-border bg-lore-bg p-2 ${
+            viewportPanning ? "cursor-grabbing" : "cursor-default"
+          }`}
+          onMouseDown={onViewportMouseDown}
+        >
+          <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-1 rounded border border-lore-border bg-lore-surface/95 px-1.5 py-1 text-xs shadow-sm">
+            <button
+              type="button"
+              className="pointer-events-auto rounded px-1.5 py-0.5 text-lore-muted hover:bg-lore-bg hover:text-lore-text"
+              onClick={() =>
+                applyViewportZoom(zoomRef.current - OVERWORLD_ZOOM_STEP)
+              }
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <span className="min-w-[3rem] text-center tabular-nums text-lore-text">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              type="button"
+              className="pointer-events-auto rounded px-1.5 py-0.5 text-lore-muted hover:bg-lore-bg hover:text-lore-text"
+              onClick={() =>
+                applyViewportZoom(zoomRef.current + OVERWORLD_ZOOM_STEP)
+              }
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            {zoom !== 1 ||
+            pan.x !== VIEWPORT_PAN_DEFAULT.x ||
+            pan.y !== VIEWPORT_PAN_DEFAULT.y ? (
+              <button
+                type="button"
+                className="pointer-events-auto ml-1 rounded border border-lore-border px-1.5 py-0.5 text-[10px] text-lore-muted hover:text-lore-text"
+                onClick={resetViewport}
+              >
+                Reset view
+              </button>
+            ) : null}
+          </div>
+          <div
+            className="inline-block origin-top-left"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            }}
+          >
           <svg
             width={width * CELL_PX + 24}
             height={height * CELL_PX + 24}
@@ -630,7 +802,8 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                 })()
               : null}
           </svg>
-          <p className="mt-2 text-[11px] text-lore-muted">
+          </div>
+          <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-lore-muted">
             {width}×{height} · green = entrance · ↑↓ stair · $ loot · ⚠ trap · @ NPC · ◆ interactable
             {tool === "zone" ? " · drag handles to resize selected zone" : ""}
             {tool === "stair" && selectedTransitionId

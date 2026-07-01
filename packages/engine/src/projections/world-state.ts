@@ -604,19 +604,36 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
               }
             }
           }
-          if (spell.toLowerCase() === "wall of fire") {
+          const zoneSpellId =
+            spell.toLowerCase() === "wall of fire"
+              ? "wall-of-fire"
+              : spell.toLowerCase() === "moonbeam"
+                ? "moonbeam"
+                : spell.toLowerCase() === "call lightning"
+                  ? "call-lightning"
+                  : undefined;
+          if (zoneSpellId) {
             for (const [sceneId, scene] of Object.entries(next.scenes)) {
               if (!scene.spellZones?.length) continue;
               const filtered = scene.spellZones.filter(
-                (z) =>
-                  !(
-                    z.caster === target.id && z.spellId === "wall-of-fire"
-                  ),
+                (z) => !(z.caster === target.id && z.spellId === zoneSpellId),
               );
               if (filtered.length !== scene.spellZones.length) {
                 next.scenes[sceneId] = { ...scene, spellZones: filtered };
               }
             }
+          }
+          if (spell.toLowerCase() === "spirit guardians") {
+            next.entities[target.id] = {
+              ...next.entities[target.id]!,
+              activeSpiritGuardians: undefined,
+            };
+          }
+          if (spell.toLowerCase() === "spiritual weapon") {
+            next.entities[target.id] = {
+              ...next.entities[target.id]!,
+              activeSpiritualWeapon: undefined,
+            };
           }
         }
       }
@@ -795,6 +812,19 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         next.entities[caster.id] = {
           ...caster,
           activeSpiritualWeapon: undefined,
+        };
+      }
+      break;
+    }
+    case "SpiritGuardiansStarted": {
+      const caster = next.entities[event.payload.caster];
+      if (caster) {
+        next.entities[caster.id] = {
+          ...caster,
+          activeSpiritGuardians: {
+            instanceId: event.payload.instanceId,
+            slotLevel: event.payload.slotLevel,
+          },
         };
       }
       break;

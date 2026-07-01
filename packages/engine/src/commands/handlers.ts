@@ -179,8 +179,12 @@ import { handleUseClassFeature } from "./class-feature-handlers";
 import {
   buildPolymorphCastEvents,
   enumerateBurstCells,
+  handleStrikeCallLightning,
   handleStrikeSpiritualWeapon,
+  spellZoneCreatedEvent,
   spellZoneTurnStartEvents,
+  spiritGuardiansStartedEvent,
+  spiritGuardiansTurnStartEvents,
   spiritualWeaponRoundTickEvents,
   spiritualWeaponSummonedEvent,
   wallOfFireZoneCreatedEvent,
@@ -224,6 +228,7 @@ import {
   type PassCuttingWordsCommand,
   type PassCounterspellCommand,
   type PassIndomitableCommand,
+  type StrikeCallLightningCommand,
   type StrikeSpiritualWeaponCommand,
   type ReadyActionCommand,
   type RemoveConditionCommand,
@@ -1199,6 +1204,7 @@ function handleEndTurn(
     payload: { entity: nextEntity, index: nextIndex },
   });
   events.push(...spellZoneTurnStartEvents(ctx, nextEntity));
+  events.push(...spiritGuardiansTurnStartEvents(ctx, nextEntity));
   events.push(...poisonTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...curseTickEventsAfterTurnStart(ctx, nextEntity));
   events.push(...environmentalEffectTickEventsAfterTurnStart(ctx, nextEntity));
@@ -4622,6 +4628,44 @@ function handleCastSpell(
       ),
     );
   }
+  if (spell.id === "moonbeam" && cmd.origin && caster.sceneId) {
+    events.push(
+      spellZoneCreatedEvent(
+        ctx,
+        "moonbeam",
+        caster.id,
+        caster.sceneId,
+        cmd.origin,
+        slotLevel,
+        `moonbeam:${caster.id}:${ctx.timestamp}`,
+        5,
+      ),
+    );
+  }
+  if (spell.id === "call-lightning" && cmd.origin && caster.sceneId) {
+    events.push(
+      spellZoneCreatedEvent(
+        ctx,
+        "call-lightning",
+        caster.id,
+        caster.sceneId,
+        cmd.origin,
+        slotLevel,
+        `call-lightning:${caster.id}:${ctx.timestamp}`,
+        10,
+      ),
+    );
+  }
+  if (spell.id === "spirit-guardians") {
+    events.push(
+      spiritGuardiansStartedEvent(
+        ctx,
+        caster.id,
+        slotLevel,
+        `sg:${caster.id}:${ctx.timestamp}`,
+      ),
+    );
+  }
 
   return { accepted: true, events, summary };
 }
@@ -4760,6 +4804,8 @@ export function handleCommand(
       return handlePassIndomitable(command, ctx);
     case "strike_spiritual_weapon":
       return handleStrikeSpiritualWeapon(command, ctx);
+    case "strike_call_lightning":
+      return handleStrikeCallLightning(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

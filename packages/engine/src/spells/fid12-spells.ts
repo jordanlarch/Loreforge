@@ -1,5 +1,6 @@
 /**
- * SRD-FID-12 depth — Spiritual Weapon, Wall of Fire zone, Polymorph stat-swap.
+ * SRD-FID-12 depth — Spiritual Weapon, spell zones, Polymorph stat-swap,
+ * Spirit Guardians aura, Call Lightning strikes.
  */
 import { abilityModifier } from "../entities/abilities";
 import type {
@@ -8,6 +9,7 @@ import type {
   EntityState,
   GridPosition,
   SceneId,
+  SceneSpellZone,
 } from "../entities/types";
 import { monsterTemplate } from "../content/monsters";
 import { spellAttackBonus, spellSaveDC } from "../content/spellcasting";
@@ -18,12 +20,65 @@ import type { DraftEvent, EventMeta } from "../events/types";
 import type { ExecutionContext } from "../commands/context";
 import type { CommandResult } from "../commands/types";
 import { reject } from "../commands/types";
-import type { StrikeSpiritualWeaponCommand } from "../commands/types";
+import type {
+  StrikeCallLightningCommand,
+  StrikeSpiritualWeaponCommand,
+} from "../commands/types";
 
 const SPIRITUAL_WEAPON_ROUNDS = 10;
 
+function entitiesAreHostileInEncounter(
+  encounter: NonNullable<ExecutionContext["world"]["encounter"]>,
+  caster: EntityState,
+  entity: EntityState,
+): boolean {
+  const casterSide = encounter.sides[caster.id];
+  const entitySide = encounter.sides[entity.id];
+  if (casterSide !== undefined && entitySide !== undefined) {
+    return areHostile(casterSide, entitySide);
+  }
+  return caster.kind !== entity.kind;
+}
+
+type ZoneTickSpec = {
+  ability: keyof AbilityScores;
+  baseDice: number;
+  dieSize: number;
+  baseSlot: number;
+  damageType: string;
+  fixedDice?: string;
+};
+
+const ZONE_TURN_START_TICKS: Record<string, ZoneTickSpec> = {
+  "wall-of-fire": {
+    ability: "dex",
+    baseDice: 5,
+    dieSize: 8,
+    baseSlot: 4,
+    damageType: "fire",
+    fixedDice: "5d8",
+  },
+  moonbeam: {
+    ability: "con",
+    baseDice: 2,
+    dieSize: 10,
+    baseSlot: 2,
+    damageType: "radiant",
+  },
+};
+
 function sameCell(a: GridPosition, b: GridPosition): boolean {
   return a.x === b.x && a.y === b.y;
+}
+
+function scaledDice(
+  baseCount: number,
+  dieSize: number,
+  slotLevel: number,
+  baseSlot: number,
+): string {
+  const count = baseCount + Math.max(0, slotLevel - baseSlot);
+  return `${count}d${dieSize}`;
 }
 
 export function enumerateBurstCells(
@@ -65,6 +120,86 @@ function meta(
   };
 }
 
+function zoneTickDice(zone: SceneSpellZone, spec: ZoneTickSpec): string {
+  if (spec.fixedDice) return spec.fixedDice;
+  return scaledDice(spec.baseDice, spec.dieSize, zone.slotLevel, spec.baseSlot);
+}
+
+function rollZoneSaveDamageTick(
+  ctx: ExecutionContext,
+  entity: EntityState,
+  zone: SceneSpellZone,
+  spec: ZoneTickSpec,
+): DraftEvent[] {
+  const caster = ctx.world.entities[zone.caster];
+  const dc = spellSaveDC(caster ?? entity);
+  if (dc === undefined) return [];
+
+  const d20 = ctx.roll(
+    "1d20",
+    `${zone.spellId}:${entity.id}:${zone.instanceId}`,
+  );
+  const mod = abilityModifier(entity.abilityScores[spec.ability]);
+  const total = d20.total + mod;
+  const success = total >= dc;
+  const events: DraftEvent[] = [
+    {
+      type: "DiceRolled",
+      ...meta(ctx, entity.id),
+      payload: {
+        notation: d20.notation,
+        rolls: d20.rolls,
+        total: d20.total,
+        scope: d20.scope,
+        drawIndex: d20.drawIndex,
+      },
+    },
+    {
+      type: "SaveRolled",
+      ...meta(ctx, entity.id),
+      payload: {
+        entity: entity.id,
+        ability: spec.ability,
+        dc,
+        mode: "normal",
+        natural: d20.total,
+        total,
+        success,
+        autoFail: false,
+      },
+    },
+  ];
+  const dice = zoneTickDice(zone, spec);
+  const roll = ctx.roll(dice, `${zone.spellId}-dmg:${entity.id}:${zone.instanceId}`);
+  events.push({
+    type: "DiceRolled",
+    ...meta(ctx, entity.id),
+    payload: {
+      notation: roll.notation,
+      rolls: roll.rolls,
+      total: roll.total,
+      scope: roll.scope,
+      drawIndex: roll.drawIndex,
+    },
+  });
+  const amount = success ? Math.floor(roll.total / 2) : roll.total;
+  if (amount > 0) {
+    events.push({
+      type: "DamageDealt",
+      ...meta(ctx, zone.caster),
+      payload: {
+        target: entity.id,
+        amount,
+        damageType: spec.damageType,
+        hpBefore: entity.hp.current,
+        hpAfter: Math.max(0, entity.hp.current - amount),
+        source: zone.caster,
+      },
+    });
+  }
+  return events;
+}
+
 export function spiritualWeaponSummonedEvent(
   ctx: ExecutionContext,
   casterId: EntityRef,
@@ -80,6 +215,19 @@ export function spiritualWeaponSummonedEvent(
       instanceId,
       roundsRemaining: SPIRITUAL_WEAPON_ROUNDS,
     },
+  };
+}
+
+export function spiritGuardiansStartedEvent(
+  ctx: ExecutionContext,
+  casterId: EntityRef,
+  slotLevel: number,
+  instanceId: string,
+): DraftEvent {
+  return {
+    type: "SpiritGuardiansStarted",
+    ...meta(ctx, casterId),
+    payload: { caster: casterId, slotLevel, instanceId },
   };
 }
 
@@ -197,7 +345,6 @@ export function handleStrikeSpiritualWeapon(
         damage,
       },
     };
-    const hpAfter = Math.max(0, target.hp.current - damage);
     events.push({
       type: "DamageDealt",
       ...meta(ctx, caster.id),
@@ -206,7 +353,7 @@ export function handleStrikeSpiritualWeapon(
         amount: damage,
         damageType: "force",
         hpBefore: target.hp.current,
-        hpAfter,
+        hpAfter: Math.max(0, target.hp.current - damage),
         source: caster.id,
       },
     });
@@ -218,6 +365,154 @@ export function handleStrikeSpiritualWeapon(
   };
 }
 
+function findCallLightningZone(
+  ctx: ExecutionContext,
+  casterId: EntityRef,
+): SceneSpellZone | undefined {
+  for (const scene of Object.values(ctx.world.scenes)) {
+    const zone = scene.spellZones?.find(
+      (z) => z.spellId === "call-lightning" && z.caster === casterId,
+    );
+    if (zone) return zone;
+  }
+  return undefined;
+}
+
+export function handleStrikeCallLightning(
+  cmd: StrikeCallLightningCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const caster = ctx.world.entities[cmd.caster];
+  if (!caster) {
+    return reject("ACTOR_NOT_FOUND", `Caster ${cmd.caster} does not exist.`);
+  }
+  const zone = findCallLightningZone(ctx, caster.id);
+  if (!zone) {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      "No call lightning storm cloud is active for this caster.",
+    );
+  }
+  if (caster.actionEconomy && caster.actionEconomy.action !== "available") {
+    return reject(
+      "ACTION_UNAVAILABLE",
+      `${caster.name} has already used their action.`,
+    );
+  }
+  const target = ctx.world.entities[cmd.target];
+  if (!target) {
+    return reject("TARGET_NOT_FOUND", `Target ${cmd.target} does not exist.`);
+  }
+  if (!target.alive) {
+    return reject("INVALID_TARGET", `${target.name} is not a valid target.`);
+  }
+  if (!entityInZoneCells(target, zone.cells)) {
+    return reject(
+      "OUT_OF_RANGE",
+      "Target must be under the call lightning storm cloud.",
+    );
+  }
+
+  const dc = spellSaveDC(caster)!;
+  const d20 = ctx.roll("1d20", `call-lightning:${caster.id}->${target.id}`);
+  const mod = abilityModifier(target.abilityScores.dex);
+  const total = d20.total + mod;
+  const success = total >= dc;
+  const dice = scaledDice(3, 10, zone.slotLevel, 3);
+  const dmgRoll = ctx.roll(dice, `call-lightning-dmg:${caster.id}->${target.id}`);
+  const amount = success ? Math.floor(dmgRoll.total / 2) : dmgRoll.total;
+
+  const events: DraftEvent[] = [
+    {
+      type: "DiceRolled",
+      ...meta(ctx, caster.id),
+      payload: {
+        notation: d20.notation,
+        rolls: d20.rolls,
+        total: d20.total,
+        scope: d20.scope,
+        drawIndex: d20.drawIndex,
+      },
+    },
+    {
+      type: "SaveRolled",
+      ...meta(ctx, caster.id),
+      payload: {
+        entity: target.id,
+        ability: "dex",
+        dc,
+        mode: "normal",
+        natural: d20.total,
+        total,
+        success,
+        autoFail: false,
+      },
+    },
+    {
+      type: "DiceRolled",
+      ...meta(ctx, caster.id),
+      payload: {
+        notation: dmgRoll.notation,
+        rolls: dmgRoll.rolls,
+        total: dmgRoll.total,
+        scope: dmgRoll.scope,
+        drawIndex: dmgRoll.drawIndex,
+      },
+    },
+    {
+      type: "ActionSpent",
+      ...meta(ctx, caster.id),
+      payload: { entity: caster.id, action: true },
+    },
+  ];
+  if (amount > 0) {
+    events.push({
+      type: "DamageDealt",
+      ...meta(ctx, caster.id),
+      payload: {
+        target: target.id,
+        amount,
+        damageType: "lightning",
+        hpBefore: target.hp.current,
+        hpAfter: Math.max(0, target.hp.current - amount),
+        source: caster.id,
+      },
+    });
+  }
+  return {
+    accepted: true,
+    events,
+    summary: { caster: caster.id, target: target.id, success, damage: amount },
+  };
+}
+
+export function spellZoneCreatedEvent(
+  ctx: ExecutionContext,
+  spellId: string,
+  casterId: EntityRef,
+  sceneId: SceneId,
+  origin: GridPosition,
+  slotLevel: number,
+  instanceId: string,
+  radiusFeet: number,
+): DraftEvent {
+  const map = ctx.world.scenes[sceneId]?.map;
+  return {
+    type: "SpellZoneCreated",
+    ...meta(ctx, casterId),
+    payload: {
+      sceneId,
+      instanceId,
+      spellId,
+      caster: casterId,
+      slotLevel,
+      origin,
+      cells: enumerateBurstCells(origin, radiusFeet, map),
+    },
+  };
+}
+
+/** @deprecated Use spellZoneCreatedEvent */
 export function wallOfFireZoneCreatedEvent(
   ctx: ExecutionContext,
   casterId: EntityRef,
@@ -254,62 +549,102 @@ export function spellZoneTurnStartEvents(
 
   const events: DraftEvent[] = [];
   for (const zone of zones) {
-    if (zone.spellId !== "wall-of-fire") continue;
+    const spec = ZONE_TURN_START_TICKS[zone.spellId];
+    if (!spec) continue;
     if (!entityInZoneCells(entity, zone.cells)) continue;
-    const dc = spellSaveDC(ctx.world.entities[zone.caster] ?? entity)!;
-    const d20 = ctx.roll("1d20", `wall-of-fire:${entityId}:${zone.instanceId}`);
-    const mod = abilityModifier(entity.abilityScores.dex);
+    events.push(...rollZoneSaveDamageTick(ctx, entity, zone, spec));
+  }
+  return events;
+}
+
+export function spiritGuardiansTurnStartEvents(
+  ctx: ExecutionContext,
+  entityId: EntityRef,
+): DraftEvent[] {
+  const entity = ctx.world.entities[entityId];
+  if (!entity?.position || !entity.sceneId || !entity.alive) return [];
+  const encounter = ctx.world.encounter;
+  if (!encounter) return [];
+
+  const events: DraftEvent[] = [];
+  for (const [casterId, caster] of Object.entries(ctx.world.entities)) {
+    const guardians = caster.activeSpiritGuardians;
+    if (!guardians || caster.sceneId !== entity.sceneId || !caster.position) {
+      continue;
+    }
+    if (entityId === casterId) continue;
+    if (!entitiesAreHostileInEncounter(encounter, caster, entity)) continue;
+    if (
+      distanceFeet(caster.position, entity.position) > 15 ||
+      !entity.alive
+    ) {
+      continue;
+    }
+
+    const dc = spellSaveDC(caster);
+    if (dc === undefined) continue;
+    const d20 = ctx.roll(
+      "1d20",
+      `spirit-guardians:${entityId}:${guardians.instanceId}`,
+    );
+    const mod = abilityModifier(entity.abilityScores.wis);
     const total = d20.total + mod;
     const success = total >= dc;
-    events.push({
-      type: "DiceRolled",
-      ...meta(ctx, entityId),
-      payload: {
-        notation: d20.notation,
-        rolls: d20.rolls,
-        total: d20.total,
-        scope: d20.scope,
-        drawIndex: d20.drawIndex,
+    const dice = scaledDice(3, 8, guardians.slotLevel, 3);
+    const roll = ctx.roll(
+      dice,
+      `spirit-guardians-dmg:${entityId}:${guardians.instanceId}`,
+    );
+    events.push(
+      {
+        type: "DiceRolled",
+        ...meta(ctx, entityId),
+        payload: {
+          notation: d20.notation,
+          rolls: d20.rolls,
+          total: d20.total,
+          scope: d20.scope,
+          drawIndex: d20.drawIndex,
+        },
       },
-    });
-    events.push({
-      type: "SaveRolled",
-      ...meta(ctx, entityId),
-      payload: {
-        entity: entityId,
-        ability: "dex",
-        dc,
-        mode: "normal",
-        natural: d20.total,
-        total,
-        success,
-        autoFail: false,
+      {
+        type: "SaveRolled",
+        ...meta(ctx, entityId),
+        payload: {
+          entity: entityId,
+          ability: "wis",
+          dc,
+          mode: "normal",
+          natural: d20.total,
+          total,
+          success,
+          autoFail: false,
+        },
       },
-    });
-    const roll = ctx.roll("5d8", `wall-of-fire-dmg:${entityId}:${zone.instanceId}`);
-    events.push({
-      type: "DiceRolled",
-      ...meta(ctx, entityId),
-      payload: {
-        notation: roll.notation,
-        rolls: roll.rolls,
-        total: roll.total,
-        scope: roll.scope,
-        drawIndex: roll.drawIndex,
+      {
+        type: "DiceRolled",
+        ...meta(ctx, entityId),
+        payload: {
+          notation: roll.notation,
+          rolls: roll.rolls,
+          total: roll.total,
+          scope: roll.scope,
+          drawIndex: roll.drawIndex,
+        },
       },
-    });
+    );
     const amount = success ? Math.floor(roll.total / 2) : roll.total;
     if (amount > 0) {
       events.push({
         type: "DamageDealt",
-        ...meta(ctx, zone.caster),
+        ...meta(ctx, casterId),
         payload: {
           target: entityId,
           amount,
-          damageType: "fire",
+          damageType: "radiant",
           hpBefore: entity.hp.current,
           hpAfter: Math.max(0, entity.hp.current - amount),
-          source: zone.caster,
+          source: casterId,
         },
       });
     }
@@ -476,3 +811,10 @@ export function buildPolymorphCastEvents(
   );
   return { events };
 }
+
+/** Spell display names → zone spell ids for concentration cleanup. */
+export const CONCENTRATION_ZONE_SPELL_IDS: Record<string, string> = {
+  "wall of fire": "wall-of-fire",
+  moonbeam: "moonbeam",
+  "call lightning": "call-lightning",
+};

@@ -621,7 +621,7 @@ const MOONBEAM: SpellDefinition = {
   damage: [{ dice: "2d10", type: "radiant" }],
   upcastScaling: { perSlotDice: "1d10", appliesTo: "damage" },
   description:
-    "Each creature in the cylinder makes a Constitution saving throw, taking 2d10 radiant damage on a failed save, or half as much on a success (ongoing turns narrated, not yet mechanized).",
+    "Each creature in the cylinder makes a Constitution saving throw, taking 2d10 radiant damage on a failed save, or half as much on a success. The beam persists as a spell zone and repeats the save on each turn start while concentration holds.",
 };
 
 /** Mind Sliver — Int save or 1d6 psychic. */
@@ -957,7 +957,7 @@ const SPIRIT_GUARDIANS: SpellDefinition = {
   damage: [{ dice: "3d8", type: "radiant" }],
   upcastScaling: { perSlotDice: "1d8", appliesTo: "damage" },
   description:
-    "Protective spirits flit around you in a 15-foot Emanation. A creature in the Emanation has its Speed halved and makes a Wisdom saving throw, taking 3d8 radiant damage on a failed save or half as much on a success (once per turn; ongoing turns narrated).",
+    "Protective spirits flit around you in a 15-foot Emanation. Hostile creatures starting their turn within 15 feet make a Wisdom saving throw, taking 3d8 radiant damage on a failed save or half as much on a success (speed halved narrated).",
 };
 
 /** Hunger of Hadar — 20-ft sphere, Dex save or 2d6 cold on cast. */
@@ -1844,7 +1844,7 @@ const CALL_LIGHTNING: SpellDefinition = {
   saveAgainst: { ability: "dex", dc: "spellsave", onSuccess: "half_damage" },
   damage: [{ dice: "3d10", type: "lightning" }],
   description:
-    "A storm cloud appears; the first bolt strikes a point you choose (tracer: 10-ft sphere, Dex save half 3d10 lightning). Subsequent bolts on later turns are narrated.",
+    "A storm cloud appears; the first bolt strikes creatures in the area (Dex save half 3d10 lightning). Use strike_call_lightning on later turns to call another bolt on a target under the cloud.",
 };
 
 const BLIGHT: SpellDefinition = {

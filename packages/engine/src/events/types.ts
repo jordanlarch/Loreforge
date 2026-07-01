@@ -599,6 +599,12 @@ export type SpiritualWeaponDismissedPayload = {
   instanceId: string;
 };
 
+export type SpiritGuardiansStartedPayload = {
+  caster: EntityRef;
+  slotLevel: number;
+  instanceId: string;
+};
+
 export type SpellZoneCreatedPayload = {
   sceneId: SceneId;
   instanceId: string;
@@ -755,6 +761,10 @@ export type EngineEvent =
   | (EventMeta & {
       type: "SpiritualWeaponDismissed";
       payload: SpiritualWeaponDismissedPayload;
+    })
+  | (EventMeta & {
+      type: "SpiritGuardiansStarted";
+      payload: SpiritGuardiansStartedPayload;
     })
   | (EventMeta & {
       type: "SpellZoneCreated";

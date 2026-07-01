@@ -267,7 +267,7 @@ All mechanics via engine commands; LLM narrates results only. Schemas: `packages
 | **DUN-2 — Zones + connections** | Parse/load `zones[]` (minimal from `rooms[]`); connection gating; position-derived zone | Engine tests + dungeon enter prod smoke | **Done (Jul 2026)** — `dungeon/layout`, `use_connection`, `use_floor_transition`, `DungeonLayoutSet`, move zone visits |
 | **DUN-3 — Detection** | `CreatureDetected`, hidden/invisible, encounter start roster rules | Engine + unit tests | **Done (Jul 2026)** — passive PP vs Stealth, `start_zone_encounter`, `ZoneAlerted`, move/floor-transition detection |
 | **DUN-4 — Quest + objects** | `completionKind`, `interact.noise`, object state, `on_enter_zone` | Engine quest tests | **Done (Jul 2026)** — `interact_object`, `ObjectTaken`, zone `objects[]`, quest `completionKind` advances |
-| **DUN-5 — Fog + scout** | Per-PC cell fog, visited zones shared, scout report | Live Play prod (1 campaign) |
+| **DUN-5 — Fog + scout** | Per-PC cell fog, visited zones shared, scout report | Live Play prod (1 campaign) | **Done (Jul 2026)** — `dungeonFog`, `FogRevealed`/`ZoneDiscovered`/`ScoutRevealShared`, `share_scout_reveal`, `reveal_area`, Live Play fog overlay — #361 |
 | **DUN-6 — Patrols** | Routes, timer, fog-gated render, session reset on load | Engine + ws-server |
 | **DUN-7 — Generator layout** | GENR-5 emits `floors[]` geometry from Dyson pipeline | Generator sample + enter in play |
 | **DUN-8 — Manual map edit** | Prep Realms editor: walls, zones, doors, objects, fog (REALM-5 / PLAY-7) | Realms prep verify |

@@ -30,11 +30,19 @@ import {
   zoneFromLayout,
 } from "../dungeon/detection";
 import { interactObjectEvents } from "../dungeon/objects";
+import {
+  dungeonFogRevealEvents,
+  dungeonFogRevealZoneEvents,
+  revealAreaEvents,
+  shareScoutRevealEvents,
+} from "../dungeon/fog";
 import type {
   CommandResult,
   EnterDungeonCommand,
   InteractObjectCommand,
   MarkZoneClearedCommand,
+  RevealAreaCommand,
+  ShareScoutRevealCommand,
   StartZoneEncounterCommand,
   UseConnectionCommand,
   UseFloorTransitionCommand,
@@ -198,6 +206,30 @@ function enterDungeonEvents(
       zoneName: cmd.zoneName,
     },
   });
+
+  if (firstThreshold) {
+    const partyIds = partyCharacters(ctx).map((e) => e.id);
+    const floors =
+      layoutForDungeon(ctx, cmd.dungeonEntityId)?.floors ??
+      buildLayoutState(loadDungeonFloors(cmd.entityData)).floors;
+    const floor = floorByIndex(
+      { floors, openedConnectionIds: [] },
+      cmd.floorIndex,
+    );
+    const entryZone = floor?.zones.find((z) => z.zoneId === cmd.entryZoneId);
+    events.push(
+      ...dungeonFogRevealZoneEvents(
+        ctx,
+        partyIds,
+        sceneId,
+        cmd.dungeonEntityId,
+        cmd.floorIndex,
+        cmd.entryZoneId,
+        entryZone?.cells,
+        floor?.zones,
+      ),
+    );
+  }
 
   return events;
 }
@@ -371,6 +403,15 @@ export function handleUseFloorTransition(
         ),
       );
     }
+    events.push(
+      ...dungeonFogRevealEvents(
+        ctx,
+        cmd.entity,
+        undefined,
+        transition.toCell,
+        targetSceneId,
+      ),
+    );
   }
   return {
     accepted: true,
@@ -510,6 +551,51 @@ export function handleInteractObject(
       objectId: cmd.objectId,
       zoneId: cmd.zoneId,
       noise: result.noise,
+    },
+  };
+}
+
+export function handleShareScoutReveal(
+  cmd: ShareScoutRevealCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const result = shareScoutRevealEvents(ctx, cmd.scout);
+  if ("error" in result) {
+    return reject(
+      result.code as "ACTOR_NOT_FOUND" | "INVALID_PAYLOAD",
+      result.error,
+    );
+  }
+  const shared = result.events.find((e) => e.type === "ScoutRevealShared");
+  const recipientIds =
+    shared?.payload && "recipientIds" in shared.payload
+      ? shared.payload.recipientIds
+      : [];
+  return {
+    accepted: true,
+    events: result.events,
+    summary: { scout: cmd.scout, recipientIds },
+  };
+}
+
+export function handleRevealArea(
+  cmd: RevealAreaCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const result = revealAreaEvents(ctx, cmd.sceneId, cmd.cells, cmd.forEntity);
+  if ("error" in result) {
+    return reject(
+      result.code as "ACTOR_NOT_FOUND" | "INVALID_PAYLOAD",
+      result.error,
+    );
+  }
+  return {
+    accepted: true,
+    events: result.events,
+    summary: {
+      sceneId: cmd.sceneId,
+      cells: cmd.cells.length,
+      forEntity: cmd.forEntity,
     },
   };
 }

@@ -9,7 +9,7 @@
  * the surface can render map + tokens + chat + HUD without combat chrome. The
  * deterministic engine remains the authority — this only drives presentation.
  */
-import { FEET_PER_CELL } from "@app/engine";
+import { FEET_PER_CELL, parseDungeonFloorSceneId } from "@app/engine";
 import type { WorldState } from "@app/engine";
 
 import type { Cell } from "@/lib/battle-map/geometry";
@@ -25,6 +25,10 @@ export type ExploreModel = {
   reachable: Cell[];
   /** The draggable party PC entity id, when one is on the board. */
   pcEntityId: string | undefined;
+  /** When set, unrevealed dungeon cells render fog (DUN-5). */
+  fog?: {
+    revealed: Set<string>;
+  };
   sceneName: string | undefined;
   sceneDescription: string | undefined;
 };
@@ -93,6 +97,14 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
     ).filter((c) => !occupied.has(`${c.x},${c.y}`));
   }
 
+  let fog: ExploreModel["fog"];
+  if (sceneId && parseDungeonFloorSceneId(sceneId) && pc?.id) {
+    const keys = state.dungeonFog?.[pc.id]?.[sceneId];
+    if (keys && keys.length > 0) {
+      fog = { revealed: new Set(keys) };
+    }
+  }
+
   return {
     cols: map.width,
     rows: map.height,
@@ -100,6 +112,7 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
     tokens,
     reachable,
     pcEntityId: pc?.id,
+    fog,
     sceneName: scene.name,
     sceneDescription: scene.description,
   };

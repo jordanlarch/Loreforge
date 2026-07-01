@@ -85,6 +85,8 @@ export type BattleMapProps = {
   showGrid?: boolean;
   /** Exploration mode: tap a token to inspect / interact. */
   onSelectToken?: (id: string) => void;
+  /** Unrevealed cells show fog when `fog.revealed` is set (DUN-5). */
+  fog?: { revealed: Set<string> };
 };
 
 type DragState = {
@@ -182,6 +184,7 @@ export default function BattleMap(props: BattleMapProps) {
     props.targeting,
     props.aiming,
     props.showGrid,
+    props.fog,
   ]);
 
   function onPointerMove(event: { global: { x: number; y: number } }) {
@@ -226,8 +229,22 @@ export default function BattleMap(props: BattleMapProps) {
     if (!world) return;
     world.removeChildren().forEach((child) => child.destroy());
 
-    const { cols, rows, walls, tokens, reachable, targeting, aiming, showGrid } =
+    const { cols, rows, walls, tokens, reachable, targeting, aiming, showGrid, fog } =
       propsRef.current;
+
+    // Dungeon fog (DUN-5): dim unrevealed cells.
+    if (fog) {
+      const fogGfx = new Graphics();
+      for (let y = 0; y < rows; y += 1) {
+        for (let x = 0; x < cols; x += 1) {
+          if (fog.revealed.has(`${x},${y}`)) continue;
+          const px = cellToPixel({ x, y }, CELL_SIZE);
+          fogGfx.rect(px.x, px.y, CELL_SIZE, CELL_SIZE);
+        }
+      }
+      fogGfx.fill({ color: 0x0a0a12, alpha: 0.82 });
+      world.addChild(fogGfx);
+    }
 
     // Grid lines (toggleable layer, PLAY-7).
     if (showGrid !== false) {

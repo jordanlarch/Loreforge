@@ -117,6 +117,8 @@ export type WorldState = {
   dungeonProgress?: DungeonProgressState;
   /** Parsed floor/zone layout per dungeon entity (DUN-2). */
   dungeonLayouts?: Record<string, import("../dungeon/types").DungeonLayoutState>;
+  /** Per-PC revealed cells on dungeon floor scenes (DUN-5). */
+  dungeonFog?: Record<EntityRef, Record<SceneId, string[]>>;
   /** Sequence number of the last event folded into this state. */
   lastSequence: number;
 };
@@ -136,6 +138,8 @@ export type DungeonProgressState = {
   alertedZoneIds?: string[];
   /** Map object runtime state keyed by objectId (DUN-4). */
   objectStates?: Record<string, { zoneId: string; takenByEntityId: string }>;
+  /** Party-shared zones revealed via per-PC fog (DUN-5). */
+  discoveredZoneIds?: string[];
 };
 
 export function emptyWorldState(campaignId: string): WorldState {
@@ -1119,6 +1123,37 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
+    case "FogRevealed": {
+      const { entity, sceneId, cells } = event.payload;
+      const perEntity = { ...(next.dungeonFog?.[entity] ?? {}) };
+      const existing = new Set(perEntity[sceneId] ?? []);
+      for (const cell of cells) {
+        existing.add(`${cell.x},${cell.y}`);
+      }
+      perEntity[sceneId] = [...existing].sort();
+      next.dungeonFog = {
+        ...next.dungeonFog,
+        [entity]: perEntity,
+      };
+      break;
+    }
+    case "ZoneDiscovered": {
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === event.payload.dungeonEntityId
+      ) {
+        const discovered = new Set(progress.discoveredZoneIds ?? []);
+        discovered.add(event.payload.zoneId);
+        next.dungeonProgress = {
+          ...progress,
+          discoveredZoneIds: [...discovered].sort(),
+        };
+      }
+      break;
+    }
+    case "ScoutRevealShared":
+      break;
     case "DungeonRoomEntered": {
       const zoneId = event.payload.roomIndex === 0 ? "entry" : `zone-${event.payload.roomIndex}`;
       next.dungeonProgress = {

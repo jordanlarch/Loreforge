@@ -711,6 +711,27 @@ export type ObjectTakenPayload = {
   kind: string;
 };
 
+export type FogRevealedPayload = {
+  entity: EntityRef;
+  sceneId: SceneId;
+  cells: GridPosition[];
+};
+
+export type ZoneDiscoveredPayload = {
+  dungeonEntityId: string;
+  floorIndex: number;
+  zoneId: string;
+  zoneName: string;
+  discovererId: EntityRef;
+};
+
+export type ScoutRevealSharedPayload = {
+  scoutId: EntityRef;
+  sceneId: SceneId;
+  recipientIds: EntityRef[];
+  cells: GridPosition[];
+};
+
 /** @deprecated PR #356 — replay only. */
 export type DungeonRoomEnteredPayload = {
   dungeonEntityId: string;
@@ -906,6 +927,18 @@ export type EngineEvent =
   | (EventMeta & {
       type: "ObjectTaken";
       payload: ObjectTakenPayload;
+    })
+  | (EventMeta & {
+      type: "FogRevealed";
+      payload: FogRevealedPayload;
+    })
+  | (EventMeta & {
+      type: "ZoneDiscovered";
+      payload: ZoneDiscoveredPayload;
+    })
+  | (EventMeta & {
+      type: "ScoutRevealShared";
+      payload: ScoutRevealSharedPayload;
     })
   | (EventMeta & {
       type: "DungeonRoomEntered";

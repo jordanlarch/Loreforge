@@ -633,6 +633,21 @@ export type InteractObjectCommand = {
   noise?: "silent" | "quiet" | "loud";
 };
 
+/** Copy the scout's per-PC fog to party members on the same floor (DUN-5). */
+export type ShareScoutRevealCommand = {
+  type: "share_scout_reveal";
+  scout: EntityRef;
+};
+
+/** GM fog reveal for dungeon floor cells (DUN-5). */
+export type RevealAreaCommand = {
+  type: "reveal_area";
+  sceneId: SceneId;
+  cells: GridPosition[];
+  /** When set, reveal only for this PC; otherwise all party on scene. */
+  forEntity?: EntityRef;
+};
+
 /** Decline Cutting Words on a staged attack roll. */
 export type PassCuttingWordsCommand = {
   type: "pass_cutting_words";
@@ -709,7 +724,9 @@ export type Command =
   | UseFloorTransitionCommand
   | StartZoneEncounterCommand
   | MarkZoneClearedCommand
-  | InteractObjectCommand;
+  | InteractObjectCommand
+  | ShareScoutRevealCommand
+  | RevealAreaCommand;
 
 export type CommandType = Command["type"];
 

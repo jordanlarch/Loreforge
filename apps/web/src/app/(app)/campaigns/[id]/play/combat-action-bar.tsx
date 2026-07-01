@@ -17,6 +17,7 @@ export type ArmedAction =
   | { kind: "cast"; spell: CastableSpell }
   | { kind: "lay_on_hands"; featureKey: string; healAmount: number }
   | { kind: "turn_undead"; featureKey: string }
+  | { kind: "spiritual_weapon_strike" }
   | null;
 
 export function CombatActionBar({
@@ -121,7 +122,9 @@ export function CombatActionBar({
             ? `Pick an ally to heal (+${armed.healAmount} HP)`
             : armed.kind === "turn_undead"
               ? "Pick an Undead target for Turn Undead"
-              : multi
+              : armed.kind === "spiritual_weapon_strike"
+                ? "Pick a target for Spiritual Weapon (60 ft)"
+                : multi
                 ? `Pick up to ${armed.spell.maxTargets} allies for ${armed.spell.name} (${castTargetCount ?? 0}/${armed.spell.maxTargets})`
                 : armed.spell.targetKind === "ally"
                   ? `Pick an ally for ${armed.spell.name}`

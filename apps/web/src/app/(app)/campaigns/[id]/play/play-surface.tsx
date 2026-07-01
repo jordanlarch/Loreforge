@@ -90,7 +90,9 @@ import {
   reactionWindowKey,
   targetsInRange,
   alliesInRange,
+  canStrikeSpiritualWeapon,
   MELEE_REACH_FT,
+  SPIRITUAL_WEAPON_RANGE_FT,
   castTargetCandidates,
   reactionSpellsFor,
   type CastableSpell,
@@ -558,7 +560,9 @@ function LiveBattle({
           ? MELEE_REACH_FT
           : armed.kind === "turn_undead"
             ? 30
-            : armed.attack.rangeFt;
+            : armed.kind === "spiritual_weapon_strike"
+              ? SPIRITUAL_WEAPON_RANGE_FT
+              : armed.attack.rangeFt;
     // A readied strike picks any hostile in the scene (it fires later, when that
     // foe enters range); an immediate attack/cast is limited to current range.
     const targetableIds =
@@ -574,7 +578,15 @@ function LiveBattle({
               }).map((e) => e.id)
             : armed.kind === "turn_undead"
               ? targetsInRange(state, activeEntity.id, 30).map((e) => e.id)
-              : targetsInRange(state, activeEntity.id, rangeFt).map((e) => e.id);
+              : armed.kind === "spiritual_weapon_strike"
+                ? targetsInRange(
+                    state,
+                    activeEntity.id,
+                    SPIRITUAL_WEAPON_RANGE_FT,
+                  ).map((e) => e.id)
+                : targetsInRange(state, activeEntity.id, rangeFt).map(
+                    (e) => e.id,
+                  );
     return {
       origin: activeEntity.position,
       rangeCells: Math.floor(rangeFt / FEET_PER_CELL),
@@ -691,6 +703,8 @@ function LiveBattle({
         channelDivinitySpend: "turn_undead",
         beneficiaryId: targetId,
       });
+    } else if (armed.kind === "spiritual_weapon_strike") {
+      session.strikeSpiritualWeapon(activeEntity.id, targetId);
     } else if (armed.kind === "cast") {
       const maxTargets = armed.spell.maxTargets ?? 1;
       if (maxTargets > 1) {
@@ -1370,6 +1384,12 @@ function LiveBattle({
             }}
             onArmTurnUndead={(featureKey) => {
               setArmed({ kind: "turn_undead", featureKey });
+            }}
+            showSpiritualWeaponStrike={
+              !!activeEntity && canStrikeSpiritualWeapon(activeEntity)
+            }
+            onArmSpiritualWeaponStrike={() => {
+              setArmed({ kind: "spiritual_weapon_strike" });
             }}
             onFastHands={(action) => {
               if (!activeEntity) return;

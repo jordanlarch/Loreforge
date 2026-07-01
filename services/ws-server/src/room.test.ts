@@ -17,7 +17,7 @@ describe("BattleRoom", () => {
 
     expect(state.currentSceneId).toBe(FIXTURE_BATTLE_SCENE_ID);
     expect(state.encounter?.initiativeRolled).toBe(true);
-    expect(state.encounter?.order).toHaveLength(5);
+    expect(state.encounter?.order).toHaveLength(6);
   });
 
   it("applies a legal move and reflects the new position", async () => {

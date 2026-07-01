@@ -31,7 +31,7 @@ describe("buildFixtureBattle", () => {
     expect(encounter).toBeDefined();
     expect(encounter?.initiativeRolled).toBe(true);
     expect(encounter?.round).toBe(1);
-    expect(encounter?.order).toHaveLength(5);
+    expect(encounter?.order).toHaveLength(6);
   });
 
   it("places every combatant on the grid", async () => {

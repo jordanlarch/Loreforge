@@ -656,6 +656,20 @@ export {
   dungeonRoomClearCommand,
 } from "./commands/dungeon-handlers";
 export {
+  buildLayoutState,
+  loadDungeonFloors,
+  layoutFromEntityData,
+  parseDungeonFloorSceneId,
+  zoneAtCell,
+  floorByIndex,
+  synthesizeFloorsFromRooms,
+} from "./dungeon/layout";
+export type {
+  DungeonLayoutState,
+  NormalizedDungeonFloor,
+  NormalizedDungeonZone,
+} from "./dungeon/types";
+export {
   arrivalNarrationForLocation,
   buildCampaignExplorationCommands,
   firstDungeonRoom,

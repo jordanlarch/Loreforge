@@ -675,6 +675,19 @@ export type ZoneClearedPayload = {
   zoneName: string;
 };
 
+export type DungeonLayoutSetPayload = {
+  dungeonEntityId: string;
+  floors: import("../dungeon/types").NormalizedDungeonFloor[];
+  openedConnectionIds: string[];
+};
+
+export type ConnectionOpenedPayload = {
+  dungeonEntityId: string;
+  floorIndex: number;
+  connectionId: string;
+  zoneId: string;
+};
+
 /** @deprecated PR #356 — replay only. */
 export type DungeonRoomEnteredPayload = {
   dungeonEntityId: string;
@@ -850,6 +863,14 @@ export type EngineEvent =
   | (EventMeta & {
       type: "ZoneCleared";
       payload: ZoneClearedPayload;
+    })
+  | (EventMeta & {
+      type: "DungeonLayoutSet";
+      payload: DungeonLayoutSetPayload;
+    })
+  | (EventMeta & {
+      type: "ConnectionOpened";
+      payload: ConnectionOpenedPayload;
     })
   | (EventMeta & {
       type: "DungeonRoomEntered";

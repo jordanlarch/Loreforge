@@ -115,6 +115,8 @@ export type WorldState = {
   encounter?: EncounterState;
 /** Per-dungeon exploration progress (DUN-1 — see docs/engine/dungeon-exploration.md). */
   dungeonProgress?: DungeonProgressState;
+  /** Parsed floor/zone layout per dungeon entity (DUN-2). */
+  dungeonLayouts?: Record<string, import("../dungeon/types").DungeonLayoutState>;
   /** Sequence number of the last event folded into this state. */
   lastSequence: number;
 };
@@ -1031,6 +1033,31 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         next.dungeonProgress = {
           ...progress,
           clearedZoneIds: [...cleared].sort(),
+        };
+      }
+      break;
+    }
+    case "DungeonLayoutSet": {
+      next.dungeonLayouts = {
+        ...next.dungeonLayouts,
+        [event.payload.dungeonEntityId]: {
+          floors: event.payload.floors,
+          openedConnectionIds: [...event.payload.openedConnectionIds].sort(),
+        },
+      };
+      break;
+    }
+    case "ConnectionOpened": {
+      const layout = next.dungeonLayouts?.[event.payload.dungeonEntityId];
+      if (layout) {
+        const opened = new Set(layout.openedConnectionIds);
+        opened.add(event.payload.connectionId);
+        next.dungeonLayouts = {
+          ...next.dungeonLayouts,
+          [event.payload.dungeonEntityId]: {
+            ...layout,
+            openedConnectionIds: [...opened].sort(),
+          },
         };
       }
       break;

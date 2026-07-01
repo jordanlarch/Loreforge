@@ -1,0 +1,79 @@
+{
+  "minimalTwoZoneFloor": {
+    "floors": [
+      {
+        "index": 0,
+        "name": "Ground Level",
+        "entrance": { "x": 1, "y": 3 },
+        "zones": [
+          {
+            "zoneId": "entry",
+            "roomIndex": 0,
+            "name": "Threshold",
+            "rect": { "x": 1, "y": 2, "w": 4, "h": 4 },
+            "connections": [
+              {
+                "connectionId": "entry-to-ossuary",
+                "toZoneId": "ossuary",
+                "fromCells": [{ "x": 4, "y": 3 }, { "x": 4, "y": 4 }],
+                "toCells": [{ "x": 6, "y": 3 }, { "x": 6, "y": 4 }],
+                "corridorCells": [{ "x": 5, "y": 3 }],
+                "locked": true
+              }
+            ]
+          },
+          {
+            "zoneId": "ossuary",
+            "roomIndex": 1,
+            "name": "Ossuary",
+            "rect": { "x": 6, "y": 2, "w": 4, "h": 4 }
+          }
+        ],
+        "transitions": []
+      }
+    ]
+  },
+  "twoFloorWithStairs": {
+    "floors": [
+      {
+        "index": 0,
+        "name": "Ground Level",
+        "entrance": { "x": 2, "y": 3 },
+        "zones": [
+          {
+            "zoneId": "lower-hall",
+            "name": "Lower Hall",
+            "rect": { "x": 1, "y": 2, "w": 5, "h": 5 }
+          }
+        ],
+        "transitions": [
+          {
+            "transitionId": "stairs-up",
+            "toFloorIndex": 1,
+            "fromCell": { "x": 5, "y": 4 },
+            "toCell": { "x": 2, "y": 3 }
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "name": "Tower",
+        "zones": [
+          {
+            "zoneId": "stair-landing",
+            "name": "Spiral Stair",
+            "rect": { "x": 1, "y": 2, "w": 4, "h": 4 }
+          }
+        ],
+        "transitions": [
+          {
+            "transitionId": "stairs-down",
+            "toFloorIndex": 0,
+            "fromCell": { "x": 2, "y": 3 },
+            "toCell": { "x": 5, "y": 4 }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -4,6 +4,12 @@
  * arrival scenes (`create_scene` → `change_scene` → place PCs); combat only
  * begins when fiction requires it (armed encounter, Run Now, or in-fiction trigger).
  */
+import {
+  buildLayoutState,
+  cellsForEntitySpawn,
+  floorByIndex,
+  loadDungeonFloors,
+} from "../dungeon/layout";
 import type { Command } from "../commands/types";
 import type {
   AbilityScores,
@@ -555,6 +561,54 @@ export function resolveDungeonFoes(
   return resolveDungeonFoesForRoom(dungeonEntityId, data, 0);
 }
 
+function buildDungeonZoneCombatCommands(
+  dungeonEntityId: string,
+  floorIndex: number,
+  zoneId: string,
+  partyIds: readonly string[],
+  foes: readonly FoeSpec[],
+  entityData?: unknown,
+): Command[] {
+  const floors = loadDungeonFloors(entityData);
+  const floor = floorByIndex(buildLayoutState(floors), floorIndex);
+  const zone = floor?.zones.find((z) => z.zoneId === zoneId);
+  const sceneId = sceneIdForDungeonFloor(dungeonEntityId, floorIndex);
+  const foeCells = zone
+    ? cellsForEntitySpawn(zone, foes.length)
+    : DUNGEON_FOE_SPOTS;
+
+  const commands: Command[] = [];
+  for (const [i, foe] of foes.entries()) {
+    commands.push({
+      type: "create_entity",
+      entity: {
+        id: foe.id,
+        kind: "monster",
+        name: foe.name,
+        abilityScores: foe.abilityScores,
+        maxHp: foe.maxHp,
+        baseAc: foe.baseAc,
+        speed: foe.speed,
+        sceneId,
+        position: foeCells[i] ?? foeCells[0]!,
+        ...(foe.attacksPerAction !== undefined
+          ? { attacksPerAction: foe.attacksPerAction }
+          : {}),
+        ...(foe.coatedPoisonSlug ? { coatedPoisonSlug: foe.coatedPoisonSlug } : {}),
+      },
+    });
+  }
+
+  commands.push({
+    type: "start_zone_encounter",
+    dungeonEntityId,
+    floorIndex,
+    zoneId,
+  });
+  commands.push({ type: "roll_initiative" });
+  return commands;
+}
+
 /**
  * Enter a dungeon and immediately start combat with preset foes (Rung 4 Slice 3).
  * Assumes party character entities already exist in engine state.
@@ -563,7 +617,26 @@ function buildDungeonCombatCommands(
   sceneId: string,
   partyIds: readonly string[],
   foes: readonly FoeSpec[],
+  dungeonEntityId?: string,
+  floorIndex?: number,
+  zoneId?: string,
+  entityData?: unknown,
 ): Command[] {
+  if (
+    dungeonEntityId !== undefined &&
+    floorIndex !== undefined &&
+    zoneId !== undefined
+  ) {
+    return buildDungeonZoneCombatCommands(
+      dungeonEntityId,
+      floorIndex,
+      zoneId,
+      partyIds,
+      foes,
+      entityData,
+    );
+  }
+
   const commands: Command[] = [];
   const sides: Record<EntityRef, string> = {};
   for (const id of partyIds) sides[id] = FIXTURE_BATTLE_PARTY_SIDE;
@@ -637,7 +710,15 @@ export function buildDungeonEntryCommands(
       locationName: location.name,
       entityData,
     },
-    ...buildDungeonCombatCommands(sceneId, partyIds, foes),
+    ...buildDungeonCombatCommands(
+      sceneId,
+      partyIds,
+      foes,
+      location.entityId,
+      floorIndex,
+      entryZoneId,
+      entityData,
+    ),
   ];
 }
 

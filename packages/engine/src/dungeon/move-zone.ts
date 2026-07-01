@@ -2,6 +2,7 @@ import type { DraftEvent, EventMeta } from "../events/types";
 import type { EntityRef, GridPosition } from "../entities/types";
 import type { ExecutionContext } from "../commands/context";
 import type { WorldState } from "../projections/world-state";
+import { detectionEventsInZone } from "./detection";
 import {
   floorByIndex,
   movementBlockedByConnection,
@@ -66,13 +67,8 @@ export function dungeonZoneVisitEvents(
   const fromZone = zoneAtCell(floor, from);
   const toZone = zoneAtCell(floor, to);
   if (!toZone || (fromZone && fromZone.zoneId === toZone.zoneId)) return [];
-  if (
-    ctx.world.dungeonProgress?.visitedZoneIds.includes(toZone.zoneId) &&
-    fromZone?.zoneId === toZone.zoneId
-  ) {
-    return [];
-  }
-  return [
+
+  const events: DraftEvent[] = [
     {
       type: "ZoneVisited",
       ...meta(ctx, entityId),
@@ -84,6 +80,22 @@ export function dungeonZoneVisitEvents(
       },
     },
   ];
+
+  if (!ctx.world.encounter) {
+    events.push(
+      ...detectionEventsInZone(
+        ctx,
+        parsed.dungeonEntityId,
+        parsed.floorIndex,
+        toZone,
+        entity.sceneId,
+        entityId,
+        to,
+      ),
+    );
+  }
+
+  return events;
 }
 
 export function dungeonContextForScene(

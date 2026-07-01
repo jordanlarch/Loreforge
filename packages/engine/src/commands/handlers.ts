@@ -180,6 +180,7 @@ import { handleUseClassFeature } from "./class-feature-handlers";
 import {
   handleEnterDungeon,
   handleMarkZoneCleared,
+  handleStartZoneEncounter,
   handleUseConnection,
   handleUseFloorTransition,
 } from "./dungeon-handlers";
@@ -4948,6 +4949,8 @@ export function handleCommand(
       return handleUseConnection(command, ctx);
     case "use_floor_transition":
       return handleUseFloorTransition(command, ctx);
+    case "start_zone_encounter":
+      return handleStartZoneEncounter(command, ctx);
     case "mark_zone_cleared":
       return handleMarkZoneCleared(command, ctx);
     case "fast_hands":

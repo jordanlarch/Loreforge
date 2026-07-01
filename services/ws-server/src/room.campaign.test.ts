@@ -9,6 +9,7 @@ import {
   resolveEncounterMap,
   realmNpcEntityId,
   sceneIdForRealmEntity,
+  sceneIdForDungeonRoom,
   type EventStore,
   type FoeSpec,
   type PartyMember,
@@ -398,7 +399,9 @@ describe("CampaignRoom", () => {
       true,
     );
 
-    const sceneId = sceneIdForRealmEntity(dungeon.entityId);
+    const sceneId = sceneIdForDungeonRoom(dungeon.entityId, 0);
+    expect(state.currentSceneId).toBe(sceneId);
+    expect(state.dungeonProgress?.currentRoomIndex).toBe(0);
     expect(state.scenes[sceneId]?.environmentalEffectSlugs).toEqual([
       ...DEMO_DUNGEON_ENVIRONMENTAL_EFFECT_SLUGS,
     ]);

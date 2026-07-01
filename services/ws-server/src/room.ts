@@ -326,7 +326,12 @@ export class CampaignRoom implements LiveRoom {
         location.entityId,
         resolved?.entityData,
       );
-      for (const command of buildDungeonEntryCommands(location, state, foes)) {
+      for (const command of buildDungeonEntryCommands(
+        location,
+        state,
+        foes,
+        resolved?.entityData,
+      )) {
         await this.engine.execute(this.campaignId, command);
       }
       await this.applyEnvironmentalEffectsOnEnter(location, resolved?.entityData);
@@ -364,7 +369,7 @@ export class CampaignRoom implements LiveRoom {
     if (slugs.length === 0) return;
 
     const state = await this.getState();
-    const sceneId = sceneIdForRealmEntity(location.entityId);
+    const sceneId = state.currentSceneId ?? sceneIdForRealmEntity(location.entityId);
     const partyIds = Object.values(state.entities)
       .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
       .map((e) => e.id);
@@ -387,7 +392,7 @@ export class CampaignRoom implements LiveRoom {
     if (slugs.length === 0) return;
 
     const state = await this.getState();
-    const sceneId = sceneIdForRealmEntity(location.entityId);
+    const sceneId = state.currentSceneId ?? sceneIdForRealmEntity(location.entityId);
     const partyIds = Object.values(state.entities)
       .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
       .map((e) => e.id);

@@ -576,6 +576,32 @@ export type FastHandsCommand = {
   action: "sleight_of_hand" | "thieves_tools" | "use_object";
 };
 
+/** Enter a specific authored dungeon room (RUNG-4). */
+export type EnterDungeonRoomCommand = {
+  type: "enter_dungeon_room";
+  dungeonEntityId: string;
+  roomIndex: number;
+  roomName: string;
+  locationName: string;
+};
+
+/** Mark the current dungeon room cleared after victorious combat (RUNG-4). */
+export type MarkDungeonRoomClearedCommand = {
+  type: "mark_dungeon_room_cleared";
+  dungeonEntityId: string;
+  roomIndex: number;
+  roomName: string;
+};
+
+/** Move to the next dungeon room after the current one is cleared (RUNG-4). */
+export type AdvanceDungeonRoomCommand = {
+  type: "advance_dungeon_room";
+  dungeonEntityId: string;
+  roomIndex: number;
+  roomName: string;
+  locationName: string;
+};
+
 /** Decline Cutting Words on a staged attack roll. */
 export type PassCuttingWordsCommand = {
   type: "pass_cutting_words";
@@ -646,7 +672,10 @@ export type Command =
   | PassCounterspellCommand
   | PassIndomitableCommand
   | StrikeSpiritualWeaponCommand
-  | StrikeCallLightningCommand;
+  | StrikeCallLightningCommand
+  | EnterDungeonRoomCommand
+  | MarkDungeonRoomClearedCommand
+  | AdvanceDungeonRoomCommand;
 
 export type CommandType = Command["type"];
 

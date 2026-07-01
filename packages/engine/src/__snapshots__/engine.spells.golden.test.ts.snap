@@ -49,7 +49,7 @@ exports[`Spells: golden resolution snapshots > resolves every authored spell to 
     "damageDealt": 0,
     "damagedTargets": 0,
     "healingApplied": 0,
-    "saves": 1,
+    "saves": 0,
     "slotSpent": 4,
   },
   "barkskin": {

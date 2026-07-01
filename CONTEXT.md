@@ -48,6 +48,8 @@ Read `docs/00-consolidated-plan.md` first, then drill into `docs/deferrals.md` f
 
 **Campaign prep + play IA (canonical, Jun 2026):** `docs/ui-flows/unified-campaign-ux.md` — supersedes conflicting sections in `campaigns-workspace.md` and `live-play-surface.md`. Tracking: **CAMP-UX** in `deferrals.md`.
 
+**Dungeon exploration (locked Jun 2026):** `docs/engine/dungeon-exploration.md` — one scene per floor, zone + connection model, detection triggers, implementation phasing DUN-1–8. Supersedes PR #356 per-room scene design.
+
 ## Current Goal
 
 **M6.5 — Solo prod polish** (Jun 2026). Jordan dogfoods in **Vercel prod as a solo player**. Multiplayer seat auth, ws-server hosting for guests, and Stripe/billing are **explicitly parked** until the single-player loop feels production-grade.

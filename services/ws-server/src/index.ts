@@ -31,7 +31,7 @@ import {
   classifyTutorialRelightIntent,
   arrivalNarrationForLocation,
   allHostileCombatantsDefeated,
-  dungeonRoomClearCommand,
+  dungeonZoneClearCommand,
   DEFAULT_STARTING_LOCATION,
   isTutorialFriendlyFireTarget,
   openingNarrationForLocation,
@@ -762,7 +762,7 @@ async function maybeResolveCampaignCombatVictory(
     campaignId,
     location.entityId,
   );
-  const clearCmd = dungeonRoomClearCommand(
+  const clearCmd = dungeonZoneClearCommand(
     stateAfter,
     location,
     extras?.entityData,
@@ -774,7 +774,7 @@ async function maybeResolveCampaignCombatVictory(
       writeProjection(document, stateAfter);
       await appendAndPersist(document, documentName, [
         gmEntry(
-          `${clearCmd.roomName} is cleared. The way deeper lies open.`,
+          `${clearCmd.zoneName} is cleared. The way deeper lies open.`,
           deps,
         ),
       ]);

@@ -655,12 +655,35 @@ export type CreatureReturnedPayload = {
   reason: "concentration" | "duration";
 };
 
+export type DungeonThresholdOpenedPayload = {
+  dungeonEntityId: string;
+  floorIndex: number;
+  entryZoneId: string;
+  locationName: string;
+};
+
+export type ZoneVisitedPayload = {
+  dungeonEntityId: string;
+  floorIndex: number;
+  zoneId: string;
+  zoneName: string;
+};
+
+export type ZoneClearedPayload = {
+  dungeonEntityId: string;
+  zoneId: string;
+  zoneName: string;
+};
+
+/** @deprecated PR #356 — replay only. */
 export type DungeonRoomEnteredPayload = {
   dungeonEntityId: string;
   roomIndex: number;
+  floorIndex: number;
   roomName: string;
 };
 
+/** @deprecated PR #356 — replay only. */
 export type DungeonRoomClearedPayload = {
   dungeonEntityId: string;
   roomIndex: number;
@@ -815,6 +838,18 @@ export type EngineEvent =
   | (EventMeta & {
       type: "CreatureReturned";
       payload: CreatureReturnedPayload;
+    })
+  | (EventMeta & {
+      type: "DungeonThresholdOpened";
+      payload: DungeonThresholdOpenedPayload;
+    })
+  | (EventMeta & {
+      type: "ZoneVisited";
+      payload: ZoneVisitedPayload;
+    })
+  | (EventMeta & {
+      type: "ZoneCleared";
+      payload: ZoneClearedPayload;
     })
   | (EventMeta & {
       type: "DungeonRoomEntered";

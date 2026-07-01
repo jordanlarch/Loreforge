@@ -576,30 +576,22 @@ export type FastHandsCommand = {
   action: "sleight_of_hand" | "thieves_tools" | "use_object";
 };
 
-/** Enter a specific authored dungeon room (RUNG-4). */
-export type EnterDungeonRoomCommand = {
-  type: "enter_dungeon_room";
+/** Confirm dungeon threshold entry — opens floor scene, spawns party at entrance once (DUN-1). */
+export type EnterDungeonCommand = {
+  type: "enter_dungeon";
   dungeonEntityId: string;
-  roomIndex: number;
-  roomName: string;
+  floorIndex: number;
+  entryZoneId: string;
+  zoneName: string;
   locationName: string;
 };
 
-/** Mark the current dungeon room cleared after victorious combat (RUNG-4). */
-export type MarkDungeonRoomClearedCommand = {
-  type: "mark_dungeon_room_cleared";
+/** Mark a dungeon zone cleared after victorious combat or objective (DUN-1). */
+export type MarkZoneClearedCommand = {
+  type: "mark_zone_cleared";
   dungeonEntityId: string;
-  roomIndex: number;
-  roomName: string;
-};
-
-/** Move to the next dungeon room after the current one is cleared (RUNG-4). */
-export type AdvanceDungeonRoomCommand = {
-  type: "advance_dungeon_room";
-  dungeonEntityId: string;
-  roomIndex: number;
-  roomName: string;
-  locationName: string;
+  zoneId: string;
+  zoneName: string;
 };
 
 /** Decline Cutting Words on a staged attack roll. */
@@ -673,9 +665,8 @@ export type Command =
   | PassIndomitableCommand
   | StrikeSpiritualWeaponCommand
   | StrikeCallLightningCommand
-  | EnterDungeonRoomCommand
-  | MarkDungeonRoomClearedCommand
-  | AdvanceDungeonRoomCommand;
+  | EnterDungeonCommand
+  | MarkZoneClearedCommand;
 
 export type CommandType = Command["type"];
 

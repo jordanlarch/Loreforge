@@ -12,7 +12,9 @@ import {
   arrivalNarrationForLocation,
   realmNpcEntityId,
   resolveDungeonFoes,
+  sceneIdForDungeonFloor,
   sceneIdForDungeonRoom,
+  zoneIdForRoomIndex,
   sceneIdForRealmEntity,
   type CampaignStartingLocation,
 } from "./exploration";
@@ -236,11 +238,120 @@ describe("buildDungeonEntryCommands", () => {
 
     const after = await engine.getState(campaign);
     expect(after.currentSceneId).toBe(
-      sceneIdForDungeonRoom(dungeon.entityId, 0),
+      sceneIdForDungeonFloor(dungeon.entityId, 0),
     );
-    expect(after.dungeonProgress?.currentRoomIndex).toBe(0);
+    expect(after.dungeonProgress?.thresholdOpened).toBe(true);
+    expect(after.dungeonProgress?.visitedZoneIds).toContain("entry");
+    expect(after.dungeonProgress?.currentFloorIndex).toBe(0);
+    expect(after.dungeonProgress?.activeEncounterZoneId).toBe("entry");
     expect(after.encounter?.initiativeRolled).toBe(true);
     expect(Object.keys(after.entities).some((id) => id.startsWith("npc:dungeon:"))).toBe(true);
+  });
+
+  it("does not relocate the party on a repeat enter_dungeon (threshold already open)", async () => {
+    const store = new InMemoryEventStore();
+    const engine = new Engine({ store });
+    const campaign = "camp-dungeon-repeat";
+    const dungeonId = "33333333-3333-4333-8333-333333333333";
+    const settlementScene = sceneIdForRealmEntity(SETTLEMENT.entityId);
+    const floor0 = sceneIdForDungeonFloor(dungeonId, 0);
+
+    await engine.execute(campaign, {
+      type: "create_scene",
+      scene: {
+        id: settlementScene,
+        name: SETTLEMENT.name,
+        description: "Start",
+        map: { width: 14, height: 12, blockedCells: [] },
+      },
+    });
+    await engine.execute(campaign, { type: "change_scene", sceneId: settlementScene });
+    await engine.execute(campaign, {
+      type: "create_entity",
+      entity: {
+        id: "char:hero",
+        kind: "character",
+        name: "Hero",
+        abilityScores: { str: 14, dex: 14, con: 14, int: 10, wis: 10, cha: 10 },
+        maxHp: 20,
+        baseAc: 14,
+        speed: 30,
+        classes: [{ class: "Fighter", level: 1 }],
+        sceneId: settlementScene,
+        position: { x: 9, y: 9 },
+      },
+    });
+    await engine.execute(campaign, {
+      type: "enter_dungeon",
+      dungeonEntityId: dungeonId,
+      floorIndex: 0,
+      entryZoneId: "entry",
+      zoneName: "Entry",
+      locationName: "Whisper Crypt",
+    });
+
+    const afterFirst = await engine.getState(campaign);
+    expect(afterFirst.entities["char:hero"]?.position).toEqual({ x: 1, y: 3 });
+    expect(afterFirst.entities["char:hero"]?.sceneId).toBe(floor0);
+
+    await engine.execute(campaign, {
+      type: "move_entity",
+      entity: "char:hero",
+      to: { x: 8, y: 8 },
+    });
+
+    await engine.execute(campaign, {
+      type: "enter_dungeon",
+      dungeonEntityId: dungeonId,
+      floorIndex: 0,
+      entryZoneId: "entry",
+      zoneName: "Entry",
+      locationName: "Whisper Crypt",
+    });
+
+    const afterSecond = await engine.getState(campaign);
+    expect(afterSecond.entities["char:hero"]?.position).toEqual({ x: 8, y: 8 });
+    expect(afterSecond.dungeonProgress?.thresholdOpened).toBe(true);
+  });
+
+  it("marks a zone cleared without advance_dungeon_room", async () => {
+    const store = new InMemoryEventStore();
+    const engine = new Engine({ store });
+    const campaign = "camp-dungeon-clear";
+    const dungeonId = "33333333-3333-4333-8333-333333333333";
+
+    await engine.execute(campaign, {
+      type: "create_entity",
+      entity: {
+        id: "char:hero",
+        kind: "character",
+        name: "Hero",
+        abilityScores: { str: 14, dex: 14, con: 14, int: 10, wis: 10, cha: 10 },
+        maxHp: 20,
+        baseAc: 14,
+        speed: 30,
+        classes: [{ class: "Fighter", level: 1 }],
+        sceneId: sceneIdForDungeonFloor(dungeonId, 0),
+        position: { x: 4, y: 6 },
+      },
+    });
+    await engine.execute(campaign, {
+      type: "enter_dungeon",
+      dungeonEntityId: dungeonId,
+      floorIndex: 0,
+      entryZoneId: zoneIdForRoomIndex(0),
+      zoneName: "Entry",
+      locationName: "Whisper Crypt",
+    });
+    await engine.execute(campaign, {
+      type: "mark_zone_cleared",
+      dungeonEntityId: dungeonId,
+      zoneId: "entry",
+      zoneName: "Entry",
+    });
+
+    const after = await engine.getState(campaign);
+    expect(after.dungeonProgress?.clearedZoneIds).toContain("entry");
   });
 });
 
@@ -265,6 +376,35 @@ describe("resolveDungeonFoes", () => {
       wanderingMonsters: ["wolf pack"],
     });
     expect(foes[0]?.name.toLowerCase()).toContain("wolf");
+  });
+});
+
+describe("dungeon floor scenes", () => {
+  it("maps rooms on the same floor to one scene id", () => {
+    const dungeonId = "33333333-3333-4333-8333-333333333333";
+    const data = {
+      rooms: [
+        { name: "Entry", encounter: "goblins", floor: 0 },
+        { name: "Hall", encounter: "skeletons", floor: 0 },
+        { name: "Deep Vault", encounter: "wraith", floor: 1 },
+      ],
+    };
+    expect(sceneIdForDungeonRoom(dungeonId, 0, data)).toBe(
+      sceneIdForDungeonFloor(dungeonId, 0),
+    );
+    expect(sceneIdForDungeonRoom(dungeonId, 1, data)).toBe(
+      sceneIdForDungeonFloor(dungeonId, 0),
+    );
+    expect(sceneIdForDungeonRoom(dungeonId, 2, data)).toBe(
+      sceneIdForDungeonFloor(dungeonId, 1),
+    );
+  });
+
+  it("strips floor suffix when resolving entity id from scene id", () => {
+    const dungeonId = "33333333-3333-4333-8333-333333333333";
+    expect(entityIdFromSceneId(sceneIdForDungeonFloor(dungeonId, 2))).toBe(
+      dungeonId,
+    );
   });
 });
 

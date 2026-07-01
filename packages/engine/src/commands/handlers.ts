@@ -178,9 +178,8 @@ import {
 } from "./standard-action-handlers";
 import { handleUseClassFeature } from "./class-feature-handlers";
 import {
-  handleAdvanceDungeonRoom,
-  handleEnterDungeonRoom,
-  handleMarkDungeonRoomCleared,
+  handleEnterDungeon,
+  handleMarkZoneCleared,
 } from "./dungeon-handlers";
 import {
   buildBanishmentCastEvents,
@@ -4924,12 +4923,10 @@ export function handleCommand(
       return handleStrikeSpiritualWeapon(command, ctx);
     case "strike_call_lightning":
       return handleStrikeCallLightning(command, ctx);
-    case "enter_dungeon_room":
-      return handleEnterDungeonRoom(command, ctx);
-    case "mark_dungeon_room_cleared":
-      return handleMarkDungeonRoomCleared(command, ctx);
-    case "advance_dungeon_room":
-      return handleAdvanceDungeonRoom(command, ctx);
+    case "enter_dungeon":
+      return handleEnterDungeon(command, ctx);
+    case "mark_zone_cleared":
+      return handleMarkZoneCleared(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

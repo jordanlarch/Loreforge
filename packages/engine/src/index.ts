@@ -652,6 +652,7 @@ export {
   type PartyMember,
 } from "./fixtures/battle";
 export {
+  dungeonZoneClearCommand,
   dungeonRoomClearCommand,
 } from "./commands/dungeon-handlers";
 export {
@@ -672,9 +673,12 @@ export {
   resolveDungeonFoes,
   resolveDungeonFoesForRoom,
   sceneIdForRealmEntity,
+  sceneIdForDungeonFloor,
   sceneIdForDungeonRoom,
   parseDungeonRooms,
   dungeonRoomAt,
+  dungeonFloorIndexAt,
+  zoneIdForRoomIndex,
   type CampaignStartingLocation,
   type ExplorableRealmType,
   type LocationNpcSpec,

@@ -332,6 +332,13 @@ describe("rich Dungeon schema", () => {
     const subKeys = (rooms?.fields ?? []).map((s) => s.key);
     expect(subKeys).toContain("encounter");
     expect(subKeys).toContain("description");
+    expect(subKeys).toContain("treasureCodexSlug");
+  });
+
+  it("declares Gameplay Toolbox groups with codex slug fields (DUN-11)", () => {
+    const traps = REALM_FIELDS.dungeon.find((f) => f.key === "traps");
+    expect(traps?.kind).toBe("group");
+    expect((traps?.fields ?? []).map((s) => s.key)).toEqual(["label", "codexSlug"]);
   });
 
   it("keeps the threat select options so legacy values validate", () => {

@@ -563,6 +563,7 @@ export const REALM_FIELDS: Record<
         { key: "encounterCodexSlug", label: "Codex creature slug", kind: "text", placeholder: "Set via Search Codex" },
         { key: "encounterCount", label: "Creature count", kind: "number", min: 1, max: 20 },
         { key: "treasure", label: "Treasure", kind: "text", placeholder: "What can be found here" },
+        { key: "treasureCodexSlug", label: "Codex item slug", kind: "text", placeholder: "Set via Search Codex" },
       ],
     },
     // —— Monsters —— (SRD: creatures that roam; distinct from Gameplay Toolbox threats)
@@ -578,46 +579,61 @@ export const REALM_FIELDS: Record<
         { key: "count", label: "Count", kind: "number", min: 1, max: 20 },
       ],
     },
-    // —— Gameplay Toolbox (SRD 5.2.1 — distinct topics; Codex pickers in DUN-11+) ——
+    // —— Gameplay Toolbox (SRD 5.2.1 — Codex slug pickers, DUN-11) ——
     {
       key: "traps",
       label: "Traps",
-      kind: "list",
+      kind: "group",
       section: "Gameplay Toolbox",
       itemLabel: "Trap",
-      placeholder: "Poison Needle, Falling Net… (Codex slug in DUN-11)",
+      fields: [
+        { key: "label", label: "Label", kind: "text", placeholder: "Falling Net" },
+        { key: "codexSlug", label: "Codex slug", kind: "text", placeholder: "Set via Search Codex" },
+      ],
     },
     {
       key: "poisons",
       label: "Poisons",
-      kind: "list",
+      kind: "group",
       section: "Gameplay Toolbox",
       itemLabel: "Poison",
-      placeholder: "Serpent Venom, Pale Tincture…",
+      fields: [
+        { key: "label", label: "Label", kind: "text", placeholder: "Serpent Venom" },
+        { key: "codexSlug", label: "Codex slug", kind: "text", placeholder: "Set via Search Codex" },
+      ],
     },
     {
       key: "cursesAndContagions",
       label: "Curses & Magical Contagions",
-      kind: "list",
+      kind: "group",
       section: "Gameplay Toolbox",
       itemLabel: "Curse or contagion",
-      placeholder: "Bestow Curse, Cackle Fever…",
+      fields: [
+        { key: "label", label: "Label", kind: "text", placeholder: "Cackle Fever" },
+        { key: "codexSlug", label: "Codex slug", kind: "text", placeholder: "Set via Search Codex" },
+      ],
     },
     {
       key: "environmentalEffects",
       label: "Environmental Effects",
-      kind: "list",
+      kind: "group",
       section: "Gameplay Toolbox",
       itemLabel: "Environmental effect",
-      placeholder: "Extreme Cold, Slippery Ice…",
+      fields: [
+        { key: "label", label: "Label", kind: "text", placeholder: "Extreme Cold" },
+        { key: "codexSlug", label: "Codex slug", kind: "text", placeholder: "Set via Search Codex" },
+      ],
     },
     {
       key: "fearAndStress",
       label: "Fear & Mental Stress",
-      kind: "list",
+      kind: "group",
       section: "Gameplay Toolbox",
       itemLabel: "Fear or stress effect",
-      placeholder: "Frightened, Mental Stress…",
+      fields: [
+        { key: "label", label: "Label", kind: "text", placeholder: "Frightened" },
+        { key: "codexSlug", label: "Codex slug", kind: "text", placeholder: "Set via Search Codex" },
+      ],
     },
     // —— Exploration Hazards (Playing the Game → Hazards; ≠ Gameplay Toolbox) ——
     {

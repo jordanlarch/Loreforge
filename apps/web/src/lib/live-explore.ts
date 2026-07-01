@@ -61,6 +61,14 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
 
   const pc = sceneId ? explorePcEntity(state, sceneId) : undefined;
 
+  let fog: ExploreModel["fog"];
+  if (sceneId && parseDungeonFloorSceneId(sceneId) && pc?.id) {
+    const keys = state.dungeonFog?.[pc.id]?.[sceneId];
+    if (keys && keys.length > 0) {
+      fog = { revealed: new Set(keys) };
+    }
+  }
+
   const placed = Object.values(state.entities).filter((e) => {
     if (e.sceneId !== sceneId || e.position === undefined) return false;
     if (fog && isPatrolEntityId(e.id)) {
@@ -100,14 +108,6 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
       (c) => c.x >= 0 && c.y >= 0 && c.x < map.width && c.y < map.height,
       (c) => wallSet.has(`${c.x},${c.y}`),
     ).filter((c) => !occupied.has(`${c.x},${c.y}`));
-  }
-
-  let fog: ExploreModel["fog"];
-  if (sceneId && parseDungeonFloorSceneId(sceneId) && pc?.id) {
-    const keys = state.dungeonFog?.[pc.id]?.[sceneId];
-    if (keys && keys.length > 0) {
-      fog = { revealed: new Set(keys) };
-    }
   }
 
   return {

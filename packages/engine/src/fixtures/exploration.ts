@@ -65,19 +65,43 @@ export function sceneIdForRealmEntity(entityId: string): string {
     : `scene:realm:${entityId}`;
 }
 
-/** Per-room dungeon scene id (RUNG-4 rooms-as-entities lite). */
+/** One scene per dungeon floor; rooms on the same floor share that scene (RUNG-4). */
+export function sceneIdForDungeonFloor(
+  dungeonEntityId: string,
+  floorIndex: number,
+): string {
+  return `${sceneIdForRealmEntity(dungeonEntityId)}:floor:${floorIndex}`;
+}
+
+/** @deprecated Prefer {@link sceneIdForDungeonFloor} with the room's floor index. */
 export function sceneIdForDungeonRoom(
   dungeonEntityId: string,
   roomIndex: number,
+  data?: unknown,
 ): string {
-  return `${sceneIdForRealmEntity(dungeonEntityId)}:room:${roomIndex}`;
+  return sceneIdForDungeonFloor(
+    dungeonEntityId,
+    data ? dungeonFloorIndexAt(data, roomIndex) : 0,
+  );
 }
 
 export type ParsedDungeonRoom = {
   name: string;
   encounter: string;
   summary?: string;
+  floorIndex: number;
 };
+
+function parseAuthoredFloorIndex(raw: unknown): number {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return Math.max(0, Math.floor(raw));
+  }
+  if (typeof raw === "string") {
+    const parsed = parseInt(raw, 10);
+    if (!Number.isNaN(parsed)) return Math.max(0, parsed);
+  }
+  return 0;
+}
 
 /** Parse authored dungeon rooms from Realms entity `data.rooms`. */
 export function parseDungeonRooms(data: unknown): ParsedDungeonRoom[] {
@@ -87,7 +111,14 @@ export function parseDungeonRooms(data: unknown): ParsedDungeonRoom[] {
   const parsed: ParsedDungeonRoom[] = [];
   for (const room of rooms) {
     if (!room || typeof room !== "object") continue;
-    const obj = room as { name?: unknown; encounter?: unknown; summary?: unknown };
+    const obj = room as {
+      name?: unknown;
+      encounter?: unknown;
+      summary?: unknown;
+      floor?: unknown;
+      floorIndex?: unknown;
+      depth?: unknown;
+    };
     const encounter =
       typeof obj.encounter === "string" ? obj.encounter.trim() : "";
     if (!encounter) continue;
@@ -97,7 +128,10 @@ export function parseDungeonRooms(data: unknown): ParsedDungeonRoom[] {
         : `Room ${parsed.length + 1}`;
     const summary =
       typeof obj.summary === "string" ? obj.summary.trim() : undefined;
-    parsed.push({ name, encounter, summary });
+    const floorIndex = parseAuthoredFloorIndex(
+      obj.floor ?? obj.floorIndex ?? obj.depth,
+    );
+    parsed.push({ name, encounter, summary, floorIndex });
   }
   return parsed;
 }
@@ -109,13 +143,39 @@ export function dungeonRoomAt(
   return parseDungeonRooms(data)[roomIndex];
 }
 
+export function dungeonFloorIndexAt(
+  data: unknown,
+  roomIndex: number,
+): number {
+  return dungeonRoomAt(data, roomIndex)?.floorIndex ?? 0;
+}
+
+/** Stable zone id from room list index until authored zone layout ships (DUN-2). */
+export function zoneIdForRoomIndex(roomIndex: number): string {
+  return roomIndex === 0 ? "entry" : `zone-${roomIndex}`;
+}
+
+export function floorSceneLabel(
+  locationName: string,
+  floorIndex: number,
+): string {
+  return floorIndex === 0
+    ? `${locationName} — Ground Level`
+    : `${locationName} — Floor ${floorIndex + 1}`;
+}
+
 /** Reverse {@link sceneIdForRealmEntity} for Realms-backed scenes. */
 export function entityIdFromSceneId(sceneId: string | undefined): string | undefined {
   if (!sceneId) return undefined;
   if (sceneId === "scene:travelers-rest") return "generic";
   const prefix = "scene:realm:";
-  if (sceneId.startsWith(prefix)) return sceneId.slice(prefix.length);
-  return undefined;
+  if (!sceneId.startsWith(prefix)) return undefined;
+  const rest = sceneId.slice(prefix.length);
+  for (const suffix of [":floor:", ":room:"] as const) {
+    const idx = rest.indexOf(suffix);
+    if (idx !== -1) return rest.slice(0, idx);
+  }
+  return rest;
 }
 
 export function isExplorableRealmType(type: string): type is ExplorableRealmType {
@@ -618,14 +678,17 @@ export function buildDungeonEntryCommands(
     .filter((e) => e.kind === "character" && !e.id.startsWith("npc:"))
     .map((e) => e.id);
   const room = dungeonRoomAt(entityData, 0);
-  const roomName = room?.name ?? "Entry";
-  const sceneId = sceneIdForDungeonRoom(location.entityId, 0);
+  const zoneName = room?.name ?? "Entry";
+  const floorIndex = room?.floorIndex ?? 0;
+  const entryZoneId = zoneIdForRoomIndex(0);
+  const sceneId = sceneIdForDungeonFloor(location.entityId, floorIndex);
   return [
     {
-      type: "enter_dungeon_room",
+      type: "enter_dungeon",
       dungeonEntityId: location.entityId,
-      roomIndex: 0,
-      roomName,
+      floorIndex,
+      entryZoneId,
+      zoneName,
       locationName: location.name,
     },
     ...buildDungeonCombatCommands(sceneId, partyIds, foes),

@@ -43,7 +43,7 @@ import type {
   StrikeCallLightningCommand,
   EndEncounterCommand,
   ShortRestCommand,
-  MarkDungeonRoomClearedCommand,
+  MarkZoneClearedCommand,
 } from "../commands/types";
 import type {
   Ability,
@@ -503,7 +503,7 @@ export type BattleAction =
   | StrikeCallLightningCommand
   | EndEncounterCommand
   | ShortRestCommand
-  | MarkDungeonRoomClearedCommand;
+  | MarkZoneClearedCommand;
 
 /** Convenience constructor for a drag-to-move action. */
 export function moveAction(entity: string, to: GridPosition): MoveEntityCommand {

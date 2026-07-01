@@ -113,17 +113,21 @@ export type WorldState = {
   currentSceneId?: SceneId;
   /** Present while an encounter is active. */
   encounter?: EncounterState;
-  /** Per-dungeon room index + cleared rooms (RUNG-4). */
+/** Per-dungeon exploration progress (DUN-1 — see docs/engine/dungeon-exploration.md). */
   dungeonProgress?: DungeonProgressState;
   /** Sequence number of the last event folded into this state. */
   lastSequence: number;
 };
 
-/** Tracks which dungeon room the party occupies and which rooms are cleared. */
+/** Tracks dungeon threshold, visited/cleared zones, and active encounter zone. */
 export type DungeonProgressState = {
   dungeonEntityId: string;
-  currentRoomIndex: number;
-  clearedRooms: number[];
+  thresholdOpened: boolean;
+  currentFloorIndex: number;
+  visitedZoneIds: string[];
+  clearedZoneIds: string[];
+  /** Zone where the entry / current encounter was triggered (DUN-1 tracer). */
+  activeEncounterZoneId?: string;
 };
 
 export function emptyWorldState(campaignId: string): WorldState {
@@ -989,11 +993,62 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       }
       break;
     }
-    case "DungeonRoomEntered": {
+    case "DungeonThresholdOpened": {
       next.dungeonProgress = {
         dungeonEntityId: event.payload.dungeonEntityId,
-        currentRoomIndex: event.payload.roomIndex,
-        clearedRooms: next.dungeonProgress?.clearedRooms ?? [],
+        thresholdOpened: true,
+        currentFloorIndex: event.payload.floorIndex,
+        visitedZoneIds: next.dungeonProgress?.visitedZoneIds ?? [],
+        clearedZoneIds: next.dungeonProgress?.clearedZoneIds ?? [],
+        activeEncounterZoneId: event.payload.entryZoneId,
+      };
+      break;
+    }
+    case "ZoneVisited": {
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === event.payload.dungeonEntityId
+      ) {
+        const visited = new Set(progress.visitedZoneIds);
+        visited.add(event.payload.zoneId);
+        next.dungeonProgress = {
+          ...progress,
+          visitedZoneIds: [...visited].sort(),
+          currentFloorIndex: event.payload.floorIndex,
+        };
+      }
+      break;
+    }
+    case "ZoneCleared": {
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === event.payload.dungeonEntityId
+      ) {
+        const cleared = new Set(progress.clearedZoneIds);
+        cleared.add(event.payload.zoneId);
+        next.dungeonProgress = {
+          ...progress,
+          clearedZoneIds: [...cleared].sort(),
+        };
+      }
+      break;
+    }
+    case "DungeonRoomEntered": {
+      const zoneId = event.payload.roomIndex === 0 ? "entry" : `zone-${event.payload.roomIndex}`;
+      next.dungeonProgress = {
+        dungeonEntityId: event.payload.dungeonEntityId,
+        thresholdOpened: true,
+        currentFloorIndex: event.payload.floorIndex,
+        visitedZoneIds: [
+          ...new Set([
+            ...(next.dungeonProgress?.visitedZoneIds ?? []),
+            zoneId,
+          ]),
+        ].sort(),
+        clearedZoneIds: next.dungeonProgress?.clearedZoneIds ?? [],
+        activeEncounterZoneId: zoneId,
       };
       break;
     }
@@ -1003,11 +1058,13 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         progress &&
         progress.dungeonEntityId === event.payload.dungeonEntityId
       ) {
-        const cleared = new Set(progress.clearedRooms);
-        cleared.add(event.payload.roomIndex);
+        const zoneId =
+          event.payload.roomIndex === 0 ? "entry" : `zone-${event.payload.roomIndex}`;
+        const cleared = new Set(progress.clearedZoneIds);
+        cleared.add(zoneId);
         next.dungeonProgress = {
           ...progress,
-          clearedRooms: [...cleared].sort((a, b) => a - b),
+          clearedZoneIds: [...cleared].sort(),
         };
       }
       break;

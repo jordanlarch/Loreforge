@@ -14,6 +14,7 @@ You are picking up Loreforge — a modern AI-GM 5E SRD 5.2 web app. Design phase
    - **Building / discussing UI?** → the matching file in `docs/ui-flows/`
      - **Campaign prep or play?** → `docs/ui-flows/unified-campaign-ux.md` first (canonical IA); then `campaigns-workspace.md` / `live-play-surface.md` for drill-down (legacy wireframes in `docs/archive/ui-flows/`)
    - **Building the engine?** → `docs/engine/architecture.md` *(§16 solo phasing + top-120 are locked; other sections may still be proposals — see "Where Things Came From")*
+   - **Dungeon exploration / floor maps / zone triggers?** → `docs/engine/dungeon-exploration.md` *(locked Jun 2026; supersedes PR #356 per-room scenes)*
    - **Building a generator?** → `docs/generators/forms-and-pages.md`; sample outputs live in `docs/generators/samples/`
    - **Working on onboarding?** → `docs/onboarding/tutorial-adventure.md`
 

@@ -1,6 +1,6 @@
 # Dungeon Exploration — Locked Design (Jun 2026)
 
-*Canonical model for dungeon structure, Live Play presentation, engine state, and generator authoring. Supersedes the per-room scene / `advance_dungeon_room` approach shipped in PR #356. Grill session locked 2026-06-30.*
+*Canonical model for dungeon structure, Live Play presentation, engine state, and generator authoring. Supersedes the per-room scene / `advance_dungeon_room` approach shipped in PR #356. Grill sessions locked 2026-06-30 (Q1–34) and 2026-07-01 (Q35–60).*
 
 **Related:** `docs/ui-flows/unified-campaign-ux.md` (L3 interior / L4 combat overlay), `docs/generators/forms-and-pages.md` (Generator 6 — Dungeon), `docs/quests.md`, `docs/deferrals.md` (`RUNG-4`, `GENR-5`).
 
@@ -58,6 +58,32 @@ Combat is **L4 overlay on the same floor grid** — not a separate battle map.
 | 32 | Multiplayer | Invited = own PC; owner switches party PCs; move-party = controlled only |
 | 33 | AI-GM | **LLM proposes tools, engine disposes** — fail-closed on state |
 | 34 | Session load | Event projection restores exploration state; **patrols reset to waypoints** v1 |
+| 35 | Party wipe (incapacitated) | **No auto `end_encounter`** — initiative keeps cycling; downed PCs roll death saves on their turns; hostiles keep acting. Auto-end only on **hostile wipe** (existing). Bodies stay on map (Q26). Campaign-defeat narration waits until all PCs are `dead: true` or an explicit GM tool fires (see §12). |
+| 36 | Death saves in exploration (L3) | **No passive ticking** outside an active encounter. Saves roll on that PC's turn in combat, or via damage-at-0-HP rules. Unconscious PCs in L3 are stable-at-risk until healing, resumed combat, or GM tool — no async bleed-out timer |
+| 37 | True TPK (all PCs `dead: true`) | **Campaign over** — when every party PC reaches `dead: true`, the campaign enters a terminal defeated state. Active encounter ends; dungeon exploration commands reject; AI-GM delivers closing narration. No in-campaign recovery without a new campaign (retreat/restart = product layer) |
+| 38 | TPK headcount | **Active party PCs only** — `campaign_characters` where `role = pc` and `status = active`. Companions/NPC allies and benched PCs do not count toward campaign-over |
+| 39 | Tutorial TPK | **`isTutorial` bypasses Q37** — true death on an active party PC triggers **checkpoint retry** (rewind to last tutorial checkpoint or scripted beat restart), not terminal campaign defeat. Real campaigns keep Q37 |
+| 40 | Move-party invoke | **Map UI + chat/LLM, one command** — primary map affordance (toolbar toggle or "Move party" mode); chat keywords and AI-GM tool call the same `move_party` engine command (§7) |
+| 41 | Move-party path model | **`move_party` only: leader + follow** — designated leader (explicit pick or default controlled PC) pathfinds; other **controlled** tokens trail to adjacent cells along the leader's route. **Individual** drag/chat `move_entity` unchanged — per-PC independent paths (Q3, Q9) |
+| 42 | Move-party partial failure | **Partial success** — leader advances as far as valid; each follower trails up to speed budget; blocked tokens stay put. Command accepts with summary of moved vs stuck tokens (not all-or-nothing) |
+| 43 | Move-party leader | **Controlled PC default, optional override** — leader = currently controlled token unless player picks another **controlled** token before confirming destination. Followers = other controlled tokens on same floor only (Q32) |
+| 44 | Move-party minimum | **Requires 2+ controlled tokens** on same floor — otherwise reject (use `move_entity`). Move-party UI hidden for invited players (single PC). Owner with split party uses `move_entity` per floor |
+| 45 | Move-party chat fallback | **Direction-only keywords** — ws-server maps `move party north/south/east/west` (max distance within speed) when LLM parse fails; named destinations require LLM or map click. Map UI remains primary |
+| 46 | `rooms[]` → `floors[]` bridge | **Engine runtime synthesis (DUN-2)** — when `data.floors[]` absent, derive minimal stub floor from `data.rooms[]` (one zone per room, placeholder cells, linear connections). Authored `floors[]` wins when present (DUN-7+) |
+| 47 | Stub layout algorithm | **Linear eastward chain per floor** — rooms grouped by `floorIndex`; adjacent list order → east-connected zones (small rects + corridor cells); zone ids via `zoneIdForRoomIndex()` (`entry`, `zone-1`, …). Enough geometry for pathing, gating, and zone triggers until DUN-7 |
+| 48 | Zone cell format | **Either `cells[]` or `rect`, normalized on load** — generator/manual prep may use `{ x, y, w, h }`; irregular zones use explicit `cells[]`; engine loader always expands to internal `cells[]` |
+| 49 | `zoneId` naming | **Slug preferred, numeric fallback** — authored `floors[]` includes stable kebab slug (`grinding-hall`); stub synthesis uses `entry` / `zone-{n}`; loader rejects duplicate slugs; optional `roomIndex` links to `data.rooms[]` |
+| 50 | JSON examples location | **Spec §4 abbreviated snippets + engine fixture SOT** — full samples in `packages/engine/src/fixtures/dungeon-floor-samples.json` (loader tests); spec §4 shows trimmed examples with pointer to fixture |
+| 51 | Floor transitions | **One record per direction** — separate `transitions[]` entries for up/down (or each ladder end); no auto-pairing on load. Each direction has its own `fromCell` / `toCell` |
+| 52 | LLM tool registration | **Per DUN phase** — ws-server exposes only tools whose engine handlers ship; spec §7 lists full target set with phase column. Prevents LLM calling unimplemented commands (Q33) |
+| 53 | Tool schema SOT | **Engine types v1; generated bridge later** — `commands/types.ts` + handler reject codes are canonical; spec §7 phase-annotated summary only (no duplicated field lists). **DUN-2 wiring:** export Zod/JSON schemas from engine for ws-server LLM tool defs |
+| 54 | Tool ↔ DUN phase | **Locked map** — `move_entity`/`reveal_area` shipped; `enter_dungeon`/`mark_zone_cleared` DUN-1; `use_connection`/`use_floor_transition`/`move_party` DUN-2; `hide` DUN-3; `interact_object` DUN-4; `share_scout_reveal` DUN-5 |
+| 55 | Keyword fallbacks | **Movement + navigation** — direction keywords for `move_entity` + `move_party` (Q45); thin keywords for `use_connection` (`open door`, `go through`) and `use_floor_transition` (`go upstairs`, `climb ladder`). Objects/interaction = LLM or UI click |
+| 56 | Failed tool → LLM | **Structured reject + optional hint** — `{ accepted: false, code, message, hint? }`; no silent auto-retry. Hints for common dungeon errors (`requiresCleared`, locked connection, etc.) so AI-GM can narrate in-fiction next steps |
+| 57 | Tutorial vs DUN model | **Hybrid** — Lantern Spire uses real `floors[]`/zones for spatial truth; `TutorialRoom` ws-server driver keeps scripted beats (Brennar safety net, shade flee/reaction, Q39 checkpoint retry) as overrides on engine state |
+| 58 | Tutorial Scene 4→5 | **Real engine navigation** — lower hall (floor 0) → `use_floor_transition`/stair zone → stair landing; `TutorialRoom` triggers Scene 5 narration + combat on **stair zone entry** (`TUTORIAL_SCENE_SPIRE_STAIR`). Chest beat optional, no hard gate |
+| 59 | Tutorial combat start | **`TutorialRoom` scripted `start_encounter`** on stair zone entry — fixed roster + narration gate; does not depend on DUN-3 detection. Real campaigns use detection when DUN-3 ships |
+| 60 | Tutorial chest beat | **Visual object + script handler** — authored `objects[]` on lower-hall zone for map token; `TutorialRoom` intercepts interact for Help/advantage pedagogy (not generic `interact_object` until DUN-4 optional migration). Does not gate stairs |
 
 ---
 
@@ -154,6 +180,8 @@ type MapObjectData = {
 
 **Bridge from today:** `data.rooms[]` (name, encounter, summary, optional `floor`) maps to zones when layout is generated; `floor` / `floorIndex` / `depth` → `floorIndex` (0-based).
 
+**JSON examples:** abbreviated below; full copy-paste samples in `packages/engine/src/fixtures/dungeon-floor-samples.json` (loader test SOT, Q50).
+
 ---
 
 ## 5. Engine events (target)
@@ -199,21 +227,22 @@ type MapObjectData = {
 
 ## 7. AI-GM tool surface (fail-closed)
 
-All mechanics via engine commands; LLM narrates results only.
+All mechanics via engine commands; LLM narrates results only. Schemas: `packages/engine/src/commands/types.ts` (SOT); Zod/JSON export at DUN-2 ws-server wiring (Q53). Register with LLM **per shipped DUN phase** (Q52). Failed calls return `{ accepted: false, code, message, hint? }` (Q56).
 
-| Tool / command | Purpose |
-|----------------|---------|
-| `move_entity` | Drag + chat path destination |
-| `hide` | Hide action → Stealth → `invisible` |
-| `interact_object` | `{ objectId, noise? }` — rolls if `quiet` + sentinels |
-| `use_connection` | Door/corridor between zones |
-| `use_floor_transition` | Stairs / ladder (single PC) |
-| `share_scout_reveal` | Copy per-PC fog to party |
-| `confirm_dungeon_threshold` | First entry airlock |
-| `mark_zone_cleared` | GM override |
-| `reveal_area` | GM fog reveal (existing target) |
+| Tool / command | Phase | Purpose |
+|----------------|-------|---------|
+| `move_entity` | Shipped | Drag + chat path destination |
+| `reveal_area` | Shipped | GM fog reveal (existing) |
+| `enter_dungeon` | DUN-1 | Threshold airlock (first entry) |
+| `mark_zone_cleared` | DUN-1 | GM override |
+| `use_connection` | DUN-2 | Door/corridor between zones |
+| `use_floor_transition` | DUN-2 | Stairs / ladder (single PC) |
+| `move_party` | DUN-2 | Leader + follow group move (Q40–45) |
+| `hide` | DUN-3 | Hide action → Stealth → `invisible` |
+| `interact_object` | DUN-4 | `{ objectId, noise? }` — rolls if `quiet` + sentinels |
+| `share_scout_reveal` | DUN-5 | Copy per-PC fog to party |
 
-Chat keywords + UI buttons are fallbacks when LLM parse fails.
+**Chat keyword fallbacks** (when LLM parse fails — Q55): movement directions (`move_entity`, `move_party`); navigation (`open door`, `go through`, `go upstairs`, `climb ladder`). UI map controls remain primary.
 
 ---
 
@@ -235,7 +264,7 @@ Chat keywords + UI buttons are fallbacks when LLM parse fails.
 | Phase | Scope | Verify |
 |-------|--------|--------|
 | **DUN-1 — Refactor + doc** | Remove advance/teleport model; floor scenes; threshold enter; zone visited projection stub; update tests | Engine CI | **Done (Jun 2026)** — `enter_dungeon`, `mark_zone_cleared`, `DungeonThresholdOpened` / `ZoneVisited` / `ZoneCleared`; legacy PR #356 event replay; no `advance_dungeon_room` |
-| **DUN-2 — Zones + connections** | Parse/load `zones[]` (minimal from `rooms[]`); connection gating; position-derived zone | Engine tests + dungeon enter prod smoke |
+| **DUN-2 — Zones + connections** | Parse/load `zones[]` (minimal from `rooms[]`); connection gating; position-derived zone | Engine tests + dungeon enter prod smoke | **Done (Jul 2026)** — `dungeon/layout`, `use_connection`, `use_floor_transition`, `DungeonLayoutSet`, move zone visits |
 | **DUN-3 — Detection** | `CreatureDetected`, hidden/invisible, encounter start roster rules | Engine + unit tests |
 | **DUN-4 — Quest + objects** | `completionKind`, `interact.noise`, object state, `on_enter_zone` | Engine quest tests |
 | **DUN-5 — Fog + scout** | Per-PC cell fog, visited zones shared, scout report | Live Play prod (1 campaign) |
@@ -268,4 +297,61 @@ Do not start **DUN-7** until **DUN-1–3** are green — otherwise layout work a
 
 ---
 
-*Last locked: 2026-06-30 (grill session with Jordan).*
+## 12. Grill appendix — Jul 2026 (DUN-2+ prep)
+
+Continued edge-case locks after DUN-1 ship. Do not re-litigate Q1–34.
+
+### 12.1 TPK & death saves
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 35 | All party incapacitated mid-encounter | **Combat continues** — no auto `end_encounter`. Death saves on each downed PC's turn; hostiles act normally. Auto-end unchanged: hostile wipe only. |
+| 36 | Death saves in exploration (L3) | **No passive auto-tick** — saves only during active encounter turns or damage-at-0-HP. Prevents async bleed-out across split floors / offline players. |
+| 37 | True TPK (all PCs `dead: true`) | **Campaign over** — terminal defeated state; auto `end_encounter` if active; reject further dungeon/mechanics commands; AI-GM closing beat. Restart = new campaign (product layer). |
+| 38 | TPK headcount | **Active party PCs only** (`role = pc`, `status = active`). Companions and benched PCs excluded. |
+| 39 | Tutorial TPK | **`isTutorial` bypasses Q37** — checkpoint retry UI; campaign stays alive. Normal flow still guarded by scripted companion rescue. |
+
+### 12.2 `move-party` UX
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 40 | Invoke | **Map UI + chat/LLM** share one `move_party` command. Map mode is primary; chat/AI-GM is fallback. |
+| 41 | Path model | **`move_party` only:** leader pathfinds; followers trail adjacent along leader route. Individual `move_entity` stays independent per-PC. |
+| 42 | Partial failure | **Partial success** — move who can; stuck tokens stay; summary lists moved vs blocked. |
+| 43 | Leader pick | **Controlled PC default; optional override** before confirm. Followers = other controlled tokens on same floor (Q32). |
+| 44 | Minimum tokens | **2+ controlled on same floor** or reject / hide UI. Invited players use `move_entity` only. |
+| 45 | Chat fallback | **Direction-only keywords** (`move party north`, etc.) when LLM fails; named destinations = LLM or map. |
+
+### 12.3 Canonical `data.floors[]` JSON
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 46 | `rooms[]` bridge | **Runtime synthesis** when `floors[]` absent — stub floor from rooms list; authored `floors[]` overrides. |
+| 47 | Stub layout | **Linear eastward chain** per `floorIndex`; small zone rects + corridor connections; `entry` / `zone-{n}` ids. |
+| 48 | Zone cells | **Accept `cells[]` or `rect`** — loader normalizes to internal `cells[]`. |
+| 49 | `zoneId` | **Slug when authored; `entry` / `zone-{n}` stub fallback**; reject duplicates; optional `roomIndex`. |
+| 50 | JSON examples | **§4 snippets + engine fixture SOT** (`dungeon-floor-samples.json` for loader tests). |
+| 51 | Floor transitions | **One record per direction** — no auto-pairing; each stair/ladder end explicit. |
+
+### 12.4 AI-GM tool call list
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 52 | LLM registration | **Per DUN phase** — register only shipped handlers; §7 annotated with phase column. |
+| 53 | Schema SOT | **Engine types v1**; Zod/JSON export for ws-server at DUN-2 wiring. |
+| 54 | Tool ↔ DUN phase | See §7 table — DUN-1/2/3/4/5 split as proposed. |
+| 55 | Keyword fallbacks | **Movement + navigation** keywords; objects/interaction LLM or UI. |
+| 56 | Failed tool → LLM | **Reject + optional `hint`**; no silent retry. |
+
+### 12.5 Tutorial dungeon compatibility
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 57 | Tutorial vs DUN model | **Hybrid** — real `floors[]`/zones for Lantern Spire spatial truth; `TutorialRoom` driver keeps scripted beats (Brennar safety net, shade flee/reaction, Q39 checkpoint retry) as ws-server overrides |
+| 58 | Scene 4→5 transition | **Real navigation** — floor 0 lower hall → stair transition/zone → stair landing; combat triggers on stair zone entry (`TUTORIAL_SCENE_SPIRE_STAIR`). Chest optional, no progression gate |
+| 59 | Scene 5 combat start | **`TutorialRoom` scripted `start_encounter`** on stair zone entry; no DUN-3 detection dependency |
+| 60 | Chest beat | **Authored map object + driver intercept** — Help/advantage tutorial flow; optional; no stair gate |
+
+---
+
+*Last locked: 2026-07-01 (grill session with Jordan — Q35–60). Phase 1 complete; proceed to DUN-2.*

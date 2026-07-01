@@ -1,53 +1,32 @@
 /**
- * DUN-1 — dungeon threshold entry + zone progress (see docs/engine/dungeon-exploration.md).
- * One scene per floor; player-driven movement (no auto-relocate on zone change).
+ * DUN-1/2 — dungeon threshold, layout, zones, connections (see docs/engine/dungeon-exploration.md).
  */
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { WorldState } from "../projections/world-state";
 import type { CampaignStartingLocation } from "../fixtures/exploration";
+import { zoneIdForRoomIndex } from "../dungeon/rooms";
+import {
+  buildLayoutState,
+  connectionIsOpen,
+  connectionRequirementsMet,
+  entityOnConnectionFromSide,
+  findConnectionOnFloor,
+  findTransitionOnFloor,
+  floorByIndex,
+  loadDungeonFloors,
+  sceneIdForDungeonFloor,
+  sameCell,
+  zoneAtCell,
+} from "../dungeon/layout";
 import type { ExecutionContext } from "./context";
 import type {
   CommandResult,
   EnterDungeonCommand,
   MarkZoneClearedCommand,
+  UseConnectionCommand,
+  UseFloorTransitionCommand,
 } from "./types";
 import { reject } from "./types";
-
-const ENTRANCE_STARTS = [
-  { x: 1, y: 3 },
-  { x: 1, y: 4 },
-  { x: 1, y: 5 },
-  { x: 1, y: 6 },
-] as const;
-
-const DUNGEON_MAP = {
-  width: 14,
-  height: 12,
-  blockedCells: [
-    { x: 2, y: 2 },
-    { x: 7, y: 2 },
-    { x: 4, y: 5 },
-    { x: 9, y: 2 },
-    { x: 10, y: 6 },
-  ],
-};
-
-function zoneIdForRoomIndex(roomIndex: number): string {
-  return roomIndex === 0 ? "entry" : `zone-${roomIndex}`;
-}
-
-function sceneIdForDungeonFloor(
-  dungeonEntityId: string,
-  floorIndex: number,
-): string {
-  return `scene:realm:${dungeonEntityId}:floor:${floorIndex}`;
-}
-
-function floorSceneLabel(locationName: string, floorIndex: number): string {
-  return floorIndex === 0
-    ? `${locationName} — Ground Level`
-    : `${locationName} — Floor ${floorIndex + 1}`;
-}
 
 function meta(
   ctx: ExecutionContext,
@@ -67,13 +46,74 @@ function partyCharacters(ctx: ExecutionContext) {
   );
 }
 
+function floorSceneLabel(locationName: string, floorIndex: number): string {
+  return floorIndex === 0
+    ? `${locationName} — Ground Level`
+    : `${locationName} — Floor ${floorIndex + 1}`;
+}
+
+function layoutForDungeon(ctx: ExecutionContext, dungeonEntityId: string) {
+  return ctx.world.dungeonLayouts?.[dungeonEntityId];
+}
+
+function ensureLayoutEvents(
+  ctx: ExecutionContext,
+  cmd: EnterDungeonCommand,
+): DraftEvent[] {
+  if (layoutForDungeon(ctx, cmd.dungeonEntityId)) return [];
+  const floors = loadDungeonFloors(cmd.entityData);
+  if (floors.length === 0) return [];
+  const layout = buildLayoutState(floors);
+  return [
+    {
+      type: "DungeonLayoutSet",
+      ...meta(ctx),
+      payload: {
+        dungeonEntityId: cmd.dungeonEntityId,
+        floors: layout.floors,
+        openedConnectionIds: layout.openedConnectionIds,
+      },
+    },
+  ];
+}
+
+function floorMapForEntry(ctx: ExecutionContext, cmd: EnterDungeonCommand) {
+  const layout = layoutForDungeon(ctx, cmd.dungeonEntityId);
+  const floors = layout?.floors ?? loadDungeonFloors(cmd.entityData);
+  const floor = floorByIndex(
+    layout ?? buildLayoutState(floors),
+    cmd.floorIndex,
+  );
+  return floor?.map;
+}
+
+function entrancePosition(
+  ctx: ExecutionContext,
+  cmd: EnterDungeonCommand,
+): { x: number; y: number } {
+  const layout = layoutForDungeon(ctx, cmd.dungeonEntityId);
+  const floors = layout?.floors ?? loadDungeonFloors(cmd.entityData);
+  const floor = floorByIndex(
+    layout ?? buildLayoutState(floors),
+    cmd.floorIndex,
+  );
+  if (floor?.entrance) return floor.entrance;
+  const entryZone = floor?.zones.find((z) => z.zoneId === cmd.entryZoneId);
+  if (entryZone?.cells[0]) return entryZone.cells[0]!;
+  return { x: 1, y: 3 };
+}
+
 function enterDungeonEvents(
   ctx: ExecutionContext,
   cmd: EnterDungeonCommand,
 ): DraftEvent[] {
   const sceneId = sceneIdForDungeonFloor(cmd.dungeonEntityId, cmd.floorIndex);
-  const map = DUNGEON_MAP;
-  const events: DraftEvent[] = [];
+  const map = floorMapForEntry(ctx, cmd) ?? {
+    width: 14,
+    height: 12,
+    blockedCells: [],
+  };
+  const events: DraftEvent[] = [...ensureLayoutEvents(ctx, cmd)];
   const progress = ctx.world.dungeonProgress;
   const firstThreshold =
     !progress?.thresholdOpened ||
@@ -110,6 +150,7 @@ function enterDungeonEvents(
   }
 
   if (firstThreshold) {
+    const spawn = entrancePosition(ctx, cmd);
     partyCharacters(ctx).forEach((entity, i) => {
       events.push({
         type: "EntityRelocated",
@@ -117,7 +158,7 @@ function enterDungeonEvents(
         payload: {
           entity: entity.id,
           sceneId,
-          position: ENTRANCE_STARTS[i] ?? ENTRANCE_STARTS[0]!,
+          position: { x: spawn.x + i, y: spawn.y },
         },
       });
     });
@@ -163,6 +204,157 @@ export function handleEnterDungeon(
       firstThreshold:
         !ctx.world.dungeonProgress?.thresholdOpened ||
         ctx.world.dungeonProgress.dungeonEntityId !== cmd.dungeonEntityId,
+    },
+  };
+}
+
+export function handleUseConnection(
+  cmd: UseConnectionCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity?.position) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} is not on the map.`);
+  }
+  const layout = layoutForDungeon(ctx, cmd.dungeonEntityId);
+  if (!layout) {
+    return reject("INVALID_PAYLOAD", "Dungeon layout is not loaded.");
+  }
+  const floor = floorByIndex(layout, cmd.floorIndex);
+  if (!floor) {
+    return reject("INVALID_PAYLOAD", `Floor ${cmd.floorIndex} not found.`);
+  }
+  const found = findConnectionOnFloor(floor, cmd.connectionId);
+  if (!found) {
+    return reject("INVALID_PAYLOAD", `Connection ${cmd.connectionId} not found.`);
+  }
+  const { zone, connection } = found;
+  if (!entityOnConnectionFromSide(entity.position, connection, zone)) {
+    return reject(
+      "NOT_ADJACENT",
+      `${entity.name} must be at the connection to open it.`,
+      { connectionId: cmd.connectionId },
+    );
+  }
+  const cleared = ctx.world.dungeonProgress?.clearedZoneIds ?? [];
+  if (!connectionRequirementsMet(connection, cleared)) {
+    return reject(
+      "INVALID_PAYLOAD",
+      "Clear the required zones before opening this passage.",
+      { requiresCleared: connection.requiresCleared },
+    );
+  }
+  if (connectionIsOpen(connection, layout, cleared)) {
+    return {
+      accepted: true,
+      events: [],
+      summary: { alreadyOpen: true, connectionId: cmd.connectionId },
+    };
+  }
+  return {
+    accepted: true,
+    events: [
+      {
+        type: "ConnectionOpened",
+        ...meta(ctx, cmd.entity),
+        payload: {
+          dungeonEntityId: cmd.dungeonEntityId,
+          floorIndex: cmd.floorIndex,
+          connectionId: cmd.connectionId,
+          zoneId: zone.zoneId,
+        },
+      },
+    ],
+    summary: { opened: cmd.connectionId },
+  };
+}
+
+export function handleUseFloorTransition(
+  cmd: UseFloorTransitionCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const entity = ctx.world.entities[cmd.entity];
+  if (!entity?.position) {
+    return reject("ACTOR_NOT_FOUND", `Entity ${cmd.entity} is not on the map.`);
+  }
+  const layout = layoutForDungeon(ctx, cmd.dungeonEntityId);
+  if (!layout) {
+    return reject("INVALID_PAYLOAD", "Dungeon layout is not loaded.");
+  }
+  const floor = floorByIndex(layout, cmd.floorIndex);
+  if (!floor) {
+    return reject("INVALID_PAYLOAD", `Floor ${cmd.floorIndex} not found.`);
+  }
+  const transition = findTransitionOnFloor(floor, cmd.transitionId);
+  if (!transition) {
+    return reject(
+      "INVALID_PAYLOAD",
+      `Transition ${cmd.transitionId} not found.`,
+    );
+  }
+  if (!sameCell(entity.position, transition.fromCell)) {
+    return reject(
+      "NOT_ADJACENT",
+      `${entity.name} must stand on the transition cell.`,
+      { transitionId: cmd.transitionId, fromCell: transition.fromCell },
+    );
+  }
+  const targetFloor = floorByIndex(layout, transition.toFloorIndex);
+  if (!targetFloor) {
+    return reject(
+      "INVALID_PAYLOAD",
+      `Target floor ${transition.toFloorIndex} not found.`,
+    );
+  }
+  const targetSceneId = sceneIdForDungeonFloor(
+    cmd.dungeonEntityId,
+    transition.toFloorIndex,
+  );
+  const events: DraftEvent[] = [];
+  if (!ctx.world.scenes[targetSceneId]) {
+    events.push({
+      type: "SceneCreated",
+      ...meta(ctx),
+      payload: {
+        scene: {
+          id: targetSceneId,
+          name: targetFloor.name,
+          description: targetFloor.name,
+          sceneKind: "dungeon",
+          map: targetFloor.map,
+        },
+      },
+    });
+  }
+  events.push({
+    type: "EntityRelocated",
+    ...meta(ctx, cmd.entity),
+    payload: {
+      entity: cmd.entity,
+      sceneId: targetSceneId,
+      position: { ...transition.toCell },
+    },
+  });
+  const destZone = zoneAtCell(targetFloor, transition.toCell);
+  if (destZone) {
+    events.push({
+      type: "ZoneVisited",
+      ...meta(ctx, cmd.entity),
+      payload: {
+        dungeonEntityId: cmd.dungeonEntityId,
+        floorIndex: transition.toFloorIndex,
+        zoneId: destZone.zoneId,
+        zoneName: destZone.name,
+      },
+    });
+  }
+  return {
+    accepted: true,
+    events,
+    summary: {
+      entity: cmd.entity,
+      toFloorIndex: transition.toFloorIndex,
+      toCell: transition.toCell,
     },
   };
 }

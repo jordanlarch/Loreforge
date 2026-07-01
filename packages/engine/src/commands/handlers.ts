@@ -180,7 +180,13 @@ import { handleUseClassFeature } from "./class-feature-handlers";
 import {
   handleEnterDungeon,
   handleMarkZoneCleared,
+  handleUseConnection,
+  handleUseFloorTransition,
 } from "./dungeon-handlers";
+import {
+  dungeonMovePrecheck,
+  dungeonZoneVisitEvents,
+} from "../dungeon/move-zone";
 import {
   buildBanishmentCastEvents,
   buildPolymorphCastEvents,
@@ -775,6 +781,16 @@ function handleMoveEntity(
     return reject("CELL_OCCUPIED", `(${to.x},${to.y}) is occupied.`);
   }
 
+  if (entity.position) {
+    const dungeonBlock = dungeonMovePrecheck(
+      ctx,
+      cmd.entity,
+      entity.position,
+      to,
+    );
+    if (dungeonBlock && !dungeonBlock.accepted) return dungeonBlock;
+  }
+
   // Debit movement only while it is this combatant's turn (action economy
   // present). Outside combat, movement is unbudgeted.
   if (entity.actionEconomy && entity.position) {
@@ -841,6 +857,9 @@ function handleMoveEntity(
 
   events.push(
     ...trapTriggerEventsAfterMove(ctx, cmd.entity, entity.sceneId, to),
+  );
+  events.push(
+    ...dungeonZoneVisitEvents(ctx, cmd.entity, entity.position, to),
   );
 
   return { accepted: true, events, summary: { entity: cmd.entity, to } };
@@ -4925,6 +4944,10 @@ export function handleCommand(
       return handleStrikeCallLightning(command, ctx);
     case "enter_dungeon":
       return handleEnterDungeon(command, ctx);
+    case "use_connection":
+      return handleUseConnection(command, ctx);
+    case "use_floor_transition":
+      return handleUseFloorTransition(command, ctx);
     case "mark_zone_cleared":
       return handleMarkZoneCleared(command, ctx);
     case "fast_hands":

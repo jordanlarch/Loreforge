@@ -584,6 +584,26 @@ export type EnterDungeonCommand = {
   entryZoneId: string;
   zoneName: string;
   locationName: string;
+  /** Realms entity data — loads/synthesizes floor layout on first entry (DUN-2). */
+  entityData?: unknown;
+};
+
+/** Open a gated zone connection (door/corridor) from the actor's side (DUN-2). */
+export type UseConnectionCommand = {
+  type: "use_connection";
+  entity: EntityRef;
+  dungeonEntityId: string;
+  floorIndex: number;
+  connectionId: string;
+};
+
+/** Move one PC to another floor via stairs/ladder (DUN-2). */
+export type UseFloorTransitionCommand = {
+  type: "use_floor_transition";
+  entity: EntityRef;
+  dungeonEntityId: string;
+  floorIndex: number;
+  transitionId: string;
 };
 
 /** Mark a dungeon zone cleared after victorious combat or objective (DUN-1). */
@@ -666,6 +686,8 @@ export type Command =
   | StrikeSpiritualWeaponCommand
   | StrikeCallLightningCommand
   | EnterDungeonCommand
+  | UseConnectionCommand
+  | UseFloorTransitionCommand
   | MarkZoneClearedCommand;
 
 export type CommandType = Command["type"];

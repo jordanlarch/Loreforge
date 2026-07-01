@@ -26,6 +26,9 @@ import {
   transitionCellsOnFloor,
   toggleBlockedCell,
   toggleConnectionLocked,
+  toggleStartingRevealedCell,
+  clearStartingRevealedCells,
+  startingRevealedCellKeys,
   toggleZoneObject,
   walkableCellKeys,
   zoneAtCell,
@@ -184,5 +187,21 @@ describe("dungeon-map-editor", () => {
       ],
     });
     expect(marked.get("1,1")?.direction).toBe("out");
+  });
+
+  it("toggles starting revealed cells for fog paint (DUN-16)", () => {
+    const [normalized] = normalizeAuthoredFloors([sampleFloor]);
+    const cell = { x: 7, y: 3 };
+
+    const painted = toggleStartingRevealedCell(sampleFloor, normalized!, cell);
+    expect(startingRevealedCellKeys(painted).has("7,3")).toBe(true);
+    expect(painted.revealedCells).toEqual([cell]);
+
+    const cleared = toggleStartingRevealedCell(painted, normalized!, cell);
+    expect(startingRevealedCellKeys(cleared).size).toBe(0);
+    expect(cleared.revealedCells).toBeUndefined();
+
+    const repainted = toggleStartingRevealedCell(sampleFloor, normalized!, cell);
+    expect(clearStartingRevealedCells(repainted).revealedCells).toBeUndefined();
   });
 });

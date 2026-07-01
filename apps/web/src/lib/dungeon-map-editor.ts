@@ -33,7 +33,8 @@ export type DungeonMapTool =
   | "object"
   | "loot"
   | "trap"
-  | "npc";
+  | "npc"
+  | "fog";
 
 export type ZoneResizeHandle =
   | "n"
@@ -448,6 +449,41 @@ export function walkableCellKeys(normalized: NormalizedDungeonFloor): Set<string
     }
   }
   return walkable;
+}
+
+export function startingRevealedCellKeys(floor: AuthoredDungeonFloor): Set<string> {
+  return new Set((floor.revealedCells ?? []).map(dungeonCellKey));
+}
+
+export function toggleStartingRevealedCell(
+  floor: AuthoredDungeonFloor,
+  normalized: NormalizedDungeonFloor,
+  cell: GridCell,
+): AuthoredDungeonFloor {
+  const walkable = walkableCellKeys(normalized);
+  const key = dungeonCellKey(cell);
+  if (!walkable.has(key)) return floor;
+
+  const next = startingRevealedCellKeys(floor);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+
+  const revealedCells = [...next].map((k) => {
+    const [xs, ys] = k.split(",");
+    return { x: Number(xs), y: Number(ys) };
+  });
+  return {
+    ...floor,
+    revealedCells: revealedCells.length > 0 ? revealedCells : undefined,
+  };
+}
+
+export function clearStartingRevealedCells(
+  floor: AuthoredDungeonFloor,
+): AuthoredDungeonFloor {
+  if (!floor.revealedCells?.length) return floor;
+  const { revealedCells: _removed, ...rest } = floor;
+  return rest;
 }
 
 export function zoneColor(zoneId: string): string {

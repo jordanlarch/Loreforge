@@ -46,6 +46,9 @@ import {
   transitionCellsOnFloor,
   toggleBlockedCell,
   toggleConnectionLocked,
+  toggleStartingRevealedCell,
+  clearStartingRevealedCells,
+  startingRevealedCellKeys,
   toggleZoneObject,
   walkableCellKeys,
   zoneAtCell,
@@ -419,6 +422,9 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
           setPicker({ kind: "npc-cell", cell });
         }
         break;
+      case "fog":
+        patchFloor(toggleStartingRevealedCell(currentFloor, currentNorm, cell));
+        break;
       default:
         break;
     }
@@ -462,6 +468,9 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
     (currentFloor?.map?.blockedCells ?? []).map((c) => dungeonCellKey(c)),
   );
   const walkable = currentNorm ? walkableCellKeys(currentNorm) : new Set<string>();
+  const startingRevealed = currentFloor
+    ? startingRevealedCellKeys(currentFloor)
+    : new Set<string>();
 
   const interactableCells = new Set<string>();
   const lootCells = new Set<string>();
@@ -529,8 +538,8 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
           <h2 className="font-display text-lg">Floor map</h2>
           <p className="mt-1 text-xs text-lore-muted">
             Paint walls, entrance, loot, traps, NPCs, and interactables. Use Zones to
-            drag-resize room geometry; Stairs links floors. Wheel zoom · middle-click pan.
-            Codex slugs resolve in Live Play.
+            drag-resize room geometry; Stairs links floors; Fog paints starting revealed cells.
+            Wheel zoom · middle-click pan. Codex slugs resolve in Live Play.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -582,6 +591,7 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
             ["loot", "Loot"],
             ["trap", "Trap"],
             ["npc", "NPC"],
+            ["fog", "Fog"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -673,6 +683,8 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                 const isNpc = npcCells.has(key);
                 const transition = transitionCells.get(key);
                 const clickable = tool !== "select";
+                const showStartingFog =
+                  isWalkable && !isBlocked && !startingRevealed.has(key);
 
                 let stroke = "rgba(255,255,255,0.08)";
                 let strokeWidth = 0.5;
@@ -727,6 +739,16 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                       className={clickable ? "cursor-crosshair" : "cursor-default"}
                       onClick={() => clickable && handleCellClick(cell)}
                     />
+                    {showStartingFog ? (
+                      <rect
+                        x={col * CELL_PX + 20}
+                        y={row * CELL_PX + 12}
+                        width={CELL_PX - 2}
+                        height={CELL_PX - 2}
+                        fill="rgba(10, 10, 18, 0.78)"
+                        pointerEvents="none"
+                      />
+                    ) : null}
                     {marker ? (
                       <text
                         x={col * CELL_PX + 20 + (CELL_PX - 2) / 2}
@@ -804,11 +826,12 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
           </svg>
           </div>
           <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-lore-muted">
-            {width}×{height} · green = entrance · ↑↓ stair · $ loot · ⚠ trap · @ NPC · ◆ interactable
+            {width}×{height} · green = entrance · ↑↓ stair · $ loot · ⚠ trap · @ NPC · ◆ interactable · dark = starting fog
             {tool === "zone" ? " · drag handles to resize selected zone" : ""}
             {tool === "stair" && selectedTransitionId
               ? " · click a cell to place the selected stair endpoint"
               : ""}
+            {tool === "fog" ? " · click walkable cells to toggle starting revealed" : ""}
           </p>
         </div>
 
@@ -1068,6 +1091,27 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
             <p className="text-xs text-lore-muted">
               Entrance: ({currentFloor.entrance.x}, {currentFloor.entrance.y})
             </p>
+          ) : null}
+          {tool === "fog" && currentFloor ? (
+            <div className="rounded border border-lore-border px-3 py-2 text-xs text-lore-muted">
+              <p>
+                Click walkable cells to mark them as{" "}
+                <span className="text-lore-text">starting revealed</span> (visible on first
+                dungeon enter). Entry zone still auto-reveals on threshold.
+              </p>
+              <p className="mt-2 tabular-nums">
+                {startingRevealed.size} cell{startingRevealed.size === 1 ? "" : "s"} painted
+              </p>
+              {startingRevealed.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => patchFloor(clearStartingRevealedCells(currentFloor))}
+                  className="mt-2 text-red-400 hover:underline"
+                >
+                  Clear starting fog
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>

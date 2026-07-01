@@ -255,6 +255,9 @@ function normalizeFloor(raw: AuthoredDungeonFloor): NormalizedDungeonFloor {
     zones,
     transitions: raw.transitions ?? [],
     patrolRoutes: normalizePatrolRoutes(raw.patrolRoutes),
+    ...(raw.revealedCells?.length
+      ? { revealedCells: dedupeCells(raw.revealedCells) }
+      : {}),
   };
 }
 

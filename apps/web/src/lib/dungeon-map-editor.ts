@@ -17,11 +17,19 @@ import {
 
 export type ZoneRect = { x: number; y: number; w: number; h: number };
 
+export type FloorTransition = {
+  transitionId: string;
+  toFloorIndex: number;
+  fromCell: GridCell;
+  toCell: GridCell;
+};
+
 export type DungeonMapTool =
   | "select"
   | "zone"
   | "wall"
   | "entrance"
+  | "stair"
   | "object"
   | "loot"
   | "trap"
@@ -518,4 +526,151 @@ export function setZoneRect(
       blockedCells: floor.map?.blockedCells ?? [],
     },
   };
+}
+
+function defaultLandingCell(floor: AuthoredDungeonFloor): GridCell {
+  return floor.entrance ? { ...floor.entrance } : { x: 2, y: 3 };
+}
+
+export function addDungeonFloor(
+  floors: AuthoredDungeonFloor[],
+): AuthoredDungeonFloor[] {
+  const nextIndex =
+    floors.length === 0 ? 0 : Math.max(...floors.map((f) => f.index)) + 1;
+  const newFloor: AuthoredDungeonFloor = {
+    index: nextIndex,
+    name: nextIndex === 0 ? "Ground Level" : `Floor ${nextIndex + 1}`,
+    entrance: { x: 2, y: 3 },
+    zones: [
+      {
+        zoneId: `floor-${nextIndex}-room`,
+        name: "New Room",
+        rect: { x: 1, y: 2, w: 4, h: 4 },
+      },
+    ],
+    transitions: [],
+  };
+  return [...floors, newFloor];
+}
+
+export function addFloorTransition(
+  floors: AuthoredDungeonFloor[],
+  fromFloorIndex: number,
+  toFloorIndex: number,
+  fromCell?: GridCell,
+): AuthoredDungeonFloor[] {
+  const source = floors.find((f) => f.index === fromFloorIndex);
+  const target = floors.find((f) => f.index === toFloorIndex);
+  if (!source || !target || fromFloorIndex === toFloorIndex) return floors;
+
+  const transitionId = `stairs-${fromFloorIndex}-to-${toFloorIndex}`;
+  const sourceCell = fromCell ?? defaultLandingCell(source);
+  const destCell = defaultLandingCell(target);
+  const outbound: FloorTransition = {
+    transitionId,
+    toFloorIndex,
+    fromCell: { ...sourceCell },
+    toCell: { ...destCell },
+  };
+  const inbound: FloorTransition = {
+    transitionId: `${transitionId}-return`,
+    toFloorIndex: fromFloorIndex,
+    fromCell: { ...destCell },
+    toCell: { ...sourceCell },
+  };
+
+  return floors.map((floor) => {
+    if (floor.index === fromFloorIndex) {
+      const existing = (floor.transitions ?? []).filter(
+        (t) => t.transitionId !== transitionId,
+      );
+      return { ...floor, transitions: [...existing, outbound] };
+    }
+    if (floor.index === toFloorIndex) {
+      const existing = (floor.transitions ?? []).filter(
+        (t) => t.transitionId !== inbound.transitionId,
+      );
+      return { ...floor, transitions: [...existing, inbound] };
+    }
+    return floor;
+  });
+}
+
+export function removeFloorTransition(
+  floors: AuthoredDungeonFloor[],
+  fromFloorIndex: number,
+  transitionId: string,
+): AuthoredDungeonFloor[] {
+  const source = floors.find((f) => f.index === fromFloorIndex);
+  const transition = source?.transitions?.find((t) => t.transitionId === transitionId);
+  if (!source || !transition) return floors;
+
+  const returnId = `${transitionId}-return`;
+  return floors.map((floor) => ({
+    ...floor,
+    transitions: (floor.transitions ?? []).filter(
+      (t) => t.transitionId !== transitionId && t.transitionId !== returnId,
+    ),
+  }));
+}
+
+export function updateFloorTransitionCell(
+  floors: AuthoredDungeonFloor[],
+  fromFloorIndex: number,
+  transitionId: string,
+  endpoint: "from" | "to",
+  cell: GridCell,
+): AuthoredDungeonFloor[] {
+  const source = floors.find((f) => f.index === fromFloorIndex);
+  const transition = source?.transitions?.find((t) => t.transitionId === transitionId);
+  if (!source || !transition) return floors;
+
+  const returnId = `${transitionId}-return`;
+  return floors.map((floor) => {
+    if (floor.index === fromFloorIndex) {
+      return {
+        ...floor,
+        transitions: (floor.transitions ?? []).map((t) =>
+          t.transitionId === transitionId
+            ? endpoint === "from"
+              ? { ...t, fromCell: { ...cell } }
+              : { ...t, toCell: { ...cell } }
+            : t,
+        ),
+      };
+    }
+    if (floor.index === transition.toFloorIndex) {
+      return {
+        ...floor,
+        transitions: (floor.transitions ?? []).map((t) =>
+          t.transitionId === returnId
+            ? endpoint === "from"
+              ? { ...t, toCell: { ...cell } }
+              : { ...t, fromCell: { ...cell } }
+            : t,
+        ),
+      };
+    }
+    return floor;
+  });
+}
+
+export function transitionCellsOnFloor(
+  floor: AuthoredDungeonFloor,
+): Map<string, { transitionId: string; direction: "out" | "in" }> {
+  const cells = new Map<string, { transitionId: string; direction: "out" | "in" }>();
+  for (const t of floor.transitions ?? []) {
+    if (t.transitionId.endsWith("-return")) {
+      cells.set(dungeonCellKey(t.fromCell), {
+        transitionId: t.transitionId,
+        direction: "in",
+      });
+    } else {
+      cells.set(dungeonCellKey(t.fromCell), {
+        transitionId: t.transitionId,
+        direction: "out",
+      });
+    }
+  }
+  return cells;
 }

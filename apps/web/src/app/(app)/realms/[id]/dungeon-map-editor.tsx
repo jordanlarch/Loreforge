@@ -32,6 +32,11 @@ import {
   setZoneRect,
   applyZoneRectResize,
   inferAuthoredZoneRect,
+  addDungeonFloor,
+  addFloorTransition,
+  removeFloorTransition,
+  updateFloorTransitionCell,
+  transitionCellsOnFloor,
   toggleBlockedCell,
   toggleConnectionLocked,
   toggleZoneObject,
@@ -115,12 +120,16 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [resizeDrag, setResizeDrag] = useState<ResizeDragState | null>(null);
   const [previewRect, setPreviewRect] = useState<ZoneRect | null>(null);
+  const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     setFloors(savedFloors);
     setDirty(false);
     setFloorIndex(0);
     setSelectedZoneId(null);
+    setSelectedTransitionId(null);
     setResizeDrag(null);
     setPreviewRect(null);
   }, [savedFloors]);
@@ -142,6 +151,11 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
   );
 
   const canBuildFromRooms = savedFloors.length === 0 && emitFloorsFromEntityData(data).length > 0;
+
+  function patchFloors(next: AuthoredDungeonFloor[]) {
+    setFloors(next);
+    setDirty(true);
+  }
 
   function patchFloor(next: AuthoredDungeonFloor) {
     setFloors((prev) => prev.map((f, i) => (i === floorIndex ? next : f)));
@@ -228,6 +242,36 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
       case "entrance":
         patchFloor(setFloorEntrance(currentFloor, cell));
         break;
+      case "stair": {
+        if (!selectedTransitionId) break;
+        const onThisFloor = (currentFloor.transitions ?? []).find(
+          (t) => t.transitionId === selectedTransitionId,
+        );
+        if (!onThisFloor) break;
+        if (onThisFloor.transitionId.endsWith("-return")) {
+          const sourceId = onThisFloor.transitionId.replace(/-return$/, "");
+          patchFloors(
+            updateFloorTransitionCell(
+              floors,
+              onThisFloor.toFloorIndex,
+              sourceId,
+              "to",
+              cell,
+            ),
+          );
+        } else {
+          patchFloors(
+            updateFloorTransitionCell(
+              floors,
+              currentFloor.index,
+              selectedTransitionId,
+              "from",
+              cell,
+            ),
+          );
+        }
+        break;
+      }
       case "object":
         patchFloor(toggleZoneObject(currentFloor, currentNorm, cell));
         break;
@@ -319,6 +363,12 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
     ? dungeonCellKey(currentFloor.entrance)
     : undefined;
 
+  const transitionCells = currentFloor
+    ? transitionCellsOnFloor(currentFloor)
+    : new Map<string, { transitionId: string; direction: "out" | "in" }>();
+
+  const otherFloors = floors.filter((f) => f.index !== currentFloor?.index);
+
   const zoneByCell = new Map<string, string>();
   for (const zone of currentNorm?.zones ?? []) {
     for (const cell of zone.cells) {
@@ -356,27 +406,35 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
           <h2 className="font-display text-lg">Floor map</h2>
           <p className="mt-1 text-xs text-lore-muted">
             Paint walls, entrance, loot, traps, NPCs, and interactables. Use Zones to
-            drag-resize room geometry. Codex slugs resolve in Live Play.
+            drag-resize room geometry; Stairs links floors. Codex slugs resolve in Live Play.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {floors.length > 1 ? (
-            <select
-              value={floorIndex}
-              onChange={(e) => setFloorIndex(Number(e.target.value))}
-              className="rounded border border-lore-border bg-lore-bg px-2 py-1 text-sm"
-            >
-              {floors.map((f, i) => (
-                <option key={f.index} value={i}>
-                  {f.name || `Floor ${f.index + 1}`}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-xs text-lore-muted">
-              {currentFloor?.name ?? "Ground level"}
-            </span>
-          )}
+          <select
+            value={floorIndex}
+            onChange={(e) => {
+              setFloorIndex(Number(e.target.value));
+              setSelectedTransitionId(null);
+            }}
+            className="rounded border border-lore-border bg-lore-bg px-2 py-1 text-sm"
+          >
+            {floors.map((f, i) => (
+              <option key={f.index} value={i}>
+                {f.name || `Floor ${f.index + 1}`}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              const next = addDungeonFloor(floors);
+              patchFloors(next);
+              setFloorIndex(next.length - 1);
+            }}
+            className="rounded border border-lore-border px-2 py-1 text-xs text-lore-muted transition-colors hover:border-lore-accent hover:text-lore-text"
+          >
+            + Add floor
+          </button>
           <button
             type="button"
             onClick={save}
@@ -395,6 +453,7 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
             ["zone", "Zones"],
             ["wall", "Walls"],
             ["entrance", "Entrance"],
+            ["stair", "Stairs"],
             ["object", "Interact"],
             ["loot", "Loot"],
             ["trap", "Trap"],
@@ -407,6 +466,7 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
             onClick={() => {
               setTool(id);
               if (id !== "zone") setSelectedZoneId(null);
+              if (id !== "stair") setSelectedTransitionId(null);
             }}
             className={`rounded border px-2.5 py-1 text-xs transition-colors ${
               tool === id
@@ -439,6 +499,7 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                 const isInteract = interactableCells.has(key);
                 const isTrap = trapCells.has(key);
                 const isNpc = npcCells.has(key);
+                const transition = transitionCells.get(key);
                 const clickable = tool !== "select";
 
                 let stroke = "rgba(255,255,255,0.08)";
@@ -446,6 +507,9 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                 if (tool === "zone" && zoneId === selectedZoneId) {
                   stroke = "rgba(255,255,255,0.45)";
                   strokeWidth = 1;
+                } else if (transition) {
+                  stroke = "rgba(167, 139, 250, 0.95)";
+                  strokeWidth = 1.5;
                 } else if (isEntrance) {
                   stroke = "rgba(74, 222, 128, 0.9)";
                   strokeWidth = 1.5;
@@ -464,7 +528,8 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                 }
 
                 let marker: string | null = null;
-                if (isTrap) marker = "⚠";
+                if (transition) marker = transition.direction === "out" ? "↑" : "↓";
+                else if (isTrap) marker = "⚠";
                 else if (isLoot) marker = "$";
                 else if (isNpc) marker = "@";
                 else if (isInteract) marker = "◆";
@@ -566,8 +631,11 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
               : null}
           </svg>
           <p className="mt-2 text-[11px] text-lore-muted">
-            {width}×{height} · green = entrance · $ loot · ⚠ trap · @ NPC · ◆ interactable
+            {width}×{height} · green = entrance · ↑↓ stair · $ loot · ⚠ trap · @ NPC · ◆ interactable
             {tool === "zone" ? " · drag handles to resize selected zone" : ""}
+            {tool === "stair" && selectedTransitionId
+              ? " · click a cell to place the selected stair endpoint"
+              : ""}
           </p>
         </div>
 
@@ -640,6 +708,89 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                 );
               })}
             </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-lore-text">Floor transitions</h3>
+            <ul className="mt-2 space-y-2 text-xs">
+              {(currentFloor?.transitions ?? []).map((transition) => {
+                const isReturn = transition.transitionId.endsWith("-return");
+                const targetFloor = floors.find((f) => f.index === transition.toFloorIndex);
+                const label = isReturn
+                  ? `↓ from ${targetFloor?.name ?? `floor ${transition.toFloorIndex}`}`
+                  : `↑ to ${targetFloor?.name ?? `floor ${transition.toFloorIndex}`}`;
+                const cell = isReturn ? transition.fromCell : transition.fromCell;
+                const isSelected = selectedTransitionId === transition.transitionId;
+                return (
+                  <li
+                    key={transition.transitionId}
+                    className={`rounded border px-2 py-2 ${
+                      isSelected
+                        ? "border-violet-400/60 bg-violet-500/10"
+                        : "border-lore-border bg-lore-bg"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTool("stair");
+                        setSelectedTransitionId(transition.transitionId);
+                      }}
+                      className="flex w-full flex-col items-start gap-0.5 text-left"
+                    >
+                      <span className="text-lore-text">{label}</span>
+                      <span className="text-[10px] text-lore-muted">
+                        cell ({cell.x}, {cell.y})
+                      </span>
+                    </button>
+                    {!isReturn ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!currentFloor) return;
+                          patchFloors(
+                            removeFloorTransition(
+                              floors,
+                              currentFloor.index,
+                              transition.transitionId,
+                            ),
+                          );
+                          if (selectedTransitionId === transition.transitionId) {
+                            setSelectedTransitionId(null);
+                          }
+                        }}
+                        className="mt-2 text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+            {otherFloors.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {otherFloors.map((floor) => (
+                  <button
+                    key={floor.index}
+                    type="button"
+                    onClick={() => {
+                      if (!currentFloor) return;
+                      patchFloors(
+                        addFloorTransition(floors, currentFloor.index, floor.index),
+                      );
+                    }}
+                    className="rounded border border-lore-border px-2 py-1 text-[11px] text-lore-muted transition-colors hover:border-violet-400/50 hover:text-lore-text"
+                  >
+                    + Stair to {floor.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-[11px] text-lore-muted">
+                Add another floor to link stairs between levels.
+              </p>
+            )}
           </div>
 
           {connections.length > 0 ? (

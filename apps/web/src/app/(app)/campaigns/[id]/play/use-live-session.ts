@@ -604,5 +604,10 @@ export function useLiveSession({
       providerRef.current?.sendStateless(
         JSON.stringify({ t: "enter_location", entityId }),
       ),
+    reloadDungeonLayout: (dungeonEntityId: string, entityData: unknown) =>
+      send({
+        t: "cmd",
+        action: { type: "reload_dungeon_layout", dungeonEntityId, entityData },
+      }),
   };
 }

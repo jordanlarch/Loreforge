@@ -32,6 +32,7 @@ import {
   tutorialScene,
   tutorialSceneRequiresCompanion,
   classLevel,
+  parseDungeonFloorSceneId,
   type EntityState,
   type ItemDefinition,
   type WorldState,
@@ -119,6 +120,7 @@ import { CombatOverlay, type InitiativeChip } from "./combat-overlay";
 import { GraduationModal } from "./graduation-modal";
 import { LivePlayTopBar } from "./live-top-bar";
 import { MapViewport } from "./map-viewport";
+import { PlayDungeonMapEditLightbox } from "./play-dungeon-map-edit-lightbox";
 import { PlayShellChrome } from "./play-shell-chrome";
 import { TutorialEntityDrawer } from "./tutorial-entity-drawer";
 import { TutorialInventoryDrawer } from "./tutorial-inventory-drawer";
@@ -261,6 +263,7 @@ function LiveBattle({
   pcCharacterId,
   partyRoster,
   companionExpected = false,
+  isCampaignOwner = false,
 }: {
   session: LiveSession;
   title: string;
@@ -291,8 +294,11 @@ function LiveBattle({
   partyRoster?: readonly PartyRosterRow[];
   /** Hook accepted — Brennar should appear even before engine/DB fully sync. */
   companionExpected?: boolean;
+  /** Campaign owner may edit dungeon maps in Live Play (DUN-17). */
+  isCampaignOwner?: boolean;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [mapEditOpen, setMapEditOpen] = useState(false);
   const [sheetPeekId, setSheetPeekId] = useState<string | null>(null);
   const vm = useMemo(
     () => (session.state ? buildViewModel(session.state) : null),
@@ -303,6 +309,10 @@ function LiveBattle({
     () => (session.state ? buildExploreModel(session.state) : null),
     [session.state],
   );
+  const dungeonFloor = useMemo(() => {
+    const sceneId = session.state?.currentSceneId;
+    return sceneId ? parseDungeonFloorSceneId(sceneId) : undefined;
+  }, [session.state?.currentSceneId]);
 
   // Combat-loop UI state: the armed action (driving the map target picker), the
   // AoE aim cell (#99), and the last reaction window the player already dismissed.
@@ -1115,6 +1125,8 @@ function LiveBattle({
                   tokens={explore.tokens}
                   reachable={explore.reachable}
                   fog={explore.fog}
+                  showEditMap={Boolean(isCampaignOwner && dungeonFloor)}
+                  onEditMap={() => setMapEditOpen(true)}
                   onMoveToken={(id, to) => session.moveToken(id, to)}
                   onSelectToken={
                     onEntityClick ? onExploreTokenSelect : undefined
@@ -1179,6 +1191,21 @@ function LiveBattle({
             <CharacterSheetOverlay
               characterId={sheetPeekId}
               onClose={() => setSheetPeekId(null)}
+            />
+          ) : null}
+          {dungeonFloor ? (
+            <PlayDungeonMapEditLightbox
+              open={mapEditOpen}
+              onClose={() => setMapEditOpen(false)}
+              dungeonEntityId={dungeonFloor.dungeonEntityId}
+              floorIndex={dungeonFloor.floorIndex}
+              onLayoutSaved={(entityData) => {
+                session.reloadDungeonLayout(
+                  dungeonFloor.dungeonEntityId,
+                  entityData,
+                );
+                setMapEditOpen(false);
+              }}
             />
           ) : null}
         </>
@@ -1617,6 +1644,7 @@ function CampaignPlaySession({
       campaignId={campaignId}
       pcCharacterId={pcCharacterId}
       partyRoster={partyQuery.data}
+      isCampaignOwner={accessQuery.data?.role === "owner"}
     />
   );
 }

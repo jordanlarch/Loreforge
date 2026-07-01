@@ -4,7 +4,7 @@
 
 **Canonical source:** `SRD_CC_v5.2.1.pdf` (WotC CC-BY 4.0, 364 pp). Local copy: `C:\Users\Jordan\Downloads\SRD_CC_v5.2.1.pdf`.
 
-**First audited:** 2026-06-29 · **Last reconciled:** 2026-06-30 · **Branch baseline:** `main`.
+**First audited:** 2026-06-29 · **Last reconciled:** 2026-07-01 · **Branch baseline:** `main`.
 
 **Tracking IDs:** fidelity gaps use the `SRD-FID-*` family and are mirrored as rows in `docs/deferrals.md` §12 (and, for the incongruences, GitHub issues). Where a gap is already tracked under another family (e.g. `ENG-8`, `ENG-9`, `ENG-13`, `DATA-1c`, `PLAY-15`), this doc points at that ID instead of minting a duplicate.
 

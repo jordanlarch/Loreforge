@@ -134,6 +134,8 @@ export type DungeonProgressState = {
   detectedPairs?: string[];
   /** Zones where alertZoneOnDetection fired (DUN-3). */
   alertedZoneIds?: string[];
+  /** Map object runtime state keyed by objectId (DUN-4). */
+  objectStates?: Record<string, { zoneId: string; takenByEntityId: string }>;
 };
 
 export function emptyWorldState(campaignId: string): WorldState {
@@ -1094,6 +1096,25 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
         next.dungeonProgress = {
           ...progress,
           alertedZoneIds: [...alerted].sort(),
+        };
+      }
+      break;
+    }
+    case "ObjectTaken": {
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === event.payload.dungeonEntityId
+      ) {
+        next.dungeonProgress = {
+          ...progress,
+          objectStates: {
+            ...progress.objectStates,
+            [event.payload.objectId]: {
+              zoneId: event.payload.zoneId,
+              takenByEntityId: event.payload.actor,
+            },
+          },
         };
       }
       break;

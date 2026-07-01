@@ -43,11 +43,30 @@ export type QuestRewards = {
   reputationNotes?: string;
 };
 
+export const QUEST_STEP_COMPLETION_KINDS = [
+  "enter_zone",
+  "discover_zone",
+  "interact",
+  "defeat_encounter",
+  "talk_npc",
+  "detected_in_zone",
+] as const;
+
+export type QuestStepCompletionKind =
+  (typeof QUEST_STEP_COMPLETION_KINDS)[number];
+
 export type QuestStep = {
   id: string;
   title: string;
   description?: string;
   gmInstructions?: string;
+  /** DUN-4 — engine event that completes this step (see dungeon-exploration.md Q25). */
+  completionKind?: QuestStepCompletionKind;
+  /** Zone-scoped step target (DUN-4). */
+  dungeonEntityId?: string;
+  zoneId?: string;
+  objectId?: string;
+  npcEntityId?: string;
   /** Phase D: optional encounter spawn hint. */
   encounterRef?: string;
   /** Phase D: explicit linear successor. */

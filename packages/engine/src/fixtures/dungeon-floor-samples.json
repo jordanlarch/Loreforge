@@ -75,5 +75,30 @@
         ]
       }
     ]
+  },
+  "zoneWithChest": {
+    "floors": [
+      {
+        "index": 0,
+        "name": "Ground Level",
+        "entrance": { "x": 2, "y": 3 },
+        "zones": [
+          {
+            "zoneId": "entry",
+            "name": "Entry Hall",
+            "rect": { "x": 1, "y": 2, "w": 5, "h": 4 },
+            "objects": [
+              {
+                "objectId": "chest-1",
+                "kind": "loot",
+                "cell": { "x": 3, "y": 3 },
+                "noise": "silent"
+              }
+            ]
+          }
+        ],
+        "transitions": []
+      }
+    ]
   }
 }

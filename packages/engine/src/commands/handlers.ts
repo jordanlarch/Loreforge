@@ -179,6 +179,7 @@ import {
 import { handleUseClassFeature } from "./class-feature-handlers";
 import {
   handleEnterDungeon,
+  handleInteractObject,
   handleMarkZoneCleared,
   handleStartZoneEncounter,
   handleUseConnection,
@@ -4953,6 +4954,8 @@ export function handleCommand(
       return handleStartZoneEncounter(command, ctx);
     case "mark_zone_cleared":
       return handleMarkZoneCleared(command, ctx);
+    case "interact_object":
+      return handleInteractObject(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

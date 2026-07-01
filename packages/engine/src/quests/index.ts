@@ -2,13 +2,14 @@ export type {
   QuestDelivery,
   QuestRewards,
   QuestStep,
+  QuestStepCompletionKind,
   QuestTag,
   QuestTeaseTrigger,
   QuestTemplate,
   QuestTrigger,
   QuestTriggerType,
 } from "./types";
-export { QUEST_TAGS, QUEST_TRIGGER_TYPES } from "./types";
+export { QUEST_STEP_COMPLETION_KINDS, QUEST_TAGS, QUEST_TRIGGER_TYPES } from "./types";
 export {
   defaultTracerTriggers,
   enrichEntityDataWithQuests,
@@ -63,8 +64,15 @@ export {
 } from "./backfill";
 export {
   resolveQuestAdvancesOnCombatEnd,
+  resolveQuestAdvancesOnDetectedInZone,
+  resolveQuestAdvancesOnDiscoverZone,
+  resolveQuestAdvancesOnEnterZone,
   resolveQuestAdvancesOnEvent,
+  resolveQuestAdvancesOnInteractObject,
   stepEligibleForCombatEndAdvance,
+  stepEligibleForDiscoverZoneAdvance,
+  stepEligibleForEnterZoneAdvance,
+  stepEligibleForInteractAdvance,
   stepEligibleForLocationAdvance,
   stepEligibleForNpcAdvance,
   pendingStepAdvanceLines,

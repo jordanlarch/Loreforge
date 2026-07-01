@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { AuthoredDungeonFloor, GridCell } from "@app/engine";
 
@@ -29,6 +29,9 @@ import {
   removeNpcAtCell,
   removeZoneTrap,
   setFloorEntrance,
+  setZoneRect,
+  applyZoneRectResize,
+  inferAuthoredZoneRect,
   toggleBlockedCell,
   toggleConnectionLocked,
   toggleZoneObject,
@@ -36,9 +39,39 @@ import {
   zoneAtCell,
   zoneColor,
   type DungeonMapTool,
+  type ZoneRect,
+  type ZoneResizeHandle,
 } from "@/lib/dungeon-map-editor";
 
 const CELL_PX = 22;
+const SVG_PAD_X = 20;
+const SVG_PAD_Y = 12;
+const HANDLE_PX = 8;
+
+function rectSvgBounds(rect: ZoneRect) {
+  return {
+    x: rect.x * CELL_PX + SVG_PAD_X,
+    y: rect.y * CELL_PX + SVG_PAD_Y,
+    w: rect.w * CELL_PX - 2,
+    h: rect.h * CELL_PX - 2,
+  };
+}
+
+function resizeHandles(rect: ZoneRect): { handle: ZoneResizeHandle; cx: number; cy: number }[] {
+  const b = rectSvgBounds(rect);
+  const midX = b.x + b.w / 2;
+  const midY = b.y + b.h / 2;
+  return [
+    { handle: "nw", cx: b.x, cy: b.y },
+    { handle: "n", cx: midX, cy: b.y },
+    { handle: "ne", cx: b.x + b.w, cy: b.y },
+    { handle: "e", cx: b.x + b.w, cy: midY },
+    { handle: "se", cx: b.x + b.w, cy: b.y + b.h },
+    { handle: "s", cx: midX, cy: b.y + b.h },
+    { handle: "sw", cx: b.x, cy: b.y + b.h },
+    { handle: "w", cx: b.x, cy: midY },
+  ];
+}
 
 type Props = {
   entityId: string;
@@ -54,6 +87,14 @@ type PickerTarget =
   | { kind: "npc-cell"; cell: GridCell }
   | { kind: "trap-connection"; zoneId: string; connectionId: string }
   | { kind: "trap-zone"; zoneId: string };
+
+type ResizeDragState = {
+  zoneId: string;
+  handle: ZoneResizeHandle;
+  startRect: ZoneRect;
+  startClientX: number;
+  startClientY: number;
+};
 
 export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Props) {
   const utils = trpc.useUtils();
@@ -71,11 +112,17 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
   const [tool, setTool] = useState<DungeonMapTool>("select");
   const [dirty, setDirty] = useState(false);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [resizeDrag, setResizeDrag] = useState<ResizeDragState | null>(null);
+  const [previewRect, setPreviewRect] = useState<ZoneRect | null>(null);
 
   useEffect(() => {
     setFloors(savedFloors);
     setDirty(false);
     setFloorIndex(0);
+    setSelectedZoneId(null);
+    setResizeDrag(null);
+    setPreviewRect(null);
   }, [savedFloors]);
 
   const normalized = useMemo(() => normalizeAuthoredFloors(floors), [floors]);
@@ -101,6 +148,64 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
     setDirty(true);
   }
 
+  const finishResizeDrag = useCallback(
+    (drag: ResizeDragState, rect: ZoneRect) => {
+      if (!currentFloor) return;
+      patchFloor(setZoneRect(currentFloor, drag.zoneId, rect));
+      setResizeDrag(null);
+      setPreviewRect(null);
+    },
+    [currentFloor, floorIndex],
+  );
+
+  useEffect(() => {
+    if (!resizeDrag) return;
+    const drag = resizeDrag;
+
+    function onMove(e: MouseEvent) {
+      const deltaX = Math.round((e.clientX - drag.startClientX) / CELL_PX);
+      const deltaY = Math.round((e.clientY - drag.startClientY) / CELL_PX);
+      setPreviewRect(
+        applyZoneRectResize(drag.startRect, drag.handle, deltaX, deltaY),
+      );
+    }
+
+    function onUp(e: MouseEvent) {
+      const deltaX = Math.round((e.clientX - drag.startClientX) / CELL_PX);
+      const deltaY = Math.round((e.clientY - drag.startClientY) / CELL_PX);
+      finishResizeDrag(
+        drag,
+        applyZoneRectResize(drag.startRect, drag.handle, deltaX, deltaY),
+      );
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [resizeDrag, finishResizeDrag]);
+
+  function beginResizeDrag(
+    zoneId: string,
+    handle: ZoneResizeHandle,
+    startRect: ZoneRect,
+    e: React.MouseEvent,
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedZoneId(zoneId);
+    setResizeDrag({
+      zoneId,
+      handle,
+      startRect,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+    });
+    setPreviewRect(startRect);
+  }
+
   function buildFromRooms() {
     const emitted = emitFloorsFromEntityData(data);
     if (emitted.length === 0) return;
@@ -112,6 +217,11 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
   function handleCellClick(cell: GridCell) {
     if (!currentFloor || !currentNorm) return;
     switch (tool) {
+      case "zone": {
+        const zone = zoneAtCell(currentNorm, cell);
+        setSelectedZoneId(zone?.zoneId ?? null);
+        break;
+      }
       case "wall":
         patchFloor(toggleBlockedCell(currentFloor, cell));
         break;
@@ -245,8 +355,8 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
         <div>
           <h2 className="font-display text-lg">Floor map</h2>
           <p className="mt-1 text-xs text-lore-muted">
-            Paint walls, entrance, loot, traps, NPCs, and interactables. Codex slugs resolve in
-            Live Play.
+            Paint walls, entrance, loot, traps, NPCs, and interactables. Use Zones to
+            drag-resize room geometry. Codex slugs resolve in Live Play.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -282,6 +392,7 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
         {(
           [
             ["select", "Select"],
+            ["zone", "Zones"],
             ["wall", "Walls"],
             ["entrance", "Entrance"],
             ["object", "Interact"],
@@ -293,7 +404,10 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
           <button
             key={id}
             type="button"
-            onClick={() => setTool(id)}
+            onClick={() => {
+              setTool(id);
+              if (id !== "zone") setSelectedZoneId(null);
+            }}
             className={`rounded border px-2.5 py-1 text-xs transition-colors ${
               tool === id
                 ? "border-lore-accent bg-lore-accent-dim text-lore-text"
@@ -329,7 +443,10 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
 
                 let stroke = "rgba(255,255,255,0.08)";
                 let strokeWidth = 0.5;
-                if (isEntrance) {
+                if (tool === "zone" && zoneId === selectedZoneId) {
+                  stroke = "rgba(255,255,255,0.45)";
+                  strokeWidth = 1;
+                } else if (isEntrance) {
                   stroke = "rgba(74, 222, 128, 0.9)";
                   strokeWidth = 1.5;
                 } else if (isTrap) {
@@ -394,8 +511,8 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
               return (
                 <text
                   key={zone.zoneId}
-                  x={mid.x * CELL_PX + 20 + (CELL_PX - 2) / 2}
-                  y={mid.y * CELL_PX + 12 + (CELL_PX - 2) / 2 - 4}
+                  x={mid.x * CELL_PX + SVG_PAD_X + (CELL_PX - 2) / 2}
+                  y={mid.y * CELL_PX + SVG_PAD_Y + (CELL_PX - 2) / 2 - 4}
                   textAnchor="middle"
                   fill="rgba(255,255,255,0.55)"
                   fontSize="8"
@@ -405,9 +522,52 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
                 </text>
               );
             })}
+            {tool === "zone" && selectedZoneId && currentFloor
+              ? (() => {
+                  const zone = currentFloor.zones.find((z) => z.zoneId === selectedZoneId);
+                  const normZone = currentNorm?.zones.find((z) => z.zoneId === selectedZoneId);
+                  if (!zone) return null;
+                  const baseRect = inferAuthoredZoneRect(zone, normZone);
+                  if (!baseRect) return null;
+                  const rect = previewRect ?? baseRect;
+                  const bounds = rectSvgBounds(rect);
+                  return (
+                    <g key={`zone-resize-${selectedZoneId}`} aria-hidden>
+                      <rect
+                        x={bounds.x - 1}
+                        y={bounds.y - 1}
+                        width={bounds.w + 2}
+                        height={bounds.h + 2}
+                        fill="none"
+                        stroke="rgba(255,255,255,0.85)"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 3"
+                        pointerEvents="none"
+                      />
+                      {resizeHandles(rect).map(({ handle, cx, cy }) => (
+                        <rect
+                          key={handle}
+                          x={cx - HANDLE_PX / 2}
+                          y={cy - HANDLE_PX / 2}
+                          width={HANDLE_PX}
+                          height={HANDLE_PX}
+                          fill="rgba(255,255,255,0.95)"
+                          stroke="rgba(15,15,20,0.9)"
+                          strokeWidth={1}
+                          className="cursor-pointer"
+                          onMouseDown={(e) =>
+                            beginResizeDrag(selectedZoneId, handle, baseRect, e)
+                          }
+                        />
+                      ))}
+                    </g>
+                  );
+                })()
+              : null}
           </svg>
           <p className="mt-2 text-[11px] text-lore-muted">
             {width}×{height} · green = entrance · $ loot · ⚠ trap · @ NPC · ◆ interactable
+            {tool === "zone" ? " · drag handles to resize selected zone" : ""}
           </p>
         </div>
 
@@ -417,18 +577,37 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
             <ul className="mt-2 space-y-2 text-xs">
               {currentFloor?.zones.map((zone) => {
                 const zoneWide = (zone.traps ?? []).filter((t) => !t.cell);
+                const normZone = currentNorm?.zones.find((z) => z.zoneId === zone.zoneId);
+                const rect = inferAuthoredZoneRect(zone, normZone);
+                const isSelected = selectedZoneId === zone.zoneId;
                 return (
                   <li
                     key={zone.zoneId}
-                    className="rounded border border-lore-border bg-lore-bg px-2 py-2"
+                    className={`rounded border px-2 py-2 ${
+                      isSelected
+                        ? "border-lore-accent bg-lore-accent-dim/40"
+                        : "border-lore-border bg-lore-bg"
+                    }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTool("zone");
+                        setSelectedZoneId(zone.zoneId);
+                      }}
+                      className="flex w-full items-center gap-2 text-left"
+                    >
                       <span
                         className="inline-block h-2.5 w-2.5 rounded-sm"
                         style={{ background: zoneColor(zone.zoneId) }}
                       />
                       <span className="text-lore-text">{zone.name}</span>
-                    </div>
+                      {rect ? (
+                        <span className="ml-auto text-[10px] text-lore-muted">
+                          {rect.w}×{rect.h}
+                        </span>
+                      ) : null}
+                    </button>
                     {zoneWide.length > 0 ? (
                       <ul className="mt-2 space-y-1 pl-4 text-lore-muted">
                         {zoneWide.map((t) => (

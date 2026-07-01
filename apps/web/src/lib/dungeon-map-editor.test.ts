@@ -16,6 +16,9 @@ import {
   placeLootObject,
   placeNpcOnCell,
   setFloorEntrance,
+  setZoneRect,
+  applyZoneRectResize,
+  inferAuthoredZoneRect,
   toggleBlockedCell,
   toggleConnectionLocked,
   toggleZoneObject,
@@ -112,5 +115,24 @@ describe("dungeon-map-editor", () => {
       label: "Warden",
     });
     expect(npcAtCell(floor, cell)?.npcEntityId).toBe("npc-1");
+  });
+
+  it("resizes zone rects and expands map bounds (DUN-13)", () => {
+    const [normalized] = normalizeAuthoredFloors([sampleFloor]);
+    const entry = sampleFloor.zones[0]!;
+    const start = inferAuthoredZoneRect(entry, normalized!.zones[0])!;
+    expect(start).toEqual({ x: 1, y: 2, w: 4, h: 4 });
+
+    const resized = applyZoneRectResize(start, "e", 2, 0);
+    expect(resized).toEqual({ x: 1, y: 2, w: 6, h: 4 });
+
+    const nextFloor = setZoneRect(sampleFloor, "entry", resized);
+    const entryZone = nextFloor.zones[0]!;
+    expect(entryZone.rect).toEqual(resized);
+    expect(entryZone.cells).toBeUndefined();
+
+    const [nextNorm] = normalizeAuthoredFloors([nextFloor]);
+    expect(nextNorm!.zones[0]!.cells).toHaveLength(24);
+    expect((nextFloor.map?.width ?? 0) >= 8).toBe(true);
   });
 });

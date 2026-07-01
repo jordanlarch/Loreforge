@@ -71,3 +71,22 @@ export function surprisedActionEconomy(
     freeInteractionUsed: true,
   };
 }
+
+/** True when the combatant can spend a main action (including Haste extra action). */
+export function mainActionAvailable(
+  economy: ActionEconomyState | undefined,
+): boolean {
+  if (!economy) return true;
+  return (
+    economy.action === "available" || economy.extraAction === "available"
+  );
+}
+
+/** Payload field for spending the main action or Haste extra action. */
+export function mainActionSpendPayload(
+  economy: ActionEconomyState,
+): { action?: true; extraAction?: true } {
+  if (economy.action === "available") return { action: true };
+  if (economy.extraAction === "available") return { extraAction: true };
+  return {};
+}

@@ -74,7 +74,7 @@ These run today and produce **wrong results** vs the PDF. Mirrored to `docs/defe
 | **SRD-FID-9** | Revivify raises dead | ✅ **Done** — PR #347 |
 | **SRD-FID-10** | Sleep (2014 claim retracted) | ✅ **Done/retracted** |
 | **SRD-FID-11** | Counterspell / Dispel interrupt + contest | ✅ **Done** — PR #346, #349 |
-| **SRD-FID-12** | Tracer spells (zones, polymorph, summons, …) | 🟡 **Partial** — PR #348 (Wall of Fire, Polymorph, Spiritual Weapon); PR #352 (Moonbeam, Call Lightning engine, Spirit Guardians); Live Play Call Lightning strike button wired. Remaining: Cloudkill, Haste depth, Stinking Cloud, … (ENG-3 overlap) |
+| **SRD-FID-12** | Tracer spells (zones, polymorph, summons, …) | 🟡 **Partial** — PR #348 (Wall of Fire, Polymorph, Spiritual Weapon); PR #352 (Moonbeam, Call Lightning engine, Spirit Guardians); PR #355 (Cloudkill, Stinking Cloud, Haste depth). Live Play Call Lightning strike button wired. Remaining: Banishment, … (ENG-3 overlap) |
 | **SRD-FID-13** | Damage at 0 HP (crit failures, instant death) | ✅ **Done** — PR #346 area |
 
 ---
@@ -98,7 +98,7 @@ Work end-to-end with deterministic math + tests (751 engine tests, Jun 2026):
 - **Damage/Healing:** resist/vuln/immunity, temp HP grant, crit death-save doubling, instant death overflow, death saves.
 - **Concentration:** start/replace/break, CON save, linked effect/zone cleanup.
 - **Conditions:** Incapacitated, Invisible, Paralyzed, Poisoned, Prone, Restrained, Stunned, Unconscious, grapple escape, frightened/blinded/deafened gates, petrified resistances.
-- **Spell engine:** slots, upcast, saves, spell attacks, AoE shapes (sphere/cone/line/cube/**emanation**), **126+ golden-tested** spells; persistent spell zones (Wall of Fire, Moonbeam, Call Lightning); Spirit Guardians aura; Spiritual Weapon + Call Lightning strike commands.
+- **Spell engine:** slots, upcast, saves, spell attacks, AoE shapes (sphere/cone/line/cube/**emanation**), **126+ golden-tested** spells; persistent spell zones (Wall of Fire, Moonbeam, Call Lightning, Cloudkill, Stinking Cloud); Spirit Guardians aura; Spiritual Weapon + Call Lightning strike commands; Haste extra action + lethargy.
 - **Class/subclass features:** Second Wind, Action Surge, Sneak Attack, Rage, Bardic Inspiration, Monk/Metamagic/Warlock/Paladin tracers; **all 12 SRD subclasses** have ≥1 wired feature (SRD-FID-21b).
 - **Gameplay Toolbox:** traps, poisons, curses, environmental effects, fear/stress; exploration Burning & Falling.
 - **Codex:** all 10 SRD content families browsable.
@@ -109,7 +109,7 @@ Work end-to-end with deterministic math + tests (751 engine tests, Jun 2026):
 
 | ID | Area | Missing vs PDF |
 |---|---|---|
-| SRD-FID-12 | Tracer spells | Cloudkill, Haste extra action/lethargy, Stinking Cloud, Banishment, … |
+| SRD-FID-12 | Tracer spells | Banishment, … (Cloudkill / Stinking Cloud zones + Haste extra action shipped PR #355) |
 | SRD-FID-21 | Class features | Remaining base-class features; Live Play wiring for some (PR #351 shipped Indomitable/Lay on Hands/Spiritual Weapon) |
 | SRD-FID-22 | Species traits | 0 mechanical |
 | SRD-FID-23 | Feats | 8 mechanical; rest inert |

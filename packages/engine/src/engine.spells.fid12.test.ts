@@ -317,3 +317,133 @@ describe("SRD-FID-12: Spirit Guardians", () => {
     expect(foeAfter.hp.current).toBeLessThan(foeBefore.hp.current);
   });
 });
+
+describe("SRD-FID-12: Cloudkill zone", () => {
+  it("creates a persistent poison cloud and ticks on turn start", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:wizard", { x: 0, y: 0 }, {
+      classes: [{ class: "Wizard", level: 9 }],
+      spellcasting: { ability: "int", casterLevel: 9 },
+    });
+    await place(
+      engine,
+      "npc:foe",
+      { x: 3, y: 0 },
+      {
+        baseAc: 10,
+        maxHp: 200,
+        abilityScores: { ...CASTER_SCORES, con: 1 },
+      },
+    );
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:wizard", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:wizard": 20, "npc:foe": 0 },
+    });
+
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:wizard",
+      spellId: "cloudkill",
+      slotLevel: 5,
+      targets: [],
+      origin: { x: 3, y: 0 },
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) throw new Error("cast failed");
+
+    const foeBefore = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    await engine.execute(CAMPAIGN, { type: "end_turn" });
+    const foeAfter = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    expect(foeAfter.hp.current).toBeLessThan(foeBefore.hp.current);
+    const scene = (await engine.getState(CAMPAIGN)).scenes["s:arena"]!;
+    expect(scene.spellZones?.some((z) => z.spellId === "cloudkill")).toBe(true);
+  });
+});
+
+describe("SRD-FID-12: Stinking Cloud zone", () => {
+  it("runs a turn-start save when a creature starts in the cloud", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:wizard", { x: 0, y: 0 }, {
+      classes: [{ class: "Wizard", level: 5 }],
+      spellcasting: { ability: "int", casterLevel: 5 },
+    });
+    await place(engine, "npc:foe", { x: 3, y: 0 }, { baseAc: 10, maxHp: 200 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:wizard", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:wizard": 20, "npc:foe": 0 },
+    });
+
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:wizard",
+      spellId: "stinking-cloud",
+      slotLevel: 3,
+      targets: [],
+      origin: { x: 3, y: 0 },
+    });
+    await engine.execute(CAMPAIGN, { type: "end_turn" });
+    const endTurn = await engine.execute(CAMPAIGN, { type: "end_turn" });
+    expect(endTurn.accepted).toBe(true);
+    if (!endTurn.accepted) throw new Error("end turn failed");
+    expect(endTurn.events.some((e) => e.type === "SaveRolled")).toBe(true);
+  });
+});
+
+describe("SRD-FID-12: Haste depth", () => {
+  it("grants an extra action on the hasted creature's turn", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:wizard", { x: 0, y: 0 }, {
+      classes: [{ class: "Wizard", level: 5 }],
+      spellcasting: { ability: "int", casterLevel: 5 },
+    });
+    await place(engine, "pc:ally", { x: 1, y: 0 }, {
+      classes: [{ class: "Fighter", level: 5 }],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:wizard", "pc:ally"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:wizard": 20, "pc:ally": 10 },
+    });
+
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:wizard",
+      spellId: "haste",
+      slotLevel: 3,
+      targets: ["pc:ally"],
+    });
+    await engine.execute(CAMPAIGN, { type: "end_turn" });
+    const ally = (await engine.getState(CAMPAIGN)).entities["pc:ally"]!;
+    expect(ally.actionEconomy?.extraAction).toBe("available");
+
+    const dash = await engine.execute(CAMPAIGN, {
+      type: "dash",
+      entity: "pc:ally",
+    });
+    expect(dash.accepted).toBe(true);
+    if (!dash.accepted) throw new Error("dash failed");
+    const afterDash = (await engine.getState(CAMPAIGN)).entities["pc:ally"]!;
+    expect(afterDash.actionEconomy?.action).toBe("used");
+    expect(afterDash.actionEconomy?.extraAction).toBe("available");
+
+    const dash2 = await engine.execute(CAMPAIGN, {
+      type: "dash",
+      entity: "pc:ally",
+    });
+    expect(dash2.accepted).toBe(true);
+  });
+});

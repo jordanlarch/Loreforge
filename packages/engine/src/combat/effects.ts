@@ -67,6 +67,7 @@ export function entityReactionsSuppressed(entity: EntityState): boolean {
 
 /** Speed after conditions and effect riders (Haste, etc.). */
 export function effectiveSpeedForEntity(entity: EntityState): number {
+  if (entity.hasteLethargy) return 0;
   let speed = effectiveSpeed(entity.speed, entity.conditions);
   for (const fx of entity.effects ?? []) {
     if (fx.modifier.type === "speed_bonus") {
@@ -74,6 +75,11 @@ export function effectiveSpeedForEntity(entity: EntityState): number {
     }
   }
   return speed;
+}
+
+/** Haste — extra action, +2 AC, +30 speed, advantage on Dex saves. */
+export function entityHasHaste(entity: EntityState): boolean {
+  return (entity.effects ?? []).some((fx) => fx.name === "Haste");
 }
 
 /** Bless-style d4 (etc.) dice to roll and add to an attack total. */
@@ -329,6 +335,12 @@ export function stripConcentrationEffects(
   const next = { ...entities };
   for (const id of Object.keys(next)) {
     const entity = next[id]!;
+    const removedHaste = (entity.effects ?? []).some(
+      (fx) =>
+        fx.name === "Haste" &&
+        fx.concentration?.holder === holder &&
+        fx.concentration.spell === spell,
+    );
     const effects = (entity.effects ?? []).filter(
       (fx) =>
         !(
@@ -337,7 +349,18 @@ export function stripConcentrationEffects(
         ),
     );
     if (effects.length !== (entity.effects ?? []).length) {
-      next[id] = { ...entity, effects };
+      let updated: EntityState = { ...entity, effects };
+      if (removedHaste) {
+        updated = {
+          ...updated,
+          hasteLethargy: true,
+          conditions: [
+            ...entity.conditions.filter((c) => c.condition !== "incapacitated"),
+            { condition: "incapacitated", source: holder },
+          ],
+        };
+      }
+      next[id] = updated;
     }
   }
   return next;

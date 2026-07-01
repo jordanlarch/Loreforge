@@ -92,6 +92,8 @@ export type ActionEconomyState = {
   flurryAttacksRemaining?: number;
   /** Monk Stunning Strike — once per turn. */
   stunningStrikeUsed?: boolean;
+  /** Haste — one additional action per turn (Attack/Dash/Disengage/Hide/Utilize). */
+  extraAction?: ResourceState;
 };
 
 /** Canonical entity record held in the WorldState projection. */
@@ -106,6 +108,8 @@ export type EntityState = {
   /** When true, Draconic Resilience unarmored AC does not apply. */
   wearingArmor?: boolean;
   speed: number;
+  /** When true, Haste lethargy — speed 0 until this turn ends. */
+  hasteLethargy?: boolean;
   /** Class levels (PCs/NPCs). Monsters may leave this empty. */
   classes: ClassLevel[];
   /** Proficiency bonus, derived from total level / CR. */

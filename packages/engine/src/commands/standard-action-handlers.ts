@@ -16,6 +16,7 @@ import type { ActiveEffect } from "../combat/effects";
 import type { EntityState } from "../entities/types";
 import type { DraftEvent, EventMeta } from "../events/types";
 import type { RollMode } from "../rng/dice";
+import { mainActionAvailable, mainActionSpendPayload } from "../combat/initiative";
 import type { ExecutionContext } from "./context";
 import type {
   CommandResult,
@@ -94,7 +95,7 @@ function requireOwnTurnAction(
       `${entity.name} is surprised and cannot act this turn.`,
     );
   }
-  if (entity.actionEconomy?.action !== "available") {
+  if (entity.actionEconomy && !mainActionAvailable(entity.actionEconomy)) {
     return reject(
       "ACTION_UNAVAILABLE",
       `${entity.name} has already used its action this turn.`,
@@ -107,11 +108,15 @@ function spendActionEvents(
   ctx: ExecutionContext,
   entityId: string,
 ): DraftEvent[] {
+  const economy = ctx.world.entities[entityId]?.actionEconomy;
   return [
     {
       type: "ActionSpent",
       ...meta(ctx, entityId),
-      payload: { entity: entityId, action: true },
+      payload: {
+        entity: entityId,
+        ...(economy ? mainActionSpendPayload(economy) : { action: true }),
+      },
     },
   ];
 }

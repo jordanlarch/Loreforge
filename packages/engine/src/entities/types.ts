@@ -202,6 +202,8 @@ export type EntityState = {
   activeBurning?: ActiveBurningInstance[];
   /** Summoned Spiritual Weapon — bonus-action strikes until duration ends (FID-12). */
   activeSpiritualWeapon?: ActiveSpiritualWeaponInstance;
+  /** Spirit Guardians aura — hostile turn-start Wis save tick (FID-12). */
+  activeSpiritGuardians?: ActiveSpiritGuardiansInstance;
   /** Polymorph beast form with stored original stats (FID-12). */
   polymorph?: PolymorphState;
   /** Explicit damage modifiers (SRD-FID-19). */
@@ -265,6 +267,11 @@ export type ActiveSpiritualWeaponInstance = {
   instanceId: string;
   slotLevel: number;
   roundsRemaining: number;
+};
+
+export type ActiveSpiritGuardiansInstance = {
+  instanceId: string;
+  slotLevel: number;
 };
 
 export type PolymorphState = {

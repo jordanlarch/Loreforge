@@ -195,3 +195,125 @@ describe("SRD-FID-12: Polymorph", () => {
     expect(allyAfter.polymorph?.storedMaxHp).toBe(allyBefore.hp.max);
   });
 });
+
+describe("SRD-FID-12: Moonbeam zone", () => {
+  it("creates a persistent zone and ticks radiant damage on turn start", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:druid", { x: 0, y: 0 }, {
+      classes: [{ class: "Druid", level: 5 }],
+      spellcasting: { ability: "wis", casterLevel: 5 },
+    });
+    await place(engine, "npc:foe", { x: 3, y: 0 }, { baseAc: 10, maxHp: 200 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:druid", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:druid": 20, "npc:foe": 0 },
+    });
+
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:druid",
+      spellId: "moonbeam",
+      slotLevel: 2,
+      targets: [],
+      origin: { x: 3, y: 0 },
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) throw new Error("cast failed");
+
+    const foeBefore = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    const endTurn = await engine.execute(CAMPAIGN, { type: "end_turn" });
+    expect(endTurn.accepted).toBe(true);
+    if (!endTurn.accepted) throw new Error("end turn failed");
+    expect(endTurn.events.some((e) => e.type === "SaveRolled")).toBe(true);
+    const foeAfter = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    expect(foeAfter.hp.current).toBeLessThan(foeBefore.hp.current);
+  });
+});
+
+describe("SRD-FID-12: Call Lightning", () => {
+  it("creates a storm cloud zone and strike_call_lightning spends action", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:druid", { x: 0, y: 0 }, {
+      classes: [{ class: "Druid", level: 5 }],
+      spellcasting: { ability: "wis", casterLevel: 5 },
+    });
+    await place(engine, "npc:foe", { x: 3, y: 0 }, { baseAc: 10, maxHp: 200 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:druid", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:druid": 20, "npc:foe": 0 },
+    });
+
+    await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:druid",
+      spellId: "call-lightning",
+      slotLevel: 3,
+      targets: [],
+      origin: { x: 3, y: 0 },
+    });
+    await engine.execute(CAMPAIGN, { type: "end_turn" });
+    await engine.execute(CAMPAIGN, { type: "end_turn" });
+
+    const foeBefore = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    const strike = await engine.execute(CAMPAIGN, {
+      type: "strike_call_lightning",
+      caster: "pc:druid",
+      target: "npc:foe",
+    });
+    expect(strike.accepted).toBe(true);
+    if (!strike.accepted) throw new Error("strike failed");
+    expect(strike.events.some((e) => e.type === "SaveRolled")).toBe(true);
+    const foeAfter = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    expect(foeAfter.hp.current).toBeLessThan(foeBefore.hp.current);
+    const druid = (await engine.getState(CAMPAIGN)).entities["pc:druid"]!;
+    expect(druid.actionEconomy?.action).toBe("used");
+  });
+});
+
+describe("SRD-FID-12: Spirit Guardians", () => {
+  it("ticks radiant damage on hostile turn start within 15 ft", async () => {
+    const engine = new Engine({ now: () => 1 });
+    await setupScene(engine);
+    await place(engine, "pc:cleric", { x: 0, y: 0 });
+    await place(engine, "npc:foe", { x: 2, y: 0 }, { baseAc: 10, maxHp: 200 });
+    await engine.execute(CAMPAIGN, {
+      type: "start_encounter",
+      combatants: ["pc:cleric", "npc:foe"],
+    });
+    await engine.execute(CAMPAIGN, {
+      type: "roll_initiative",
+      bonuses: { "pc:cleric": 20, "npc:foe": 0 },
+    });
+
+    const cast = await engine.execute(CAMPAIGN, {
+      type: "cast_spell",
+      caster: "pc:cleric",
+      spellId: "spirit-guardians",
+      slotLevel: 3,
+      targets: [],
+    });
+    expect(cast.accepted).toBe(true);
+    if (!cast.accepted) throw new Error("cast failed");
+    expect(cast.events.some((e) => e.type === "SpiritGuardiansStarted")).toBe(
+      true,
+    );
+
+    const foeBefore = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    const endTurn = await engine.execute(CAMPAIGN, { type: "end_turn" });
+    expect(endTurn.accepted).toBe(true);
+    if (!endTurn.accepted) throw new Error("end turn failed");
+    expect(endTurn.events.some((e) => e.type === "SaveRolled")).toBe(true);
+    const foeAfter = (await engine.getState(CAMPAIGN)).entities["npc:foe"]!;
+    expect(foeAfter.hp.current).toBeLessThan(foeBefore.hp.current);
+  });
+});

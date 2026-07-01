@@ -11,7 +11,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { enrichEntityDataWithQuests } from "@app/engine";
+import { enrichEntityDataWithQuests, enrichDungeonEntityData } from "@app/engine";
 
 import {
   REALM_FIELDS,
@@ -110,7 +110,15 @@ function typeHasHooks(type: RealmEntityType): boolean {
 export function dataSchemaFor(
   type: RealmEntityType,
 ): z.ZodObject<z.ZodRawShape> {
-  return type === "npc" ? npcData : buildFieldsSchema(REALM_FIELDS[type]);
+  if (type === "npc") return npcData;
+  const base = buildFieldsSchema(REALM_FIELDS[type]);
+  if (type === "dungeon") {
+    return base.extend({
+      /** Authored floor layout (DUN-7); emitted from rooms when absent. */
+      floors: z.array(z.record(z.string(), z.unknown())).max(20).optional(),
+    });
+  }
+  return base;
 }
 
 /**
@@ -133,6 +141,9 @@ export function parseData(
   let data = result.data as Record<string, unknown>;
   if (typeHasHooks(type)) {
     data = enrichEntityDataWithQuests(data, entityId) as Record<string, unknown>;
+  }
+  if (type === "dungeon") {
+    data = enrichDungeonEntityData(data);
   }
   return data;
 }

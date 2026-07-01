@@ -688,7 +688,10 @@ export {
   tickPatrolEvents,
 } from "./dungeon/patrols";
 export type {
+  AuthoredDungeonFloor,
+  AuthoredDungeonZone,
   DungeonLayoutState,
+  GridCell,
   NormalizedDungeonFloor,
   NormalizedDungeonZone,
   DungeonMapObject,

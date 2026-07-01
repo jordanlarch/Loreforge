@@ -270,7 +270,7 @@ All mechanics via engine commands; LLM narrates results only. Schemas: `packages
 | **DUN-5 — Fog + scout** | Per-PC cell fog, visited zones shared, scout report | Live Play prod (1 campaign) | **Done (Jul 2026)** — `dungeonFog`, `FogRevealed`/`ZoneDiscovered`/`ScoutRevealShared`, `share_scout_reveal`, `reveal_area`, Live Play fog overlay — #361 |
 | **DUN-6 — Patrols** | Routes, timer, fog-gated render, session reset on load | Engine + ws-server | **Done (Jul 2026)** — `patrolRoutes[]`, `tick_patrols`/`reset_patrols`, ws-server 8s timer + session reset, fog-gated patrol tokens — #362 |
 | **DUN-7 — Generator layout** | GENR-5 emits `floors[]` geometry from Dyson pipeline | Generator sample + enter in play | **Done (Jul 2026)** — `emitDungeonFloorsFromRooms`, `enrichDungeonEntityData` on dungeon save; slug zone IDs + tree layout — #363 |
-| **DUN-8 — Manual map edit** | Prep Realms editor: walls, zones, doors, objects, fog (REALM-5 / PLAY-7) | Realms prep verify |
+| **DUN-8 — Manual map edit** | Prep Realms editor: walls, zones, doors, objects, fog (REALM-5 / PLAY-7) | Realms prep verify | **Done (Jul 2026)** — `DungeonMapEditor` on Realms dungeon detail: wall paint, entrance pin, object toggle, connection lock toggle, build-from-rooms; zone rect edit + fog paint deferred |
 
 Do not start **DUN-7** until **DUN-1–3** are green — otherwise layout work attaches to the wrong runtime.
 

@@ -473,6 +473,11 @@ export function useLiveSession({
         t: "cmd",
         action: { type: "pass_indomitable", entity },
       }),
+    strikeSpiritualWeapon: (caster: string, target: string) =>
+      send({
+        t: "cmd",
+        action: { type: "strike_spiritual_weapon", caster, target },
+      }),
     shortRest: (
       entity: string,
       opts?: {

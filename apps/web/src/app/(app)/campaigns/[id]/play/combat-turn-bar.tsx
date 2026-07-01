@@ -122,6 +122,8 @@ export function CombatTurnBar({
   onFastHands,
   onArmLayOnHands,
   onArmTurnUndead,
+  showSpiritualWeaponStrike,
+  onArmSpiritualWeaponStrike,
 }: {
   activeEntity: EntityState | undefined;
   activeName: string | undefined;
@@ -221,6 +223,8 @@ export function CombatTurnBar({
   ) => void;
   onArmLayOnHands?: (featureKey: string) => void;
   onArmTurnUndead?: (featureKey: string) => void;
+  showSpiritualWeaponStrike?: boolean;
+  onArmSpiritualWeaponStrike?: () => void;
 }) {
   const armedMode = armed !== null;
 
@@ -405,6 +409,16 @@ export function CombatTurnBar({
                     canAct={canAct}
                     onExtinguish={onExtinguishBurning}
                   />
+                ) : null}
+                {showSpiritualWeaponStrike && onArmSpiritualWeaponStrike ? (
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={onArmSpiritualWeaponStrike}
+                    className="rounded border border-lore-border px-2 py-0.5 text-xs text-lore-muted hover:border-lore-accent hover:text-lore-text disabled:opacity-40"
+                  >
+                    Spiritual Weapon
+                  </button>
                 ) : null}
                 {activeEntity && onUseClassFeature ? (
                   <ClassFeatureControls

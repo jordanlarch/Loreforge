@@ -44,7 +44,7 @@ describe("CampaignRoom", () => {
 
     expect(state.currentSceneId).toBe(FIXTURE_BATTLE_SCENE_ID);
     expect(state.encounter?.initiativeRolled).toBe(true);
-    expect(state.encounter?.order).toHaveLength(5);
+    expect(state.encounter?.order).toHaveLength(6);
     // The seed was persisted, not held only in memory.
     expect(await store.lastSequence(CAMPAIGN)).toBeGreaterThan(0);
   });
@@ -192,8 +192,8 @@ describe("CampaignRoom", () => {
     const state = await room.getState();
 
     expect(state.scenes[FIXTURE_BATTLE_SCENE_ID]?.name).toBe("Ogre Den");
-    // Fixture party (3 PCs) + the three authored ogres = 6 combatants.
-    expect(state.encounter?.combatants).toHaveLength(6);
+    // Fixture party (4 PCs) + the three authored ogres = 7 combatants.
+    expect(state.encounter?.combatants).toHaveLength(7);
     expect(state.entities["npc:foe-0"]?.name).toBe("Ogre 1");
     expect(state.entities["npc:foe-2"]?.hp.max).toBe(59);
     // The default goblins are absent.

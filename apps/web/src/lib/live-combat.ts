@@ -144,6 +144,17 @@ export function reactionSpellsFor(entity: EntityState): CastableSpell[] {
   });
 }
 
+/** Range in feet for Spiritual Weapon bonus-action strikes (SRD + engine). */
+export const SPIRITUAL_WEAPON_RANGE_FT = 60;
+
+/** Whether the active entity can fire a Spiritual Weapon strike this turn. */
+export function canStrikeSpiritualWeapon(entity: EntityState): boolean {
+  return (
+    !!entity.activeSpiritualWeapon &&
+    entity.actionEconomy?.bonusAction === "available"
+  );
+}
+
 /**
  * Placed, alive enemies of `attackerId` within `rangeFt` in the same scene.
  * Line of sight is left to the engine (which rejects blocked attacks/casts).

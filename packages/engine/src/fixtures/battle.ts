@@ -176,7 +176,7 @@ const DEFAULT_FOES: readonly FoeSpec[] = [
   },
 ];
 
-/** The fixture party (Thorin + Elara + Aldric), used by the sandbox + empty campaigns. */
+/** The fixture party (Thorin + Galen + Aldric + Mara), used by the sandbox + empty campaigns. */
 export const FIXTURE_PARTY: PartyMember[] = [
   {
     id: FIXTURE_CHARACTERS[0]!.id,
@@ -203,8 +203,6 @@ export const FIXTURE_PARTY: PartyMember[] = [
     skillProficiencies: FIXTURE_CHARACTERS[1]!.skillProficiencies,
     toolProficiencies: FIXTURE_CHARACTERS[1]!.toolProficiencies,
     weaponProficiencies: FIXTURE_CHARACTERS[1]!.weaponProficiencies,
-    // The Bard is a caster so the live cast loop (#58) is exercisable.
-    spellcasting: { ability: "cha" },
   },
   {
     id: FIXTURE_CHARACTERS[2]!.id,
@@ -221,6 +219,23 @@ export const FIXTURE_PARTY: PartyMember[] = [
       ability: "int",
       casterLevel: 5,
       preparedSpellIds: ["counterspell", "fire-bolt", "magic-missile"],
+    },
+  },
+  {
+    id: FIXTURE_CHARACTERS[3]!.id,
+    name: FIXTURE_CHARACTERS[3]!.name,
+    abilityScores: FIXTURE_CHARACTERS[3]!.abilityScores,
+    maxHp: FIXTURE_CHARACTERS[3]!.maxHp,
+    baseAc: FIXTURE_CHARACTERS[3]!.baseAc,
+    speed: FIXTURE_CHARACTERS[3]!.speed,
+    classes: FIXTURE_CHARACTERS[3]!.classes,
+    saveProficiencies: FIXTURE_CHARACTERS[3]!.saveProficiencies,
+    skillProficiencies: FIXTURE_CHARACTERS[3]!.skillProficiencies,
+    weaponProficiencies: FIXTURE_CHARACTERS[3]!.weaponProficiencies,
+    spellcasting: {
+      ability: "wis",
+      casterLevel: 5,
+      preparedSpellIds: ["spiritual-weapon", "cure-wounds", "sacred-flame"],
     },
   },
 ];

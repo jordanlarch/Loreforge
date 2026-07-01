@@ -16,6 +16,7 @@ import {
 } from "@/lib/realms";
 
 import { EntityForm } from "../entity-form";
+import { DungeonMapEditor } from "./dungeon-map-editor";
 import { QuestsSection } from "./quests-section";
 import { RelationshipPanel } from "./relationship-panel";
 
@@ -225,6 +226,15 @@ export function RealmEntityDetail({
             isStub={entity.isStub}
             data={entity.data as Record<string, unknown>}
           />
+          {type === "dungeon" ? (
+            <DungeonMapEditor
+              entityId={entity.id}
+              name={entity.name}
+              summary={entity.summary}
+              isStub={entity.isStub}
+              data={entity.data as Record<string, unknown>}
+            />
+          ) : null}
           <DescriptiveView
             type={type}
             data={entity.data}

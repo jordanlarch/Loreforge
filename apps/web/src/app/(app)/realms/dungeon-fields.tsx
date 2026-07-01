@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-import { CodexMonsterAddPicker } from "@/components/realms-dungeon-pickers";
+import type { ToolboxTopic } from "@app/engine";
+
+import {
+  CodexItemAddPicker,
+  CodexMonsterAddPicker,
+  CodexToolboxAddPicker,
+} from "@/components/realms-dungeon-pickers";
 import type { RealmFieldDescriptor } from "@/lib/realms";
 
 const inputClass =
@@ -59,7 +65,8 @@ export function DungeonRoomsEditor({
 }) {
   const items = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
   const itemLabel = field.itemLabel ?? "Room";
-  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [monsterPickerIndex, setMonsterPickerIndex] = useState<number | null>(null);
+  const [itemPickerIndex, setItemPickerIndex] = useState<number | null>(null);
 
   function update(next: Record<string, unknown>[]) {
     onChange(next);
@@ -74,6 +81,7 @@ export function DungeonRoomsEditor({
       encounterCodexSlug: "",
       encounterCount: 2,
       treasure: "",
+      treasureCodexSlug: "",
     };
   }
 
@@ -159,7 +167,7 @@ export function DungeonRoomsEditor({
                     />
                     <button
                       type="button"
-                      onClick={() => setPickerIndex(i)}
+                      onClick={() => setMonsterPickerIndex(i)}
                       className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-2 text-xs text-lore-text"
                     >
                       Search Codex
@@ -174,15 +182,30 @@ export function DungeonRoomsEditor({
               </div>
               <div className="sm:col-span-2">
                 <Field label="Treasure">
-                  <input
-                    value={String(item.treasure ?? "")}
-                    onChange={(e) => {
-                      const next = [...items];
-                      next[i] = { ...item, treasure: e.target.value };
-                      update(next);
-                    }}
-                    className={inputClass}
-                  />
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      value={String(item.treasure ?? "")}
+                      onChange={(e) => {
+                        const next = [...items];
+                        next[i] = { ...item, treasure: e.target.value };
+                        update(next);
+                      }}
+                      placeholder="Gold coins, magic sword…"
+                      className={`min-w-[200px] flex-1 ${inputClass}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setItemPickerIndex(i)}
+                      className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-2 text-xs text-lore-text"
+                    >
+                      Search Codex
+                    </button>
+                  </div>
+                  {item.treasureCodexSlug ? (
+                    <p className="mt-1 text-[11px] text-lore-muted">
+                      Codex: {String(item.treasureCodexSlug)}
+                    </p>
+                  ) : null}
                 </Field>
               </div>
             </div>
@@ -191,20 +214,38 @@ export function DungeonRoomsEditor({
         <AddButton label={`Add ${itemLabel}`} onClick={() => update([...items, emptyRoom()])} />
       </div>
 
-      {pickerIndex != null ? (
+      {monsterPickerIndex != null ? (
         <CodexMonsterAddPicker
-          onClose={() => setPickerIndex(null)}
+          onClose={() => setMonsterPickerIndex(null)}
           onPick={(monster, count) => {
             const next = [...items];
-            const row = next[pickerIndex] ?? emptyRoom();
-            next[pickerIndex] = {
+            const row = next[monsterPickerIndex] ?? emptyRoom();
+            next[monsterPickerIndex] = {
               ...row,
               encounter: `${count} × ${monster.name}`,
               encounterCodexSlug: monster.slug,
               encounterCount: count,
             };
             update(next);
-            setPickerIndex(null);
+            setMonsterPickerIndex(null);
+          }}
+        />
+      ) : null}
+
+      {itemPickerIndex != null ? (
+        <CodexItemAddPicker
+          title="Add treasure from Codex"
+          onClose={() => setItemPickerIndex(null)}
+          onPick={(codexItem) => {
+            const next = [...items];
+            const row = next[itemPickerIndex] ?? emptyRoom();
+            next[itemPickerIndex] = {
+              ...row,
+              treasure: codexItem.name,
+              treasureCodexSlug: codexItem.slug,
+            };
+            update(next);
+            setItemPickerIndex(null);
           }}
         />
       ) : null}
@@ -298,6 +339,90 @@ export function DungeonWanderingMonstersEditor({
               label: `${count} × ${monster.name}`,
               codexSlug: monster.slug,
               count,
+            };
+            update(next);
+            setPickerIndex(null);
+          }}
+        />
+      ) : null}
+    </Field>
+  );
+}
+
+/** Gameplay Toolbox group editor with Codex search (DUN-11). */
+export function DungeonToolboxEntriesEditor({
+  field,
+  topic,
+  value,
+  onChange,
+}: {
+  field: RealmFieldDescriptor;
+  topic: ToolboxTopic;
+  value: unknown;
+  onChange: (value: Record<string, unknown>[]) => void;
+}) {
+  const items = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+
+  function update(next: Record<string, unknown>[]) {
+    onChange(next);
+  }
+
+  function emptyEntry(): Record<string, unknown> {
+    return { label: "", codexSlug: "" };
+  }
+
+  return (
+    <Field label={field.label}>
+      <div className="space-y-3">
+        {items.map((item, i) => (
+          <div
+            key={i}
+            className="flex flex-wrap items-end gap-2 rounded border border-lore-border bg-lore-bg p-3"
+          >
+            <div className="min-w-[180px] flex-1">
+              <Field label="Label">
+                <input
+                  value={String(item.label ?? "")}
+                  onChange={(e) => {
+                    const next = [...items];
+                    next[i] = { ...item, label: e.target.value };
+                    update(next);
+                  }}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPickerIndex(i)}
+              className="rounded border border-lore-accent bg-lore-accent-dim px-3 py-2 text-xs text-lore-text"
+            >
+              Search Codex
+            </button>
+            {item.codexSlug ? (
+              <span className="text-[11px] text-lore-muted">{String(item.codexSlug)}</span>
+            ) : null}
+            <RemoveButton onClick={() => update(items.filter((_, j) => j !== i))} />
+          </div>
+        ))}
+        <AddButton
+          label={`Add ${field.itemLabel ?? "Entry"}`}
+          onClick={() => update([...items, emptyEntry()])}
+        />
+      </div>
+
+      {pickerIndex != null ? (
+        <CodexToolboxAddPicker
+          topic={topic}
+          onClose={() => setPickerIndex(null)}
+          onPick={(entry) => {
+            const next = [...items];
+            const row = next[pickerIndex] ?? emptyEntry();
+            next[pickerIndex] = {
+              ...row,
+              label: entry.name,
+              codexSlug: entry.slug,
             };
             update(next);
             setPickerIndex(null);

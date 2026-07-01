@@ -6,6 +6,10 @@ import type { Ability } from "@app/engine";
 
 import { trpc } from "@/lib/trpc/client";
 import {
+  DUNGEON_TOOLBOX_FIELD_TOPICS,
+  isDungeonToolboxFieldKey,
+} from "@/lib/dungeon-toolbox-fields";
+import {
   REALM_TYPE_LABEL,
   emptyDataFor,
   emptyGroupItem,
@@ -17,6 +21,7 @@ import {
 
 import {
   DungeonRoomsEditor,
+  DungeonToolboxEntriesEditor,
   DungeonWanderingMonstersEditor,
 } from "./dungeon-fields";
 
@@ -245,6 +250,20 @@ function DescriptiveField({
     return (
       <DungeonWanderingMonstersEditor
         field={field}
+        value={value}
+        onChange={onChange as (value: Record<string, unknown>[]) => void}
+      />
+    );
+  }
+  if (
+    type === "dungeon" &&
+    field.kind === "group" &&
+    isDungeonToolboxFieldKey(field.key)
+  ) {
+    return (
+      <DungeonToolboxEntriesEditor
+        field={field}
+        topic={DUNGEON_TOOLBOX_FIELD_TOPICS[field.key]}
         value={value}
         onChange={onChange as (value: Record<string, unknown>[]) => void}
       />

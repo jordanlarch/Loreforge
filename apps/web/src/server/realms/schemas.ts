@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { enrichEntityDataWithQuests, enrichDungeonEntityData } from "@app/engine";
 
+import { migrateDungeonToolboxLists } from "@/lib/dungeon-toolbox-fields";
 import {
   REALM_FIELDS,
   type RealmEntityType,
@@ -135,7 +136,11 @@ export function parseData(
   raw: unknown,
   entityId?: string,
 ): Record<string, unknown> {
-  const result = dataSchemaFor(type).safeParse(raw ?? {});
+  const normalized =
+    type === "dungeon" && raw && typeof raw === "object" && !Array.isArray(raw)
+      ? migrateDungeonToolboxLists(raw as Record<string, unknown>)
+      : raw;
+  const result = dataSchemaFor(type).safeParse(normalized ?? {});
   if (!result.success) {
     throw new TRPCError({
       code: "BAD_REQUEST",

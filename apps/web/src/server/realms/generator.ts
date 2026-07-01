@@ -241,7 +241,11 @@ function fieldGuidance(type: RealmEntityType): string {
     }
     return `- ${f.key} (${f.label})${f.placeholder ? ` — e.g. ${f.placeholder}` : ""}`;
   });
-  return `Provide these ${REALM_TYPE_LABEL[type]} fields:\n${lines.join("\n")}`;
+  const base = `Provide these ${REALM_TYPE_LABEL[type]} fields:\n${lines.join("\n")}`;
+  if (type === "dungeon") {
+    return `${base}\n\nFor Codex-linked fields, set slugs when you know the SRD entry: rooms[].encounterCodexSlug and treasureCodexSlug (srd-2024_* pattern), wanderingMonsterEntries[].codexSlug, and traps/poisons/cursesAndContagions/environmentalEffects/fearAndStress[].codexSlug from the Gameplay Toolbox. Human-readable labels go in encounter/treasure/label fields.`;
+  }
+  return base;
 }
 
 function groundingBlock(grounding: Grounding): string {

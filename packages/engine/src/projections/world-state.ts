@@ -241,6 +241,31 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       next.scenes[event.payload.scene.id] = { ...event.payload.scene };
       break;
     }
+    case "SceneMapPatched": {
+      const scene = next.scenes[event.payload.sceneId];
+      if (!scene) break;
+      const existingTraps = scene.traps ?? [];
+      const trapById = new Map(existingTraps.map((t) => [t.instanceId, t]));
+      const mergedTraps = event.payload.traps?.map((t) => {
+        const prev = trapById.get(t.instanceId);
+        return prev
+          ? {
+              ...t,
+              detected: prev.detected,
+              disabled: prev.disabled,
+              triggered: prev.triggered,
+            }
+          : t;
+      });
+      next.scenes[event.payload.sceneId] = {
+        ...scene,
+        map: event.payload.map,
+        ...(event.payload.traps !== undefined
+          ? { traps: mergedTraps ?? [] }
+          : {}),
+      };
+      break;
+    }
     case "SceneChanged": {
       next.currentSceneId = event.payload.sceneId;
       break;

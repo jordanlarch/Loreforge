@@ -95,6 +95,12 @@ type Props = {
   summary: string;
   isStub: boolean;
   data: Record<string, unknown>;
+  /** Compact layout for Live Play lightbox (DUN-17). */
+  embedded?: boolean;
+  /** Open on this floor when embedded in play. */
+  initialFloorIndex?: number;
+  /** Fired after Realms save succeeds (in-play layout reload). */
+  onSaved?: (floors: AuthoredDungeonFloor[]) => void | Promise<void>;
 };
 
 type PickerTarget =
@@ -112,7 +118,16 @@ type ResizeDragState = {
   startClientY: number;
 };
 
-export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Props) {
+export function DungeonMapEditor({
+  entityId,
+  name,
+  summary,
+  isStub,
+  data,
+  embedded = false,
+  initialFloorIndex,
+  onSaved,
+}: Props) {
   const utils = trpc.useUtils();
   const links = trpc.realms.links.useQuery({ entityId });
   const update = trpc.realms.update.useMutation({
@@ -153,12 +168,12 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
   useEffect(() => {
     setFloors(savedFloors);
     setDirty(false);
-    setFloorIndex(0);
+    setFloorIndex(initialFloorIndex ?? 0);
     setSelectedZoneId(null);
     setSelectedTransitionId(null);
     setResizeDrag(null);
     setPreviewRect(null);
-  }, [savedFloors]);
+  }, [savedFloors, initialFloorIndex]);
 
   const normalized = useMemo(() => normalizeAuthoredFloors(floors), [floors]);
   const currentFloor = floors[floorIndex];
@@ -431,14 +446,21 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
   }
 
   function save() {
-    update.mutate({
-      id: entityId,
-      type: "dungeon",
-      name,
-      summary,
-      isStub,
-      data: { ...data, floors },
-    });
+    update.mutate(
+      {
+        id: entityId,
+        type: "dungeon",
+        name,
+        summary,
+        isStub,
+        data: { ...data, floors },
+      },
+      {
+        onSuccess: async () => {
+          await onSaved?.(floors);
+        },
+      },
+    );
   }
 
   if (floors.length === 0) {
@@ -532,11 +554,19 @@ export function DungeonMapEditor({ entityId, name, summary, isStub, data }: Prop
     ) ?? [];
 
   return (
-    <section className="mt-8 rounded-lg border border-lore-border bg-lore-surface p-6">
+    <section
+      className={
+        embedded
+          ? "space-y-4"
+          : "mt-8 rounded-lg border border-lore-border bg-lore-surface p-6"
+      }
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg">Floor map</h2>
-          <p className="mt-1 text-xs text-lore-muted">
+          {!embedded ? (
+            <h2 className="font-display text-lg">Floor map</h2>
+          ) : null}
+          <p className={`text-xs text-lore-muted ${embedded ? "" : "mt-1"}`}>
             Paint walls, entrance, loot, traps, NPCs, and interactables. Use Zones to
             drag-resize room geometry; Stairs links floors; Fog paints starting revealed cells.
             Wheel zoom · middle-click pan. Codex slugs resolve in Live Play.

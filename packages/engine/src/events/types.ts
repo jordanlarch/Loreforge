@@ -681,6 +681,13 @@ export type DungeonLayoutSetPayload = {
   openedConnectionIds: string[];
 };
 
+export type SceneMapPatchedPayload = {
+  sceneId: import("../entities/types").SceneId;
+  map: import("../entities/types").SceneMap;
+  /** When set, replaces scene traps (preserves detect/disable/trigger on matching instanceIds). */
+  traps?: import("../entities/types").SceneTrapInstance[];
+};
+
 export type ConnectionOpenedPayload = {
   dungeonEntityId: string;
   floorIndex: number;
@@ -941,6 +948,10 @@ export type EngineEvent =
   | (EventMeta & {
       type: "DungeonLayoutSet";
       payload: DungeonLayoutSetPayload;
+    })
+  | (EventMeta & {
+      type: "SceneMapPatched";
+      payload: SceneMapPatchedPayload;
     })
   | (EventMeta & {
       type: "ConnectionOpened";

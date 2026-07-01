@@ -588,6 +588,13 @@ export type EnterDungeonCommand = {
   entityData?: unknown;
 };
 
+/** Owner syncs Realms-authored floor layout into the live session (DUN-17). */
+export type ReloadDungeonLayoutCommand = {
+  type: "reload_dungeon_layout";
+  dungeonEntityId: string;
+  entityData: unknown;
+};
+
 /** Open a gated zone connection (door/corridor) from the actor's side (DUN-2). */
 export type UseConnectionCommand = {
   type: "use_connection";
@@ -733,6 +740,7 @@ export type Command =
   | StrikeSpiritualWeaponCommand
   | StrikeCallLightningCommand
   | EnterDungeonCommand
+  | ReloadDungeonLayoutCommand
   | UseConnectionCommand
   | UseFloorTransitionCommand
   | StartZoneEncounterCommand

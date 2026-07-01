@@ -48,6 +48,7 @@ import type {
   EnterDungeonCommand,
   InteractObjectCommand,
   MarkZoneClearedCommand,
+  ReloadDungeonLayoutCommand,
   ResetPatrolsCommand,
   RevealAreaCommand,
   ShareScoutRevealCommand,
@@ -263,6 +264,52 @@ function enterDungeonEvents(
   return events;
 }
 
+function reloadDungeonLayoutEvents(
+  ctx: ExecutionContext,
+  cmd: ReloadDungeonLayoutCommand,
+): DraftEvent[] {
+  const floors = loadDungeonFloors(cmd.entityData);
+  if (floors.length === 0) return [];
+
+  const existing = layoutForDungeon(ctx, cmd.dungeonEntityId);
+  const openedConnectionIds = existing?.openedConnectionIds ?? [];
+  const layout = buildLayoutState(floors);
+  layout.openedConnectionIds = openedConnectionIds;
+
+  const events: DraftEvent[] = [
+    {
+      type: "DungeonLayoutSet",
+      ...meta(ctx),
+      payload: {
+        dungeonEntityId: cmd.dungeonEntityId,
+        floors: layout.floors,
+        openedConnectionIds,
+      },
+    },
+  ];
+
+  for (const floor of layout.floors) {
+    const sceneId = sceneIdForDungeonFloor(cmd.dungeonEntityId, floor.index);
+    if (!ctx.world.scenes[sceneId]) continue;
+    const sceneTraps = sceneTrapsFromFloor(floor);
+    events.push({
+      type: "SceneMapPatched",
+      ...meta(ctx),
+      payload: {
+        sceneId,
+        map: {
+          width: floor.map.width,
+          height: floor.map.height,
+          blockedCells: floor.map.blockedCells,
+        },
+        traps: sceneTraps,
+      },
+    });
+  }
+
+  return events;
+}
+
 export function handleEnterDungeon(
   cmd: EnterDungeonCommand,
   ctx: ExecutionContext,
@@ -279,6 +326,24 @@ export function handleEnterDungeon(
         !ctx.world.dungeonProgress?.thresholdOpened ||
         ctx.world.dungeonProgress.dungeonEntityId !== cmd.dungeonEntityId,
     },
+  };
+}
+
+export function handleReloadDungeonLayout(
+  cmd: ReloadDungeonLayoutCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const events = reloadDungeonLayoutEvents(ctx, cmd);
+  if (events.length === 0) {
+    return reject(
+      "INVALID_PAYLOAD",
+      "No authored floors[] found in entity data.",
+    );
+  }
+  return {
+    accepted: true,
+    events,
+    summary: { dungeonEntityId: cmd.dungeonEntityId, reloaded: true },
   };
 }
 

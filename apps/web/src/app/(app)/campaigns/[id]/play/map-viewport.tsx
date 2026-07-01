@@ -48,6 +48,8 @@ export function MapViewport({
   fill = false,
   mapLevel,
   sceneName,
+  showEditMap = false,
+  onEditMap,
   ...mapProps
 }: BattleMapProps & {
   sceneBanner: SceneBannerInfo | null;
@@ -57,6 +59,9 @@ export function MapViewport({
   /** Native scene depth for the level badge (L3 exploration / L4 combat). */
   mapLevel?: MapZoomLevel;
   sceneName?: string;
+  /** Campaign owner in-play dungeon edit (DUN-17). */
+  showEditMap?: boolean;
+  onEditMap?: () => void;
 }) {
   const [zoom, setZoom] = useState(1);
   const [showGrid, setShowGrid] = useState(true);
@@ -244,6 +249,16 @@ export function MapViewport({
             />
             Movement
           </label>
+          {showEditMap && onEditMap ? (
+            <button
+              type="button"
+              onClick={onEditMap}
+              className="mt-1 rounded border border-lore-border px-2 py-1 text-left text-lore-text transition-colors hover:border-lore-accent"
+              title="Edit dungeon map layout"
+            >
+              Edit map ✎
+            </button>
+          ) : null}
         </div>
       </div>
 

@@ -181,6 +181,7 @@ import {
   handleEnterDungeon,
   handleInteractObject,
   handleMarkZoneCleared,
+  handleReloadDungeonLayout,
   handleRevealArea,
   handleResetPatrols,
   handleShareScoutReveal,
@@ -4954,6 +4955,8 @@ export function handleCommand(
       return handleStrikeCallLightning(command, ctx);
     case "enter_dungeon":
       return handleEnterDungeon(command, ctx);
+    case "reload_dungeon_layout":
+      return handleReloadDungeonLayout(command, ctx);
     case "use_connection":
       return handleUseConnection(command, ctx);
     case "use_floor_transition":

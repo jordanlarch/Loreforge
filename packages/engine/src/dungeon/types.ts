@@ -22,6 +22,9 @@ export type NormalizedDungeonZone = {
   name: string;
   cells: GridCell[];
   roomIndex?: number;
+  /** Authored encounter text (from `data.rooms[]` until GENR-5 layout). */
+  encounter?: string;
+  alertZoneOnDetection?: boolean;
   connections: DungeonZoneConnection[];
 };
 
@@ -53,6 +56,8 @@ export type AuthoredDungeonZone = {
   name: string;
   cells?: GridCell[];
   rect?: ZoneRect;
+  encounter?: string;
+  alertZoneOnDetection?: boolean;
   connections?: Omit<DungeonZoneConnection, "corridorCells">[];
 };
 

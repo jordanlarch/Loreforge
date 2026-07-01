@@ -688,6 +688,19 @@ export type ConnectionOpenedPayload = {
   zoneId: string;
 };
 
+export type CreatureDetectedPayload = {
+  dungeonEntityId: string;
+  floorIndex: number;
+  zoneId: string;
+  detectorId: EntityRef;
+  detectedId: EntityRef;
+};
+
+export type ZoneAlertedPayload = {
+  dungeonEntityId: string;
+  zoneId: string;
+};
+
 /** @deprecated PR #356 — replay only. */
 export type DungeonRoomEnteredPayload = {
   dungeonEntityId: string;
@@ -871,6 +884,14 @@ export type EngineEvent =
   | (EventMeta & {
       type: "ConnectionOpened";
       payload: ConnectionOpenedPayload;
+    })
+  | (EventMeta & {
+      type: "CreatureDetected";
+      payload: CreatureDetectedPayload;
+    })
+  | (EventMeta & {
+      type: "ZoneAlerted";
+      payload: ZoneAlertedPayload;
     })
   | (EventMeta & {
       type: "DungeonRoomEntered";

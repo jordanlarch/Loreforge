@@ -606,6 +606,14 @@ export type UseFloorTransitionCommand = {
   transitionId: string;
 };
 
+/** Start combat from detected entities in a dungeon zone (DUN-3). */
+export type StartZoneEncounterCommand = {
+  type: "start_zone_encounter";
+  dungeonEntityId: string;
+  floorIndex: number;
+  zoneId: string;
+};
+
 /** Mark a dungeon zone cleared after victorious combat or objective (DUN-1). */
 export type MarkZoneClearedCommand = {
   type: "mark_zone_cleared";
@@ -688,6 +696,7 @@ export type Command =
   | EnterDungeonCommand
   | UseConnectionCommand
   | UseFloorTransitionCommand
+  | StartZoneEncounterCommand
   | MarkZoneClearedCommand;
 
 export type CommandType = Command["type"];

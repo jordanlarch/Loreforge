@@ -27,6 +27,15 @@ describe("loadDungeonFloors", () => {
     expect(floors[0]?.zones[0]?.connections[0]?.toZoneId).toBe("zone-1");
   });
 
+  it("synthesizes a stub entry zone from wanderingMonsters when rooms are absent", () => {
+    const floors = loadDungeonFloors({
+      wanderingMonsters: ["3 goblin scouts"],
+    });
+    expect(floors).toHaveLength(1);
+    expect(floors[0]?.zones[0]?.zoneId).toBe("entry");
+    expect(floors[0]?.zones[0]?.encounter).toBe("3 goblin scouts");
+  });
+
   it("loads authored floors[] and normalizes rect zones", () => {
     const floors = loadDungeonFloors(samples.minimalTwoZoneFloor);
     expect(floors).toHaveLength(1);

@@ -130,6 +130,10 @@ export type DungeonProgressState = {
   clearedZoneIds: string[];
   /** Zone where the entry / current encounter was triggered (DUN-1 tracer). */
   activeEncounterZoneId?: string;
+  /** Detector→detected pairs for dungeon stealth (DUN-3). */
+  detectedPairs?: string[];
+  /** Zones where alertZoneOnDetection fired (DUN-3). */
+  alertedZoneIds?: string[];
 };
 
 export function emptyWorldState(campaignId: string): WorldState {
@@ -1058,6 +1062,38 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
             ...layout,
             openedConnectionIds: [...opened].sort(),
           },
+        };
+      }
+      break;
+    }
+    case "CreatureDetected": {
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === event.payload.dungeonEntityId
+      ) {
+        const pair = `${event.payload.detectorId}->${event.payload.detectedId}`;
+        const detectedPairs = [...new Set([...(progress.detectedPairs ?? []), pair])].sort();
+        next.dungeonProgress = {
+          ...progress,
+          detectedPairs,
+          activeEncounterZoneId:
+            progress.activeEncounterZoneId ?? event.payload.zoneId,
+        };
+      }
+      break;
+    }
+    case "ZoneAlerted": {
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === event.payload.dungeonEntityId
+      ) {
+        const alerted = new Set(progress.alertedZoneIds ?? []);
+        alerted.add(event.payload.zoneId);
+        next.dungeonProgress = {
+          ...progress,
+          alertedZoneIds: [...alerted].sort(),
         };
       }
       break;

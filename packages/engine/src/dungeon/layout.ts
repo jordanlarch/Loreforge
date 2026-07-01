@@ -105,6 +105,8 @@ function normalizeZone(raw: AuthoredDungeonZone): NormalizedDungeonZone {
     name: raw.name,
     cells,
     roomIndex: raw.roomIndex,
+    encounter: raw.encounter,
+    alertZoneOnDetection: raw.alertZoneOnDetection,
     connections: (raw.connections ?? []).map(normalizeConnection),
   };
 }
@@ -230,6 +232,7 @@ export function synthesizeFloorsFromRooms(
         name: room.name,
         cells,
         roomIndex: globalIndex,
+        encounter: room.encounter,
         connections,
       });
     });
@@ -282,8 +285,21 @@ export function loadDungeonFloors(entityData: unknown): NormalizedDungeonFloor[]
   }
 
   const rooms = parseDungeonRooms(entityData);
-  if (rooms.length === 0) return [];
-  return synthesizeFloorsFromRooms(rooms);
+  if (rooms.length > 0) {
+    return synthesizeFloorsFromRooms(rooms);
+  }
+
+  const wanderers = data.wanderingMonsters;
+  if (Array.isArray(wanderers) && wanderers.length > 0) {
+    const label = String(wanderers[0] ?? "").trim();
+    if (label) {
+      return synthesizeFloorsFromRooms([
+        { name: "Entry", encounter: label, floorIndex: 0 },
+      ]);
+    }
+  }
+
+  return [];
 }
 
 export function initialOpenedConnectionIds(
@@ -431,4 +447,20 @@ export function entityOnConnectionFromSide(
 /** Convert authored sample JSON (see dungeon-floor-samples.json) to layout state. */
 export function layoutFromEntityData(entityData: unknown): DungeonLayoutState {
   return buildLayoutState(loadDungeonFloors(entityData));
+}
+
+/** Pick distinct cells inside a zone for spawning entities. */
+export function cellsForEntitySpawn(
+  zone: NormalizedDungeonZone,
+  count: number,
+): GridCell[] {
+  if (zone.cells.length === 0) return [{ x: 1, y: 3 }];
+  if (count <= 1) {
+    return [zone.cells[Math.floor(zone.cells.length / 2)]!];
+  }
+  const step = Math.max(1, Math.floor(zone.cells.length / count));
+  return Array.from({ length: count }, (_, i) => {
+    const idx = Math.min(i * step, zone.cells.length - 1);
+    return zone.cells[idx]!;
+  });
 }

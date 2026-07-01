@@ -2,6 +2,7 @@
  * DUN-1/2 — dungeon threshold, layout, zones, connections (see docs/engine/dungeon-exploration.md).
  */
 import type { DraftEvent, EventMeta } from "../events/types";
+import type { EntityRef } from "../entities/types";
 import type { WorldState } from "../projections/world-state";
 import type { CampaignStartingLocation } from "../fixtures/exploration";
 import { zoneIdForRoomIndex } from "../dungeon/rooms";
@@ -19,10 +20,20 @@ import {
   zoneAtCell,
 } from "../dungeon/layout";
 import type { ExecutionContext } from "./context";
+import {
+  detectionEventsInZone,
+  entitiesInZoneCells,
+  isAutoUndetectable,
+  isHostilePair,
+  isPassivelyDetected,
+  partySideFor,
+  zoneFromLayout,
+} from "../dungeon/detection";
 import type {
   CommandResult,
   EnterDungeonCommand,
   MarkZoneClearedCommand,
+  StartZoneEncounterCommand,
   UseConnectionCommand,
   UseFloorTransitionCommand,
 } from "./types";
@@ -347,6 +358,17 @@ export function handleUseFloorTransition(
         zoneName: destZone.name,
       },
     });
+    if (!ctx.world.encounter) {
+      events.push(
+        ...detectionEventsInZone(
+          ctx,
+          cmd.dungeonEntityId,
+          transition.toFloorIndex,
+          destZone,
+          targetSceneId,
+        ),
+      );
+    }
   }
   return {
     accepted: true,
@@ -356,6 +378,108 @@ export function handleUseFloorTransition(
       toFloorIndex: transition.toFloorIndex,
       toCell: transition.toCell,
     },
+  };
+}
+
+function detectionPairKey(detectorId: string, detectedId: string): string {
+  return `${detectorId}->${detectedId}`;
+}
+
+export function handleStartZoneEncounter(
+  cmd: StartZoneEncounterCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  if (ctx.world.encounter) {
+    return reject("ENCOUNTER_EXISTS", "An encounter is already in progress.");
+  }
+  const zone = zoneFromLayout(
+    ctx.world,
+    cmd.dungeonEntityId,
+    cmd.floorIndex,
+    cmd.zoneId,
+  );
+  if (!zone) {
+    return reject("INVALID_PAYLOAD", `Zone ${cmd.zoneId} not found.`);
+  }
+  const sceneId = sceneIdForDungeonFloor(cmd.dungeonEntityId, cmd.floorIndex);
+  if (!ctx.world.scenes[sceneId]) {
+    return reject("SCENE_NOT_FOUND", `Scene ${sceneId} does not exist.`);
+  }
+
+  const inZone = entitiesInZoneCells(ctx.world, sceneId, zone);
+  const pairs = new Set(ctx.world.dungeonProgress?.detectedPairs ?? []);
+  const events: DraftEvent[] = [];
+
+  for (const observer of inZone) {
+    if (isAutoUndetectable(observer)) continue;
+    for (const target of inZone) {
+      if (observer.id === target.id) continue;
+      if (!isHostilePair(observer.id, target.id, ctx.world)) continue;
+      const key = detectionPairKey(observer.id, target.id);
+      if (pairs.has(key)) continue;
+      if (!isPassivelyDetected(observer, target)) continue;
+      pairs.add(key);
+      events.push({
+        type: "CreatureDetected",
+        ...meta(ctx, observer.id),
+        payload: {
+          dungeonEntityId: cmd.dungeonEntityId,
+          floorIndex: cmd.floorIndex,
+          zoneId: cmd.zoneId,
+          detectorId: observer.id,
+          detectedId: target.id,
+        },
+      });
+    }
+  }
+
+  const rosterIds = new Set<EntityRef>();
+  for (const pair of pairs) {
+    const [detector, detected] = pair.split("->");
+    if (detector) rosterIds.add(detector);
+    if (detected) rosterIds.add(detected);
+  }
+  for (const entity of inZone) {
+    if (isAutoUndetectable(entity) && !rosterIds.has(entity.id)) continue;
+    const side = partySideFor(entity.id, ctx.world);
+    if (side === "party" || side === "foes") {
+      rosterIds.add(entity.id);
+    }
+  }
+  const combatants = [...rosterIds];
+  const party = combatants.filter(
+    (id) => partySideFor(id, ctx.world) === "party",
+  );
+  const hostiles = combatants.filter(
+    (id) => partySideFor(id, ctx.world) === "foes",
+  );
+  if (party.length === 0 || hostiles.length === 0) {
+    return reject(
+      "INVALID_PAYLOAD",
+      "No detected hostiles and party in this zone to start combat.",
+      { zoneId: cmd.zoneId, detectedPairs: [...pairs] },
+    );
+  }
+
+  const sides: Record<string, string> = {};
+  for (const id of combatants) {
+    sides[id] = partySideFor(id, ctx.world);
+  }
+
+  events.push({
+    type: "EncounterStarted",
+    ...meta(ctx),
+    payload: {
+      sceneId,
+      combatants,
+      sides,
+    },
+  });
+
+  return {
+    accepted: true,
+    events,
+    summary: { zoneId: cmd.zoneId, combatants: combatants.length, detected: pairs.size },
   };
 }
 

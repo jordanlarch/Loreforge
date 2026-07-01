@@ -2,11 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import samples from "../../../../packages/engine/src/fixtures/dungeon-floor-samples.json";
 
+import type { AuthoredDungeonFloor } from "@app/engine";
+
 import {
+  addCellTrap,
+  cellTrapAt,
   dungeonCellKey,
   emitFloorsFromEntityData,
+  lootObjectAt,
   normalizeAuthoredFloors,
+  npcAtCell,
   parseAuthoredFloors,
+  placeLootObject,
+  placeNpcOnCell,
   setFloorEntrance,
   toggleBlockedCell,
   toggleConnectionLocked,
@@ -80,5 +88,29 @@ describe("dungeon-map-editor", () => {
     const walkable = walkableCellKeys(normalized!);
     expect(walkable.has("2,3")).toBe(true);
     expect(walkable.has("5,3")).toBe(true);
+  });
+
+  it("places loot, traps, and NPCs on cells (DUN-12)", () => {
+    const [normalized] = normalizeAuthoredFloors([sampleFloor]);
+    const cell = { x: 2, y: 3 };
+    let floor: AuthoredDungeonFloor = sampleFloor;
+
+    floor = placeLootObject(floor, normalized!, cell, {
+      codexSlug: "srd-2024_longsword",
+      label: "Longsword",
+    });
+    expect(lootObjectAt(floor, cell)?.codexItemSlug).toBe("srd-2024_longsword");
+
+    floor = addCellTrap(floor, normalized!, cell, {
+      codexSlug: "srd-2024_falling-net",
+      label: "Falling Net",
+    });
+    expect(cellTrapAt(floor, cell)?.codexSlug).toContain("falling-net");
+
+    floor = placeNpcOnCell(floor, normalized!, cell, {
+      npcEntityId: "npc-1",
+      label: "Warden",
+    });
+    expect(npcAtCell(floor, cell)?.npcEntityId).toBe("npc-1");
   });
 });

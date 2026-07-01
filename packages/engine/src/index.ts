@@ -695,15 +695,20 @@ export {
 } from "./dungeon/patrols";
 export type {
   AuthoredDungeonFloor,
+  AuthoredDungeonTrap,
   AuthoredDungeonZone,
+  AuthoredDungeonZoneConnection,
   DungeonLayoutState,
+  DungeonNpcPlacement,
   GridCell,
   NormalizedDungeonFloor,
+  NormalizedDungeonTrap,
   NormalizedDungeonZone,
   DungeonMapObject,
   ObjectNoise,
   PatrolRoute,
 } from "./dungeon/types";
+export { sceneTrapsFromFloor } from "./dungeon/trap-bridge";
 export {
   arrivalNarrationForLocation,
   buildCampaignExplorationCommands,

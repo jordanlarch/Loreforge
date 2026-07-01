@@ -4,13 +4,17 @@
 import { parseDungeonRooms, zoneIdForRoomIndex, type ParsedDungeonRoom } from "./rooms";
 import type {
   AuthoredDungeonFloor,
+  AuthoredDungeonTrap,
   AuthoredDungeonZone,
+  AuthoredDungeonZoneConnection,
   DungeonLayoutState,
   DungeonMapObject,
+  DungeonNpcPlacement,
   DungeonZoneConnection,
   FloorTransition,
   GridCell,
   NormalizedDungeonFloor,
+  NormalizedDungeonTrap,
   NormalizedDungeonZone,
   PatrolRoute,
   ZoneRect,
@@ -75,9 +79,7 @@ function inferCorridorCells(
   return corridor;
 }
 
-function normalizeConnection(
-  raw: Omit<DungeonZoneConnection, "corridorCells"> & { corridorCells?: GridCell[] },
-): DungeonZoneConnection {
+function normalizeConnection(raw: AuthoredDungeonZoneConnection): DungeonZoneConnection {
   const fromCells = dedupeCells(raw.fromCells ?? []);
   const toCells = dedupeCells(raw.toCells ?? []);
   const corridorCells =
@@ -95,6 +97,70 @@ function normalizeConnection(
   };
 }
 
+function normalizeAuthoredTrap(
+  raw: AuthoredDungeonTrap,
+  zoneId: string,
+  scope: NormalizedDungeonTrap["scope"],
+  connectionId?: string,
+): NormalizedDungeonTrap | undefined {
+  if (!raw?.trapId || !raw.codexSlug?.trim()) return undefined;
+  return {
+    trapId: raw.trapId,
+    codexSlug: raw.codexSlug.trim(),
+    label: raw.label?.trim() || undefined,
+    scope,
+    zoneId,
+    cell: raw.cell ? { ...raw.cell } : undefined,
+    connectionId,
+  };
+}
+
+function normalizeZoneTraps(raw: AuthoredDungeonZone): NormalizedDungeonTrap[] {
+  const traps: NormalizedDungeonTrap[] = [];
+  const seen = new Set<string>();
+  for (const t of raw.traps ?? []) {
+    const scope: NormalizedDungeonTrap["scope"] = t.cell ? "cell" : "zone";
+    const norm = normalizeAuthoredTrap(t, raw.zoneId, scope);
+    if (norm && !seen.has(norm.trapId)) {
+      seen.add(norm.trapId);
+      traps.push(norm);
+    }
+  }
+  for (const conn of raw.connections ?? []) {
+    for (const t of conn.traps ?? []) {
+      const norm = normalizeAuthoredTrap(
+        t,
+        raw.zoneId,
+        "connection",
+        conn.connectionId,
+      );
+      if (norm && !seen.has(norm.trapId)) {
+        seen.add(norm.trapId);
+        traps.push(norm);
+      }
+    }
+  }
+  return traps;
+}
+
+function normalizeNpcPlacements(
+  raw: AuthoredDungeonZone["npcPlacements"],
+): DungeonNpcPlacement[] {
+  if (!raw?.length) return [];
+  const seen = new Set<string>();
+  const out: DungeonNpcPlacement[] = [];
+  for (const row of raw) {
+    if (!row?.npcEntityId || seen.has(row.npcEntityId)) continue;
+    seen.add(row.npcEntityId);
+    out.push({
+      npcEntityId: row.npcEntityId,
+      cell: row.cell ? { ...row.cell } : undefined,
+      label: row.label?.trim() || undefined,
+    });
+  }
+  return out;
+}
+
 function normalizeZone(raw: AuthoredDungeonZone): NormalizedDungeonZone {
   let cells: GridCell[] = [];
   if (raw.rect) {
@@ -102,6 +168,7 @@ function normalizeZone(raw: AuthoredDungeonZone): NormalizedDungeonZone {
   } else if (raw.cells) {
     cells = dedupeCells(raw.cells);
   }
+  const connections = (raw.connections ?? []).map(normalizeConnection);
   return {
     zoneId: raw.zoneId,
     name: raw.name,
@@ -109,8 +176,10 @@ function normalizeZone(raw: AuthoredDungeonZone): NormalizedDungeonZone {
     roomIndex: raw.roomIndex,
     encounter: raw.encounter,
     alertZoneOnDetection: raw.alertZoneOnDetection,
-    connections: (raw.connections ?? []).map(normalizeConnection),
+    connections,
     objects: normalizeObjects(raw.objects),
+    traps: normalizeZoneTraps(raw),
+    npcPlacements: normalizeNpcPlacements(raw.npcPlacements),
   };
 }
 
@@ -127,6 +196,8 @@ function normalizeObjects(raw: AuthoredDungeonZone["objects"]): DungeonMapObject
       cell: { ...obj.cell },
       noise: obj.noise,
       questRef: obj.questRef,
+      codexItemSlug: obj.codexItemSlug?.trim() || undefined,
+      label: obj.label?.trim() || undefined,
     });
   }
   return out;
@@ -276,6 +347,8 @@ export function synthesizeFloorsFromRooms(
         encounter: room.encounter,
         connections,
         objects: [],
+        traps: [],
+        npcPlacements: [],
       });
     });
 

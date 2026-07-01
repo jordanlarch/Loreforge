@@ -37,6 +37,11 @@ import type {
   FastHandsCommand,
   CuttingWordsCommand,
   PassCuttingWordsCommand,
+  PassCounterspellCommand,
+  PassIndomitableCommand,
+  StrikeSpiritualWeaponCommand,
+  StrikeCallLightningCommand,
+  EndEncounterCommand,
   ShortRestCommand,
 } from "../commands/types";
 import type {
@@ -487,6 +492,11 @@ export type BattleAction =
   | FastHandsCommand
   | CuttingWordsCommand
   | PassCuttingWordsCommand
+  | PassCounterspellCommand
+  | PassIndomitableCommand
+  | StrikeSpiritualWeaponCommand
+  | StrikeCallLightningCommand
+  | EndEncounterCommand
   | ShortRestCommand;
 
 /** Convenience constructor for a drag-to-move action. */

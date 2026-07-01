@@ -1558,3 +1558,21 @@ export async function updatePlotHookData(
     .set({ data, updatedAt: new Date() })
     .where(eq(plotHooks.id, hookId));
 }
+
+/** Update quest instance data and optional status (Live Play step advances). */
+export async function updateQuestInstance(
+  hookId: string,
+  patch: {
+    data: Record<string, unknown>;
+    status?: "open" | "active" | "resolved" | "abandoned";
+  },
+): Promise<void> {
+  await getDb()
+    .update(plotHooks)
+    .set({
+      data: patch.data,
+      ...(patch.status ? { status: patch.status } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(plotHooks.id, hookId));
+}

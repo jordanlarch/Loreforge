@@ -30,6 +30,7 @@ import {
   classifyTutorialLeaveIntent,
   classifyTutorialRelightIntent,
   arrivalNarrationForLocation,
+  allHostileCombatantsDefeated,
   DEFAULT_STARTING_LOCATION,
   isTutorialFriendlyFireTarget,
   openingNarrationForLocation,
@@ -142,6 +143,7 @@ import {
 import {
   activeQuestContextForCampaign,
   appendPendingQuestBriefings,
+  tryQuestAdvanceOnCombatEnd,
   tryQuestOfferFromChat,
 } from "./quest-runtime.js";
 import { TutorialRoom } from "./tutorial-room.js";
@@ -730,6 +732,34 @@ async function runReadiedTriggers(
   } finally {
     if (client) setThinking(document, false);
   }
+}
+
+/**
+ * When all hostiles are down, tear down the encounter and advance eligible quests.
+ */
+async function maybeResolveCampaignCombatVictory(
+  room: CampaignRoom,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  documentName: string,
+  campaignId: string,
+  deps: ChatDeps,
+): Promise<void> {
+  const state = await room.getState();
+  if (!state.encounter || !allHostileCombatantsDefeated(state)) return;
+
+  const endResult = await room.apply({ type: "end_encounter" });
+  if (!endResult.accepted) return;
+
+  writeProjection(document, await room.getState());
+  await appendAndPersist(document, documentName, [
+    gmEntry("The last foe falls. Combat is over.", deps),
+  ]);
+  await tryQuestAdvanceOnCombatEnd(campaignId, (entries) =>
+    appendAndPersist(document, documentName, entries),
+    deps,
+  );
 }
 
 /**
@@ -1673,6 +1703,18 @@ const server = new Hocuspocus({
           }
           await runEnemyReactions(room, document, documentName, getNarrationClient());
           await runEnemyTurns(room, document, documentName, getNarrationClient());
+          if (room instanceof CampaignRoom) {
+            const parsedRoom = parseRoom(documentName);
+            if (parsedRoom?.kind === "campaign") {
+              await maybeResolveCampaignCombatVictory(
+                room,
+                document,
+                documentName,
+                parsedRoom.campaignId,
+                chatDeps,
+              );
+            }
+          }
         }
       } else {
         connection.sendStateless(REJECTED);

@@ -155,6 +155,64 @@ export function canStrikeSpiritualWeapon(entity: EntityState): boolean {
   );
 }
 
+function entityInCells(
+  entity: EntityState,
+  cells: readonly { x: number; y: number }[],
+): boolean {
+  if (!entity.position) return false;
+  return cells.some(
+    (c) => c.x === entity.position!.x && c.y === entity.position!.y,
+  );
+}
+
+/** Active Call Lightning storm cloud owned by this caster, if any. */
+export function findCallLightningZone(
+  state: WorldState,
+  casterId: string,
+): { cells: readonly { x: number; y: number }[] } | undefined {
+  for (const scene of Object.values(state.scenes)) {
+    const zone = scene.spellZones?.find(
+      (z) => z.spellId === "call-lightning" && z.caster === casterId,
+    );
+    if (zone) return zone;
+  }
+  return undefined;
+}
+
+/** Whether the caster can call another lightning bolt under their storm cloud. */
+export function canStrikeCallLightning(
+  entity: EntityState,
+  state: WorldState,
+): boolean {
+  return (
+    !!findCallLightningZone(state, entity.id) &&
+    entity.actionEconomy?.action === "available"
+  );
+}
+
+/** Hostile targets standing under the caster's Call Lightning cloud. */
+export function targetsInCallLightningCloud(
+  state: WorldState,
+  casterId: string,
+): EntityState[] {
+  const zone = findCallLightningZone(state, casterId);
+  if (!zone) return [];
+  const caster = state.entities[casterId];
+  const encounter = state.encounter;
+  if (!caster || !encounter) return [];
+  const mySide = encounter.sides[casterId];
+  return Object.values(state.entities).filter((e) => {
+    if (!e.alive || !entityInCells(e, zone.cells)) return false;
+    if (e.sceneId !== caster.sceneId) return false;
+    const side = encounter.sides[e.id];
+    const hostile =
+      side !== undefined
+        ? areHostile(mySide, side)
+        : e.kind === "monster" || e.kind === "npc";
+    return hostile;
+  });
+}
+
 /**
  * Placed, alive enemies of `attackerId` within `rangeFt` in the same scene.
  * Line of sight is left to the engine (which rejects blocked attacks/casts).

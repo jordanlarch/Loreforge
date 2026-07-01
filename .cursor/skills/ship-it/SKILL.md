@@ -131,10 +131,11 @@ Skip this section entirely when the PR has **no** new files in `packages/db/migr
 | Doc | When to update |
 |-----|----------------|
 | `docs/deferrals.md` | Shipped a deferred item → mark row **Done** with PR ref; new deferral → add row |
+| `docs/srd-feature-coverage-audit.md` | **Required** whenever `deferrals.md` §12 (`SRD-FID-*`) changes — flip matching rows/scorecard; bump **Last reconciled** |
 | `CONTEXT.md` | Milestone/phase status changed, major surface shipped, or current status paragraph is stale |
 | `AGENTS.md` | Only if architectural/process rules changed |
 
-Do not scatter deferrals outside `deferrals.md`.
+Do not scatter deferrals outside `deferrals.md`. **Keep §12 and `srd-feature-coverage-audit.md` in sync** — deferrals schedules work; the audit doc is the SRD-shaped coverage map.
 
 ## 8. Prod verify (UI/workspace slices — required; agent runs it)
 

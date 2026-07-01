@@ -201,6 +201,10 @@ export {
 } from "./combat/death";
   export { areHostile, opportunityAttackReach, provokesOpportunityAttack, REACH_FEET, readyTriggerRangeFeet } from "./combat/reactions";
 export {
+  allHostileCombatantsDefeated,
+  friendlyCombatantsAlive,
+} from "./combat/encounter-outcome";
+export {
   ENCOUNTER_XP_THRESHOLDS,
   encounterMultiplier,
   partyThresholds,
@@ -715,6 +719,8 @@ export {
   pendingQuestBriefings,
   playerTextReferencesNpc,
   resolveQuestOfferForNpc,
+  resolveQuestAdvancesOnCombatEnd,
+  stepEligibleForCombatEndAdvance,
   QUEST_TRIGGER_TYPES,
   QUEST_TAGS,
   evaluateQuestPrerequisites,

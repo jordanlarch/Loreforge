@@ -4,6 +4,8 @@ export const QUEST_TRIGGER_TYPES = [
   "on_enter_location",
   "on_talk_to_npc",
   "on_quest_accept",
+  "on_combat_end",
+  "on_step_complete",
 ] as const;
 
 export type QuestTriggerType = (typeof QUEST_TRIGGER_TYPES)[number];

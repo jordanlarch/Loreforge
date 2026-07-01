@@ -7,6 +7,7 @@ import {
   formatQuestOfferLine,
   markBriefingDelivered,
   pendingQuestBriefings,
+  resolveQuestAdvancesOnCombatEnd,
   resolveQuestOfferForNpc,
   type QuestInstanceRef,
 } from "@app/engine";
@@ -18,6 +19,7 @@ import {
   loadCampaignQuestInstances,
   loadQuestPrerequisiteContext,
   updatePlotHookData,
+  updateQuestInstance,
 } from "./db.js";
 import type { LiveRoom } from "./room.js";
 
@@ -51,6 +53,26 @@ export async function appendPendingQuestBriefings(
       b.instanceId,
       markBriefingDelivered(row.data) as Record<string, unknown>,
     );
+  }
+}
+
+/** After victorious combat, auto-advance eligible active quest steps. */
+export async function tryQuestAdvanceOnCombatEnd(
+  campaignId: string,
+  append: (entries: ChatEntry[]) => Promise<void>,
+  chatDeps: ChatDeps,
+): Promise<void> {
+  const instances = await loadCampaignQuestInstances(campaignId);
+  const advances = resolveQuestAdvancesOnCombatEnd(instances);
+  if (advances.length === 0) return;
+
+  await append(advances.map((a) => gmEntry(a.line, chatDeps)));
+
+  for (const advance of advances) {
+    await updateQuestInstance(advance.instanceId, {
+      data: advance.data,
+      status: advance.status,
+    });
   }
 }
 

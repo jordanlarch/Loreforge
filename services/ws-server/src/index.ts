@@ -142,8 +142,10 @@ import {
 } from "./campaign-travel.js";
 import {
   activeQuestContextForCampaign,
-  appendPendingQuestBriefings,
+  appendPendingQuestRuntimeLines,
+  tryQuestAdvanceFromChat,
   tryQuestAdvanceOnCombatEnd,
+  tryQuestAdvanceOnEnterLocation,
   tryQuestOfferFromChat,
 } from "./quest-runtime.js";
 import { TutorialRoom } from "./tutorial-room.js";
@@ -1745,6 +1747,14 @@ const server = new Hocuspocus({
           : undefined;
       if (travelResult) {
         writeProjection(document, await room.getState());
+        if (parsedChat?.kind === "campaign") {
+          await tryQuestAdvanceOnEnterLocation(
+            parsedChat.campaignId,
+            travelResult.destination.entityId,
+            (entries) => appendAndPersist(document, documentName, entries),
+            chatDeps,
+          );
+        }
         if (travelResult.startedCombat) {
           if (travelResult.destination.type === "dungeon") {
             const parsedTravel = parseRoom(documentName);
@@ -1785,7 +1795,7 @@ const server = new Hocuspocus({
           return;
         }
         if (parsedChat?.kind === "campaign" && room instanceof CampaignRoom) {
-          await appendPendingQuestBriefings(parsedChat.campaignId, (entries) =>
+          await appendPendingQuestRuntimeLines(parsedChat.campaignId, (entries) =>
             appendAndPersist(document, documentName, entries),
           chatDeps,
           );
@@ -1799,6 +1809,13 @@ const server = new Hocuspocus({
             await appendAndPersist(document, documentName, [offer]);
             return;
           }
+          await tryQuestAdvanceFromChat(
+            parsedChat.campaignId,
+            room,
+            message,
+            (entries) => appendAndPersist(document, documentName, entries),
+            chatDeps,
+          );
         }
         await appendAndPersist(document, documentName, [
           gmEntry(gmEcho(message.mode, message.text), chatDeps),
@@ -1810,7 +1827,7 @@ const server = new Hocuspocus({
       setThinking(document, true);
       try {
         if (parsedChat?.kind === "campaign" && room instanceof CampaignRoom) {
-          await appendPendingQuestBriefings(parsedChat.campaignId, (entries) =>
+          await appendPendingQuestRuntimeLines(parsedChat.campaignId, (entries) =>
             appendAndPersist(document, documentName, entries),
           chatDeps,
           );
@@ -1822,6 +1839,14 @@ const server = new Hocuspocus({
           );
           if (offer) {
             await appendAndPersist(document, documentName, [offer]);
+          } else {
+            await tryQuestAdvanceFromChat(
+              parsedChat.campaignId,
+              room,
+              message,
+              (entries) => appendAndPersist(document, documentName, entries),
+              chatDeps,
+            );
           }
         }
 
@@ -1895,6 +1920,12 @@ const server = new Hocuspocus({
             mentions: arrival.mentions,
           }),
         ]);
+        await tryQuestAdvanceOnEnterLocation(
+          parsed.campaignId,
+          message.entityId,
+          (entries) => appendAndPersist(document, documentName, entries),
+          chatDeps,
+        );
         if (startedCombat) {
           await runEnemyTurns(room, document, documentName, getNarrationClient());
         }

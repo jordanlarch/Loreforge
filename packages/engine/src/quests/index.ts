@@ -63,6 +63,14 @@ export {
 } from "./backfill";
 export {
   resolveQuestAdvancesOnCombatEnd,
+  resolveQuestAdvancesOnEvent,
   stepEligibleForCombatEndAdvance,
+  stepEligibleForLocationAdvance,
+  stepEligibleForNpcAdvance,
+  pendingStepAdvanceLines,
+  markStepAdvanceDelivered,
+  queueStepAdvanceLine,
+  type QuestAdvanceEvent,
   type QuestCombatAdvance,
-} from "./combat-triggers";
+  type QuestStepAdvance,
+} from "./step-triggers";

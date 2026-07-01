@@ -675,6 +675,10 @@ export {
   shareScoutRevealEvents,
 } from "./dungeon/fog";
 export {
+  enrichDungeonEntityData,
+  emitDungeonFloorsFromRooms,
+} from "./dungeon/emit-layout";
+export {
   DEFAULT_PATROL_INTERVAL_MS,
   deployPatrolEvents,
   isPatrolEntityId,

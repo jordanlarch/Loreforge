@@ -29,6 +29,7 @@ export function parseDungeonRooms(data: unknown): ParsedDungeonRoom[] {
     const obj = room as {
       name?: unknown;
       encounter?: unknown;
+      encounterCodexSlug?: unknown;
       summary?: unknown;
       floor?: unknown;
       floorIndex?: unknown;
@@ -36,7 +37,11 @@ export function parseDungeonRooms(data: unknown): ParsedDungeonRoom[] {
     };
     const encounter =
       typeof obj.encounter === "string" ? obj.encounter.trim() : "";
-    if (!encounter) continue;
+    const encounterCodexSlug =
+      typeof obj.encounterCodexSlug === "string"
+        ? obj.encounterCodexSlug.trim()
+        : "";
+    if (!encounter && !encounterCodexSlug) continue;
     const name =
       typeof obj.name === "string" && obj.name.trim()
         ? obj.name.trim()
@@ -46,7 +51,12 @@ export function parseDungeonRooms(data: unknown): ParsedDungeonRoom[] {
     const floorIndex = parseAuthoredFloorIndex(
       obj.floor ?? obj.floorIndex ?? obj.depth,
     );
-    parsed.push({ name, encounter, summary, floorIndex });
+    parsed.push({
+      name,
+      encounter: encounter || encounterCodexSlug,
+      summary,
+      floorIndex,
+    });
   }
   return parsed;
 }

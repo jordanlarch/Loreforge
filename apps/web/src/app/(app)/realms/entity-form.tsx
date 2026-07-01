@@ -15,6 +15,11 @@ import {
   type RealmFieldDescriptor,
 } from "@/lib/realms";
 
+import {
+  DungeonRoomsEditor,
+  DungeonWanderingMonstersEditor,
+} from "./dungeon-fields";
+
 const ABILITIES: Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
 
 const inputClass =
@@ -198,6 +203,7 @@ function DescriptiveFields({
                 }
               >
                 <DescriptiveField
+                  type={type}
                   field={field}
                   value={data[field.key]}
                   onChange={(v) => set(field.key, v)}
@@ -212,14 +218,38 @@ function DescriptiveFields({
 }
 
 function DescriptiveField({
+  type,
   field,
   value,
   onChange,
 }: {
+  type: Exclude<RealmEntityType, "npc">;
   field: RealmFieldDescriptor;
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
+  if (type === "dungeon" && field.key === "rooms" && field.kind === "group") {
+    return (
+      <DungeonRoomsEditor
+        field={field}
+        value={value}
+        onChange={onChange as (value: Record<string, unknown>[]) => void}
+      />
+    );
+  }
+  if (
+    type === "dungeon" &&
+    field.key === "wanderingMonsterEntries" &&
+    field.kind === "group"
+  ) {
+    return (
+      <DungeonWanderingMonstersEditor
+        field={field}
+        value={value}
+        onChange={onChange as (value: Record<string, unknown>[]) => void}
+      />
+    );
+  }
   if (field.kind === "list") {
     return <ListEditor field={field} value={value} onChange={onChange} />;
   }

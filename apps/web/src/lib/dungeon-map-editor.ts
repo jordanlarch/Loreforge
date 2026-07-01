@@ -33,10 +33,7 @@ export function emitFloorsFromEntityData(
 ): AuthoredDungeonFloor[] {
   const rooms = parseDungeonRooms(data);
   if (rooms.length === 0) return [];
-  const wanderers = Array.isArray(data.wanderingMonsters)
-    ? data.wanderingMonsters.map(String)
-    : [];
-  return emitDungeonFloorsFromRooms(rooms, wanderers);
+  return emitDungeonFloorsFromRooms(rooms, data);
 }
 
 export function normalizeAuthoredFloors(

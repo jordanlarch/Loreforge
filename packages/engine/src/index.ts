@@ -679,6 +679,12 @@ export {
   emitDungeonFloorsFromRooms,
 } from "./dungeon/emit-layout";
 export {
+  codexSlugToMonsterTemplate,
+  resolveRoomEncounterTemplate,
+  resolveWanderingMonsterTemplate,
+  roomEncounterRef,
+} from "./dungeon/encounter-ref";
+export {
   DEFAULT_PATROL_INTERVAL_MS,
   deployPatrolEvents,
   isPatrolEntityId,

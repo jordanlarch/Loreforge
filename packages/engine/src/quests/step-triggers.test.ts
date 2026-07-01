@@ -4,11 +4,14 @@ import {
   pendingStepAdvanceLines,
   queueStepAdvanceLine,
   resolveQuestAdvancesOnCombatEnd,
+  resolveQuestAdvancesOnEnterZone,
   resolveQuestAdvancesOnEvent,
+  resolveQuestAdvancesOnInteractObject,
 } from "./step-triggers";
 
 const LOC_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NPC_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const DUNGEON_ID = "33333333-3333-4333-8333-333333333333";
 
 describe("resolveQuestAdvancesOnEvent", () => {
   it("advances on enter_location when on_step_complete matches", () => {
@@ -108,6 +111,75 @@ describe("resolveQuestAdvancesOnEvent", () => {
       { kind: "enter_location", locationEntityId: "other-loc" },
     );
     expect(advances).toHaveLength(0);
+  });
+
+  it("advances on enter_zone completionKind", () => {
+    const advances = resolveQuestAdvancesOnEnterZone(
+      [
+        {
+          id: "hook:zone",
+          status: "active",
+          title: "Reach the ossuary",
+          data: {
+            templateSnapshot: {
+              id: "t-zone",
+              title: "Reach the ossuary",
+              steps: [
+                {
+                  id: "s1",
+                  title: "Enter the ossuary",
+                  completionKind: "enter_zone",
+                  dungeonEntityId: DUNGEON_ID,
+                  zoneId: "ossuary",
+                },
+                { id: "s2", title: "Search the bones" },
+              ],
+            },
+            currentStepId: "s1",
+            completedStepIds: [],
+          },
+        },
+      ],
+      DUNGEON_ID,
+      "ossuary",
+    );
+    expect(advances).toHaveLength(1);
+    expect(advances[0]!.data.currentStepId).toBe("s2");
+  });
+
+  it("advances on interact completionKind", () => {
+    const advances = resolveQuestAdvancesOnInteractObject(
+      [
+        {
+          id: "hook:loot",
+          status: "active",
+          title: "Loot the chest",
+          data: {
+            templateSnapshot: {
+              id: "t-loot",
+              title: "Loot the chest",
+              steps: [
+                {
+                  id: "s1",
+                  title: "Open the chest",
+                  completionKind: "interact",
+                  dungeonEntityId: DUNGEON_ID,
+                  zoneId: "entry",
+                  objectId: "chest-1",
+                },
+              ],
+            },
+            currentStepId: "s1",
+            completedStepIds: [],
+          },
+        },
+      ],
+      DUNGEON_ID,
+      "entry",
+      "chest-1",
+    );
+    expect(advances).toHaveLength(1);
+    expect(advances[0]!.status).toBe("resolved");
   });
 });
 

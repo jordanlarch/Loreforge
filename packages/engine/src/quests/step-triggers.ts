@@ -6,7 +6,7 @@ import {
 } from "./instance";
 import { formatQuestBriefingLine } from "./runtime";
 import { advanceQuestStep } from "./steps";
-import type { QuestTemplate, QuestTrigger } from "./types";
+import type { QuestStep, QuestTemplate, QuestTrigger } from "./types";
 
 function currentStep(template: QuestTemplate, stepId?: string) {
   const steps = template.steps ?? [];
@@ -23,6 +23,18 @@ function hasOnStepCompleteTrigger(
   );
 }
 
+function zoneTargetMatches(
+  step: QuestStep,
+  dungeonEntityId: string,
+  zoneId: string,
+): boolean {
+  if (step.zoneId !== zoneId) return false;
+  if (step.dungeonEntityId && step.dungeonEntityId !== dungeonEntityId) {
+    return false;
+  }
+  return true;
+}
+
 /** Whether the active step should auto-complete when combat ends victoriously. */
 export function stepEligibleForCombatEndAdvance(
   template: QuestTemplate,
@@ -30,6 +42,7 @@ export function stepEligibleForCombatEndAdvance(
 ): boolean {
   const step = currentStep(template, currentStepId);
   if (!step) return false;
+  if (step.completionKind === "defeat_encounter") return true;
   if (step.encounterRef?.trim()) return true;
   if ((template.tags ?? []).includes("combat")) return true;
   return (template.triggers ?? []).some((t) => t.type === "on_combat_end");
@@ -50,11 +63,72 @@ export function stepEligibleForLocationAdvance(
 export function stepEligibleForNpcAdvance(
   template: QuestTemplate,
   npcEntityId: string,
+  currentStepId?: string,
 ): boolean {
+  const step = currentStep(template, currentStepId);
+  if (step?.completionKind === "talk_npc" && step.npcEntityId === npcEntityId) {
+    return true;
+  }
   return hasOnStepCompleteTrigger(
     template,
     (t) => t.config?.npcEntityId === npcEntityId,
   );
+}
+
+export function stepEligibleForEnterZoneAdvance(
+  template: QuestTemplate,
+  currentStepId: string | undefined,
+  dungeonEntityId: string,
+  zoneId: string,
+): boolean {
+  const step = currentStep(template, currentStepId);
+  if (!step) return false;
+  if (step.completionKind === "enter_zone") {
+    return zoneTargetMatches(step, dungeonEntityId, zoneId);
+  }
+  return false;
+}
+
+export function stepEligibleForDiscoverZoneAdvance(
+  template: QuestTemplate,
+  currentStepId: string | undefined,
+  dungeonEntityId: string,
+  zoneId: string,
+): boolean {
+  const step = currentStep(template, currentStepId);
+  if (!step) return false;
+  if (step.completionKind === "discover_zone") {
+    return zoneTargetMatches(step, dungeonEntityId, zoneId);
+  }
+  return false;
+}
+
+export function stepEligibleForInteractAdvance(
+  template: QuestTemplate,
+  currentStepId: string | undefined,
+  dungeonEntityId: string,
+  zoneId: string,
+  objectId: string,
+): boolean {
+  const step = currentStep(template, currentStepId);
+  if (!step) return false;
+  if (step.completionKind !== "interact") return false;
+  if (step.objectId !== objectId) return false;
+  return zoneTargetMatches(step, dungeonEntityId, zoneId);
+}
+
+export function stepEligibleForDetectedInZoneAdvance(
+  template: QuestTemplate,
+  currentStepId: string | undefined,
+  dungeonEntityId: string,
+  zoneId: string,
+): boolean {
+  const step = currentStep(template, currentStepId);
+  if (!step) return false;
+  if (step.completionKind === "detected_in_zone") {
+    return zoneTargetMatches(step, dungeonEntityId, zoneId);
+  }
+  return false;
 }
 
 export type QuestStepAdvance = {
@@ -70,7 +144,11 @@ export type QuestCombatAdvance = QuestStepAdvance;
 export type QuestAdvanceEvent =
   | { kind: "combat_end" }
   | { kind: "enter_location"; locationEntityId: string }
-  | { kind: "talk_to_npc"; npcEntityId: string };
+  | { kind: "talk_to_npc"; npcEntityId: string }
+  | { kind: "enter_zone"; dungeonEntityId: string; zoneId: string }
+  | { kind: "discover_zone"; dungeonEntityId: string; zoneId: string }
+  | { kind: "interact_object"; dungeonEntityId: string; zoneId: string; objectId: string }
+  | { kind: "detected_in_zone"; dungeonEntityId: string; zoneId: string };
 
 function stepEligibleForEvent(
   template: QuestTemplate,
@@ -83,7 +161,40 @@ function stepEligibleForEvent(
     case "enter_location":
       return stepEligibleForLocationAdvance(template, event.locationEntityId);
     case "talk_to_npc":
-      return stepEligibleForNpcAdvance(template, event.npcEntityId);
+      return stepEligibleForNpcAdvance(
+        template,
+        event.npcEntityId,
+        currentStepId,
+      );
+    case "enter_zone":
+      return stepEligibleForEnterZoneAdvance(
+        template,
+        currentStepId,
+        event.dungeonEntityId,
+        event.zoneId,
+      );
+    case "discover_zone":
+      return stepEligibleForDiscoverZoneAdvance(
+        template,
+        currentStepId,
+        event.dungeonEntityId,
+        event.zoneId,
+      );
+    case "interact_object":
+      return stepEligibleForInteractAdvance(
+        template,
+        currentStepId,
+        event.dungeonEntityId,
+        event.zoneId,
+        event.objectId,
+      );
+    case "detected_in_zone":
+      return stepEligibleForDetectedInZoneAdvance(
+        template,
+        currentStepId,
+        event.dungeonEntityId,
+        event.zoneId,
+      );
   }
 }
 
@@ -133,6 +244,56 @@ export function resolveQuestAdvancesOnCombatEnd(
   instances: readonly QuestInstanceRef[],
 ): QuestStepAdvance[] {
   return resolveQuestAdvancesOnEvent(instances, { kind: "combat_end" });
+}
+
+export function resolveQuestAdvancesOnEnterZone(
+  instances: readonly QuestInstanceRef[],
+  dungeonEntityId: string,
+  zoneId: string,
+): QuestStepAdvance[] {
+  return resolveQuestAdvancesOnEvent(instances, {
+    kind: "enter_zone",
+    dungeonEntityId,
+    zoneId,
+  });
+}
+
+export function resolveQuestAdvancesOnDiscoverZone(
+  instances: readonly QuestInstanceRef[],
+  dungeonEntityId: string,
+  zoneId: string,
+): QuestStepAdvance[] {
+  return resolveQuestAdvancesOnEvent(instances, {
+    kind: "discover_zone",
+    dungeonEntityId,
+    zoneId,
+  });
+}
+
+export function resolveQuestAdvancesOnInteractObject(
+  instances: readonly QuestInstanceRef[],
+  dungeonEntityId: string,
+  zoneId: string,
+  objectId: string,
+): QuestStepAdvance[] {
+  return resolveQuestAdvancesOnEvent(instances, {
+    kind: "interact_object",
+    dungeonEntityId,
+    zoneId,
+    objectId,
+  });
+}
+
+export function resolveQuestAdvancesOnDetectedInZone(
+  instances: readonly QuestInstanceRef[],
+  dungeonEntityId: string,
+  zoneId: string,
+): QuestStepAdvance[] {
+  return resolveQuestAdvancesOnEvent(instances, {
+    kind: "detected_in_zone",
+    dungeonEntityId,
+    zoneId,
+  });
 }
 
 /** GM lines queued by Campaign Quest tab manual step completion. */

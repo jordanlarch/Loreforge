@@ -40,8 +40,14 @@ describe("loadDungeonFloors", () => {
     const floors = loadDungeonFloors(samples.minimalTwoZoneFloor);
     expect(floors).toHaveLength(1);
     expect(floors[0]?.zones.map((z) => z.zoneId)).toEqual(["entry", "ossuary"]);
+    expect(floors[0]?.zones[0]?.objects).toEqual([]);
     const entry = floors[0]?.zones[0];
     expect(entry?.cells.length).toBe(16);
+  });
+
+  it("loads zone objects from authored floors[]", () => {
+    const floors = loadDungeonFloors(samples.zoneWithChest);
+    expect(floors[0]?.zones[0]?.objects[0]?.objectId).toBe("chest-1");
   });
 
   it("rejects duplicate zone ids in authored floors", () => {

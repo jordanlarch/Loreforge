@@ -22,6 +22,7 @@ const zone: NormalizedDungeonZone = {
   ],
   connections: [],
   alertZoneOnDetection: true,
+  objects: [],
 };
 
 function ctxFor(world: WorldState): ExecutionContext {

@@ -4,6 +4,22 @@ import type { GridPosition } from "../entities/types";
 
 export type GridCell = GridPosition;
 
+export type ObjectNoise = "silent" | "quiet" | "loud";
+
+export type DungeonMapObject = {
+  objectId: string;
+  kind: string;
+  cell: GridCell;
+  noise?: ObjectNoise;
+  questRef?: { templateId: string; stepId: string };
+};
+
+export type DungeonObjectState = {
+  objectId: string;
+  zoneId: string;
+  takenByEntityId?: string;
+};
+
 export type ZoneRect = { x: number; y: number; w: number; h: number };
 
 export type DungeonZoneConnection = {
@@ -26,6 +42,7 @@ export type NormalizedDungeonZone = {
   encounter?: string;
   alertZoneOnDetection?: boolean;
   connections: DungeonZoneConnection[];
+  objects: DungeonMapObject[];
 };
 
 export type FloorTransition = {
@@ -59,6 +76,7 @@ export type AuthoredDungeonZone = {
   encounter?: string;
   alertZoneOnDetection?: boolean;
   connections?: Omit<DungeonZoneConnection, "corridorCells">[];
+  objects?: DungeonMapObject[];
 };
 
 /** Authored floor shape before normalization (§4). */

@@ -701,6 +701,16 @@ export type ZoneAlertedPayload = {
   zoneId: string;
 };
 
+export type ObjectTakenPayload = {
+  dungeonEntityId: string;
+  floorIndex: number;
+  zoneId: string;
+  objectId: string;
+  actor: EntityRef;
+  noise: import("../dungeon/types").ObjectNoise;
+  kind: string;
+};
+
 /** @deprecated PR #356 — replay only. */
 export type DungeonRoomEnteredPayload = {
   dungeonEntityId: string;
@@ -892,6 +902,10 @@ export type EngineEvent =
   | (EventMeta & {
       type: "ZoneAlerted";
       payload: ZoneAlertedPayload;
+    })
+  | (EventMeta & {
+      type: "ObjectTaken";
+      payload: ObjectTakenPayload;
     })
   | (EventMeta & {
       type: "DungeonRoomEntered";

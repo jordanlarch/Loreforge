@@ -29,9 +29,11 @@ import {
   partySideFor,
   zoneFromLayout,
 } from "../dungeon/detection";
+import { interactObjectEvents } from "../dungeon/objects";
 import type {
   CommandResult,
   EnterDungeonCommand,
+  InteractObjectCommand,
   MarkZoneClearedCommand,
   StartZoneEncounterCommand,
   UseConnectionCommand,
@@ -480,6 +482,35 @@ export function handleStartZoneEncounter(
     accepted: true,
     events,
     summary: { zoneId: cmd.zoneId, combatants: combatants.length, detected: pairs.size },
+  };
+}
+
+export function handleInteractObject(
+  cmd: InteractObjectCommand,
+  ctx: ExecutionContext,
+): CommandResult {
+  const result = interactObjectEvents(ctx, cmd);
+  if ("error" in result) {
+    const hint =
+      result.hint !== undefined &&
+      typeof result.hint === "object" &&
+      result.hint !== null
+        ? (result.hint as Record<string, unknown>)
+        : undefined;
+    return reject(
+      result.code as "ACTOR_NOT_FOUND" | "INVALID_PAYLOAD" | "NOT_ADJACENT",
+      result.error,
+      hint,
+    );
+  }
+  return {
+    accepted: true,
+    events: result.events,
+    summary: {
+      objectId: cmd.objectId,
+      zoneId: cmd.zoneId,
+      noise: result.noise,
+    },
   };
 }
 

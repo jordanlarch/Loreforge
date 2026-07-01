@@ -6,6 +6,7 @@ import type {
   AuthoredDungeonFloor,
   AuthoredDungeonZone,
   DungeonLayoutState,
+  DungeonMapObject,
   DungeonZoneConnection,
   FloorTransition,
   GridCell,
@@ -108,7 +109,26 @@ function normalizeZone(raw: AuthoredDungeonZone): NormalizedDungeonZone {
     encounter: raw.encounter,
     alertZoneOnDetection: raw.alertZoneOnDetection,
     connections: (raw.connections ?? []).map(normalizeConnection),
+    objects: normalizeObjects(raw.objects),
   };
+}
+
+function normalizeObjects(raw: AuthoredDungeonZone["objects"]): DungeonMapObject[] {
+  if (!raw || raw.length === 0) return [];
+  const seen = new Set<string>();
+  const out: DungeonMapObject[] = [];
+  for (const obj of raw) {
+    if (!obj?.objectId || seen.has(obj.objectId)) continue;
+    seen.add(obj.objectId);
+    out.push({
+      objectId: obj.objectId,
+      kind: obj.kind ?? "interactable",
+      cell: { ...obj.cell },
+      noise: obj.noise,
+      questRef: obj.questRef,
+    });
+  }
+  return out;
 }
 
 function walkableCellsForFloor(floor: {
@@ -234,6 +254,7 @@ export function synthesizeFloorsFromRooms(
         roomIndex: globalIndex,
         encounter: room.encounter,
         connections,
+        objects: [],
       });
     });
 
@@ -463,4 +484,34 @@ export function cellsForEntitySpawn(
     const idx = Math.min(i * step, zone.cells.length - 1);
     return zone.cells[idx]!;
   });
+}
+
+export function findObjectInZone(
+  zone: NormalizedDungeonZone,
+  objectId: string,
+): DungeonMapObject | undefined {
+  return zone.objects.find((o) => o.objectId === objectId);
+}
+
+export function findObjectOnFloor(
+  floor: NormalizedDungeonFloor,
+  zoneId: string,
+  objectId: string,
+): { zone: NormalizedDungeonZone; object: DungeonMapObject } | undefined {
+  const zone = floor.zones.find((z) => z.zoneId === zoneId);
+  if (!zone) return undefined;
+  const object = findObjectInZone(zone, objectId);
+  if (!object) return undefined;
+  return { zone, object };
+}
+
+export function cellsAdjacent(a: GridCell, b: GridCell): boolean {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
+}
+
+export function actorCanReachObject(
+  actorCell: GridCell,
+  objectCell: GridCell,
+): boolean {
+  return sameCell(actorCell, objectCell) || cellsAdjacent(actorCell, objectCell);
 }

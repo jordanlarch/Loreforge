@@ -622,6 +622,17 @@ export type MarkZoneClearedCommand = {
   zoneName: string;
 };
 
+/** Interact with a map object in a dungeon zone (DUN-4). */
+export type InteractObjectCommand = {
+  type: "interact_object";
+  entity: EntityRef;
+  dungeonEntityId: string;
+  floorIndex: number;
+  zoneId: string;
+  objectId: string;
+  noise?: "silent" | "quiet" | "loud";
+};
+
 /** Decline Cutting Words on a staged attack roll. */
 export type PassCuttingWordsCommand = {
   type: "pass_cutting_words";
@@ -697,7 +708,8 @@ export type Command =
   | UseConnectionCommand
   | UseFloorTransitionCommand
   | StartZoneEncounterCommand
-  | MarkZoneClearedCommand;
+  | MarkZoneClearedCommand
+  | InteractObjectCommand;
 
 export type CommandType = Command["type"];
 

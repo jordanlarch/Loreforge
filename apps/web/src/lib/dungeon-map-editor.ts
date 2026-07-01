@@ -12,16 +12,34 @@ import {
   type DungeonNpcPlacement,
   type GridCell,
   type NormalizedDungeonFloor,
+  type NormalizedDungeonZone,
 } from "@app/engine";
+
+export type ZoneRect = { x: number; y: number; w: number; h: number };
 
 export type DungeonMapTool =
   | "select"
+  | "zone"
   | "wall"
   | "entrance"
   | "object"
   | "loot"
   | "trap"
   | "npc";
+
+export type ZoneResizeHandle =
+  | "n"
+  | "s"
+  | "e"
+  | "w"
+  | "ne"
+  | "nw"
+  | "se"
+  | "sw";
+
+const MIN_ZONE_W = 2;
+const MIN_ZONE_H = 2;
+const MIN_ZONE_ORIGIN = 0;
 
 export function dungeonCellKey(cell: GridCell): string {
   return `${cell.x},${cell.y}`;
@@ -431,4 +449,73 @@ export function zoneColor(zoneId: string): string {
   }
   const hue = Math.abs(hash) % 360;
   return `hsla(${hue}, 45%, 42%, 0.35)`;
+}
+
+export function inferAuthoredZoneRect(
+  zone: AuthoredDungeonZone,
+  normalized?: NormalizedDungeonZone,
+): ZoneRect | null {
+  if (zone.rect) return { ...zone.rect };
+  const cells = normalized?.cells ?? zone.cells;
+  if (!cells?.length) return null;
+  const xs = cells.map((c) => c.x);
+  const ys = cells.map((c) => c.y);
+  return {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    w: Math.max(...xs) - Math.min(...xs) + 1,
+    h: Math.max(...ys) - Math.min(...ys) + 1,
+  };
+}
+
+export function clampZoneRect(rect: ZoneRect): ZoneRect {
+  let { x, y, w, h } = rect;
+  w = Math.max(MIN_ZONE_W, w);
+  h = Math.max(MIN_ZONE_H, h);
+  x = Math.max(MIN_ZONE_ORIGIN, x);
+  y = Math.max(MIN_ZONE_ORIGIN, y);
+  return { x, y, w, h };
+}
+
+export function applyZoneRectResize(
+  start: ZoneRect,
+  handle: ZoneResizeHandle,
+  deltaX: number,
+  deltaY: number,
+): ZoneRect {
+  let { x, y, w, h } = start;
+  if (handle.includes("e")) w += deltaX;
+  if (handle.includes("w")) {
+    x += deltaX;
+    w -= deltaX;
+  }
+  if (handle.includes("s")) h += deltaY;
+  if (handle.includes("n")) {
+    y += deltaY;
+    h -= deltaY;
+  }
+  return clampZoneRect({ x, y, w, h });
+}
+
+export function setZoneRect(
+  floor: AuthoredDungeonFloor,
+  zoneId: string,
+  rect: ZoneRect,
+): AuthoredDungeonFloor {
+  const nextRect = clampZoneRect(rect);
+  const zones = floor.zones.map((zone): AuthoredDungeonZone => {
+    if (zone.zoneId !== zoneId) return zone;
+    const { cells: _cells, ...rest } = zone;
+    return { ...rest, rect: nextRect };
+  });
+  const nextFloor: AuthoredDungeonFloor = { ...floor, zones };
+  const bounds = mapBounds(nextFloor);
+  return {
+    ...nextFloor,
+    map: {
+      width: bounds.width,
+      height: bounds.height,
+      blockedCells: floor.map?.blockedCells ?? [],
+    },
+  };
 }

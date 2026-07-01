@@ -9,7 +9,7 @@
  * the surface can render map + tokens + chat + HUD without combat chrome. The
  * deterministic engine remains the authority — this only drives presentation.
  */
-import { FEET_PER_CELL, parseDungeonFloorSceneId } from "@app/engine";
+import { FEET_PER_CELL, isPatrolEntityId, parseDungeonFloorSceneId, patrolDetectedParty } from "@app/engine";
 import type { WorldState } from "@app/engine";
 
 import type { Cell } from "@/lib/battle-map/geometry";
@@ -61,9 +61,14 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
 
   const pc = sceneId ? explorePcEntity(state, sceneId) : undefined;
 
-  const placed = Object.values(state.entities).filter(
-    (e) => e.sceneId === sceneId && e.position !== undefined,
-  );
+  const placed = Object.values(state.entities).filter((e) => {
+    if (e.sceneId !== sceneId || e.position === undefined) return false;
+    if (fog && isPatrolEntityId(e.id)) {
+      const key = `${e.position.x},${e.position.y}`;
+      if (!fog.revealed.has(key)) return false;
+    }
+    return true;
+  });
 
   const tokens: BattleToken[] = placed.map((e) => ({
     id: e.id,
@@ -72,7 +77,7 @@ export function buildExploreModel(state: WorldState): ExploreModel | null {
     position: e.position!,
     hp: { current: e.hp.current, max: e.hp.max },
     alive: e.alive,
-    hostile: false,
+    hostile: isPatrolEntityId(e.id) ? patrolDetectedParty(state, e.id) : false,
     isActive: false,
     draggable: e.id === pc?.id && e.alive,
     interactive:

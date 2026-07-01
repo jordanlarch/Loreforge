@@ -648,6 +648,19 @@ export type RevealAreaCommand = {
   forEntity?: EntityRef;
 };
 
+/** Advance authored patrol routes one waypoint (DUN-6). */
+export type TickPatrolsCommand = {
+  type: "tick_patrols";
+  dungeonEntityId: string;
+  floorIndex?: number;
+};
+
+/** Reset patrols to route waypoints on session load (DUN-6). */
+export type ResetPatrolsCommand = {
+  type: "reset_patrols";
+  dungeonEntityId: string;
+};
+
 /** Decline Cutting Words on a staged attack roll. */
 export type PassCuttingWordsCommand = {
   type: "pass_cutting_words";
@@ -726,7 +739,9 @@ export type Command =
   | MarkZoneClearedCommand
   | InteractObjectCommand
   | ShareScoutRevealCommand
-  | RevealAreaCommand;
+  | RevealAreaCommand
+  | TickPatrolsCommand
+  | ResetPatrolsCommand;
 
 export type CommandType = Command["type"];
 

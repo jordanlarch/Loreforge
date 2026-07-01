@@ -422,6 +422,35 @@ export class CampaignRoom implements LiveRoom {
       await this.engine.execute(this.campaignId, command);
     }
   }
+
+  /** Reset patrol positions to route waypoints on session load (DUN-6 Q34). */
+  async resetPatrolsOnLoad(): Promise<void> {
+    await this.ensureSeeded();
+    const state = await this.getState();
+    const dungeonId = state.dungeonProgress?.dungeonEntityId;
+    if (!dungeonId) return;
+    await this.engine.execute(this.campaignId, {
+      type: "reset_patrols",
+      dungeonEntityId: dungeonId,
+    });
+  }
+
+  /** Advance dungeon patrols one waypoint when exploration is active (DUN-6). */
+  async tickPatrols(): Promise<ApplyResult> {
+    await this.ensureSeeded();
+    const state = await this.getState();
+    const dungeonId = state.dungeonProgress?.dungeonEntityId;
+    if (!dungeonId || state.encounter) {
+      return { accepted: true };
+    }
+    const result = await this.engine.execute(this.campaignId, {
+      type: "tick_patrols",
+      dungeonEntityId: dungeonId,
+    });
+    return result.accepted
+      ? { accepted: true, summary: result.summary }
+      : { accepted: false };
+  }
 }
 
 function isGridPosition(value: unknown): value is { x: number; y: number } {

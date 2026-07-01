@@ -150,6 +150,11 @@ import {
   tryQuestOfferFromChat,
 } from "./quest-runtime.js";
 import { TutorialRoom } from "./tutorial-room.js";
+import {
+  clearPatrolTimer,
+  resetPatrolsIfNeeded,
+  startPatrolTimer,
+} from "./patrol-tick.js";
 import { namesReferencedInNarration } from "./world-reveal.js";
 
 const PORT = Number(process.env.PORT ?? process.env.WS_PORT ?? 1234);
@@ -321,6 +326,43 @@ async function roomFor(documentName: string): Promise<LiveRoom> {
     rooms.set(documentName, room);
   }
   return room;
+}
+
+async function syncPatrolTick(
+  documentName: string,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+): Promise<void> {
+  const room = rooms.get(documentName);
+  if (!(room instanceof CampaignRoom)) return;
+  const before = await room.getState();
+  if (!before.dungeonProgress?.dungeonEntityId || before.encounter) return;
+
+  const result = await room.tickPatrols();
+  if (!result.accepted) return;
+  const moved =
+    (result.summary as { moved?: number; skipped?: string } | undefined)?.moved ?? 0;
+  if (moved > 0) {
+    writeProjection(document, await room.getState());
+    await runEnemyTurns(room, document, documentName, getNarrationClient());
+  }
+}
+
+function ensurePatrolTimer(
+  documentName: string,
+  document: Parameters<typeof appendChat>[0] & {
+    broadcastStateless(payload: string): void;
+  },
+  room: LiveRoom,
+): void {
+  if (!(room instanceof CampaignRoom)) return;
+  void room.getState().then((state) => {
+    if (!state.dungeonProgress?.dungeonEntityId) return;
+    startPatrolTimer(documentName, room, () =>
+      syncPatrolTick(documentName, document),
+    );
+  });
 }
 
 /**
@@ -1605,6 +1647,11 @@ const server = new Hocuspocus({
       await room.ensureCompanionPresent();
     }
     writeProjection(document, await room.getState());
+    if (room instanceof CampaignRoom) {
+      await resetPatrolsIfNeeded(room);
+      writeProjection(document, await room.getState());
+      ensurePatrolTimer(documentName, document, room);
+    }
     // Re-hydrate persisted chat so a cold-loaded campaign room resumes the
     // conversation instead of starting blank (#96). Sandbox rooms are ephemeral.
     const parsed = parseRoom(documentName);
@@ -1743,6 +1790,7 @@ const server = new Hocuspocus({
                 chatDeps,
               );
             }
+            ensurePatrolTimer(documentName, document, room);
           }
         }
       } else {
@@ -2004,6 +2052,7 @@ const server = new Hocuspocus({
 
   async onDisconnect({ documentName, clientsCount }) {
     if (clientsCount === 0) {
+      clearPatrolTimer(documentName);
       rooms.delete(documentName);
     }
   },

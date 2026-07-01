@@ -52,6 +52,14 @@ export type FloorTransition = {
   toCell: GridCell;
 };
 
+export type PatrolRoute = {
+  patrolId: string;
+  creatureTemplateRef: string;
+  waypoints: GridCell[];
+  /** ms between waypoint steps (DUN-6 default applied when omitted). */
+  intervalMs?: number;
+};
+
 export type NormalizedDungeonFloor = {
   index: number;
   name: string;
@@ -59,6 +67,7 @@ export type NormalizedDungeonFloor = {
   entrance?: GridCell;
   zones: NormalizedDungeonZone[];
   transitions: FloorTransition[];
+  patrolRoutes: PatrolRoute[];
 };
 
 export type DungeonLayoutState = {
@@ -87,4 +96,5 @@ export type AuthoredDungeonFloor = {
   entrance?: GridCell;
   zones: AuthoredDungeonZone[];
   transitions?: FloorTransition[];
+  patrolRoutes?: PatrolRoute[];
 };

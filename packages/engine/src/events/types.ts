@@ -732,6 +732,36 @@ export type ScoutRevealSharedPayload = {
   cells: GridPosition[];
 };
 
+export type PatrolSpawnedPayload = {
+  patrolId: string;
+  entityId: EntityRef;
+  dungeonEntityId: string;
+  floorIndex: number;
+  sceneId: SceneId;
+  cell: GridPosition;
+  name: string;
+  creatureTemplateRef: string;
+  abilityScores: import("../entities/types").AbilityScores;
+  maxHp: number;
+  baseAc: number;
+  speed: number;
+};
+
+export type PatrolMovedPayload = {
+  patrolId: string;
+  entityId: EntityRef;
+  dungeonEntityId: string;
+  floorIndex: number;
+  sceneId: SceneId;
+  from: GridPosition;
+  to: GridPosition;
+  waypointIndex: number;
+};
+
+export type PatrolsResetPayload = {
+  dungeonEntityId: string;
+};
+
 /** @deprecated PR #356 — replay only. */
 export type DungeonRoomEnteredPayload = {
   dungeonEntityId: string;
@@ -939,6 +969,18 @@ export type EngineEvent =
   | (EventMeta & {
       type: "ScoutRevealShared";
       payload: ScoutRevealSharedPayload;
+    })
+  | (EventMeta & {
+      type: "PatrolSpawned";
+      payload: PatrolSpawnedPayload;
+    })
+  | (EventMeta & {
+      type: "PatrolMoved";
+      payload: PatrolMovedPayload;
+    })
+  | (EventMeta & {
+      type: "PatrolsReset";
+      payload: PatrolsResetPayload;
     })
   | (EventMeta & {
       type: "DungeonRoomEntered";

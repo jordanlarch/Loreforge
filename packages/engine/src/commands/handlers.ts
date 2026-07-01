@@ -182,8 +182,10 @@ import {
   handleInteractObject,
   handleMarkZoneCleared,
   handleRevealArea,
+  handleResetPatrols,
   handleShareScoutReveal,
   handleStartZoneEncounter,
+  handleTickPatrols,
   handleUseConnection,
   handleUseFloorTransition,
 } from "./dungeon-handlers";
@@ -4966,6 +4968,10 @@ export function handleCommand(
       return handleShareScoutReveal(command, ctx);
     case "reveal_area":
       return handleRevealArea(command, ctx);
+    case "tick_patrols":
+      return handleTickPatrols(command, ctx);
+    case "reset_patrols":
+      return handleResetPatrols(command, ctx);
     case "fast_hands":
       return handleFastHands(command, ctx);
   }

@@ -140,6 +140,16 @@ export type DungeonProgressState = {
   objectStates?: Record<string, { zoneId: string; takenByEntityId: string }>;
   /** Party-shared zones revealed via per-PC fog (DUN-5). */
   discoveredZoneIds?: string[];
+  /** Active patrol runtime keyed by patrolId (DUN-6). */
+  patrolStates?: Record<
+    string,
+    {
+      patrolId: string;
+      entityId: EntityRef;
+      floorIndex: number;
+      waypointIndex: number;
+    }
+  >;
 };
 
 export function emptyWorldState(campaignId: string): WorldState {
@@ -1153,6 +1163,67 @@ export function applyEvent(state: WorldState, event: EngineEvent): WorldState {
       break;
     }
     case "ScoutRevealShared":
+      break;
+    case "PatrolSpawned": {
+      const p = event.payload;
+      next.entities[p.entityId] = createEntityState({
+        id: p.entityId,
+        kind: "monster",
+        name: p.name,
+        abilityScores: p.abilityScores,
+        maxHp: p.maxHp,
+        baseAc: p.baseAc,
+        speed: p.speed,
+        sceneId: p.sceneId,
+        position: { ...p.cell },
+      });
+      const progress = next.dungeonProgress;
+      if (progress && progress.dungeonEntityId === p.dungeonEntityId) {
+        next.dungeonProgress = {
+          ...progress,
+          patrolStates: {
+            ...progress.patrolStates,
+            [p.patrolId]: {
+              patrolId: p.patrolId,
+              entityId: p.entityId,
+              floorIndex: p.floorIndex,
+              waypointIndex: 0,
+            },
+          },
+        };
+      }
+      break;
+    }
+    case "PatrolMoved": {
+      const p = event.payload;
+      const entity = next.entities[p.entityId];
+      if (entity) {
+        next.entities[p.entityId] = {
+          ...entity,
+          sceneId: p.sceneId,
+          position: { ...p.to },
+        };
+      }
+      const progress = next.dungeonProgress;
+      if (
+        progress &&
+        progress.dungeonEntityId === p.dungeonEntityId &&
+        progress.patrolStates?.[p.patrolId]
+      ) {
+        next.dungeonProgress = {
+          ...progress,
+          patrolStates: {
+            ...progress.patrolStates,
+            [p.patrolId]: {
+              ...progress.patrolStates[p.patrolId]!,
+              waypointIndex: p.waypointIndex,
+            },
+          },
+        };
+      }
+      break;
+    }
+    case "PatrolsReset":
       break;
     case "DungeonRoomEntered": {
       const zoneId = event.payload.roomIndex === 0 ? "entry" : `zone-${event.payload.roomIndex}`;

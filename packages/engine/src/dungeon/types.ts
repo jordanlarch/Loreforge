@@ -12,6 +12,35 @@ export type DungeonMapObject = {
   cell: GridCell;
   noise?: ObjectNoise;
   questRef?: { templateId: string; stepId: string };
+  /** Codex item slug when kind is loot (DUN-12). */
+  codexItemSlug?: string;
+  /** Display label (item name or custom). */
+  label?: string;
+};
+
+/** Authored trap on a zone cell, whole zone, or connection (DUN-12). */
+export type AuthoredDungeonTrap = {
+  trapId: string;
+  codexSlug: string;
+  label?: string;
+  /** When set, trap is on this cell; when omitted on a zone trap, applies to whole zone. */
+  cell?: GridCell;
+};
+
+export type NormalizedDungeonTrap = {
+  trapId: string;
+  codexSlug: string;
+  label?: string;
+  scope: "cell" | "connection" | "zone";
+  zoneId: string;
+  cell?: GridCell;
+  connectionId?: string;
+};
+
+export type DungeonNpcPlacement = {
+  npcEntityId: string;
+  cell?: GridCell;
+  label?: string;
 };
 
 export type DungeonObjectState = {
@@ -21,6 +50,17 @@ export type DungeonObjectState = {
 };
 
 export type ZoneRect = { x: number; y: number; w: number; h: number };
+
+export type AuthoredDungeonZoneConnection = {
+  connectionId: string;
+  toZoneId: string;
+  fromCells: GridCell[];
+  toCells: GridCell[];
+  corridorCells?: GridCell[];
+  locked?: boolean;
+  requiresCleared?: string[];
+  traps?: AuthoredDungeonTrap[];
+};
 
 export type DungeonZoneConnection = {
   connectionId: string;
@@ -43,6 +83,8 @@ export type NormalizedDungeonZone = {
   alertZoneOnDetection?: boolean;
   connections: DungeonZoneConnection[];
   objects: DungeonMapObject[];
+  traps: NormalizedDungeonTrap[];
+  npcPlacements: DungeonNpcPlacement[];
 };
 
 export type FloorTransition = {
@@ -84,8 +126,10 @@ export type AuthoredDungeonZone = {
   rect?: ZoneRect;
   encounter?: string;
   alertZoneOnDetection?: boolean;
-  connections?: Omit<DungeonZoneConnection, "corridorCells">[];
+  connections?: AuthoredDungeonZoneConnection[];
   objects?: DungeonMapObject[];
+  traps?: AuthoredDungeonTrap[];
+  npcPlacements?: DungeonNpcPlacement[];
 };
 
 /** Authored floor shape before normalization (§4). */

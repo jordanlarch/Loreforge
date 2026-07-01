@@ -6,6 +6,7 @@ import type { EntityRef } from "../entities/types";
 import type { WorldState } from "../projections/world-state";
 import type { CampaignStartingLocation } from "../fixtures/exploration";
 import { zoneIdForRoomIndex } from "../dungeon/rooms";
+import { sceneTrapsFromFloor } from "../dungeon/trap-bridge";
 import {
   buildLayoutState,
   connectionIsOpen,
@@ -136,6 +137,10 @@ function enterDungeonEvents(
   cmd: EnterDungeonCommand,
 ): DraftEvent[] {
   const sceneId = sceneIdForDungeonFloor(cmd.dungeonEntityId, cmd.floorIndex);
+  const layout = layoutForDungeon(ctx, cmd.dungeonEntityId);
+  const floors = layout?.floors ?? loadDungeonFloors(cmd.entityData);
+  const floor = floorByIndex(layout ?? buildLayoutState(floors), cmd.floorIndex);
+  const sceneTraps = floor ? sceneTrapsFromFloor(floor) : [];
   const map = floorMapForEntry(ctx, cmd) ?? {
     width: 14,
     height: 12,
@@ -164,6 +169,7 @@ function enterDungeonEvents(
             height: map.height,
             blockedCells: map.blockedCells,
           },
+          ...(sceneTraps.length > 0 ? { traps: sceneTraps } : {}),
         },
       },
     });

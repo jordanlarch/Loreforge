@@ -260,3 +260,66 @@ export function CodexToolboxAddPicker({
     </LibraryPickerModal>
   );
 }
+
+/** Pick a related Realms NPC for dungeon map placement (DUN-12). */
+export function RealmsNpcAddPicker({
+  npcs,
+  onPick,
+  onClose,
+  title = "Place NPC on map",
+}: {
+  npcs: readonly { id: string; name: string; summary?: string | null }[];
+  onPick: (npc: { npcEntityId: string; label: string }) => void;
+  onClose: () => void;
+  title?: string;
+}) {
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return npcs;
+    return npcs.filter(
+      (n) =>
+        n.name.toLowerCase().includes(q) ||
+        (n.summary ?? "").toLowerCase().includes(q),
+    );
+  }, [npcs, search]);
+
+  return (
+    <LibraryPickerModal title={title} titleId="realms-npc-add-dungeon-title" onClose={onClose}>
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search linked NPCs…"
+        autoFocus
+        className={PICKER_SEARCH_INPUT}
+      />
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-lore-muted">
+          No linked NPCs. Add NPC relationships on this dungeon first.
+        </p>
+      ) : (
+        <ul className={PICKER_LIST}>
+          {filtered.map((npc) => (
+            <li key={npc.id}>
+              <button
+                type="button"
+                onClick={() =>
+                  onPick({ npcEntityId: npc.id, label: npc.name })
+                }
+                className={PICKER_ROW}
+              >
+                <span>{npc.name}</span>
+                {npc.summary ? (
+                  <span className="line-clamp-1 text-xs text-lore-muted">{npc.summary}</span>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </LibraryPickerModal>
+  );
+}

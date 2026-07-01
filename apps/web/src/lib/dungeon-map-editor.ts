@@ -6,13 +6,22 @@ import {
   loadDungeonFloors,
   parseDungeonRooms,
   type AuthoredDungeonFloor,
+  type AuthoredDungeonTrap,
   type AuthoredDungeonZone,
   type DungeonMapObject,
+  type DungeonNpcPlacement,
   type GridCell,
   type NormalizedDungeonFloor,
 } from "@app/engine";
 
-export type DungeonMapTool = "select" | "wall" | "entrance" | "object";
+export type DungeonMapTool =
+  | "select"
+  | "wall"
+  | "entrance"
+  | "object"
+  | "loot"
+  | "trap"
+  | "npc";
 
 export function dungeonCellKey(cell: GridCell): string {
   return `${cell.x},${cell.y}`;
@@ -142,6 +151,245 @@ export function toggleZoneObject(
   });
 
   return { ...floor, zones };
+}
+
+function updateZone(
+  floor: AuthoredDungeonFloor,
+  zoneId: string,
+  patch: (zone: AuthoredDungeonZone) => AuthoredDungeonZone,
+): AuthoredDungeonFloor {
+  return {
+    ...floor,
+    zones: floor.zones.map((z) => (z.zoneId === zoneId ? patch(z) : z)),
+  };
+}
+
+function newTrapId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}`;
+}
+
+export function cellTrapAt(
+  floor: AuthoredDungeonFloor,
+  cell: GridCell,
+): AuthoredDungeonTrap | undefined {
+  const key = dungeonCellKey(cell);
+  for (const zone of floor.zones) {
+    const trap = (zone.traps ?? []).find(
+      (t) => t.cell && dungeonCellKey(t.cell) === key,
+    );
+    if (trap) return trap;
+  }
+  return undefined;
+}
+
+export function addCellTrap(
+  floor: AuthoredDungeonFloor,
+  normalized: NormalizedDungeonFloor,
+  cell: GridCell,
+  pick: { codexSlug: string; label: string },
+): AuthoredDungeonFloor {
+  const zone = zoneAtCell(normalized, cell);
+  if (!zone) return floor;
+  const trap: AuthoredDungeonTrap = {
+    trapId: newTrapId(`${zone.zoneId}-trap`),
+    codexSlug: pick.codexSlug,
+    label: pick.label,
+    cell: { ...cell },
+  };
+  return updateZone(floor, zone.zoneId, (z) => ({
+    ...z,
+    traps: [...(z.traps ?? []).filter((t) => !t.cell || dungeonCellKey(t.cell) !== dungeonCellKey(cell)), trap],
+  }));
+}
+
+export function removeCellTrap(
+  floor: AuthoredDungeonFloor,
+  normalized: NormalizedDungeonFloor,
+  cell: GridCell,
+): AuthoredDungeonFloor {
+  const zone = zoneAtCell(normalized, cell);
+  if (!zone) return floor;
+  const key = dungeonCellKey(cell);
+  return updateZone(floor, zone.zoneId, (z) => ({
+    ...z,
+    traps: (z.traps ?? []).filter((t) => !t.cell || dungeonCellKey(t.cell) !== key),
+  }));
+}
+
+export function addConnectionTrap(
+  floor: AuthoredDungeonFloor,
+  zoneId: string,
+  connectionId: string,
+  pick: { codexSlug: string; label: string },
+): AuthoredDungeonFloor {
+  const trap: AuthoredDungeonTrap = {
+    trapId: newTrapId(`${connectionId}-trap`),
+    codexSlug: pick.codexSlug,
+    label: pick.label,
+  };
+  return updateZone(floor, zoneId, (z) => ({
+    ...z,
+    connections: (z.connections ?? []).map((conn) =>
+      conn.connectionId === connectionId
+        ? {
+            ...conn,
+            traps: [...(conn.traps ?? []), trap],
+          }
+        : conn,
+    ),
+  }));
+}
+
+export function removeConnectionTrap(
+  floor: AuthoredDungeonFloor,
+  zoneId: string,
+  trapId: string,
+): AuthoredDungeonFloor {
+  return updateZone(floor, zoneId, (z) => ({
+    ...z,
+    connections: (z.connections ?? []).map((conn) => ({
+      ...conn,
+      traps: (conn.traps ?? []).filter((t) => t.trapId !== trapId),
+    })),
+  }));
+}
+
+export function addZoneTrap(
+  floor: AuthoredDungeonFloor,
+  zoneId: string,
+  pick: { codexSlug: string; label: string },
+): AuthoredDungeonFloor {
+  const trap: AuthoredDungeonTrap = {
+    trapId: newTrapId(`${zoneId}-zone-trap`),
+    codexSlug: pick.codexSlug,
+    label: pick.label,
+  };
+  return updateZone(floor, zoneId, (z) => ({
+    ...z,
+    traps: [...(z.traps ?? []), trap],
+  }));
+}
+
+export function removeZoneTrap(
+  floor: AuthoredDungeonFloor,
+  zoneId: string,
+  trapId: string,
+): AuthoredDungeonFloor {
+  return updateZone(floor, zoneId, (z) => ({
+    ...z,
+    traps: (z.traps ?? []).filter((t) => t.trapId !== trapId),
+  }));
+}
+
+export function lootObjectAt(
+  floor: AuthoredDungeonFloor,
+  cell: GridCell,
+): DungeonMapObject | undefined {
+  const key = dungeonCellKey(cell);
+  for (const zone of floor.zones) {
+    const obj = (zone.objects ?? []).find(
+      (o) => o.kind === "loot" && dungeonCellKey(o.cell) === key,
+    );
+    if (obj) return obj;
+  }
+  return undefined;
+}
+
+export function placeLootObject(
+  floor: AuthoredDungeonFloor,
+  normalized: NormalizedDungeonFloor,
+  cell: GridCell,
+  pick: { codexSlug: string; label: string },
+): AuthoredDungeonFloor {
+  const zone = zoneAtCell(normalized, cell);
+  if (!zone) return floor;
+  const objectId = `${zone.zoneId}-loot-${cell.x}-${cell.y}`;
+  const object: DungeonMapObject = {
+    objectId,
+    kind: "loot",
+    cell: { ...cell },
+    noise: "silent",
+    codexItemSlug: pick.codexSlug,
+    label: pick.label,
+  };
+  return updateZone(floor, zone.zoneId, (z) => {
+    const objects = [...(z.objects ?? [])].filter(
+      (o) => !(o.kind === "loot" && dungeonCellKey(o.cell) === dungeonCellKey(cell)),
+    );
+    objects.push(object);
+    return { ...z, objects };
+  });
+}
+
+export function removeLootObject(
+  floor: AuthoredDungeonFloor,
+  normalized: NormalizedDungeonFloor,
+  cell: GridCell,
+): AuthoredDungeonFloor {
+  const zone = zoneAtCell(normalized, cell);
+  if (!zone) return floor;
+  const key = dungeonCellKey(cell);
+  return updateZone(floor, zone.zoneId, (z) => ({
+    ...z,
+    objects: (z.objects ?? []).filter(
+      (o) => !(o.kind === "loot" && dungeonCellKey(o.cell) === key),
+    ),
+  }));
+}
+
+export function npcAtCell(
+  floor: AuthoredDungeonFloor,
+  cell: GridCell,
+): DungeonNpcPlacement | undefined {
+  const key = dungeonCellKey(cell);
+  for (const zone of floor.zones) {
+    const npc = (zone.npcPlacements ?? []).find(
+      (n) => n.cell && dungeonCellKey(n.cell) === key,
+    );
+    if (npc) return npc;
+  }
+  return undefined;
+}
+
+export function placeNpcOnCell(
+  floor: AuthoredDungeonFloor,
+  normalized: NormalizedDungeonFloor,
+  cell: GridCell,
+  pick: { npcEntityId: string; label: string },
+): AuthoredDungeonFloor {
+  const zone = zoneAtCell(normalized, cell);
+  if (!zone) return floor;
+  const key = dungeonCellKey(cell);
+  const placement: DungeonNpcPlacement = {
+    npcEntityId: pick.npcEntityId,
+    label: pick.label,
+    cell: { ...cell },
+  };
+  return updateZone(floor, zone.zoneId, (z) => ({
+    ...z,
+    npcPlacements: [
+      ...(z.npcPlacements ?? []).filter(
+        (n) => !n.cell || dungeonCellKey(n.cell) !== key,
+      ),
+      placement,
+    ],
+  }));
+}
+
+export function removeNpcAtCell(
+  floor: AuthoredDungeonFloor,
+  normalized: NormalizedDungeonFloor,
+  cell: GridCell,
+): AuthoredDungeonFloor {
+  const zone = zoneAtCell(normalized, cell);
+  if (!zone) return floor;
+  const key = dungeonCellKey(cell);
+  return updateZone(floor, zone.zoneId, (z) => ({
+    ...z,
+    npcPlacements: (z.npcPlacements ?? []).filter(
+      (n) => !n.cell || dungeonCellKey(n.cell) !== key,
+    ),
+  }));
 }
 
 export function toggleConnectionLocked(

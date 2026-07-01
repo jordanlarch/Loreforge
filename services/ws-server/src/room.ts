@@ -596,6 +596,11 @@ export function isBattleAction(value: unknown): value is BattleAction {
       typeof action.caster === "string" && typeof action.target === "string"
     );
   }
+  if (action.type === "strike_call_lightning") {
+    return (
+      typeof action.caster === "string" && typeof action.target === "string"
+    );
+  }
   if (action.type === "fast_hands") {
     return (
       typeof action.entity === "string" &&
@@ -692,5 +697,6 @@ export function isBattleAction(value: unknown): value is BattleAction {
       typeof action.target === "string" && typeof action.instanceId === "string"
     );
   }
+  if (action.type === "end_encounter") return true;
   return false;
 }

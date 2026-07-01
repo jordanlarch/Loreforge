@@ -61,3 +61,8 @@ export {
   backfillQuestInstanceData,
   backfillTemplateFromLegacyRow,
 } from "./backfill";
+export {
+  resolveQuestAdvancesOnCombatEnd,
+  stepEligibleForCombatEndAdvance,
+  type QuestCombatAdvance,
+} from "./combat-triggers";

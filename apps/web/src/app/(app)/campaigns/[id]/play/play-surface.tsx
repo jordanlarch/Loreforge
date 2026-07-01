@@ -91,6 +91,8 @@ import {
   targetsInRange,
   alliesInRange,
   canStrikeSpiritualWeapon,
+  canStrikeCallLightning,
+  targetsInCallLightningCloud,
   MELEE_REACH_FT,
   SPIRITUAL_WEAPON_RANGE_FT,
   castTargetCandidates,
@@ -562,7 +564,9 @@ function LiveBattle({
             ? 30
             : armed.kind === "spiritual_weapon_strike"
               ? SPIRITUAL_WEAPON_RANGE_FT
-              : armed.attack.rangeFt;
+              : armed.kind === "call_lightning_strike"
+                ? 0
+                : armed.attack.rangeFt;
     // A readied strike picks any hostile in the scene (it fires later, when that
     // foe enters range); an immediate attack/cast is limited to current range.
     const targetableIds =
@@ -584,9 +588,13 @@ function LiveBattle({
                     activeEntity.id,
                     SPIRITUAL_WEAPON_RANGE_FT,
                   ).map((e) => e.id)
-                : targetsInRange(state, activeEntity.id, rangeFt).map(
-                    (e) => e.id,
-                  );
+                : armed.kind === "call_lightning_strike"
+                  ? targetsInCallLightningCloud(state, activeEntity.id).map(
+                      (e) => e.id,
+                    )
+                  : targetsInRange(state, activeEntity.id, rangeFt).map(
+                      (e) => e.id,
+                    );
     return {
       origin: activeEntity.position,
       rangeCells: Math.floor(rangeFt / FEET_PER_CELL),
@@ -705,6 +713,8 @@ function LiveBattle({
       });
     } else if (armed.kind === "spiritual_weapon_strike") {
       session.strikeSpiritualWeapon(activeEntity.id, targetId);
+    } else if (armed.kind === "call_lightning_strike") {
+      session.strikeCallLightning(activeEntity.id, targetId);
     } else if (armed.kind === "cast") {
       const maxTargets = armed.spell.maxTargets ?? 1;
       if (maxTargets > 1) {
@@ -1390,6 +1400,14 @@ function LiveBattle({
             }
             onArmSpiritualWeaponStrike={() => {
               setArmed({ kind: "spiritual_weapon_strike" });
+            }}
+            showCallLightningStrike={
+              !!activeEntity &&
+              !!state &&
+              canStrikeCallLightning(activeEntity, state)
+            }
+            onArmCallLightningStrike={() => {
+              setArmed({ kind: "call_lightning_strike" });
             }}
             onFastHands={(action) => {
               if (!activeEntity) return;

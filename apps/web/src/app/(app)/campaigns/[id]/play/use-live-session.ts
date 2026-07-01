@@ -478,6 +478,11 @@ export function useLiveSession({
         t: "cmd",
         action: { type: "strike_spiritual_weapon", caster, target },
       }),
+    strikeCallLightning: (caster: string, target: string) =>
+      send({
+        t: "cmd",
+        action: { type: "strike_call_lightning", caster, target },
+      }),
     shortRest: (
       entity: string,
       opts?: {

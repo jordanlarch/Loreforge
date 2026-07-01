@@ -18,6 +18,7 @@ export type ArmedAction =
   | { kind: "lay_on_hands"; featureKey: string; healAmount: number }
   | { kind: "turn_undead"; featureKey: string }
   | { kind: "spiritual_weapon_strike" }
+  | { kind: "call_lightning_strike" }
   | null;
 
 export function CombatActionBar({
@@ -124,7 +125,9 @@ export function CombatActionBar({
               ? "Pick an Undead target for Turn Undead"
               : armed.kind === "spiritual_weapon_strike"
                 ? "Pick a target for Spiritual Weapon (60 ft)"
-                : multi
+                : armed.kind === "call_lightning_strike"
+                  ? "Pick a target under your Call Lightning cloud"
+                  : multi
                 ? `Pick up to ${armed.spell.maxTargets} allies for ${armed.spell.name} (${castTargetCount ?? 0}/${armed.spell.maxTargets})`
                 : armed.spell.targetKind === "ally"
                   ? `Pick an ally for ${armed.spell.name}`
